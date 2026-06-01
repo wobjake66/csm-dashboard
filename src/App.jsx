@@ -424,6 +424,8 @@ function Bar({label,val,hi,lo}) {
 
 // ── COACH CARD ─────────────────────────────────────────────────────────────
 function CoachCard({coach, csms, onSelectCSM, onSelectCoach}) {
+  const [expanded, setExpanded] = useState(false);
+  const PREVIEW = 7;
   const team = csms.filter(c => (lk(c.name)&&lk(c.name).c===coach.e)||c.coach===coach.e);
   const cadC = team.filter(c=>c.cadCount>0);
   const emC  = team.filter(c=>c.sent>0);
@@ -445,7 +447,21 @@ function CoachCard({coach, csms, onSelectCSM, onSelectCoach}) {
   const wins=cadC.filter(c=>c.cadPct>=0.9).length;
   const warns=cadC.filter(c=>c.cadPct>=0.5&&c.cadPct<0.9).length;
   const atts=cadC.filter(c=>c.cadPct>0&&c.cadPct<0.9).length;
-  const sorted=[...team].sort((a,b)=>(a.cadPct||0)-(b.cadPct||0)).slice(0,7);
+
+  // Sort: on-time % desc (if available), then cadence % desc, then alphabetical
+  const sorted = [...team].sort((a,b) => {
+    const aOT = a.otTotal>=3 ? a.otPct : null;
+    const bOT = b.otTotal>=3 ? b.otPct : null;
+    if (aOT!==null && bOT!==null && aOT!==bOT) return bOT-aOT;
+    if (aOT!==null && bOT===null) return -1;
+    if (aOT===null && bOT!==null) return 1;
+    if ((b.cadPct||0) !== (a.cadPct||0)) return (b.cadPct||0)-(a.cadPct||0);
+    return a.name.localeCompare(b.name);
+  });
+
+  const visible = expanded ? sorted : sorted.slice(0, PREVIEW);
+  const hiddenCount = sorted.length - PREVIEW;
+
   return (
     <div style={{...S.card,position:"relative",overflow:"hidden"}}>
       <div style={{position:"absolute",top:0,left:0,right:0,height:3,background:topCol}}/>
@@ -464,7 +480,7 @@ function CoachCard({coach, csms, onSelectCSM, onSelectCoach}) {
       <Bar label="Revenue"  val={revPct}  hi={0.7} lo={0.4}/>
       <div style={{height:.5,background:"rgba(41,53,93,.07)",margin:"10px 0"}}/>
       <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:6}}>CSM Status</div>
-      {sorted.map(c => {
+      {visible.map(c => {
         const hc = c.cadCount>0;
         const bdgTxt = hc?(c.cadPct>=0.9?"Win":c.cadPct>=0.5?"Watch":"Coach"):"No tasks";
         const bdgCol = hc?(c.cadPct>=0.9?"rgba(22,163,74,.12)":c.cadPct>=0.5?"rgba(217,119,6,.12)":"rgba(220,38,38,.12)"):"rgba(128,128,128,.1)";
@@ -479,7 +495,13 @@ function CoachCard({coach, csms, onSelectCSM, onSelectCoach}) {
           </div>
         );
       })}
-      {team.length>7&&<div style={{fontSize:11,color:"#808080",textAlign:"center",marginTop:6}}>+{team.length-7} more</div>}
+      {sorted.length > PREVIEW && (
+        <button
+          onClick={()=>setExpanded(e=>!e)}
+          style={{width:"100%",marginTop:8,padding:"5px 0",fontSize:11,fontWeight:500,color:"#FF5000",background:"rgba(255,80,0,.06)",border:"0.5px solid rgba(255,80,0,.2)",borderRadius:6,cursor:"pointer",textAlign:"center"}}>
+          {expanded ? "▲ Show less" : `▼ +${hiddenCount} more`}
+        </button>
+      )}
     </div>
   );
 }
