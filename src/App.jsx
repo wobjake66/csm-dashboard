@@ -1,16 +1,12 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import * as XLSX from "xlsx";
 
-const STORAGE_KEY = "csm_dash_v4";
-const DASHBOARD_PIN = "thryv2025";
-const PIN_KEY = "csm_pin_unlocked";
-const SHEET_ID = "1ZjakNUSbcSaiO3KVXcg6q3FetFbLISaFsGKLNtVOhyI";
+const PIN = "thryv2025";
+const PIN_KEY = "csm_pin_v1";
 
-// Tab GIDs - update these after creating tabs in your sheet
-// Sheet1/revenue = gid 0, create "email" and "cadence" tabs and put their gids here
-const GID_REV     = "322916467";
-const GID_EMAIL   = "0";
-const GID_CADENCE = "1973544046";
+const CSV_REV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=322916467&single=true&output=csv";
+const CSV_EMAIL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=0&single=true&output=csv";
+const CSV_CAD = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=1973544046&single=true&output=csv";
 
 const COACHES = [
   {email:"odirlm01@thryv.com",      name:"Mia O'Dirling",    team:"The Dominican Dream Team"},
@@ -28,12 +24,11 @@ const TCOLORS = {
 };
 
 const ROSTER = {
-  "darling danais":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
   "darling danais santos taveras":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
+  "darling danais":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
   "heidi torres uribe":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
   "irina larianni molina molina":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
   "irina molina molina":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
-  "irina molina":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
   "jathzelyn elizabeth fortuna paulino":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
   "jathzelyn fortuna":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
   "jazz fortuna":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
@@ -41,15 +36,11 @@ const ROSTER = {
   "johnny cornielle montas":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMII"},
   "joseph guillermo carmona garcia":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
   "joseph carmona garcia":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
-  "joseph carmona":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
   "samuel frias de paula":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMII"},
-  "sam frias de paula":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMII"},
   "sam frias":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMII"},
   "sati ananda pimentel malespin":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
-  "sati pimentel malespin":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
   "sati pimentel":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
   "victor abner moscoso fernandez":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
-  "victorabner moscoso fernandez":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
   "victor moscoso":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
   "wilson mercedes":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMII"},
   "yessica montero urena":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
@@ -63,7 +54,6 @@ const ROSTER = {
   "kyle dye":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMIII"},
   "luis aguasvivas peralta":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMI"},
   "juan liberato":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMI"},
-  "juan liberato paula":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMI"},
   "sarah swanson":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMI"},
   "tyler moeggenberg":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMI"},
   "tyler popplewell":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMI"},
@@ -84,7 +74,6 @@ const ROSTER = {
   "alejandro rodriguez medina":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"SSMII"},
   "chelsea dingus":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"SSMII"},
   "karmita turner":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"CSMII"},
-  "karmita k turner":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"CSMII"},
   "lauren carter":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"CSMII"},
   "libby booher":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"CSMIII"},
   "misti dixon":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"CSMIII"},
@@ -102,11 +91,9 @@ const ROSTER = {
   "mark velazquez":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"SSMII"},
   "merve (mj) brielmann":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMII"},
   "mj brielmann":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMII"},
-  "merve brielmann":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMII"},
   "rafael sencion sencion":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMI"},
   "rafael sencion":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMI"},
   "stacy roers":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMIII"},
-  "stacy miron":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMIII"},
   "taylor kidd":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMI"},
   "david crisler":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMII"},
   "dave crisler":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMII"},
@@ -120,253 +107,143 @@ const ROSTER = {
   "sylvia appla":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMI"},
   "sylvia":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMI"},
   "tracy-ann gaudencio":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMI"},
-  "tracy ann gaudencio":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMI"},
   "warda gul":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMI"},
   "zoltan rudolf":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMII"},
 };
 
 const lk = n => n ? ROSTER[n.toLowerCase().trim()] || null : null;
 const pm = v => { const n = parseFloat(String(v||0).replace(/[$,]/g,"")); return isNaN(n)?0:n; };
-const pn = v => { const n = parseFloat(String(v||0).replace(/,/g,"")); return isNaN(n)?0:n; };
+const pn = v => { const n = parseFloat(String(v||0).replace(/[,%]/g,"")); return isNaN(n)?0:n; };
 const f$ = n => "$"+(+n).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
 const fk = n => n>=1000?"$"+(n/1000).toFixed(1).replace(/\.0$/,"")+"k":"$"+Math.round(n);
-const fp = n => isNaN(n)||n==null?"—":(n*100).toFixed(1)+"%";
+const fp = n => (isNaN(n)||n==null)?"—":(n*100).toFixed(1)+"%";
 const tc = t => TCOLORS[t]||"#808080";
 const st = t => (t||"").replace("The ","").replace("Team ","");
-const MID="#29355D", ACC="#FF5000", GRN="#16a34a", YLW="#d97706", RED="#dc2626", MUT="#808080";
-const bCol = (v,hi,lo) => v>=hi?GRN:v>=lo?YLW:RED;
-const pCol = p => p>=0.9?GRN:p>=0.5?YLW:p>0?RED:MUT;
+const MID="#29355D",ACC="#FF5000",GRN="#16a34a",YLW="#d97706",RED="#dc2626",MUT="#808080";
+const bCol=(v,hi,lo)=>v>=hi?GRN:v>=lo?YLW:RED;
+const pCol=p=>p>=0.9?GRN:p>=0.5?YLW:p>0?RED:MUT;
 
-
-function sheetCSVUrl(gid) {
-  return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${gid}`;
-}
-
-async function fetchCSV(url) {
-  try {
-    const res = await fetch(url);
-    if(!res.ok) throw new Error("HTTP "+res.status);
-    const text = await res.text();
-    if(!text||text.trim()===""||text.includes("<!DOCTYPE")) throw new Error("got HTML");
-    // Split into lines preserving quoted newlines
-    const lines = [];
-    let cur = "", inQ = false;
-    for(let i=0;i<text.length;i++){
-      const ch = text[i];
-      if(ch==='"') inQ=!inQ;
-      else if((ch==="\n"||ch==="\r")&&!inQ){ if(cur.trim()) lines.push(cur); cur=""; continue; }
-      cur+=ch;
-    }
-    if(cur.trim()) lines.push(cur);
-    if(lines.length<2) return [];
-    // Row 1 is always the header (sheet is now clean)
-    const headers = parseCSVLine(lines[0]);
-    console.log("CSV headers found:", headers.slice(0,5), "... total:", headers.length);
-    const rows = [];
-    for(let i=1;i<lines.length;i++){
-      const vals = parseCSVLine(lines[i]);
-      if(!vals.some(v=>v.trim())) continue;
-      const first = (vals[0]||"").toLowerCase();
-      if(first.includes("confidential")||first.includes("copyright")) break;
-      const obj={};
-      headers.forEach((h,j)=>{ obj[h.trim()] = (vals[j]||"").trim(); });
-      rows.push(obj);
-    }
-    console.log("CSV rows parsed:", rows.length, "sample:", rows[0]);
-    return rows;
-  } catch(e) {
-    console.warn("CSV fetch failed:", url, e.message);
-    return [];
-  }
-}
-
+// ── CSV PARSER ────────────────────────────────────────────
 function parseCSVLine(line) {
-  const result=[], re=/("(?:[^"]|"")*"|[^,]*)(,|$)/g;
-  let m;
-  while((m=re.exec(line))!==null){
-    let val=m[1];
-    if(val.startsWith('"')&&val.endsWith('"')) val=val.slice(1,-1).replace(/""/g,'"');
-    result.push(val);
-    if(m[2]==="") break;
+  const result = [];
+  let cur = "", inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQ && line[i+1] === '"') { cur += '"'; i++; }
+      else inQ = !inQ;
+    } else if (ch === ',' && !inQ) {
+      result.push(cur.trim());
+      cur = "";
+    } else {
+      cur += ch;
+    }
   }
+  result.push(cur.trim());
   return result;
 }
 
-
-// Map Google Sheet rows → dashboard format
-function sheetToRev(rows) {
-  return rows.map(r=>{
-    const name = (r["CSM Name"]||r["name"]||"").trim();
-    if(!name) return null;
-    return {
-      name,
-      team:  (r["CSM Team!"]||r["CSM Team! "]||r["team"]||"").trim(),
-      tier:  (r["CSM Tier"]||r["tier"]||"").trim(),
-      type:  (r["Type of Integration"]||r["type"]||"").trim(),
-      quarter:(r["Quarter for Consideration"]||r["quarter"]||"").trim(),
-      mrr:   pm(r["MRR $ Added"]||r["mrr"]||"0"),
-      otr:   pm(r["OTR $ Added"]||r["otr"]||"0"),
-      total: pm(r["Total Revenue Added"]||r["total"]||"0"),
-      nonrev:(r["Non-Revenue Integrations"]||r["nonrev"]||"").trim()?1:0,
-    };
-  }).filter(Boolean);
+async function fetchCSV(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("HTTP " + res.status);
+  const text = await res.text();
+  const lines = text.split("\n").filter(l => l.trim());
+  if (lines.length < 2) return [];
+  const headers = parseCSVLine(lines[0]);
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    const vals = parseCSVLine(lines[i]);
+    if (!vals.some(v => v)) continue;
+    const obj = {};
+    headers.forEach((h, j) => { obj[h.trim()] = (vals[j] || "").trim(); });
+    rows.push(obj);
+  }
+  return rows;
 }
 
-function sheetToEmail(rows) {
-  return rows.map(r=>{
-    const name = (r["Touchpoint: Owner Name"]||r["name"]||r["Name"]||"").trim();
-    if(!name||name==="Total") return null;
+// ── DATA MAPPERS ──────────────────────────────────────────
+function mapRev(rows) {
+  const byName = {};
+  rows.forEach(r => {
+    const name = (r["CSM Name"] || "").trim();
+    if (!name) return;
+    if (!byName[name]) byName[name] = { name, team:(r["CSM Team!"]||r["CSM Team! "]||"").trim(), tier:(r["CSM Tier"]||"").trim(), mrr:0, otr:0, total:0, nonrev:0 };
+    byName[name].mrr   += pm(r["MRR $ Added"]);
+    byName[name].otr   += pm(r["OTR $ Added"]);
+    byName[name].total += pm(r["Total Revenue Added"]);
+    byName[name].nonrev += (r["Non-Revenue Integrations"]||"").trim() ? 1 : 0;
+  });
+  return Object.values(byName);
+}
+
+function mapEmail(rows) {
+  return rows.map(r => {
+    const name = (r["Touchpoint: Owner Name"]||r["Name"]||r["name"]||"").trim();
+    if (!name || name === "Total") return null;
     return {
       name,
-      sent:    pn(r["Sum of Emails Sent"]||r["sent"]||0),
-      opens:   pn(r["Sum of Email Opens"]||r["opens"]||0),
+      sent: pn(r["Sum of Emails Sent"]||r["sent"]||0),
+      opens: pn(r["Sum of Email Opens"]||r["opens"]||0),
       replies: pn(r["Sum of Email Replies"]||r["replies"]||0),
       openRate: pn(r["Open Rate"]||r["openRate"]||0),
-      replyRate:pn(r["Reply Rate"]||r["replyRate"]||0),
-      replyWhenOpened:pn(r["Reply Rate When Opened"]||r["replyWhenOpened"]||0),
+      replyRate: pn(r["Reply Rate"]||r["replyRate"]||0),
     };
   }).filter(Boolean);
 }
 
-function sheetToCadence(rows) {
-  return rows.map(r=>{
+function mapCadence(rows) {
+  return rows.map(r => {
     const name = (r["name"]||r["Name"]||r["CSM"]||r["Touchpoint: Owner Name"]||"").trim();
-    if(!name||name==="Total") return null;
+    if (!name || name === "Total") return null;
+    let pct = pn(r["pct"]||r["Pct"]||r["% Completed"]||r["Completion"]||0);
+    if (pct > 1) pct = pct / 100;
     return {
       name,
-      count:  pn(r["count"]||r["Count"]||r["Tasks"]||0),
-      pct:    pn(r["pct"]||r["Pct"]||r["Completion"]||r["% Completed"]||0),
-      removed:pn(r["removed"]||r["Removed"]||0),
+      count: pn(r["count"]||r["Count"]||r["Tasks"]||0),
+      pct,
+      removed: pn(r["removed"]||r["Removed"]||0),
     };
   }).filter(Boolean);
 }
 
-async function pullFromSheets() {
-  const [revRows, emailRows, cadRows] = await Promise.all([
-    fetchCSV(CSV_REV),
-    fetchCSV(CSV_EMAIL),
-    fetchCSV(CSV_CADENCE),
-  ]);
-  return { revRows, emailRows, cadRows };
-}
-
-function storageSave(data) {
-  // Try to save - silently skip if quota exceeded
-  try {
-    // Only save file names, not actual row data (too large)
-    const meta = {
-      rev:     data.rev     ? {name:data.rev.name,     count:data.rev.rows.length}     : null,
-      email:   data.email   ? {name:data.email.name,   count:data.email.rows.length}   : null,
-      cadence: data.cadence ? {name:data.cadence.name, count:data.cadence.rows.length} : null,
-      savedAt: new Date().toISOString(),
-    };
-    localStorage.setItem(STORAGE_KEY+"_meta", JSON.stringify(meta));
-  } catch(e) {
-    try { localStorage.removeItem(STORAGE_KEY); localStorage.removeItem(STORAGE_KEY+"_meta"); } catch(e2) {}
-  }
-}
-function storageLoad() {
-  return null; // Always load fresh from Google Sheet
-}
-function exportSnap(loaded) {
-  const blob=new Blob([JSON.stringify({v:"csm1",loaded,at:new Date().toISOString()})],{type:"application/json"});
-  const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
-  a.download="csm_snapshot_"+new Date().toLocaleDateString("en-US").replace(/\//g,"-")+".json";
-  a.click(); URL.revokeObjectURL(a.href);
-}
-
-function parseRev(wb) {
-  const ws = wb.Sheets[wb.SheetNames.includes("Sheet1")?"Sheet1":wb.SheetNames[0]];
-  const rows = XLSX.utils.sheet_to_json(ws,{defval:""});
-  if (rows[0] && rows[0]["CSM Name"]!==undefined) {
-    return rows.map(r=>({
-      name:String(r["CSM Name"]||"").trim(),
-      team:String(r["CSM Team! "]||r["CSM Team"]||r["Team"]||"").trim(),
-      tier:String(r["CSM Tier"]||"").trim(),
-      mrr:pm(r["MRR $ Added"]),otr:pm(r["OTR $ Added"]),
-      total:pm(r["Total Revenue Added"]),nonrev:String(r["Non-Revenue Integrations"]||"").trim()?1:0,
-    })).filter(r=>r.name);
-  }
-  const raw = XLSX.utils.sheet_to_json(ws,{defval:"",header:1});
-  const out=[]; let team="";
-  raw.forEach(r=>{
-    const lab=String(r[0]||"").trim();
-    if(!lab||lab==="Row Labels"||lab==="Grand Total") return;
-    if(lab.includes("@")) {
-      const nm=lab.split("@")[0].split(".").map(p=>p[0].toUpperCase()+p.slice(1)).join(" ");
-      out.push({name:nm,team,tier:"",mrr:pm(r[2]),otr:pm(r[1]),total:pm(r[3]),nonrev:pn(r[4])});
-    } else { team=lab; }
-  });
-  return out;
-}
-function parseEmail(wb) {
-  const raw = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:"",header:1});
-  let hdr=-1;
-  raw.forEach((r,i)=>{ if(String(r[1]||"").includes("Owner Name")) hdr=i; });
-  if(hdr<0) return [];
-  const out=[];
-  for(let i=hdr+1;i<raw.length;i++){
-    const r=raw[i], name=String(r[1]||"").trim();
-    if(!name||name==="Total"||name.includes("©")) break;
-    const sent=pn(r[2]);
-    if(sent>0||pn(r[11])>0) out.push({name,sent,opens:pn(r[3]),replies:pn(r[4]),openRate:pn(r[8]),replyRate:pn(r[9])});
-  }
-  return out;
-}
-function parseCadence(wb) {
-  const raw = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:"",header:1});
-  const out=[]; let cur="",rem=0;
-  raw.forEach(r=>{
-    const c1=String(r[1]||"").trim(),c2=String(r[2]||"").trim(),c3=String(r[3]||"").trim();
-    if(c1&&c1!=="Subtotal"&&c2&&!c2.includes("Subtotal")&&(c2.startsWith("CSM")||c2.includes("Cadence"))){cur=c1;rem=0;}
-    if(cur&&String(r[5]||"").trim()==="Removed") rem++;
-    if(c1==="Subtotal"&&!c2&&!c3){
-      const count=pn(r[5]),pct=pn(r[13]);
-      if(cur&&count>0){out.push({name:cur,count,pct,removed:rem});cur="";rem=0;}
+// ── BUILD CSM LIST ────────────────────────────────────────
+function buildCSMs(rev, email, cad) {
+  const m = {};
+  const get = name => {
+    if (!m[name]) {
+      const info = lk(name);
+      m[name] = { name, team:(info&&info.t)||"", coach:(info&&info.c)||"", tier:(info&&info.r)||"",
+        rev:0, mrr:0, otr:0, ints:0, nonrev:0, sent:0, opens:0, replies:0,
+        openRate:0, replyRate:0, cadCount:0, cadPct:0 };
     }
-  });
-  return out.filter(r=>r.name);
-}
-
-function buildCSMs(data) {
-  const m={};
-  const get=(name,team,tier)=>{
-    if(!m[name]){
-      const info=lk(name);
-      m[name]={name,team:team||(info&&info.t)||"",coach:(info&&info.c)||"",tier:tier||(info&&info.r)||"",
-        rev:0,mrr:0,otr:0,ints:0,nonrev:0,sent:0,opens:0,replies:0,openRate:0,replyRate:0,cadCount:0,cadPct:0};
-    }
-    if(team&&!m[name].team) m[name].team=team;
-    if(!m[name].coach){const info=lk(name);if(info)m[name].coach=info.c;}
     return m[name];
   };
-  if(data.rev){
-    const byN={};
-    data.rev.forEach(r=>{
-      if(!r.name) return;
-      const info=lk(r.name);
-      if(!byN[r.name]) byN[r.name]={team:r.team||(info&&info.t)||"",tier:r.tier||(info&&info.r)||"",coach:(info&&info.c)||"",rev:0,mrr:0,otr:0,ints:0,nonrev:0};
-      byN[r.name].rev+=r.total; byN[r.name].mrr+=r.mrr; byN[r.name].otr+=r.otr;
-      if(r.total>0) byN[r.name].ints++;
-      byN[r.name].nonrev+=r.nonrev;
-    });
-    Object.entries(byN).forEach(([name,v])=>{
-      const c=get(name,v.team,v.tier);
-      c.coach=v.coach||c.coach; c.rev=v.rev; c.mrr=v.mrr; c.otr=v.otr; c.ints=v.ints+v.nonrev; c.nonrev=v.nonrev;
-    });
-  }
-  if(data.email) data.email.forEach(r=>{
-    const c=get(r.name,"",""); c.sent=r.sent; c.opens=r.opens; c.replies=r.replies; c.openRate=r.openRate; c.replyRate=r.replyRate;
+  (rev||[]).forEach(r => {
+    const c = get(r.name);
+    if (!c.team && r.team) c.team = r.team;
+    if (!c.tier && r.tier) c.tier = r.tier;
+    c.rev += r.total; c.mrr += r.mrr; c.otr += r.otr;
+    if (r.total > 0) c.ints++;
+    c.nonrev += r.nonrev;
   });
-  if(data.cadence) data.cadence.forEach(r=>{
-    const c=get(r.name,"",""); c.cadCount=r.count; c.cadPct=r.pct;
+  (email||[]).forEach(r => {
+    const c = get(r.name);
+    c.sent = r.sent; c.opens = r.opens; c.replies = r.replies;
+    c.openRate = r.openRate; c.replyRate = r.replyRate;
+  });
+  (cad||[]).forEach(r => {
+    const c = get(r.name);
+    c.cadCount = r.count; c.cadPct = r.pct;
   });
   return Object.values(m);
 }
 
+// ── SUB COMPONENTS ────────────────────────────────────────
+const card = { background:"#fff", border:"1px solid rgba(41,53,93,.09)", borderRadius:12, padding:18, boxShadow:"0 2px 10px rgba(41,53,93,.06)" };
+
 function Bar({label,val,hi,lo}) {
-  const pct = val!=null?Math.min(val*100,100):0;
-  const col = val!=null?bCol(val,hi,lo):"#e5e7eb";
+  const pct = val!=null ? Math.min(val*100,100) : 0;
+  const col = val!=null ? bCol(val,hi,lo) : "#e5e7eb";
   return (
     <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
       <span style={{width:70,flexShrink:0,fontSize:10,fontWeight:700,color:MUT,textTransform:"uppercase",letterSpacing:".04em"}}>{label}</span>
@@ -383,36 +260,35 @@ function Bar({label,val,hi,lo}) {
 function Bdg({p,label}) {
   const bg=p>=0.9?"rgba(22,163,74,.12)":p>=0.5?"rgba(217,119,6,.12)":p>0?"rgba(220,38,38,.12)":"rgba(128,128,128,.1)";
   const fg=p>=0.9?"#166534":p>=0.5?"#854d0e":p>0?"#991b1b":"#808080";
-  const txt=label||(p>=0.9?"Win":p>=0.5?"Watch":p>0?"Coach":"—");
-  return <span style={{fontSize:10,fontWeight:700,padding:"1px 7px",borderRadius:20,background:bg,color:fg,flexShrink:0}}>{txt}</span>;
+  return <span style={{fontSize:10,fontWeight:700,padding:"1px 7px",borderRadius:20,background:bg,color:fg,flexShrink:0}}>{label||(p>=0.9?"Win":p>=0.5?"Watch":p>0?"Coach":"—")}</span>;
 }
 
 function CoachCard({coach,csms}) {
-  const team = csms.filter(c=>{ const i=lk(c.name); return (i&&i.c===coach.email)||c.coach===coach.email; });
-  const cadCSMs = team.filter(c=>c.cadCount>0);
-  const avgCad = cadCSMs.length ? cadCSMs.reduce((s,c)=>s+c.cadPct,0)/cadCSMs.length : null;
-  const emailCSMs = team.filter(c=>c.sent>0);
-  const avgOpen = emailCSMs.length ? emailCSMs.reduce((s,c)=>s+c.openRate,0)/emailCSMs.length : null;
+  const team = csms.filter(c => { const i=lk(c.name); return (i&&i.c===coach.email)||c.coach===coach.email; });
+  const cadC = team.filter(c=>c.cadCount>0);
+  const avgCad = cadC.length ? cadC.reduce((s,c)=>s+c.cadPct,0)/cadC.length : null;
+  const emC = team.filter(c=>c.sent>0);
+  const avgOpen = emC.length ? emC.reduce((s,c)=>s+c.openRate,0)/emC.length : null;
   const revPct = team.length ? team.filter(c=>c.rev>0||c.ints>0).length/team.length : null;
   let sc=0,sf=0;
   if(avgCad!=null){sc+=Math.min(avgCad/0.9,1)*40;sf++;}
   if(avgOpen!=null){sc+=Math.min(avgOpen/0.7,1)*30;sf++;}
   if(revPct!=null){sc+=Math.min(revPct/0.7,1)*30;sf++;}
   const score = sf?Math.round(Math.min(sc,100)):null;
-  const status = score==null?"none":score>=75?"win":score>=50?"warn":"att";
-  const sCol = status==="win"?GRN:status==="warn"?YLW:status==="att"?RED:MUT;
-  const topC = status==="win"?GRN:status==="warn"?YLW:status==="att"?RED:"#e5e7eb";
-  const wins=cadCSMs.filter(c=>c.cadPct>=0.9).length;
-  const warns=cadCSMs.filter(c=>c.cadPct>=0.5&&c.cadPct<0.9).length;
-  const atts=cadCSMs.filter(c=>c.cadPct>0&&c.cadPct<0.5).length;
+  const st2 = score==null?"none":score>=75?"win":score>=50?"warn":"att";
+  const sCol = st2==="win"?GRN:st2==="warn"?YLW:st2==="att"?RED:MUT;
+  const topC = st2==="win"?GRN:st2==="warn"?YLW:st2==="att"?RED:"#e5e7eb";
+  const wins=cadC.filter(c=>c.cadPct>=0.9).length;
+  const warns=cadC.filter(c=>c.cadPct>=0.5&&c.cadPct<0.9).length;
+  const atts=cadC.filter(c=>c.cadPct>0&&c.cadPct<0.5).length;
   const sorted=[...team].sort((a,b)=>(a.cadPct||0)-(b.cadPct||0)).slice(0,7);
   return (
-    <div style={{background:"#fff",border:"1px solid rgba(41,53,93,.09)",borderRadius:12,padding:18,boxShadow:"0 2px 10px rgba(41,53,93,.06)",position:"relative",overflow:"hidden"}}>
+    <div style={{...card,position:"relative",overflow:"hidden"}}>
       <div style={{position:"absolute",top:0,left:0,right:0,height:3,background:topC,borderRadius:"12px 12px 0 0"}}/>
       <div style={{fontFamily:"Nunito,sans-serif",fontSize:14,fontWeight:800,color:MID,marginTop:4}}>{coach.name}</div>
       <div style={{fontSize:11,fontWeight:600,color:tc(coach.team),marginBottom:10}}>● {coach.team}</div>
       <div style={{display:"flex",alignItems:"baseline",gap:6,marginBottom:8}}>
-        <span style={{fontFamily:"Nunito,sans-serif",fontSize:44,fontWeight:800,lineHeight:1,letterSpacing:"-.03em",color:sCol}}>{score!=null?score:"—"}</span>
+        <span style={{fontFamily:"Nunito,sans-serif",fontSize:44,fontWeight:800,lineHeight:1,color:sCol}}>{score!=null?score:"—"}</span>
         <div style={{fontSize:11,color:MUT,paddingBottom:6,lineHeight:1.4}}>/ 100<br/><span style={{fontSize:10}}>{wins}✓ {warns}⚠ {atts}✗</span></div>
       </div>
       <Bar label="Cadence" val={avgCad} hi={0.9} lo={0.5}/>
@@ -448,13 +324,11 @@ function CoachingView({csms,fc,ft}) {
           <span style={{fontFamily:"Nunito,sans-serif",fontSize:18,fontWeight:800,color:MID}}>🚨 Needs Attention</span>
           <span style={{fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:20,background:"rgba(220,38,38,.1)",color:RED}}>{attn.length} CSMs</span>
         </div>
-        <div style={{background:"#fff",border:"1px solid rgba(41,53,93,.09)",borderRadius:12,padding:18,boxShadow:"0 2px 10px rgba(41,53,93,.06)"}}>
+        <div style={card}>
           {attn.length===0
             ? <div style={{textAlign:"center",padding:24,color:GRN,fontWeight:700}}>🎉 Everyone at 90%+ today!</div>
             : <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
-                <thead><tr>
-                  {["CSM","Team","Cadence","Gap to 90%"].map(h=><th key={h} style={{fontSize:10,textTransform:"uppercase",letterSpacing:".08em",color:MUT,fontWeight:700,padding:"0 8px 10px 0",textAlign:h==="CSM"||h==="Team"?"left":"right",borderBottom:"1px solid rgba(41,53,93,.08)"}}>{h}</th>)}
-                </tr></thead>
+                <thead><tr>{["CSM","Team","Cadence","Gap to 90%"].map(h=><th key={h} style={{fontSize:10,textTransform:"uppercase",color:MUT,fontWeight:700,padding:"0 8px 10px 0",textAlign:h==="CSM"||h==="Team"?"left":"right",borderBottom:"1px solid rgba(41,53,93,.08)"}}>{h}</th>)}</tr></thead>
                 <tbody>{attn.map(c=>{
                   const i=lk(c.name)||{};
                   return (
@@ -463,9 +337,9 @@ function CoachingView({csms,fc,ft}) {
                         <div style={{fontWeight:700}}>{c.name}</div>
                         <div style={{fontSize:11,color:MUT,fontStyle:"italic",marginTop:2}}>{tips(c.cadPct)}</div>
                       </td>
-                      <td style={{padding:"9px 8px 9px 0",borderBottom:"1px solid rgba(41,53,93,.06)",fontSize:12,color:MUT}}>{st(i.t)}</td>
+                      <td style={{padding:"9px 8px 9px 0",borderBottom:"1px solid rgba(41,53,93,.06)",fontSize:12,color:MUT}}>{st(i.t||"")}</td>
                       <td style={{padding:"9px 8px 9px 0",borderBottom:"1px solid rgba(41,53,93,.06)",textAlign:"right"}}><Bdg p={c.cadPct} label={c.cadPct>0?Math.round(c.cadPct*100)+"%":"—"}/></td>
-                      <td style={{padding:"9px 0",borderBottom:"1px solid rgba(41,53,93,.06)",textAlign:"right",fontSize:12,fontWeight:700,color:RED}}>{c.cadPct>0?Math.round((0.9-c.cadPct)*100)+"%":"—"}</td>
+                      <td style={{padding:"9px 0",borderBottom:"1px solid rgba(41,53,93,.06)",textAlign:"right",fontSize:12,fontWeight:700,color:RED}}>{c.cadPct>0&&c.cadPct<0.9?Math.round((0.9-c.cadPct)*100)+"%":"—"}</td>
                     </tr>
                   );
                 })}</tbody>
@@ -497,8 +371,7 @@ function CoachingView({csms,fc,ft}) {
   );
 }
 
-function OverviewView({data,csms}) {
-  const rev=data.rev||[], email=data.email||[], cad=data.cadence||[];
+function OverviewView({rev,email,cad,csms}) {
   const totalRev=rev.reduce((s,r)=>s+r.total,0);
   const totalMRR=rev.reduce((s,r)=>s+r.mrr,0);
   const totalSent=email.reduce((s,r)=>s+r.sent,0);
@@ -508,16 +381,15 @@ function OverviewView({data,csms}) {
     rev.length>0?{l:"Total Revenue",v:f$(totalRev),s:"MRR "+fk(totalMRR),col:ACC}:null,
     email.length>0?{l:"Emails Sent",v:totalSent,s:email.length+" senders",col:"#5378FC"}:null,
     email.length>0?{l:"Avg Open Rate",v:fp(avgOpen),s:"Target 70%+",col:avgOpen>=0.7?GRN:YLW}:null,
-    cad.length>0?{l:"Cadence Completion",v:fp(avgCad),s:"Target 90%+",col:avgCad>=0.9?GRN:avgCad>=0.5?YLW:RED}:null,
+    cad.length>0?{l:"Cadence",v:fp(avgCad),s:"Target 90%+",col:avgCad>=0.9?GRN:avgCad>=0.5?YLW:RED}:null,
   ].filter(Boolean);
   const teamRev={};
   rev.forEach(r=>{if(r.team) teamRev[r.team]=(teamRev[r.team]||0)+r.total;});
-  const tRevSort=Object.entries(teamRev).sort((a,b)=>b[1]-a[1]);
-  const maxRev=(tRevSort[0]&&tRevSort[0][1])||1;
-  const emailSort=[...email].sort((a,b)=>b.sent-a.sent).slice(0,10);
-  const maxSent=(emailSort[0]&&emailSort[0].sent)||1;
+  const trs=Object.entries(teamRev).sort((a,b)=>b[1]-a[1]);
+  const maxR=trs[0]&&trs[0][1]||1;
+  const emSort=[...email].sort((a,b)=>b.sent-a.sent).slice(0,10);
+  const maxS=emSort[0]&&emSort[0].sent||1;
   const cadSort=[...cad].filter(r=>r.count>0).sort((a,b)=>b.pct-a.pct);
-  const card={background:"#fff",border:"1px solid rgba(41,53,93,.09)",borderRadius:12,padding:18,boxShadow:"0 2px 10px rgba(41,53,93,.06)"};
   return (
     <div style={{padding:"24px 28px"}}>
       <div style={{display:"grid",gridTemplateColumns:"repeat("+metrics.length+",1fr)",gap:14,marginBottom:24}}>
@@ -533,14 +405,14 @@ function OverviewView({data,csms}) {
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:20,marginBottom:20}}>
         <div style={card}>
           <div style={{fontSize:11,textTransform:"uppercase",letterSpacing:".1em",color:MUT,fontWeight:700,marginBottom:14}}>Revenue by Team</div>
-          {tRevSort.length===0?<div style={{color:MUT,fontSize:13}}>No revenue data</div>:tRevSort.map(([t,v])=>(
+          {trs.length===0?<div style={{color:MUT,fontSize:13}}>No data</div>:trs.map(([t,v])=>(
             <div key={t} style={{display:"flex",alignItems:"center",gap:10,marginBottom:10,fontSize:12}}>
               <span style={{width:140,flexShrink:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
                 <span style={{display:"inline-block",width:6,height:6,borderRadius:"50%",background:tc(t),marginRight:6,verticalAlign:"middle"}}/>
                 {st(t)}
               </span>
               <div style={{flex:1,height:5,background:"#ECEEF1",borderRadius:3,overflow:"hidden"}}>
-                <div style={{width:(v/maxRev*100).toFixed(1)+"%",height:"100%",background:tc(t),opacity:.85,borderRadius:3}}/>
+                <div style={{width:(v/maxR*100).toFixed(1)+"%",height:"100%",background:tc(t),opacity:.85,borderRadius:3}}/>
               </div>
               <span style={{width:56,textAlign:"right",fontSize:11,color:MUT,fontWeight:600,flexShrink:0}}>{fk(v)}</span>
             </div>
@@ -548,11 +420,11 @@ function OverviewView({data,csms}) {
         </div>
         <div style={card}>
           <div style={{fontSize:11,textTransform:"uppercase",letterSpacing:".1em",color:MUT,fontWeight:700,marginBottom:14}}>Email Activity — Top 10</div>
-          {emailSort.length===0?<div style={{color:MUT,fontSize:13}}>No email data</div>:emailSort.map(r=>(
+          {emSort.length===0?<div style={{color:MUT,fontSize:13}}>No data</div>:emSort.map(r=>(
             <div key={r.name} style={{display:"flex",alignItems:"center",gap:8,marginBottom:8,fontSize:12}}>
               <span style={{width:120,flexShrink:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.name}</span>
               <div style={{flex:1,height:5,background:"#ECEEF1",borderRadius:3,overflow:"hidden"}}>
-                <div style={{width:(r.sent/maxSent*100).toFixed(1)+"%",height:"100%",background:"#5378FC",opacity:.8,borderRadius:3}}/>
+                <div style={{width:(r.sent/maxS*100).toFixed(1)+"%",height:"100%",background:"#5378FC",opacity:.8,borderRadius:3}}/>
               </div>
               <span style={{width:34,textAlign:"right",fontSize:11,color:MUT,fontWeight:600,flexShrink:0}}>{r.sent}</span>
               <span style={{width:42,textAlign:"right",fontSize:11,fontWeight:700,flexShrink:0,color:pCol(r.openRate)}}>{fp(r.openRate)}</span>
@@ -561,11 +433,11 @@ function OverviewView({data,csms}) {
         </div>
       </div>
       <div style={card}>
-        <div style={{fontSize:11,textTransform:"uppercase",letterSpacing:".1em",color:MUT,fontWeight:700,marginBottom:14}}>Cadence Completion — Yesterday</div>
-        {cadSort.length===0?<div style={{color:MUT,fontSize:13}}>No cadence data</div>:
+        <div style={{fontSize:11,textTransform:"uppercase",letterSpacing:".1em",color:MUT,fontWeight:700,marginBottom:14}}>Cadence Completion</div>
+        {cadSort.length===0?<div style={{color:MUT,fontSize:13}}>No data</div>:
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"4px 32px"}}>
             {cadSort.map(r=>{
-              const p=Math.min(r.pct,1), col=bCol(p,0.9,0.5);
+              const p=Math.min(r.pct,1),col=bCol(p,0.9,0.5);
               return (
                 <div key={r.name} style={{display:"flex",alignItems:"center",gap:8,padding:"4px 0",borderBottom:"1px solid rgba(41,53,93,.05)"}}>
                   <span style={{flex:1,fontSize:12,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.name}</span>
@@ -599,20 +471,19 @@ function LeaderboardView({csms,fc,ft,tier}) {
   const vis=all?filtered:filtered.slice(0,15);
   const th=(col,lbl)=>(
     <th onClick={()=>setSort(s=>({col,dir:s.col===col&&s.dir==="desc"?"asc":"desc"}))}
-      style={{fontSize:10,textTransform:"uppercase",letterSpacing:".08em",color:MUT,fontWeight:700,padding:"0 0 10px",textAlign:"right",cursor:"pointer",userSelect:"none",borderBottom:"1px solid rgba(41,53,93,.08)"}}>
+      style={{fontSize:10,textTransform:"uppercase",color:MUT,fontWeight:700,padding:"0 0 10px",textAlign:"right",cursor:"pointer",borderBottom:"1px solid rgba(41,53,93,.08)"}}>
       {lbl}{sort.col===col?(sort.dir==="desc"?" ▼":" ▲"):""}
     </th>
   );
   return (
     <div style={{padding:"24px 28px"}}>
-      <div style={{background:"#fff",border:"1px solid rgba(41,53,93,.09)",borderRadius:12,padding:18,boxShadow:"0 2px 10px rgba(41,53,93,.06)"}}>
+      <div style={card}>
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
           <thead><tr>
             <th style={{width:32,fontSize:10,color:MUT,fontWeight:700,padding:"0 0 10px",textAlign:"left",borderBottom:"1px solid rgba(41,53,93,.08)"}}>#</th>
-            <th style={{fontSize:10,textTransform:"uppercase",letterSpacing:".08em",color:MUT,fontWeight:700,padding:"0 0 10px",textAlign:"left",borderBottom:"1px solid rgba(41,53,93,.08)"}}>CSM</th>
-            <th style={{fontSize:10,textTransform:"uppercase",letterSpacing:".08em",color:MUT,fontWeight:700,padding:"0 0 10px",textAlign:"left",borderBottom:"1px solid rgba(41,53,93,.08)"}}>Team</th>
+            <th style={{fontSize:10,textTransform:"uppercase",color:MUT,fontWeight:700,padding:"0 0 10px",textAlign:"left",borderBottom:"1px solid rgba(41,53,93,.08)"}}>CSM</th>
+            <th style={{fontSize:10,textTransform:"uppercase",color:MUT,fontWeight:700,padding:"0 0 10px",textAlign:"left",borderBottom:"1px solid rgba(41,53,93,.08)"}}>Team</th>
             {th("rev","Revenue")}
-            {th("ints","Integrations")}
             {th("sent","Emails")}
             {th("openRate","Open %")}
             {th("cadPct","Cadence %")}
@@ -623,16 +494,12 @@ function LeaderboardView({csms,fc,ft,tier}) {
             return (
               <tr key={c.name}>
                 <td style={{padding:"10px 0",borderBottom:"1px solid rgba(41,53,93,.06)"}}>{i<3?medals[i]:(i+1)+"."}</td>
-                <td style={{padding:"10px 8px 10px 0",borderBottom:"1px solid rgba(41,53,93,.06)"}}>
-                  <span style={{fontWeight:700}}>{c.name}</span>
-                  {(info.r||c.tier)&&<span style={{fontSize:10,background:"rgba(41,53,93,.07)",color:MID,padding:"2px 6px",borderRadius:4,fontWeight:600,marginLeft:6}}>{info.r||c.tier}</span>}
-                </td>
+                <td style={{padding:"10px 8px 10px 0",borderBottom:"1px solid rgba(41,53,93,.06)"}}><span style={{fontWeight:700}}>{c.name}</span></td>
                 <td style={{padding:"10px 8px 10px 0",borderBottom:"1px solid rgba(41,53,93,.06)"}}>
                   <span style={{display:"inline-block",width:6,height:6,borderRadius:"50%",background:color,marginRight:6,verticalAlign:"middle"}}/>
                   <span style={{color:MUT,fontSize:12}}>{st(info.t||c.team)}</span>
                 </td>
                 <td style={{padding:"10px 0",borderBottom:"1px solid rgba(41,53,93,.06)",textAlign:"right",fontWeight:700,color:ACC}}>{c.rev>0?f$(c.rev):"—"}</td>
-                <td style={{padding:"10px 0",borderBottom:"1px solid rgba(41,53,93,.06)",textAlign:"right"}}>{c.ints>0?c.ints:"—"}</td>
                 <td style={{padding:"10px 0",borderBottom:"1px solid rgba(41,53,93,.06)",textAlign:"right"}}>{c.sent>0?c.sent:"—"}</td>
                 <td style={{padding:"10px 0",borderBottom:"1px solid rgba(41,53,93,.06)",textAlign:"right",fontWeight:700,color:pCol(c.openRate)}}>{c.sent>0?fp(c.openRate):"—"}</td>
                 <td style={{padding:"10px 0",borderBottom:"1px solid rgba(41,53,93,.06)",textAlign:"right",fontWeight:700,color:pCol(c.cadPct)}}>{c.cadPct>0?fp(c.cadPct):"—"}</td>
@@ -642,7 +509,7 @@ function LeaderboardView({csms,fc,ft,tier}) {
         </table>
         {filtered.length>15&&(
           <button onClick={()=>setAll(s=>!s)} style={{display:"block",width:"100%",marginTop:14,background:"transparent",border:"1px solid rgba(41,53,93,.15)",color:MUT,fontSize:12,fontWeight:600,padding:8,borderRadius:8,cursor:"pointer"}}>
-            {all?"Show top 15 ↑":"Show all "+filtered.length+" CSMs ↓"}
+            {all?"Show top 15 ↑":"Show all "+filtered.length+" ↓"}
           </button>
         )}
       </div>
@@ -650,25 +517,21 @@ function LeaderboardView({csms,fc,ft,tier}) {
   );
 }
 
-function ActivityView({data}) {
-  const email=[...data.email||[]].sort((a,b)=>b.sent-a.sent);
-  const cad=[...data.cadence||[]].sort((a,b)=>b.pct-a.pct);
-  const card={background:"#fff",border:"1px solid rgba(41,53,93,.09)",borderRadius:12,padding:18,boxShadow:"0 2px 10px rgba(41,53,93,.06)"};
+function ActivityView({email,cad}) {
+  const emSort=[...email].sort((a,b)=>b.sent-a.sent);
+  const cadSort=[...cad].sort((a,b)=>b.pct-a.pct);
   return (
     <div style={{padding:"24px 28px"}}>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:20}}>
         <div style={card}>
-          <div style={{fontSize:11,textTransform:"uppercase",letterSpacing:".1em",color:MUT,fontWeight:700,marginBottom:14}}>Email Performance</div>
-          {email.length===0?<div style={{color:MUT,fontSize:13}}>No email data</div>:
+          <div style={{fontSize:11,textTransform:"uppercase",color:MUT,fontWeight:700,marginBottom:14}}>Email Performance</div>
+          {emSort.length===0?<div style={{color:MUT,fontSize:13}}>No data</div>:
             <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
-              <thead><tr>{["CSM","Sent","Opens","Open %","Reply %"].map(h=>(
-                <th key={h} style={{fontSize:10,textTransform:"uppercase",color:MUT,fontWeight:700,padding:"0 0 8px",textAlign:h==="CSM"?"left":"right",borderBottom:"1px solid rgba(41,53,93,.08)"}}>{h}</th>
-              ))}</tr></thead>
-              <tbody>{email.map(r=>(
+              <thead><tr>{["CSM","Sent","Open %","Reply %"].map(h=><th key={h} style={{fontSize:10,textTransform:"uppercase",color:MUT,fontWeight:700,padding:"0 0 8px",textAlign:h==="CSM"?"left":"right",borderBottom:"1px solid rgba(41,53,93,.08)"}}>{h}</th>)}</tr></thead>
+              <tbody>{emSort.map(r=>(
                 <tr key={r.name}>
                   <td style={{padding:"7px 0",borderBottom:"1px solid rgba(41,53,93,.05)"}}>{r.name}</td>
                   <td style={{padding:"7px 0",borderBottom:"1px solid rgba(41,53,93,.05)",textAlign:"right"}}>{r.sent}</td>
-                  <td style={{padding:"7px 0",borderBottom:"1px solid rgba(41,53,93,.05)",textAlign:"right"}}>{r.opens}</td>
                   <td style={{padding:"7px 0",borderBottom:"1px solid rgba(41,53,93,.05)",textAlign:"right",fontWeight:700,color:pCol(r.openRate)}}>{fp(r.openRate)}</td>
                   <td style={{padding:"7px 0",borderBottom:"1px solid rgba(41,53,93,.05)",textAlign:"right",fontWeight:700,color:pCol(r.replyRate)}}>{fp(r.replyRate)}</td>
                 </tr>
@@ -676,13 +539,11 @@ function ActivityView({data}) {
             </table>}
         </div>
         <div style={card}>
-          <div style={{fontSize:11,textTransform:"uppercase",letterSpacing:".1em",color:MUT,fontWeight:700,marginBottom:14}}>Cadence Touchpoints</div>
-          {cad.length===0?<div style={{color:MUT,fontSize:13}}>No cadence data</div>:
+          <div style={{fontSize:11,textTransform:"uppercase",color:MUT,fontWeight:700,marginBottom:14}}>Cadence Touchpoints</div>
+          {cadSort.length===0?<div style={{color:MUT,fontSize:13}}>No data</div>:
             <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
-              <thead><tr>{["CSM","Tasks","Removed","Done"].map(h=>(
-                <th key={h} style={{fontSize:10,textTransform:"uppercase",color:MUT,fontWeight:700,padding:"0 0 8px",textAlign:h==="CSM"?"left":"right",borderBottom:"1px solid rgba(41,53,93,.08)"}}>{h}</th>
-              ))}</tr></thead>
-              <tbody>{cad.map(r=>{
+              <thead><tr>{["CSM","Tasks","Done"].map(h=><th key={h} style={{fontSize:10,textTransform:"uppercase",color:MUT,fontWeight:700,padding:"0 0 8px",textAlign:h==="CSM"?"left":"right",borderBottom:"1px solid rgba(41,53,93,.08)"}}>{h}</th>)}</tr></thead>
+              <tbody>{cadSort.map(r=>{
                 const p=Math.min(r.pct,1);
                 const bg=p>=0.9?"rgba(22,163,74,.1)":p>=0.5?"rgba(217,119,6,.1)":"rgba(220,38,38,.1)";
                 const fg=p>=0.9?"#166534":p>=0.5?"#854d0e":"#991b1b";
@@ -690,7 +551,6 @@ function ActivityView({data}) {
                   <tr key={r.name}>
                     <td style={{padding:"7px 0",borderBottom:"1px solid rgba(41,53,93,.05)"}}>{r.name}</td>
                     <td style={{padding:"7px 0",borderBottom:"1px solid rgba(41,53,93,.05)",textAlign:"right"}}>{r.count}</td>
-                    <td style={{padding:"7px 0",borderBottom:"1px solid rgba(41,53,93,.05)",textAlign:"right",color:r.removed>0?RED:MUT}}>{r.removed>0?r.removed:"—"}</td>
                     <td style={{padding:"7px 0",borderBottom:"1px solid rgba(41,53,93,.05)",textAlign:"right"}}>
                       <span style={{fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:20,background:bg,color:fg}}>{Math.round(p*100)+"%"}</span>
                     </td>
@@ -704,68 +564,62 @@ function ActivityView({data}) {
   );
 }
 
-function AIPanel({csms,data,open,onClose}) {
-  const [msgs,setMsgs]=useState([{role:"assistant",text:"Hi! I have your full team data. Ask me who needs coaching, which team is winning, or anything about performance."}]);
+function AIPanel({csms,rev,email,cad,open,onClose}) {
+  const [msgs,setMsgs]=useState([{role:"assistant",text:"Hi! I have your team data loaded. Ask me who needs coaching, which team is winning, or anything about performance."}]);
   const [inp,setInp]=useState("");
   const [busy,setBusy]=useState(false);
   const [hist,setHist]=useState([]);
   const ref=useRef();
-  useEffect(()=>{ if(open&&ref.current) ref.current.scrollTop=ref.current.scrollHeight; },[msgs,open]);
+  useEffect(()=>{ if(ref.current) ref.current.scrollTop=ref.current.scrollHeight; },[msgs]);
   const ctx=()=>{
-    const teamSums=COACHES.map(coach=>{
-      const tcsms=csms.filter(c=>{ const i=lk(c.name); return(i&&i.c===coach.email)||c.coach===coach.email; });
-      if(!tcsms.length) return coach.name+" ("+coach.team+"): no data";
-      const cadC=tcsms.filter(c=>c.cadCount>0);
+    const sums=COACHES.map(coach=>{
+      const tc2=csms.filter(c=>{ const i=lk(c.name); return(i&&i.c===coach.email)||c.coach===coach.email; });
+      if(!tc2.length) return coach.name+": no data";
+      const cadC=tc2.filter(c=>c.cadCount>0);
       const avgC=cadC.length?cadC.reduce((s,c)=>s+c.cadPct,0)/cadC.length:null;
-      const emaC=tcsms.filter(c=>c.sent>0);
-      const avgO=emaC.length?emaC.reduce((s,c)=>s+c.openRate,0)/emaC.length:null;
-      const totR=tcsms.reduce((s,c)=>s+c.rev,0);
+      const emC=tc2.filter(c=>c.sent>0);
+      const avgO=emC.length?emC.reduce((s,c)=>s+c.openRate,0)/emC.length:null;
+      const totR=tc2.reduce((s,c)=>s+c.rev,0);
       const win=cadC.filter(c=>c.cadPct>=0.9).map(c=>c.name);
       const str=cadC.filter(c=>c.cadPct<0.9).sort((a,b)=>a.cadPct-b.cadPct).map(c=>c.name+" "+Math.round(c.cadPct*100)+"%");
-      const nd=tcsms.filter(c=>c.cadCount===0).map(c=>c.name);
-      const lines=[
-        "COACH: "+coach.name+" | TEAM: "+coach.team,
-        "  Cadence: "+(avgC!=null?Math.round(avgC*100)+"%":"no data")+" (target 90%+)",
-        "  Email open: "+(avgO!=null?Math.round(avgO*100)+"%":"no data")+" (target 70%+)",
-        "  Revenue: $"+totR.toLocaleString(),
-        "  Winning: "+(win.join(", ")||"none"),
-        "  Needs coaching: "+(str.join(", ")||"none"),
-      ];
-      if(nd.length) lines.push("  No data: "+nd.join(", "));
-      return lines.join("\n");
+      const nd=tc2.filter(c=>c.cadCount===0).map(c=>c.name);
+      return "COACH: "+coach.name+" | "+coach.team+
+        "\n  Cadence: "+(avgC!=null?Math.round(avgC*100)+"%":"no data")+
+        "\n  Email open: "+(avgO!=null?Math.round(avgO*100)+"%":"no data")+
+        "\n  Revenue: $"+totR.toLocaleString()+
+        "\n  Winning: "+(win.join(", ")||"none")+
+        "\n  Needs coaching: "+(str.join(", ")||"none")+
+        (nd.length?"\n  No data: "+nd.join(", "):"");
     }).join("\n\n");
-    return "You are a CSM coaching assistant for Thryv B2B SaaS. Give specific, actionable advice using real names and numbers. Be direct and concise. Winning threshold: 90%+ cadence completion.\n\n"+teamSums;
+    return "You are a CSM coaching assistant for Thryv. Give specific, actionable advice. Winning = 90%+ cadence. Be direct.\n\n"+sums;
   };
   const send=async()=>{
     const msg=inp.trim(); if(!msg||busy) return;
     setInp(""); setBusy(true);
-    const newMsgs=[...msgs,{role:"assistant",text:"Thinking..."}];
-    const msgIdx=newMsgs.length-1;
-    setMsgs([...msgs,{role:"user",text:msg}]);
-    const newHist=[...hist,{role:"user",content:msg}];
-    setHist(newHist);
+    setMsgs(m=>[...m,{role:"user",text:msg}]);
+    const newH=[...hist,{role:"user",content:msg}];
+    setHist(newH);
     try {
       const res=await fetch("https://api.anthropic.com/v1/messages",{
         method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:800,system:ctx(),messages:newHist.slice(-8)})
+        body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:800,system:ctx(),messages:newH.slice(-8)})
       });
       const d=await res.json();
       const reply=d.content&&d.content[0]?d.content[0].text:"No response.";
       setMsgs(m=>[...m,{role:"assistant",text:reply}]);
       setHist(h=>[...h,{role:"assistant",content:reply}]);
     } catch(e) {
-      setMsgs(m=>[...m,{role:"assistant",text:"Error connecting. Please try again."}]);
+      setMsgs(m=>[...m,{role:"assistant",text:"Error. Please try again."}]);
     }
     setBusy(false);
   };
-  const chips=["Who needs coaching today?","Which team is winning?","Who has the best cadence?","Compare all 6 teams"];
   if(!open) return null;
   return (
     <div style={{position:"fixed",inset:0,background:"rgba(41,53,93,.4)",zIndex:500,display:"flex",alignItems:"flex-end",justifyContent:"flex-end",padding:20}}>
       <div style={{width:420,height:"72vh",maxHeight:680,background:"#fff",borderRadius:16,display:"flex",flexDirection:"column",overflow:"hidden",boxShadow:"0 8px 40px rgba(41,53,93,.2)"}}>
         <div style={{padding:"14px 18px",background:MID,display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
           <span style={{fontFamily:"Nunito,sans-serif",fontSize:14,fontWeight:800,color:"#fff"}}>🤖 AI Coaching Assistant</span>
-          <button onClick={onClose} style={{background:"transparent",border:"none",color:"rgba(255,255,255,.6)",fontSize:20,cursor:"pointer",padding:"2px 6px",borderRadius:6}}>✕</button>
+          <button onClick={onClose} style={{background:"transparent",border:"none",color:"rgba(255,255,255,.6)",fontSize:20,cursor:"pointer"}}>✕</button>
         </div>
         <div ref={ref} style={{flex:1,overflowY:"auto",padding:16,display:"flex",flexDirection:"column",gap:10}}>
           {msgs.map((m,i)=>(
@@ -778,18 +632,12 @@ function AIPanel({csms,data,open,onClose}) {
               />
             </div>
           ))}
+          {busy&&<div style={{alignSelf:"flex-start",padding:"10px 14px",borderRadius:"12px 12px 12px 3px",background:"#F4F6FB",fontSize:13,color:MUT,fontStyle:"italic"}}>Thinking...</div>}
         </div>
-        {msgs.length<=1&&(
-          <div style={{display:"flex",flexWrap:"wrap",gap:6,padding:"0 14px 10px"}}>
-            {chips.map(c=>(
-              <span key={c} onClick={()=>{setInp(c);}} style={{fontSize:11,fontWeight:600,padding:"4px 10px",borderRadius:20,border:"1px solid rgba(41,53,93,.15)",background:"#F4F6FB",color:MID,cursor:"pointer",whiteSpace:"nowrap"}}>{c}</span>
-            ))}
-          </div>
-        )}
         <div style={{padding:"12px 14px",borderTop:"1px solid rgba(41,53,93,.08)",flexShrink:0}}>
           <div style={{display:"flex",gap:8,alignItems:"flex-end"}}>
             <textarea value={inp} onChange={e=>setInp(e.target.value)}
-              onKeyDown={e=>{ if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();} }}
+              onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}}
               placeholder="Ask about your team..."
               style={{flex:1,border:"1px solid rgba(41,53,93,.15)",borderRadius:10,padding:"9px 12px",fontSize:13,resize:"none",outline:"none",minHeight:40,maxHeight:100,lineHeight:1.5,fontFamily:"inherit"}}/>
             <button onClick={send} disabled={busy||!inp.trim()}
@@ -801,168 +649,66 @@ function AIPanel({csms,data,open,onClose}) {
   );
 }
 
-function UploadZone({loaded,onFile,onSnap}) {
-  const [drag,setDrag]=useState(null);
-  const cards=[
-    {type:"rev",icon:"💰",title:"Revenue & Integrations",sub:"Weekly OTR, MRR, integrations"},
-    {type:"email",icon:"📧",title:"Email Performance",sub:"CT-Conquer cadence email stats"},
-    {type:"cadence",icon:"✅",title:"Cadence Completed",sub:"Yesterday touchpoint completion"},
-  ];
-  return (
-    <div style={{padding:"32px 32px 24px"}}>
-      <div style={{textAlign:"center",marginBottom:24}}>
-        <div style={{fontFamily:"Nunito,sans-serif",fontSize:22,fontWeight:800,color:MID,marginBottom:6}}>Upload your reports</div>
-        <div style={{fontSize:13,color:MUT,marginBottom:12}}>Upload CSVs below — or import a snapshot shared by a teammate</div>
-        <label style={{display:"inline-flex",alignItems:"center",gap:6,fontSize:12,fontWeight:700,padding:"7px 16px",borderRadius:8,cursor:"pointer",background:MID,color:"#fff"}}>
-          📥 Import teammate snapshot
-          <input type="file" accept=".json" style={{display:"none"}} onChange={e=>{ if(e.target.files[0]){onSnap(e.target.files[0]);e.target.value="";} }}/>
-        </label>
-      </div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:16,maxWidth:780,margin:"0 auto"}}>
-        {cards.map(({type,icon,title,sub})=>{
-          const isLoaded=!!loaded[type];
-          return (
-            <div key={type}
-              onDragOver={e=>{e.preventDefault();setDrag(type);}}
-              onDragLeave={()=>setDrag(null)}
-              onDrop={e=>{e.preventDefault();setDrag(null);onFile(type,e.dataTransfer.files[0]);}}
-              style={{border:"1.5px dashed "+(isLoaded?"#16a34a":drag===type?ACC:"rgba(41,53,93,.2)"),borderRadius:14,padding:"28px 20px",background:isLoaded?"rgba(22,163,74,.02)":"#fff",textAlign:"center",transition:"all .2s"}}>
-              <div style={{fontSize:24,marginBottom:12}}>{icon}</div>
-              <div style={{fontFamily:"Nunito,sans-serif",fontSize:14,fontWeight:800,color:MID,marginBottom:4}}>{title}</div>
-              <div style={{fontSize:11,color:MUT,marginBottom:16,lineHeight:1.5}}>{sub}</div>
-              <label style={{display:"inline-flex",alignItems:"center",gap:6,background:isLoaded?"#16a34a":ACC,color:"#fff",fontSize:12,fontWeight:700,padding:"7px 16px",borderRadius:8,cursor:"pointer"}}>
-                {isLoaded?"✓ "+loaded[type].name.replace(/\.(xlsx?|csv)$/i,"").substring(0,22):"↑ Choose file"}
-                <input type="file" accept=".xlsx,.xls,.csv" style={{display:"none"}} onChange={e=>{onFile(type,e.target.files[0]);e.target.value="";}}/>
-              </label>
-              <div style={{fontSize:10,color:MUT,marginTop:8}}>{isLoaded?loaded[type].rows.length+" records loaded":".xlsx · .csv"}</div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-
 function PinLock({onUnlock}) {
-  const [val, setVal] = React.useState("");
-  const [err, setErr] = React.useState(false);
-  const check = () => {
-    if(val === DASHBOARD_PIN) {
-      try { sessionStorage.setItem(PIN_KEY, "1"); } catch(e) {}
-      onUnlock();
-    } else {
-      setErr(true);
-      setVal("");
-      setTimeout(()=>setErr(false), 1500);
-    }
+  const [val,setVal]=useState("");
+  const [err,setErr]=useState(false);
+  const check=()=>{
+    if(val===PIN){try{sessionStorage.setItem(PIN_KEY,"1");}catch(e){}onUnlock();}
+    else{setErr(true);setVal("");setTimeout(()=>setErr(false),1500);}
   };
   return (
     <div style={{minHeight:"100vh",background:"#F4F6FB",display:"flex",alignItems:"center",justifyContent:"center"}}>
       <div style={{background:"#fff",borderRadius:16,padding:"40px 36px",boxShadow:"0 4px 32px rgba(41,53,93,.12)",textAlign:"center",width:340}}>
-        <div style={{width:56,height:56,borderRadius:"50%",background:"#29355D",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 20px",fontSize:24}}>🔒</div>
-        <div style={{fontFamily:"Nunito,sans-serif",fontSize:20,fontWeight:800,color:"#29355D",marginBottom:6}}>CSM Coaching Dashboard</div>
-        <div style={{fontSize:13,color:"#808080",marginBottom:24}}>Enter your team PIN to continue</div>
-        <input
-          type="password"
-          value={val}
-          onChange={e=>setVal(e.target.value)}
-          onKeyDown={e=>e.key==="Enter"&&check()}
-          placeholder="Enter PIN"
-          autoFocus
-          style={{width:"100%",padding:"10px 14px",fontSize:15,borderRadius:10,border:"1px solid "+(err?"#dc2626":"rgba(41,53,93,.2)"),outline:"none",textAlign:"center",letterSpacing:4,marginBottom:12,background:err?"rgba(220,38,38,.04)":"#fff",transition:"border-color .2s"}}
-        />
-        {err&&<div style={{color:"#dc2626",fontSize:12,marginBottom:10}}>Incorrect PIN — try again</div>}
-        <button onClick={check}
-          style={{width:"100%",padding:"11px",background:"#FF5000",border:"none",borderRadius:10,color:"#fff",fontSize:14,fontWeight:700,cursor:"pointer"}}>
-          Unlock Dashboard
-        </button>
-        <div style={{fontSize:11,color:"#808080",marginTop:16}}>Contact your coach for the PIN</div>
+        <div style={{width:56,height:56,borderRadius:"50%",background:MID,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 20px",fontSize:24}}>🔒</div>
+        <div style={{fontFamily:"Nunito,sans-serif",fontSize:20,fontWeight:800,color:MID,marginBottom:6}}>CSM Coaching Dashboard</div>
+        <div style={{fontSize:13,color:MUT,marginBottom:24}}>Enter your team PIN to continue</div>
+        <input type="password" value={val} onChange={e=>setVal(e.target.value)}
+          onKeyDown={e=>e.key==="Enter"&&check()} placeholder="Enter PIN" autoFocus
+          style={{width:"100%",padding:"10px 14px",fontSize:15,borderRadius:10,border:"1px solid "+(err?RED:"rgba(41,53,93,.2)"),outline:"none",textAlign:"center",letterSpacing:4,marginBottom:12}}/>
+        {err&&<div style={{color:RED,fontSize:12,marginBottom:10}}>Incorrect PIN</div>}
+        <button onClick={check} style={{width:"100%",padding:11,background:ACC,border:"none",borderRadius:10,color:"#fff",fontSize:14,fontWeight:700,cursor:"pointer"}}>Unlock Dashboard</button>
+        <div style={{fontSize:11,color:MUT,marginTop:16}}>Contact your coach for the PIN</div>
       </div>
     </div>
   );
 }
 
+// ── MAIN APP ──────────────────────────────────────────────
 export default function App() {
-  const [unlocked,setUnlocked]=useState(()=>{ try { return sessionStorage.getItem(PIN_KEY)==="1"; } catch(e){ return false; } });
-  const [loaded,setLoaded]=useState({rev:null,email:null,cadence:null});
-  const [tab,setTab]=useState("upload");
+  const [unlocked,setUnlocked]=useState(()=>{ try{return sessionStorage.getItem(PIN_KEY)==="1";}catch(e){return false;} });
+  const [rev,setRev]=useState([]);
+  const [email,setEmail]=useState([]);
+  const [cad,setCad]=useState([]);
+  const [tab,setTab]=useState("coaching");
   const [filters,setFilters]=useState({coach:"",team:"",tier:""});
   const [aiOpen,setAiOpen]=useState(false);
-  const [snapDate,setSnapDate]=useState(null);
-  const [syncStatus,setSyncStatus]=useState("idle"); // idle | syncing | ok | error | loading
+  const [status,setStatus]=useState("loading"); // loading | ok | error
+  const [updatedAt,setUpdatedAt]=useState(null);
 
-  const raw={rev:(loaded.rev&&loaded.rev.rows)||null,email:(loaded.email&&loaded.email.rows)||null,cadence:(loaded.cadence&&loaded.cadence.rows)||null};
-  const csms=raw.rev||raw.email||raw.cadence?buildCSMs(raw):[];
-  const hasData=!!(raw.rev||raw.email||raw.cadence);
+  const csms = buildCSMs(rev,email,cad);
+  const hasData = rev.length>0||email.length>0||cad.length>0;
+
+  useEffect(()=>{
+    if(!unlocked) return;
+    setStatus("loading");
+    Promise.all([
+      fetchCSV(CSV_REV).then(rows=>{ const d=mapRev(rows); console.log("Rev rows:",d.length); return d; }),
+      fetchCSV(CSV_EMAIL).then(rows=>{ const d=mapEmail(rows); console.log("Email rows:",d.length); return d; }),
+      fetchCSV(CSV_CAD).then(rows=>{ const d=mapCadence(rows); console.log("Cad rows:",d.length); return d; }),
+    ]).then(([r,e,c])=>{
+      setRev(r); setEmail(e); setCad(c);
+      setUpdatedAt(new Date().toLocaleTimeString());
+      setStatus("ok");
+      if(r.length>0||e.length>0||c.length>0) setTab("coaching");
+    }).catch(err=>{
+      console.error("Sheet load error:", err);
+      setStatus("error");
+    });
+  },[unlocked]);
 
   const CTMAP={"odirlm01@thryv.com":"The Dominican Dream Team","chase.boyd@thryv.com":"Boyd Meets World","elizabeth.white@thryv.com":"White Wave Warriors","kendra.morelli@thryv.com":"Team Thryv-More(lli)","trisha.stalnaker@thryv.com":"Team Status Engaged","aaron.taylor@thryv.com":"Team Aurorians"};
   const ALLTEAMS=["The Dominican Dream Team","Boyd Meets World","White Wave Warriors","Team Thryv-More(lli)","Team Status Engaged","Team Aurorians"];
   const TIERS=["CSMI","CSMII","CSMIII","SSMI","SSMII"];
-
-  const handleFile=(type,file)=>{
-    if(!file) return;
-    const reader=new FileReader();
-    reader.onload=e=>{
-      try {
-        const wb=XLSX.read(new Uint8Array(e.target.result),{type:"array"});
-        const parsed=type==="rev"?parseRev(wb):type==="email"?parseEmail(wb):parseCadence(wb);
-        setLoaded(prev=>({...prev,[type]:{name:file.name,rows:parsed}}));
-        const now=new Date().toISOString();
-        setSnapDate(now);
-        if(tab==="upload") setTab("coaching");
-        setSyncStatus("ok");
-        // Data goes to Google Sheet manually - see instructions in upload zone
-      } catch(err){ alert("Error: "+err.message); }
-    };
-    reader.readAsArrayBuffer(file);
-  };
-
-  const handleSnap=(file)=>{
-    const reader=new FileReader();
-    reader.onload=e=>{
-      try {
-        const snap=JSON.parse(e.target.result);
-        if(snap.v!=="csm1"){ alert("Invalid snapshot file."); return; }
-        setLoaded(snap.loaded||{rev:null,email:null,cadence:null});
-        setSnapDate(snap.at||null);
-        storageSave(snap.loaded||{});
-        setTab("coaching");
-      } catch(err){ alert("Error reading snapshot: "+err.message); }
-    };
-    reader.readAsText(file);
-  };
-
-  useEffect(()=>{
-    // Pull fresh from Google Sheets on every load
-    setSyncStatus("loading");
-    pullFromSheets().then(({revRows,emailRows,cadRows})=>{
-      const revParsed   = sheetToRev(revRows);
-      const emailParsed = sheetToEmail(emailRows);
-      const cadParsed   = sheetToCadence(cadRows);
-      const hasData = revParsed.length>0||emailParsed.length>0||cadParsed.length>0;
-      if(hasData){
-        const next={
-          rev:     revParsed.length>0   ? {name:"Google Sheet", rows:revParsed}   : null,
-          email:   emailParsed.length>0 ? {name:"Google Sheet", rows:emailParsed} : null,
-          cadence: cadParsed.length>0   ? {name:"Google Sheet", rows:cadParsed}   : null,
-        };
-        setLoaded(next);
-        setSnapDate(new Date().toISOString());
-        setTab("coaching");
-      }
-      setSyncStatus("ok");
-    }).catch(()=>setSyncStatus("error"));
-  },[]);
-
-  const selStyle=(active)=>({
-    fontSize:12,fontWeight:600,
-    color:active?ACC:MID,
-    background:active?"rgba(255,80,0,.04)":"#F4F6FB",
-    border:"1px solid "+(active?ACC:"rgba(41,53,93,.15)"),
-    borderRadius:8,padding:"6px 12px",cursor:"pointer",
-  });
-
   const tabs=[{id:"coaching",label:"🏆 Coaching"},{id:"overview",label:"Overview"},{id:"leaderboard",label:"Leaderboard"},{id:"activity",label:"Activity"}];
 
   if(!unlocked) return <PinLock onUnlock={()=>setUnlocked(true)}/>;
@@ -976,68 +722,74 @@ export default function App() {
           <span style={{fontSize:13,fontWeight:500,color:"rgba(255,255,255,.65)"}}>CSM Coaching Dashboard</span>
         </div>
         <div style={{display:"flex",gap:3,background:"rgba(255,255,255,.08)",borderRadius:8,padding:3}}>
-          {hasData&&tabs.map(t=>(
+          {tabs.map(t=>(
             <button key={t.id} onClick={()=>setTab(t.id)}
               style={{fontSize:12,fontWeight:600,padding:"6px 14px",borderRadius:6,border:"none",cursor:"pointer",
-                background:tab===t.id?ACC:"transparent",color:tab===t.id?"#fff":"rgba(255,255,255,.55)",transition:"all .15s"}}>
+                background:tab===t.id?ACC:"transparent",color:tab===t.id?"#fff":"rgba(255,255,255,.55)"}}>
               {t.label}
             </button>
           ))}
-          {!hasData&&<span style={{fontSize:12,color:"rgba(255,255,255,.4)",padding:"6px 14px"}}>Upload files to get started</span>}
         </div>
         <div style={{display:"flex",alignItems:"center",gap:8}}>
-          {syncStatus==="syncing"&&<span style={{fontSize:11,padding:"4px 10px",borderRadius:20,background:"rgba(255,255,255,.1)",color:"rgba(255,255,255,.6)"}}>⟳ Syncing...</span>}
-          {syncStatus==="ok"&&<span style={{fontSize:11,padding:"4px 10px",borderRadius:20,background:"rgba(22,163,74,.25)",color:"#86efac"}}>✓ Synced</span>}
-          {syncStatus==="loading"&&<span style={{fontSize:11,padding:"4px 10px",borderRadius:20,background:"rgba(255,255,255,.1)",color:"rgba(255,255,255,.6)"}}>⟳ Loading...</span>}
-          {syncStatus==="error"&&<span style={{fontSize:11,padding:"4px 10px",borderRadius:20,background:"rgba(220,38,38,.25)",color:"#fca5a5"}}>✗ Sync error</span>}
-          {hasData&&(
-            <button onClick={()=>exportSnap(loaded)}
-              style={{fontSize:11,fontWeight:700,padding:"5px 12px",borderRadius:20,background:"rgba(255,255,255,.1)",color:"rgba(255,255,255,.8)",cursor:"pointer",border:"1px solid rgba(255,255,255,.2)"}}>
-              ↓ Export
-            </button>
-          )}
+          {status==="loading"&&<span style={{fontSize:11,padding:"4px 10px",borderRadius:20,background:"rgba(255,255,255,.1)",color:"rgba(255,255,255,.6)"}}>⟳ Loading...</span>}
+          {status==="ok"&&<span style={{fontSize:11,padding:"4px 10px",borderRadius:20,background:"rgba(22,163,74,.25)",color:"#86efac"}}>✓ Live{updatedAt?" · "+updatedAt:""}</span>}
+          {status==="error"&&<span style={{fontSize:11,padding:"4px 10px",borderRadius:20,background:"rgba(220,38,38,.25)",color:"#fca5a5"}}>✗ Error</span>}
         </div>
       </div>
 
       {hasData&&(
-        <div style={{background:"#fff",borderBottom:"1px solid rgba(41,53,93,.08)",padding:"10px 28px",display:"flex",gap:10,flexWrap:"wrap",alignItems:"center",boxShadow:"0 2px 8px rgba(41,53,93,.06)"}}>
-          <select value={filters.coach} onChange={e=>{ const v=e.target.value; setFilters({coach:v,team:v?CTMAP[v]||"":"",tier:filters.tier}); }} style={selStyle(!!filters.coach)}>
+        <div style={{background:"#fff",borderBottom:"1px solid rgba(41,53,93,.08)",padding:"10px 28px",display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"}}>
+          <select value={filters.coach} onChange={e=>{ const v=e.target.value; setFilters({coach:v,team:v?CTMAP[v]||"":"",tier:filters.tier}); }}
+            style={{fontSize:12,fontWeight:600,color:filters.coach?ACC:MID,background:"#F4F6FB",border:"1px solid "+(filters.coach?ACC:"rgba(41,53,93,.15)"),borderRadius:8,padding:"6px 12px",cursor:"pointer"}}>
             <option value="">All Coaches</option>
             {COACHES.map(c=><option key={c.email} value={c.email}>{c.name}</option>)}
           </select>
-          <select value={filters.team} onChange={e=>setFilters(f=>({...f,team:e.target.value}))} style={selStyle(!!filters.team)}>
+          <select value={filters.team} onChange={e=>setFilters(f=>({...f,team:e.target.value}))}
+            style={{fontSize:12,fontWeight:600,color:filters.team?ACC:MID,background:"#F4F6FB",border:"1px solid "+(filters.team?ACC:"rgba(41,53,93,.15)"),borderRadius:8,padding:"6px 12px",cursor:"pointer"}}>
             <option value="">All Teams</option>
             {ALLTEAMS.map(t=><option key={t} value={t}>{st(t)}</option>)}
           </select>
-          <select value={filters.tier} onChange={e=>setFilters(f=>({...f,tier:e.target.value}))} style={selStyle(!!filters.tier)}>
+          <select value={filters.tier} onChange={e=>setFilters(f=>({...f,tier:e.target.value}))}
+            style={{fontSize:12,fontWeight:600,color:filters.tier?ACC:MID,background:"#F4F6FB",border:"1px solid "+(filters.tier?ACC:"rgba(41,53,93,.15)"),borderRadius:8,padding:"6px 12px",cursor:"pointer"}}>
             <option value="">All Tiers</option>
             {TIERS.map(t=><option key={t} value={t}>{t}</option>)}
           </select>
           {Object.values(filters).some(v=>v)&&(
-            <button onClick={()=>setFilters({coach:"",team:"",tier:""})} style={{fontSize:11,fontWeight:700,color:ACC,background:"none",border:"none",cursor:"pointer",padding:"4px 8px"}}>✕ Clear</button>
+            <button onClick={()=>setFilters({coach:"",team:"",tier:""})} style={{fontSize:11,fontWeight:700,color:ACC,background:"none",border:"none",cursor:"pointer"}}>✕ Clear</button>
           )}
-          <span style={{marginLeft:"auto",fontSize:11,color:MUT,fontWeight:600}}>
-            {snapDate?"Updated: "+new Date(snapDate).toLocaleDateString("en-US",{month:"short",day:"numeric"}):""}
-          </span>
-          <button onClick={()=>setTab("upload")} style={{fontSize:12,fontWeight:600,color:MUT,background:"transparent",border:"1px solid rgba(41,53,93,.15)",borderRadius:8,padding:"6px 14px",cursor:"pointer"}}>↑ Upload new files</button>
         </div>
       )}
 
-      {tab==="upload"&&<UploadZone loaded={loaded} onFile={handleFile} onSnap={handleSnap}/>}
-      {tab==="coaching"&&hasData&&<CoachingView csms={csms} fc={filters.coach} ft={filters.team}/>}
-      {tab==="overview"&&hasData&&<OverviewView data={raw} csms={csms}/>}
-      {tab==="leaderboard"&&hasData&&<LeaderboardView csms={csms} fc={filters.coach} ft={filters.team} tier={filters.tier}/>}
-      {tab==="activity"&&hasData&&<ActivityView data={raw}/>}
+      {status==="loading"&&!hasData&&(
+        <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"60vh",flexDirection:"column",gap:16}}>
+          <div style={{fontSize:32}}>⟳</div>
+          <div style={{fontSize:15,color:MUT}}>Loading data from Google Sheet...</div>
+        </div>
+      )}
+
+      {status==="error"&&!hasData&&(
+        <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"60vh",flexDirection:"column",gap:16}}>
+          <div style={{fontSize:32}}>⚠️</div>
+          <div style={{fontSize:15,color:RED,fontWeight:700}}>Could not load data from Google Sheet</div>
+          <div style={{fontSize:13,color:MUT}}>Check the browser console for details</div>
+          <button onClick={()=>window.location.reload()} style={{background:ACC,color:"#fff",border:"none",borderRadius:8,padding:"10px 20px",cursor:"pointer",fontSize:13,fontWeight:700}}>Try Again</button>
+        </div>
+      )}
+
+      {hasData&&tab==="coaching"&&<CoachingView csms={csms} fc={filters.coach} ft={filters.team}/>}
+      {hasData&&tab==="overview"&&<OverviewView rev={rev} email={email} cad={cad} csms={csms}/>}
+      {hasData&&tab==="leaderboard"&&<LeaderboardView csms={csms} fc={filters.coach} ft={filters.team} tier={filters.tier}/>}
+      {hasData&&tab==="activity"&&<ActivityView email={email} cad={cad}/>}
 
       {hasData&&(
         <button onClick={()=>setAiOpen(true)}
           style={{position:"fixed",bottom:24,right:24,width:54,height:54,borderRadius:"50%",background:MID,border:"none",cursor:"pointer",boxShadow:"0 4px 20px rgba(41,53,93,.35)",fontSize:22,zIndex:499,display:"flex",alignItems:"center",justifyContent:"center"}}
-          onMouseOver={e=>{ e.currentTarget.style.background=ACC; }}
-          onMouseOut={e=>{ e.currentTarget.style.background=MID; }}>
+          onMouseOver={e=>{e.currentTarget.style.background=ACC;}}
+          onMouseOut={e=>{e.currentTarget.style.background=MID;}}>
           🤖
         </button>
       )}
-      <AIPanel csms={csms} data={raw} open={aiOpen} onClose={()=>setAiOpen(false)}/>
+      <AIPanel csms={csms} rev={rev} email={email} cad={cad} open={aiOpen} onClose={()=>setAiOpen(false)}/>
     </div>
   );
 }
