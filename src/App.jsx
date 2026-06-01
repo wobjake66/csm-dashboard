@@ -8,9 +8,9 @@ const SHEET_ID = "1ZjakNUSbcSaiO3KVXcg6q3FetFbLISaFsGKLNtVOhyI";
 
 // Tab GIDs - update these after creating tabs in your sheet
 // Sheet1/revenue = gid 0, create "email" and "cadence" tabs and put their gids here
-const GID_REV     = "0";
-const GID_EMAIL   = "1";   // update after creating Email tab
-const GID_CADENCE = "2";   // update after creating Cadence tab
+const GID_REV     = "322916467";
+const GID_EMAIL   = "0";
+const GID_CADENCE = "1973544046";
 
 function sheetCSVUrl(gid) {
   return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${gid}`;
