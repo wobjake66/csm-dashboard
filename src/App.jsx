@@ -660,6 +660,39 @@ function AIPanel({csms,rev,email,cad,open,onClose}) {
   );
 }
 
+
+function buildClaudePrompt(csms, rev, email, cad) {
+  const lines = ["I need coaching insights for my CSM team at Thryv. Here is today's performance data:\n"];
+  COACHES.forEach(coach => {
+    const team = csms.filter(c => { const i=lk(c.name); return (i&&i.c===coach.email)||c.coach===coach.email; });
+    if (!team.length) return;
+    const cadC = team.filter(c=>c.cadCount>0);
+    const avgCad = cadC.length ? cadC.reduce((s,c)=>s+c.cadPct,0)/cadC.length : null;
+    const emC = team.filter(c=>c.sent>0);
+    const avgOpen = emC.length ? emC.reduce((s,c)=>s+c.openRate,0)/emC.length : null;
+    const totRev = team.reduce((s,c)=>s+c.rev,0);
+    const winning = cadC.filter(c=>c.cadPct>=0.9).map(c=>c.name).join(", ")||"none";
+    const struggling = cadC.filter(c=>c.cadPct<0.9).sort((a,b)=>a.cadPct-b.cadPct).map(c=>c.name+" "+Math.round(c.cadPct*100)+"%").join(", ")||"none";
+    const noData = team.filter(c=>c.cadCount===0).map(c=>c.name).join(", ");
+    lines.push("COACH: "+coach.name+" | "+coach.team);
+    lines.push("  Cadence avg: "+(avgCad!=null?Math.round(avgCad*100)+"%":"no data")+" (target 90%+)");
+    lines.push("  Email open avg: "+(avgOpen!=null?Math.round(avgOpen*100)+"%":"no data")+" (target 70%+)");
+    lines.push("  Revenue: $"+totRev.toLocaleString());
+    lines.push("  Winning (90%+): "+winning);
+    lines.push("  Needs coaching: "+struggling);
+    if (noData) lines.push("  No cadence data: "+noData);
+    lines.push("");
+  });
+  lines.push("Please analyze this data and tell me:\n1. Which CSMs need the most coaching attention today?\n2. Which teams are winning and why?\n3. What specific coaching conversations should I prioritize this week?\n4. Any patterns or concerns I should know about?");
+  return lines.join("\n");
+}
+
+function openClaude(csms, rev, email, cad) {
+  const prompt = buildClaudePrompt(csms, rev, email, cad);
+  const url = "https://claude.ai/new?q=" + encodeURIComponent(prompt);
+  window.open(url, "_blank");
+}
+
 function PinLock({onUnlock}) {
   const [val,setVal]=useState("");
   const [err,setErr]=useState(false);
@@ -745,6 +778,12 @@ export default function App() {
           {status==="loading"&&<span style={{fontSize:11,padding:"4px 10px",borderRadius:20,background:"rgba(255,255,255,.1)",color:"rgba(255,255,255,.6)"}}>⟳ Loading...</span>}
           {status==="ok"&&<span style={{fontSize:11,padding:"4px 10px",borderRadius:20,background:"rgba(22,163,74,.25)",color:"#86efac"}}>✓ Live{updatedAt?" · "+updatedAt:""}</span>}
           {status==="error"&&<span style={{fontSize:11,padding:"4px 10px",borderRadius:20,background:"rgba(220,38,38,.25)",color:"#fca5a5"}}>✗ Error</span>}
+          {hasData&&(
+            <button onClick={()=>openClaude(csms,rev,email,cad)}
+              style={{fontSize:11,fontWeight:700,padding:"5px 12px",borderRadius:20,background:"rgba(255,255,255,.1)",color:"rgba(255,255,255,.85)",cursor:"pointer",border:"1px solid rgba(255,255,255,.2)",whiteSpace:"nowrap"}}>
+              🤖 Ask AI Coach
+            </button>
+          )}
         </div>
       </div>
 
