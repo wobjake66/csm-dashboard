@@ -192,6 +192,55 @@ function parseCSVLine(line) {
   return result;
 }
 
+
+// Map Google Sheet rows → dashboard format
+function sheetToRev(rows) {
+  return rows.map(r=>{
+    const name = (r["CSM Name"]||r["name"]||"").trim();
+    if(!name) return null;
+    return {
+      name,
+      team:  (r["CSM Team!"]||r["CSM Team! "]||r["team"]||"").trim(),
+      tier:  (r["CSM Tier"]||r["tier"]||"").trim(),
+      type:  (r["Type of Integration"]||r["type"]||"").trim(),
+      quarter:(r["Quarter for Consideration"]||r["quarter"]||"").trim(),
+      mrr:   pm(r["MRR $ Added"]||r["mrr"]||"0"),
+      otr:   pm(r["OTR $ Added"]||r["otr"]||"0"),
+      total: pm(r["Total Revenue Added"]||r["total"]||"0"),
+      nonrev:(r["Non-Revenue Integrations"]||r["nonrev"]||"").trim()?1:0,
+    };
+  }).filter(Boolean);
+}
+
+function sheetToEmail(rows) {
+  return rows.map(r=>{
+    const name = (r["Touchpoint: Owner Name"]||r["name"]||r["Name"]||"").trim();
+    if(!name||name==="Total") return null;
+    return {
+      name,
+      sent:    pn(r["Sum of Emails Sent"]||r["sent"]||0),
+      opens:   pn(r["Sum of Email Opens"]||r["opens"]||0),
+      replies: pn(r["Sum of Email Replies"]||r["replies"]||0),
+      openRate: pn(r["Open Rate"]||r["openRate"]||0),
+      replyRate:pn(r["Reply Rate"]||r["replyRate"]||0),
+      replyWhenOpened:pn(r["Reply Rate When Opened"]||r["replyWhenOpened"]||0),
+    };
+  }).filter(Boolean);
+}
+
+function sheetToCadence(rows) {
+  return rows.map(r=>{
+    const name = (r["name"]||r["Name"]||r["CSM"]||r["Touchpoint: Owner Name"]||"").trim();
+    if(!name||name==="Total") return null;
+    return {
+      name,
+      count:  pn(r["count"]||r["Count"]||r["Tasks"]||0),
+      pct:    pn(r["pct"]||r["Pct"]||r["Completion"]||r["% Completed"]||0),
+      removed:pn(r["removed"]||r["Removed"]||0),
+    };
+  }).filter(Boolean);
+}
+
 async function pullFromSheets() {
   const [revRows, emailRows, cadRows] = await Promise.all([
     fetchCSV(CSV_REV),
