@@ -148,26 +148,31 @@ async function fetchCSV(url) {
     if(!res.ok) throw new Error("HTTP "+res.status);
     const text = await res.text();
     if(!text||text.trim()===""||text.includes("<!DOCTYPE")) throw new Error("got HTML");
-    const lines = text.split("\n").filter(l=>l.trim());
-    // Find header row - scan first 15 rows for recognizable column names
-    let hdrIdx = 0;
-    for(let i=0;i<Math.min(lines.length,15);i++){
-      const joined = parseCSVLine(lines[i]).join(" ").toLowerCase();
-      if(joined.includes("csm name")||joined.includes("owner name")||joined.includes("touchpoint")||joined.includes("submission")) {
-        hdrIdx = i; break;
-      }
+    // Split into lines preserving quoted newlines
+    const lines = [];
+    let cur = "", inQ = false;
+    for(let i=0;i<text.length;i++){
+      const ch = text[i];
+      if(ch==='"') inQ=!inQ;
+      else if((ch==="\n"||ch==="\r")&&!inQ){ if(cur.trim()) lines.push(cur); cur=""; continue; }
+      cur+=ch;
     }
-    const headers = parseCSVLine(lines[hdrIdx]);
+    if(cur.trim()) lines.push(cur);
+    if(lines.length<2) return [];
+    // Row 1 is always the header (sheet is now clean)
+    const headers = parseCSVLine(lines[0]);
+    console.log("CSV headers found:", headers.slice(0,5), "... total:", headers.length);
     const rows = [];
-    for(let i=hdrIdx+1;i<lines.length;i++){
+    for(let i=1;i<lines.length;i++){
       const vals = parseCSVLine(lines[i]);
       if(!vals.some(v=>v.trim())) continue;
-      const first = (vals[0]||vals[1]||"").toLowerCase();
+      const first = (vals[0]||"").toLowerCase();
       if(first.includes("confidential")||first.includes("copyright")) break;
       const obj={};
-      headers.forEach((h,j)=>obj[h.trim()]=vals[j]||"");
+      headers.forEach((h,j)=>{ obj[h.trim()] = (vals[j]||"").trim(); });
       rows.push(obj);
     }
+    console.log("CSV rows parsed:", rows.length, "sample:", rows[0]);
     return rows;
   } catch(e) {
     console.warn("CSV fetch failed:", url, e.message);
@@ -197,15 +202,22 @@ async function pullFromSheets() {
 }
 
 function storageSave(data) {
+  // Try to save - silently skip if quota exceeded
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    // Only save file names, not actual row data (too large)
+    const meta = {
+      rev:     data.rev     ? {name:data.rev.name,     count:data.rev.rows.length}     : null,
+      email:   data.email   ? {name:data.email.name,   count:data.email.rows.length}   : null,
+      cadence: data.cadence ? {name:data.cadence.name, count:data.cadence.rows.length} : null,
+      savedAt: new Date().toISOString(),
+    };
+    localStorage.setItem(STORAGE_KEY+"_meta", JSON.stringify(meta));
   } catch(e) {
-    // Quota exceeded - clear and try again
-    try { localStorage.clear(); localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch(e2) {}
+    try { localStorage.removeItem(STORAGE_KEY); localStorage.removeItem(STORAGE_KEY+"_meta"); } catch(e2) {}
   }
 }
 function storageLoad() {
-  try { const r=localStorage.getItem(STORAGE_KEY); return r?JSON.parse(r):null; } catch(e) { return null; }
+  return null; // Always load fresh from Google Sheet
 }
 function exportSnap(loaded) {
   const blob=new Blob([JSON.stringify({v:"csm1",loaded,at:new Date().toISOString()})],{type:"application/json"});
@@ -846,11 +858,7 @@ export default function App() {
       try {
         const wb=XLSX.read(new Uint8Array(e.target.result),{type:"array"});
         const parsed=type==="rev"?parseRev(wb):type==="email"?parseEmail(wb):parseCadence(wb);
-        setLoaded(prev=>{
-          const next={...prev,[type]:{name:file.name,rows:parsed}};
-          storageSave(next);
-          return next;
-        });
+        setLoaded(prev=>({...prev,[type]:{name:file.name,rows:parsed}}));
         const now=new Date().toISOString();
         setSnapDate(now);
         if(tab==="upload") setTab("coaching");
@@ -877,12 +885,7 @@ export default function App() {
   };
 
   useEffect(()=>{
-    // Load from localStorage first (instant)
-    const saved = storageLoad();
-    if(saved&&(saved.rev||saved.email||saved.cadence)){
-      setLoaded(saved); setTab("coaching");
-    }
-    // Then pull fresh from Google Sheets
+    // Pull fresh from Google Sheets on every load
     setSyncStatus("loading");
     pullFromSheets().then(({revRows,emailRows,cadRows})=>{
       const revParsed   = sheetToRev(revRows);
@@ -896,7 +899,6 @@ export default function App() {
           cadence: cadParsed.length>0   ? {name:"Google Sheet", rows:cadParsed}   : null,
         };
         setLoaded(next);
-        storageSave(next);
         setSnapDate(new Date().toISOString());
         setTab("coaching");
       }
