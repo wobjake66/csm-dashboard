@@ -575,124 +575,6 @@ function ActivityView({email,cad}) {
   );
 }
 
-function AIPanel({csms,rev,email,cad,open,onClose}) {
-  const [msgs,setMsgs]=useState([{role:"assistant",text:"Hi! I have your team data loaded. Ask me who needs coaching, which team is winning, or anything about performance."}]);
-  const [inp,setInp]=useState("");
-  const [busy,setBusy]=useState(false);
-  const [hist,setHist]=useState([]);
-  const ref=useRef();
-  useEffect(()=>{ if(ref.current) ref.current.scrollTop=ref.current.scrollHeight; },[msgs]);
-  const ctx=()=>{
-    const sums=COACHES.map(coach=>{
-      const tc2=csms.filter(c=>{ const i=lk(c.name); return(i&&i.c===coach.email)||c.coach===coach.email; });
-      if(!tc2.length) return coach.name+": no data";
-      const cadC=tc2.filter(c=>c.cadCount>0);
-      const avgC=cadC.length?cadC.reduce((s,c)=>s+c.cadPct,0)/cadC.length:null;
-      const emC=tc2.filter(c=>c.sent>0);
-      const avgO=emC.length?emC.reduce((s,c)=>s+c.openRate,0)/emC.length:null;
-      const totR=tc2.reduce((s,c)=>s+c.rev,0);
-      const win=cadC.filter(c=>c.cadPct>=0.9).map(c=>c.name);
-      const str=cadC.filter(c=>c.cadPct<0.9).sort((a,b)=>a.cadPct-b.cadPct).map(c=>c.name+" "+Math.round(c.cadPct*100)+"%");
-      const nd=tc2.filter(c=>c.cadCount===0).map(c=>c.name);
-      return "COACH: "+coach.name+" | "+coach.team+
-        "\n  Cadence: "+(avgC!=null?Math.round(avgC*100)+"%":"no data")+
-        "\n  Email open: "+(avgO!=null?Math.round(avgO*100)+"%":"no data")+
-        "\n  Revenue: $"+totR.toLocaleString()+
-        "\n  Winning: "+(win.join(", ")||"none")+
-        "\n  Needs coaching: "+(str.join(", ")||"none")+
-        (nd.length?"\n  No data: "+nd.join(", "):"");
-    }).join("\n\n");
-    return "You are a CSM coaching assistant for Thryv. Give specific, actionable advice. Winning = 90%+ cadence. Be direct.\n\n"+sums;
-  };
-  const send=async()=>{
-    const msg=inp.trim(); if(!msg||busy) return;
-    setInp(""); setBusy(true);
-    setMsgs(m=>[...m,{role:"user",text:msg}]);
-    const newH=[...hist,{role:"user",content:msg}];
-    setHist(newH);
-    try {
-      const res=await fetch("/api/chat",{
-        method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({system:ctx(),messages:newH.slice(-8)})
-      });
-      const d=await res.json();
-      const reply=d.content&&d.content[0]?d.content[0].text:"No response.";
-      setMsgs(m=>[...m,{role:"assistant",text:reply}]);
-      setHist(h=>[...h,{role:"assistant",content:reply}]);
-    } catch(e) {
-      setMsgs(m=>[...m,{role:"assistant",text:"Error. Please try again."}]);
-    }
-    setBusy(false);
-  };
-  if(!open) return null;
-  return (
-    <div style={{position:"fixed",inset:0,background:"rgba(41,53,93,.4)",zIndex:500,display:"flex",alignItems:"flex-end",justifyContent:"flex-end",padding:20}}>
-      <div style={{width:420,height:"72vh",maxHeight:680,background:"#fff",borderRadius:16,display:"flex",flexDirection:"column",overflow:"hidden",boxShadow:"0 8px 40px rgba(41,53,93,.2)"}}>
-        <div style={{padding:"14px 18px",background:MID,display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
-          <span style={{fontFamily:"Nunito,sans-serif",fontSize:14,fontWeight:800,color:"#fff"}}>🤖 AI Coaching Assistant</span>
-          <button onClick={onClose} style={{background:"transparent",border:"none",color:"rgba(255,255,255,.6)",fontSize:20,cursor:"pointer"}}>✕</button>
-        </div>
-        <div ref={ref} style={{flex:1,overflowY:"auto",padding:16,display:"flex",flexDirection:"column",gap:10}}>
-          {msgs.map((m,i)=>(
-            <div key={i} style={{display:"flex",flexDirection:"column",alignItems:m.role==="user"?"flex-end":"flex-start"}}>
-              <div style={{maxWidth:"88%",padding:"10px 14px",fontSize:13,lineHeight:1.55,
-                background:m.role==="user"?ACC:"#F4F6FB",color:m.role==="user"?"#fff":"#121212",
-                border:m.role==="user"?"none":"1px solid rgba(41,53,93,.08)",
-                borderRadius:m.role==="user"?"12px 12px 3px 12px":"12px 12px 12px 3px"}}
-                dangerouslySetInnerHTML={{__html:m.text.replace(/\*\*(.*?)\*\*/g,"<strong>$1</strong>").replace(/\n/g,"<br/>")}}
-              />
-            </div>
-          ))}
-          {busy&&<div style={{alignSelf:"flex-start",padding:"10px 14px",borderRadius:"12px 12px 12px 3px",background:"#F4F6FB",fontSize:13,color:MUT,fontStyle:"italic"}}>Thinking...</div>}
-        </div>
-        <div style={{padding:"12px 14px",borderTop:"1px solid rgba(41,53,93,.08)",flexShrink:0}}>
-          <div style={{display:"flex",gap:8,alignItems:"flex-end"}}>
-            <textarea value={inp} onChange={e=>setInp(e.target.value)}
-              onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}}
-              placeholder="Ask about your team..."
-              style={{flex:1,border:"1px solid rgba(41,53,93,.15)",borderRadius:10,padding:"9px 12px",fontSize:13,resize:"none",outline:"none",minHeight:40,maxHeight:100,lineHeight:1.5,fontFamily:"inherit"}}/>
-            <button onClick={send} disabled={busy||!inp.trim()}
-              style={{background:ACC,border:"none",borderRadius:8,padding:"0 14px",cursor:"pointer",color:"#fff",fontSize:16,flexShrink:0,height:40,minWidth:40,opacity:(busy||!inp.trim())?0.4:1}}>↑</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-
-function buildClaudePrompt(csms, rev, email, cad) {
-  const lines = ["I need coaching insights for my CSM team at Thryv. Here is today's performance data:\n"];
-  COACHES.forEach(coach => {
-    const team = csms.filter(c => { const i=lk(c.name); return (i&&i.c===coach.email)||c.coach===coach.email; });
-    if (!team.length) return;
-    const cadC = team.filter(c=>c.cadCount>0);
-    const avgCad = cadC.length ? cadC.reduce((s,c)=>s+c.cadPct,0)/cadC.length : null;
-    const emC = team.filter(c=>c.sent>0);
-    const avgOpen = emC.length ? emC.reduce((s,c)=>s+c.openRate,0)/emC.length : null;
-    const totRev = team.reduce((s,c)=>s+c.rev,0);
-    const winning = cadC.filter(c=>c.cadPct>=0.9).map(c=>c.name).join(", ")||"none";
-    const struggling = cadC.filter(c=>c.cadPct<0.9).sort((a,b)=>a.cadPct-b.cadPct).map(c=>c.name+" "+Math.round(c.cadPct*100)+"%").join(", ")||"none";
-    const noData = team.filter(c=>c.cadCount===0).map(c=>c.name).join(", ");
-    lines.push("COACH: "+coach.name+" | "+coach.team);
-    lines.push("  Cadence avg: "+(avgCad!=null?Math.round(avgCad*100)+"%":"no data")+" (target 90%+)");
-    lines.push("  Email open avg: "+(avgOpen!=null?Math.round(avgOpen*100)+"%":"no data")+" (target 70%+)");
-    lines.push("  Revenue: $"+totRev.toLocaleString());
-    lines.push("  Winning (90%+): "+winning);
-    lines.push("  Needs coaching: "+struggling);
-    if (noData) lines.push("  No cadence data: "+noData);
-    lines.push("");
-  });
-  lines.push("Please analyze this data and tell me:\n1. Which CSMs need the most coaching attention today?\n2. Which teams are winning and why?\n3. What specific coaching conversations should I prioritize this week?\n4. Any patterns or concerns I should know about?");
-  return lines.join("\n");
-}
-
-function openClaude(csms, rev, email, cad) {
-  const prompt = buildClaudePrompt(csms, rev, email, cad);
-  const url = "https://claude.ai/new?q=" + encodeURIComponent(prompt);
-  window.open(url, "_blank");
-}
-
 function PinLock({onUnlock}) {
   const [val,setVal]=useState("");
   const [err,setErr]=useState(false);
@@ -725,7 +607,6 @@ export default function App() {
   const [cad,setCad]=useState([]);
   const [tab,setTab]=useState("coaching");
   const [filters,setFilters]=useState({coach:"",team:"",tier:""});
-  const [aiOpen,setAiOpen]=useState(false);
   const [status,setStatus]=useState("loading"); // loading | ok | error
   const [updatedAt,setUpdatedAt]=useState(null);
 
@@ -831,15 +712,7 @@ export default function App() {
       {hasData&&tab==="leaderboard"&&<LeaderboardView csms={csms} fc={filters.coach} ft={filters.team} tier={filters.tier}/>}
       {hasData&&tab==="activity"&&<ActivityView email={email} cad={cad}/>}
 
-      {hasData&&(
-        <button onClick={()=>setAiOpen(true)}
-          style={{position:"fixed",bottom:24,right:24,width:54,height:54,borderRadius:"50%",background:MID,border:"none",cursor:"pointer",boxShadow:"0 4px 20px rgba(41,53,93,.35)",fontSize:22,zIndex:499,display:"flex",alignItems:"center",justifyContent:"center"}}
-          onMouseOver={e=>{e.currentTarget.style.background=ACC;}}
-          onMouseOut={e=>{e.currentTarget.style.background=MID;}}>
-          🤖
-        </button>
-      )}
-      <AIPanel csms={csms} rev={rev} email={email} cad={cad} open={aiOpen} onClose={()=>setAiOpen(false)}/>
+
     </div>
   );
 }
