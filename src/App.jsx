@@ -178,32 +178,43 @@ function mapRev(rows) {
 
 function mapEmail(rows) {
   return rows.map(r => {
-    const name = (r["Touchpoint: Owner Name"]||r["Name"]||r["name"]||"").trim();
-    if (!name || name === "Total") return null;
+    // Header has arrow character: "Touchpoint: Owner Name ↑"
+    const name = (r["Touchpoint: Owner Name ↑"]||r["Touchpoint: Owner Name"]||r["Name"]||r["name"]||"").trim();
+    if (!name || name === "Total" || name.includes("Confidential")) return null;
+    const openRate = pn(r["Open Rate"]||r["openRate"]||0);
+    const replyRate = pn(r["Reply Rate"]||r["replyRate"]||0);
     return {
       name,
       sent: pn(r["Sum of Emails Sent"]||r["sent"]||0),
       opens: pn(r["Sum of Email Opens"]||r["opens"]||0),
       replies: pn(r["Sum of Email Replies"]||r["replies"]||0),
-      openRate: pn(r["Open Rate"]||r["openRate"]||0),
-      replyRate: pn(r["Reply Rate"]||r["replyRate"]||0),
+      openRate: openRate > 1 ? openRate / 100 : openRate,
+      replyRate: replyRate > 1 ? replyRate / 100 : replyRate,
     };
   }).filter(Boolean);
 }
 
 function mapCadence(rows) {
-  return rows.map(r => {
-    const name = (r["name"]||r["Name"]||r["CSM"]||r["Touchpoint: Owner Name"]||"").trim();
-    if (!name || name === "Total") return null;
-    let pct = pn(r["pct"]||r["Pct"]||r["% Completed"]||r["Completion"]||0);
+  // Cadence tab is raw detail - one row per touchpoint
+  // Group by CSM name and calculate completion %
+  const byCSM = {};
+  rows.forEach(r => {
+    const name = (r["Touchpoint: Owner Name ↑"]||r["Touchpoint: Owner Name"]||r["name"]||r["Name"]||"").trim();
+    if (!name || name.includes("Confidential") || name.includes("Copyright")) return;
+    if (!byCSM[name]) byCSM[name] = { total:0, completed:0, removed:0, pctField:null };
+    byCSM[name].total++;
+    const status = (r["Cadence Member: Status"]||r["Status"]||"").trim();
+    const outcome = (r["Outcome"]||"").trim();
+    if (status === "Removed") byCSM[name].removed++;
+    // Store % Completed if available
+    const pctVal = r["% Completed"]||r["pct"]||"";
+    if (pctVal && byCSM[name].pctField === null) byCSM[name].pctField = pn(pctVal);
+  });
+  return Object.entries(byCSM).map(([name, d]) => {
+    let pct = d.pctField !== null ? d.pctField : (d.total > 0 ? (d.total - d.removed) / d.total : 0);
     if (pct > 1) pct = pct / 100;
-    return {
-      name,
-      count: pn(r["count"]||r["Count"]||r["Tasks"]||0),
-      pct,
-      removed: pn(r["removed"]||r["Removed"]||0),
-    };
-  }).filter(Boolean);
+    return { name, count: d.total, pct, removed: d.removed };
+  }).filter(r => r.count > 0);
 }
 
 // ── BUILD CSM LIST ────────────────────────────────────────
