@@ -611,9 +611,9 @@ function AIPanel({csms,rev,email,cad,open,onClose}) {
     const newH=[...hist,{role:"user",content:msg}];
     setHist(newH);
     try {
-      const res=await fetch("https://api.anthropic.com/v1/messages",{
+      const res=await fetch("/api/chat",{
         method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:800,system:ctx(),messages:newH.slice(-8)})
+        body:JSON.stringify({system:ctx(),messages:newH.slice(-8)})
       });
       const d=await res.json();
       const reply=d.content&&d.content[0]?d.content[0].text:"No response.";
