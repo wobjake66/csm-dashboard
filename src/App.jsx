@@ -25,79 +25,124 @@ const TEAM_COLS = {
   "Team Status Engaged":"#E03000","Team Aurorians":"#5378FC",
 };
 
+// ── ORG CHART (source of truth for coach assignments) ──────────────────────
+// Updated from: https://docs.google.com/spreadsheets/d/e/...?gid=352807280
+// Key changes vs previous: Dorka Frias Lantigua → Kendra Morelli,
+//   Steven Saunders → Kendra Morelli, Sidharta Goris removed from roster
+
 const NAME_NORM = {
-  "darling danais":"Darling Danais Santos Taveras","darling danais santos taveras":"Darling Danais Santos Taveras",
-  "heidi torres uribe":"Heidi Torres Uribe",
-  "irina molina":"Irina Larianni Molina Molina","irina molina molina":"Irina Larianni Molina Molina","irina larianni molina molina":"Irina Larianni Molina Molina",
-  "jathzelyn fortuna":"Jathzelyn Elizabeth Fortuna Paulino","jathzelyn fortuna paulino":"Jathzelyn Elizabeth Fortuna Paulino","jathzelyn elizabeth fortuna paulino":"Jathzelyn Elizabeth Fortuna Paulino","jazz fortuna":"Jathzelyn Elizabeth Fortuna Paulino",
-  "johnny cornielle":"Johnny Cornielle","johnny cornielle montas":"Johnny Cornielle",
-  "joseph carmona":"Joseph Guillermo Carmona Garcia","joseph carmona garcia":"Joseph Guillermo Carmona Garcia","joseph guillermo carmona garcia":"Joseph Guillermo Carmona Garcia",
-  "sam frias":"Samuel Frias De Paula","sam frias de paula":"Samuel Frias De Paula","samuel frias de paula":"Samuel Frias De Paula",
-  "sati pimentel":"Sati Ananda Pimentel Malespin","sati pimentel malespin":"Sati Ananda Pimentel Malespin","sati ananda pimentel malespin":"Sati Ananda Pimentel Malespin",
-  "victor moscoso":"Victor Abner Moscoso Fernandez","victor abner moscoso fernandez":"Victor Abner Moscoso Fernandez","victorabner moscoso fernandez":"Victor Abner Moscoso Fernandez",
+  "darling danais":"Darling Danais Santos Taveras","darling taveras":"Darling Danais Santos Taveras","darling danais santos taveras":"Darling Danais Santos Taveras",
+  "heidi torres":"Heidi Torres Uribe","heidi uribe":"Heidi Torres Uribe","heidi torres uribe":"Heidi Torres Uribe",
+  "irina larianni":"Irina Larianni Molina Molina","irina molina":"Irina Larianni Molina Molina","irina molina molina":"Irina Larianni Molina Molina","irina larianni molina molina":"Irina Larianni Molina Molina",
+  "jathzelyn elizabeth":"Jathzelyn Elizabeth Fortuna Paulino","jathzelyn fortuna":"Jathzelyn Elizabeth Fortuna Paulino","jathzelyn fortuna paulino":"Jathzelyn Elizabeth Fortuna Paulino","jathzelyn paulino":"Jathzelyn Elizabeth Fortuna Paulino","jazz fortuna":"Jathzelyn Elizabeth Fortuna Paulino","jathzelyn elizabeth fortuna paulino":"Jathzelyn Elizabeth Fortuna Paulino",
+  "johnny cornielle montas":"Johnny Cornielle","johnny cornielle":"Johnny Cornielle",
+  "joseph carmona":"Joseph Guillermo Carmona Garcia","joseph carmona garcia":"Joseph Guillermo Carmona Garcia","joseph garcia":"Joseph Guillermo Carmona Garcia","joseph guillermo":"Joseph Guillermo Carmona Garcia","joseph guillermo carmona garcia":"Joseph Guillermo Carmona Garcia",
+  "sam frias":"Samuel Frias De Paula","sam frias de paula":"Samuel Frias De Paula","samuel frias":"Samuel Frias De Paula","samuel paula":"Samuel Frias De Paula","samuel frias de paula":"Samuel Frias De Paula",
+  "sati ananda":"Sati Ananda Pimentel Malespin","sati malespin":"Sati Ananda Pimentel Malespin","sati pimentel":"Sati Ananda Pimentel Malespin","sati pimentel malespin":"Sati Ananda Pimentel Malespin","sati ananda pimentel malespin":"Sati Ananda Pimentel Malespin",
+  "victor abner":"Victor Abner Moscoso Fernandez","victor fernandez":"Victor Abner Moscoso Fernandez","victor moscoso":"Victor Abner Moscoso Fernandez","victorabner moscoso fernandez":"Victor Abner Moscoso Fernandez","victor abner moscoso fernandez":"Victor Abner Moscoso Fernandez",
   "wilson mercedes":"Wilson Mercedes",
-  "yessica montero":"Yessica Montero Urena","yessica montero urena":"Yessica Montero Urena",
-  "barbara larrosa":"Barbara Larrosa Presinal","barbara larrosa presinal":"Barbara Larrosa Presinal",
-  "deivis pena":"Deivis Pena","deivis pe\u00f1a":"Deivis Pena",
+  "yessica montero":"Yessica Montero Urena","yessica urena":"Yessica Montero Urena","yessica montero urena":"Yessica Montero Urena",
+  "barbara larrosa":"Barbara Larrosa Presinal","barbara presinal":"Barbara Larrosa Presinal","barbara larrosa presinal":"Barbara Larrosa Presinal",
+  "deivis pe\u00f1a":"Deivis Pena","deivis pena":"Deivis Pena",
   "eric johnson":"Eric Johnson","kyle dye":"Kyle Dye","sarah swanson":"Sarah Swanson",
   "tyler moeggenberg":"Tyler Moeggenberg","tyler popplewell":"Tyler Popplewell",
-  "luis aguasvivas peralta":"Luis Aguasvivas Peralta",
-  "juan liberato":"Juan Liberato","juan liberato paula":"Juan Liberato",
-  "elianny tena antigua":"Elianny Tena Antigua",
+  "luis aguasvivas":"Luis Aguasvivas Peralta","luis peralta":"Luis Aguasvivas Peralta","luis aguasvivas peralta":"Luis Aguasvivas Peralta",
+  "juan liberato paula":"Juan Liberato","juan liberato":"Juan Liberato",
+  "elianny antigua":"Elianny Tena Antigua","elianny tena":"Elianny Tena Antigua","elianny tena antigua":"Elianny Tena Antigua",
   "damita hill":"Damita Hill","anthony yen":"Anthony Yen","april hall":"April Hall",
-  "katelyn ankrom":"Katelyn Ankrom","kennedy sanchez":"Kennedy Sanchez","matt sword":"Matt Sword",
-  "michael furlong":"Michael Furlong",
-  "yolanda ramirez":"Yolanda Ramirez","yolanda ramirez-drake":"Yolanda Ramirez",
-  "florence francois nova":"Florence Francois Nova","florence francois":"Florence Francois Nova","francois nova":"Florence Francois Nova",
-  "dorka frias lantigua":"Dorka Frias Lantigua",
-  "rossi valerio":"Rossi Valerio Tejeda","rossi valerio tejeda":"Rossi Valerio Tejeda",
-  "steven saunders":"Steven Saunders","sidharta goris":"Sidharta Goris",
-  "alejandro rodriguez-medina":"Alejandro Rodriguez-Medina","alejandro rodriguez medina":"Alejandro Rodriguez-Medina",
+  "katelyn ankrom":"Katelyn Ankrom","kennedy sanchez":"Kennedy Sanchez","matt sword":"Matt Sword","michael furlong":"Michael Furlong",
+  "yolanda ramirez-drake":"Yolanda Ramirez","yolanda ramirez":"Yolanda Ramirez",
+  "florence francois":"Florence Francois Nova","florence nova":"Florence Francois Nova","francois nova":"Florence Francois Nova","florence francois nova":"Florence Francois Nova",
+  "rossi tejeda":"Rossi Valerio Tejeda","rossi valerio":"Rossi Valerio Tejeda","rossi valerio tejeda":"Rossi Valerio Tejeda",
+  "alejandro rodriguez medina":"Alejandro Rodriguez-Medina","alejandro rodriguez-medina":"Alejandro Rodriguez-Medina",
   "chelsea dingus":"Chelsea Dingus",
-  "karmita turner":"Karmita Turner","karmita k turner":"Karmita Turner",
-  "lauren carter":"Lauren Carter","libby booher":"Libby Booher",
-  "misti dixon":"Misti Dixon","misty decatur":"Misty Decatur",
-  "saira guzman":"Saira Julian Guzman","saira julian guzman":"Saira Julian Guzman",
-  "scott mather":"Scott Mather",
+  "dorka frias":"Dorka Frias Lantigua","dorka lantigua":"Dorka Frias Lantigua","dorka frias lantigua":"Dorka Frias Lantigua",
+  "karmita k turner":"Karmita Turner","karmita turner":"Karmita Turner",
+  "lauren carter":"Lauren Carter","libby booher":"Libby Booher","misti dixon":"Misti Dixon","misty decatur":"Misty Decatur",
+  "saira guzman":"Saira Julian Guzman","saira julian":"Saira Julian Guzman","saira julian guzman":"Saira Julian Guzman",
+  "scott mather":"Scott Mather","steven saunders":"Steven Saunders",
   "ashley shaffer":"Ashley Shaffer",
-  "ashley vasquez":"Ashley Vasquez Mena","ashley vasquez mena":"Ashley Vasquez Mena",
-  "karen capellan":"Karen Capellan Tavarez","karen capellan tavarez":"Karen Capellan Tavarez",
+  "ashley mena":"Ashley Vasquez Mena","ashley vasquez":"Ashley Vasquez Mena","ashley vasquez mena":"Ashley Vasquez Mena",
+  "karen capellan":"Karen Capellan Tavarez","karen tavarez":"Karen Capellan Tavarez","karen capellan tavarez":"Karen Capellan Tavarez",
   "karissa hernandez":"Karissa Hernandez","kellie lester":"Kellie Lester","mark velazquez":"Mark Velazquez",
-  "mj brielmann":"Merve (MJ) Brielmann","merve brielmann":"Merve (MJ) Brielmann","merve (mj) brielmann":"Merve (MJ) Brielmann",
+  "merve (mj)":"Merve (MJ) Brielmann","merve brielmann":"Merve (MJ) Brielmann","mj brielmann":"Merve (MJ) Brielmann","merve (mj) brielmann":"Merve (MJ) Brielmann",
   "rafael sencion":"Rafael Sencion Sencion","rafael sencion sencion":"Rafael Sencion Sencion",
-  "stacy roers":"Stacy Roers","stacy miron":"Stacy Roers",
-  "taylor kidd":"Taylor Kidd","felix caba jimenez":"Felix Caba Jimenez",
-  "david crisler":"David Crisler","dave crisler":"David Crisler",
+  "stacy miron":"Stacy Roers","stacy roers":"Stacy Roers",
+  "taylor kidd":"Taylor Kidd",
+  "felix caba":"Felix Caba Jimenez","felix jimenez":"Felix Caba Jimenez","felix caba jimenez":"Felix Caba Jimenez",
+  "dave crisler":"David Crisler","david crisler":"David Crisler",
   "ellise payne":"Ellise Payne","indu vijay":"Indu Vijay","matt daly":"Matt Daly",
-  "nikita siepen-bowers":"Nikita Siepen-Bowers","nikita siepen bowers":"Nikita Siepen-Bowers",
+  "nikita siepen bowers":"Nikita Siepen-Bowers","nikita siepen-bowers":"Nikita Siepen-Bowers",
   "peter manalac":"Peter Manalac","sakshi mahalwal":"Sakshi Mahalwal",
-  "sylvia appla":"Sylvia Appla","sylvia":"Sylvia Appla",
-  "tracy-ann gaudencio":"Tracy-Ann Gaudencio","tracy ann gaudencio":"Tracy-Ann Gaudencio",
+  "sylvia":"Sylvia Appla","sylvia appla":"Sylvia Appla",
+  "tracy ann gaudencio":"Tracy-Ann Gaudencio","tracy-ann gaudencio":"Tracy-Ann Gaudencio",
   "warda gul":"Warda Gul","zoltan rudolf":"Zoltan Rudolf",
 };
 
 const ROSTER = {
+  // ── Mia O'Dirling — The Dominican Dream Team ──────────────────────────
+  "darling danais":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
+  "darling taveras":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
   "darling danais santos taveras":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
+  "heidi torres":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
+  "heidi uribe":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
   "heidi torres uribe":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
+  "irina larianni":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
+  "irina molina":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
+  "irina molina molina":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
   "irina larianni molina molina":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
+  "jathzelyn elizabeth":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
+  "jathzelyn fortuna":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
+  "jathzelyn fortuna paulino":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
+  "jathzelyn paulino":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
+  "jazz fortuna":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
   "jathzelyn elizabeth fortuna paulino":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
   "johnny cornielle":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMII"},
+  "johnny cornielle montas":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMII"},
+  "joseph carmona":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
+  "joseph carmona garcia":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
+  "joseph garcia":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
+  "joseph guillermo":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
   "joseph guillermo carmona garcia":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
+  "sam frias":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMII"},
+  "sam frias de paula":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMII"},
+  "samuel frias":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMII"},
+  "samuel paula":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMII"},
   "samuel frias de paula":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMII"},
+  "sati ananda":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
+  "sati malespin":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
+  "sati pimentel":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
+  "sati pimentel malespin":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
   "sati ananda pimentel malespin":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
+  "victor abner":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
+  "victor fernandez":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
+  "victor moscoso":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
+  "victorabner moscoso fernandez":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
   "victor abner moscoso fernandez":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
   "wilson mercedes":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMII"},
+  "yessica montero":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
+  "yessica urena":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
   "yessica montero urena":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
+  // ── Chase Boyd — Boyd Meets World ─────────────────────────────────────
+  "barbara larrosa":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMII"},
+  "barbara presinal":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMII"},
   "barbara larrosa presinal":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMII"},
   "deivis pena":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMI"},
+  "deivis pe\u00f1a":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMI"},
   "eric johnson":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMII"},
   "kyle dye":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMIII"},
   "sarah swanson":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMI"},
   "tyler moeggenberg":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMI"},
   "tyler popplewell":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMI"},
+  "luis aguasvivas":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMI"},
+  "luis peralta":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMI"},
   "luis aguasvivas peralta":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMI"},
+  "juan liberato paula":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMI"},
   "juan liberato":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMI"},
+  "elianny antigua":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMI"},
+  "elianny tena":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMI"},
   "elianny tena antigua":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMI"},
+  // ── Elizabeth White — White Wave Warriors ─────────────────────────────
   "damita hill":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII"},
   "anthony yen":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII"},
   "april hall":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII"},
@@ -105,40 +150,69 @@ const ROSTER = {
   "kennedy sanchez":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII"},
   "matt sword":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMI"},
   "michael furlong":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII"},
+  "yolanda ramirez-drake":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII"},
   "yolanda ramirez":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII"},
+  "florence francois":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMI"},
+  "florence nova":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMI"},
+  "francois nova":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMI"},
   "florence francois nova":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMI"},
-  "dorka frias lantigua":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMI"},
+  "rossi tejeda":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMI"},
+  "rossi valerio":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMI"},
   "rossi valerio tejeda":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMI"},
-  "steven saunders":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII"},
-  "sidharta goris":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMI"},
+  // ── Kendra Morelli — Team Thryv-More(lli) ────────────────────────────
+  "alejandro rodriguez medina":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"SSMII"},
   "alejandro rodriguez-medina":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"SSMII"},
   "chelsea dingus":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"SSMII"},
+  "dorka frias":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"CSMI"},
+  "dorka lantigua":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"CSMI"},
+  "dorka frias lantigua":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"CSMI"},
+  "karmita k turner":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"CSMII"},
   "karmita turner":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"CSMII"},
   "lauren carter":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"CSMII"},
   "libby booher":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"CSMIII"},
   "misti dixon":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"CSMIII"},
   "misty decatur":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"SSMI"},
+  "saira guzman":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"CSMI"},
+  "saira julian":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"CSMI"},
   "saira julian guzman":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"CSMI"},
   "scott mather":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"SSMII"},
+  "steven saunders":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"CSMII"},
+  // ── Trisha Stalnaker — Team Status Engaged ────────────────────────────
   "ashley shaffer":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMII"},
+  "ashley mena":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMI"},
+  "ashley vasquez":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMI"},
   "ashley vasquez mena":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMI"},
+  "karen capellan":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMI"},
+  "karen tavarez":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMI"},
   "karen capellan tavarez":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMI"},
   "karissa hernandez":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMII"},
   "kellie lester":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMIII"},
   "mark velazquez":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"SSMII"},
+  "merve (mj)":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMII"},
+  "merve brielmann":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMII"},
+  "mj brielmann":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMII"},
   "merve (mj) brielmann":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMII"},
+  "rafael sencion":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMI"},
   "rafael sencion sencion":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMI"},
+  "stacy miron":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMIII"},
   "stacy roers":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMIII"},
   "taylor kidd":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMI"},
+  "felix caba":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMI"},
+  "felix jimenez":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMI"},
   "felix caba jimenez":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMI"},
+  // ── Aaron Taylor — Team Aurorians ─────────────────────────────────────
+  "dave crisler":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMII"},
   "david crisler":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMII"},
   "ellise payne":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMI"},
   "indu vijay":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMI"},
   "matt daly":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMI"},
+  "nikita siepen bowers":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMI"},
   "nikita siepen-bowers":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMI"},
   "peter manalac":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMI"},
   "sakshi mahalwal":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMI"},
+  "sylvia":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMI"},
   "sylvia appla":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMI"},
+  "tracy ann gaudencio":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMI"},
   "tracy-ann gaudencio":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMI"},
   "warda gul":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMI"},
   "zoltan rudolf":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMII"},
@@ -719,53 +793,116 @@ function LeaderboardView({csms}) {
 }
 
 // ── ACTIVITY TAB ───────────────────────────────────────────────────────────
-function ActivityView({csms}) {
-  const emSort=[...csms].filter(c=>c.sent>0).sort((a,b)=>b.sent-a.sent);
-  const dueSort=[...csms].filter(c=>c.dueCount>0).sort((a,b)=>b.overdueCount-a.overdueCount);
-  const otSort=[...csms].filter(c=>c.otTotal>=3).sort((a,b)=>b.otPct-a.otPct);
-  const tbl=(hdrs,rows)=>(
-    <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
-      <thead><tr>{hdrs.map(([h,r])=><th key={h} style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,padding:"0 0 8px",textAlign:r?"right":"left",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>{h}</th>)}</tr></thead>
-      <tbody>{rows}</tbody>
-    </table>
+function SortableTable({title, cols, rows, defaultCol, defaultDir="desc"}) {
+  const [sort, setSort] = useState({col: defaultCol, dir: defaultDir});
+  const sorted = [...rows].sort((a, b) => {
+    const av = a[sort.col] ?? (typeof a[sort.col]==="string" ? "" : -Infinity);
+    const bv = b[sort.col] ?? (typeof b[sort.col]==="string" ? "" : -Infinity);
+    if (typeof av === "string") return sort.dir==="asc" ? av.localeCompare(bv) : bv.localeCompare(av);
+    return sort.dir === "asc" ? av - bv : bv - av;
+  });
+  const toggle = col => setSort(s => ({col, dir: s.col===col && s.dir==="desc" ? "asc" : "desc"}));
+  const thStyle = (right) => ({fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,padding:"0 0 8px",textAlign:right?"right":"left",borderBottom:"0.5px solid rgba(41,53,93,.08)",cursor:"pointer",userSelect:"none",whiteSpace:"nowrap"});
+  const arrow = col => sort.col===col ? (sort.dir==="desc"?" ▼":" ▲") : " ↕";
+  return (
+    <div style={S.card}>
+      <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>{title}</div>
+      {rows.length===0
+        ? <div style={{color:"#808080",fontSize:12}}>No data available</div>
+        : <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+            <thead><tr>
+              {cols.map(({key,label,right})=>(
+                <th key={key} style={thStyle(right)} onClick={()=>toggle(key)}>
+                  {label}<span style={{color: sort.col===key ? "#FF5000" : "#ccc", fontSize:9}}>{arrow(key)}</span>
+                </th>
+              ))}
+            </tr></thead>
+            <tbody>{sorted.map((row,i)=>row._render(i))}</tbody>
+          </table>}
+    </div>
   );
+}
+
+function ActivityView({csms}) {
+  const tdBase = {padding:"6px 0", borderBottom:"0.5px solid rgba(41,53,93,.05)"};
+
+  // Email table rows
+  const emRows = csms.filter(c=>c.sent>0).map(c=>({
+    name: c.name, sent: c.sent, openRate: c.openRate, replyRate: c.replyRate,
+    _render: (i) => <tr key={c.name}>
+      <td style={tdBase}>{c.name}</td>
+      <td style={{...tdBase,textAlign:"right"}}>{c.sent}</td>
+      <td style={{...tdBase,textAlign:"right",fontWeight:500,color:pc(c.openRate)}}>{pp(c.openRate)}</td>
+      <td style={{...tdBase,textAlign:"right",fontWeight:500,color:pc(c.replyRate)}}>{pp(c.replyRate)}</td>
+    </tr>
+  }));
+
+  // On-time table rows
+  const otRows = csms.filter(c=>c.otTotal>=3).map(c=>({
+    name: c.name, otTotal: c.otTotal, otOnTime: c.otOnTime, otPct: c.otPct,
+    _render: (i) => <tr key={c.name}>
+      <td style={tdBase}>{c.name}</td>
+      <td style={{...tdBase,textAlign:"right",color:"#808080"}}>{c.otTotal}</td>
+      <td style={{...tdBase,textAlign:"right"}}>{c.otOnTime}</td>
+      <td style={{...tdBase,textAlign:"right",fontWeight:500,color:bc(c.otPct,0.8,0.6)}}>{pp(c.otPct)}</td>
+    </tr>
+  }));
+
+  // Due/overdue table rows
+  const dueRows = csms.filter(c=>c.dueCount>0).map(c=>({
+    name: c.name, dueCount: c.dueCount, overdueCount: c.overdueCount, newToday: c.newToday,
+    _render: (i) => <tr key={c.name}>
+      <td style={tdBase}>{c.name}</td>
+      <td style={{...tdBase,textAlign:"right"}}>{c.dueCount}</td>
+      <td style={{...tdBase,textAlign:"right"}}>
+        <span style={{fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:20,background:"rgba(220,38,38,.1)",color:"#991b1b"}}>{c.overdueCount}</span>
+      </td>
+      <td style={{...tdBase,textAlign:"right"}}>
+        {c.newToday>0
+          ? <span style={{fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:20,background:"rgba(83,120,252,.1)",color:"#1e3a8a"}}>{c.newToday}</span>
+          : "--"}
+      </td>
+    </tr>
+  }));
+
   return (
     <div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}}>
-        <div style={S.card}>
-          <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>Email performance</div>
-          {tbl([["CSM",false],["Sent",true],["Open %",true],["Reply %",true]],
-            emSort.map(c=><tr key={c.name}>
-              <td style={{padding:"6px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)"}}>{c.name}</td>
-              <td style={{padding:"6px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right"}}>{c.sent}</td>
-              <td style={{padding:"6px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",fontWeight:500,color:pc(c.openRate)}}>{pp(c.openRate)}</td>
-              <td style={{padding:"6px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",fontWeight:500,color:pc(c.replyRate)}}>{pp(c.replyRate)}</td>
-            </tr>))}
-        </div>
-        <div style={S.card}>
-          <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>On-time cadence %</div>
-          {otSort.length===0
-            ? <div style={{color:"#808080"}}>No on-time data</div>
-            : tbl([["CSM",false],["Tasks",true],["On-time",true],["Rate",true]],
-                otSort.map(c=><tr key={c.name}>
-                  <td style={{padding:"6px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)"}}>{c.name}</td>
-                  <td style={{padding:"6px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#808080"}}>{c.otTotal}</td>
-                  <td style={{padding:"6px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right"}}>{c.otOnTime}</td>
-                  <td style={{padding:"6px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",fontWeight:500,color:bc(c.otPct,0.8,0.6)}}>{pp(c.otPct)}</td>
-                </tr>))}
-        </div>
+        <SortableTable
+          title="Email performance"
+          defaultCol="sent"
+          cols={[
+            {key:"name",      label:"CSM",     right:false},
+            {key:"sent",      label:"Sent",    right:true},
+            {key:"openRate",  label:"Open %",  right:true},
+            {key:"replyRate", label:"Reply %", right:true},
+          ]}
+          rows={emRows}
+        />
+        <SortableTable
+          title="On-time cadence %"
+          defaultCol="otPct"
+          cols={[
+            {key:"name",     label:"CSM",     right:false},
+            {key:"otTotal",  label:"Tasks",   right:true},
+            {key:"otOnTime", label:"On-time", right:true},
+            {key:"otPct",    label:"Rate",    right:true},
+          ]}
+          rows={otRows}
+        />
       </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
-        <div style={S.card}>
-          <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>Due / past due cadence</div>
-          {tbl([["CSM",false],["Due",true],["Overdue",true],["New",true]],
-            dueSort.map(c=><tr key={c.name}>
-              <td style={{padding:"6px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)"}}>{c.name}</td>
-              <td style={{padding:"6px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right"}}>{c.dueCount}</td>
-              <td style={{padding:"6px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right"}}><span style={{fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:20,background:"rgba(220,38,38,.1)",color:"#991b1b"}}>{c.overdueCount}</span></td>
-              <td style={{padding:"6px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right"}}>{c.newToday>0?<span style={{fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:20,background:"rgba(83,120,252,.1)",color:"#1e3a8a"}}>{c.newToday}</span>:"--"}</td>
-            </tr>))}
-        </div>
+        <SortableTable
+          title="Due / past due cadence"
+          defaultCol="overdueCount"
+          cols={[
+            {key:"name",         label:"CSM",     right:false},
+            {key:"dueCount",     label:"Due",     right:true},
+            {key:"overdueCount", label:"Overdue", right:true},
+            {key:"newToday",     label:"New",     right:true},
+          ]}
+          rows={dueRows}
+        />
         <div style={S.card}>
           <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>Cadence completions</div>
           <div style={{color:"#808080",fontSize:12}}>Data from cadence tab — upload to sheet weekly to see here.</div>
