@@ -16,43 +16,50 @@ function sheetCSVUrl(gid) {
   return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${gid}`;
 }
 
-async function fetchSheetTab(gid) {
-  // Try multiple URL formats - Google sometimes blocks one but not another
-  const urls = [
-    `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${gid}`,
-    `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${gid}`,
-    `https://opensheet.elk.sh/${SHEET_ID}/${gid}`,
-  ];
-  for(const url of urls) {
-    try {
-      const res = await fetch(url);
-      if(!res.ok) continue;
-      const text = await res.text();
-      if(!text || text.trim()==="" || text.includes("<!DOCTYPE")) continue;
-      // Try JSON format first (opensheet returns JSON)
-      if(text.trim().startsWith("[")) {
-        try { return JSON.parse(text); } catch(e) {}
+// Fetch via allorigins proxy to bypass CORS
+async function fetchSheetTab(gid, tabName) {
+  const csvUrl = sheetCSVUrl(gid);
+  const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(csvUrl)}`;
+  try {
+    const res = await fetch(proxyUrl);
+    if(!res.ok) throw new Error("proxy failed");
+    const json = await res.json();
+    const text = json.contents;
+    if(!text||text.trim()===""||text.includes("<!DOCTYPE")) throw new Error("bad content");
+    const lines = text.split("\n").filter(l=>l.trim());
+    // Find the header row (first row where col B has meaningful content)
+    let hdrIdx = 0;
+    for(let i=0;i<Math.min(lines.length,15);i++){
+      const cols = parseCSVLine(lines[i]);
+      // Header row has recognizable column names
+      const joined = cols.join(" ").toLowerCase();
+      if(joined.includes("csm name")||joined.includes("owner name")||joined.includes("touchpoint")||joined.includes("name")) {
+        hdrIdx = i; break;
       }
-      // Parse CSV
-      const lines = text.split("\n").filter(l=>l.trim());
-      if(lines.length<2) continue;
-      const headers = parseCSVLine(lines[0]);
-      const rows = lines.slice(1).map(line=>{
-        const vals = parseCSVLine(line);
-        const obj={};
-        headers.forEach((h,i)=>obj[h.trim()]=vals[i]||"");
-        return obj;
-      }).filter(r=>Object.values(r).some(v=>v));
-      if(rows.length>0) return rows;
-    } catch(e) { continue; }
+    }
+    const headers = parseCSVLine(lines[hdrIdx]);
+    const rows = [];
+    for(let i=hdrIdx+1;i<lines.length;i++){
+      const vals = parseCSVLine(lines[i]);
+      if(!vals.some(v=>v.trim())) continue;
+      // Skip footer rows
+      const first = vals[0]||vals[1]||"";
+      if(first.toLowerCase().includes("confidential")||first.toLowerCase().includes("copyright")) break;
+      const obj={};
+      headers.forEach((h,j)=>obj[h.trim()]=vals[j]||"");
+      rows.push(obj);
+    }
+    return rows;
+  } catch(e) {
+    console.warn("Sheet fetch failed for gid "+gid+":", e.message);
+    return [];
   }
-  return [];
 }
 
 function parseCSVLine(line) {
   const result=[], re=/("(?:[^"]|"")*"|[^,]*)(,|$)/g;
   let m;
-  while((m=re.exec(line))!==null) {
+  while((m=re.exec(line))!==null){
     let val=m[1];
     if(val.startsWith('"')&&val.endsWith('"')) val=val.slice(1,-1).replace(/""/g,'"');
     result.push(val);
@@ -63,60 +70,11 @@ function parseCSVLine(line) {
 
 async function pullFromSheets() {
   const [revRows, emailRows, cadRows] = await Promise.all([
-    fetchSheetTab(GID_REV),
-    fetchSheetTab(GID_EMAIL),
-    fetchSheetTab(GID_CADENCE),
+    fetchSheetTab(GID_REV, "revenue"),
+    fetchSheetTab(GID_EMAIL, "email"),
+    fetchSheetTab(GID_CADENCE, "cadence"),
   ]);
   return { revRows, emailRows, cadRows };
-}
-
-// Map Google Sheet rows → dashboard format
-function sheetToRev(rows) {
-  return rows.map(r=>{
-    // Handle both raw JotForm format and pre-processed format
-    const name = r["CSM Name"]||r["name"]||"";
-    if(!name) return null;
-    return {
-      name: name.trim(),
-      team: (r["CSM Team! "]||r["CSM Team"]||r["team"]||"").trim(),
-      tier: (r["CSM Tier"]||r["tier"]||"").trim(),
-      type: (r["Type of Integration"]||r["type"]||"").trim(),
-      quarter: (r["Quarter for Consideration"]||r["quarter"]||"").trim(),
-      mrr:  +((r["MRR $ Added"]||r["mrr"]||"0").replace(/[$,]/g,"")||0),
-      otr:  +((r["OTR $ Added"]||r["otr"]||"0").replace(/[$,]/g,"")||0),
-      total:+((r["Total Revenue Added"]||r["total"]||"0").replace(/[$,]/g,"")||0),
-      nonrev: (r["Non-Revenue Integrations"]||r["nonrev"]||"").trim()?1:0,
-    };
-  }).filter(Boolean);
-}
-
-function sheetToEmail(rows) {
-  return rows.map(r=>{
-    const name=r["name"]||r["Name"]||r["CSM"]||"";
-    if(!name) return null;
-    return {
-      name:name.trim(),
-      sent:   +(r["sent"]||r["Sent"]||0),
-      opens:  +(r["opens"]||r["Opens"]||0),
-      replies:+(r["replies"]||r["Replies"]||0),
-      openRate: +(r["openRate"]||r["Open Rate"]||r["open_rate"]||0),
-      replyRate:+(r["replyRate"]||r["Reply Rate"]||r["reply_rate"]||0),
-      replyWhenOpened:+(r["replyWhenOpened"]||0),
-    };
-  }).filter(Boolean);
-}
-
-function sheetToCadence(rows) {
-  return rows.map(r=>{
-    const name=r["name"]||r["Name"]||r["CSM"]||"";
-    if(!name) return null;
-    return {
-      name:name.trim(),
-      count:  +(r["count"]||r["Count"]||0),
-      pct:    +(r["pct"]||r["Pct"]||r["Completion"]||0),
-      removed:+(r["removed"]||r["Removed"]||0),
-    };
-  }).filter(Boolean);
 }
 
 function storageSave(data) {
