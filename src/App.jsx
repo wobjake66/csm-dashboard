@@ -142,24 +142,18 @@ function sheetCSVUrl(gid) {
   return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${gid}`;
 }
 
-// Fetch via allorigins proxy to bypass CORS
-async function fetchSheetTab(gid, tabName) {
-  const csvUrl = sheetCSVUrl(gid);
-  const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(csvUrl)}`;
+async function fetchCSV(url) {
   try {
-    const res = await fetch(proxyUrl);
-    if(!res.ok) throw new Error("proxy failed");
-    const json = await res.json();
-    const text = json.contents;
-    if(!text||text.trim()===""||text.includes("<!DOCTYPE")) throw new Error("bad content");
+    const res = await fetch(url);
+    if(!res.ok) throw new Error("HTTP "+res.status);
+    const text = await res.text();
+    if(!text||text.trim()===""||text.includes("<!DOCTYPE")) throw new Error("got HTML");
     const lines = text.split("\n").filter(l=>l.trim());
-    // Find the header row (first row where col B has meaningful content)
+    // Find header row - scan first 15 rows for recognizable column names
     let hdrIdx = 0;
     for(let i=0;i<Math.min(lines.length,15);i++){
-      const cols = parseCSVLine(lines[i]);
-      // Header row has recognizable column names
-      const joined = cols.join(" ").toLowerCase();
-      if(joined.includes("csm name")||joined.includes("owner name")||joined.includes("touchpoint")||joined.includes("name")) {
+      const joined = parseCSVLine(lines[i]).join(" ").toLowerCase();
+      if(joined.includes("csm name")||joined.includes("owner name")||joined.includes("touchpoint")||joined.includes("submission")) {
         hdrIdx = i; break;
       }
     }
@@ -168,16 +162,15 @@ async function fetchSheetTab(gid, tabName) {
     for(let i=hdrIdx+1;i<lines.length;i++){
       const vals = parseCSVLine(lines[i]);
       if(!vals.some(v=>v.trim())) continue;
-      // Skip footer rows
-      const first = vals[0]||vals[1]||"";
-      if(first.toLowerCase().includes("confidential")||first.toLowerCase().includes("copyright")) break;
+      const first = (vals[0]||vals[1]||"").toLowerCase();
+      if(first.includes("confidential")||first.includes("copyright")) break;
       const obj={};
       headers.forEach((h,j)=>obj[h.trim()]=vals[j]||"");
       rows.push(obj);
     }
     return rows;
   } catch(e) {
-    console.warn("Sheet fetch failed for gid "+gid+":", e.message);
+    console.warn("CSV fetch failed:", url, e.message);
     return [];
   }
 }
@@ -196,9 +189,9 @@ function parseCSVLine(line) {
 
 async function pullFromSheets() {
   const [revRows, emailRows, cadRows] = await Promise.all([
-    fetchSheetTab(GID_REV, "revenue"),
-    fetchSheetTab(GID_EMAIL, "email"),
-    fetchSheetTab(GID_CADENCE, "cadence"),
+    fetchCSV(CSV_REV),
+    fetchCSV(CSV_EMAIL),
+    fetchCSV(CSV_CADENCE),
   ]);
   return { revRows, emailRows, cadRows };
 }
