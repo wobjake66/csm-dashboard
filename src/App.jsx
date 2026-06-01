@@ -17,22 +17,36 @@ function sheetCSVUrl(gid) {
 }
 
 async function fetchSheetTab(gid) {
-  try {
-    const res = await fetch(sheetCSVUrl(gid));
-    if(!res.ok) return [];
-    const text = await res.text();
-    if(!text || text.trim()==="") return [];
-    // Parse CSV
-    const lines = text.split("\n").filter(l=>l.trim());
-    if(lines.length<2) return [];
-    const headers = parseCSVLine(lines[0]);
-    return lines.slice(1).map(line=>{
-      const vals = parseCSVLine(line);
-      const obj={};
-      headers.forEach((h,i)=>obj[h.trim()]=vals[i]||"");
-      return obj;
-    }).filter(r=>Object.values(r).some(v=>v));
-  } catch(e) { return []; }
+  // Try multiple URL formats - Google sometimes blocks one but not another
+  const urls = [
+    `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${gid}`,
+    `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${gid}`,
+    `https://opensheet.elk.sh/${SHEET_ID}/${gid}`,
+  ];
+  for(const url of urls) {
+    try {
+      const res = await fetch(url);
+      if(!res.ok) continue;
+      const text = await res.text();
+      if(!text || text.trim()==="" || text.includes("<!DOCTYPE")) continue;
+      // Try JSON format first (opensheet returns JSON)
+      if(text.trim().startsWith("[")) {
+        try { return JSON.parse(text); } catch(e) {}
+      }
+      // Parse CSV
+      const lines = text.split("\n").filter(l=>l.trim());
+      if(lines.length<2) continue;
+      const headers = parseCSVLine(lines[0]);
+      const rows = lines.slice(1).map(line=>{
+        const vals = parseCSVLine(line);
+        const obj={};
+        headers.forEach((h,i)=>obj[h.trim()]=vals[i]||"");
+        return obj;
+      }).filter(r=>Object.values(r).some(v=>v));
+      if(rows.length>0) return rows;
+    } catch(e) { continue; }
+  }
+  return [];
 }
 
 function parseCSVLine(line) {
