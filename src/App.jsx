@@ -774,15 +774,39 @@ function OverviewView({csms, allCSMs}) {
 // ── LEADERBOARD TAB ────────────────────────────────────────────────────────
 function LeaderboardView({csms}) {
   const [sort,setSort]=useState({col:"rev",dir:"desc"});
+
+  // For each column, define what the "real" sortable value is.
+  // null means "no data" — always sorted to the bottom regardless of direction.
+  const getVal = (c, col) => {
+    switch(col) {
+      case "rev":          return c.rev > 0 ? c.rev : null;
+      case "sent":         return c.sent > 0 ? c.sent : null;
+      case "openRate":     return c.sent > 0 ? c.openRate : null;
+      case "cadPct":       return c.cadCount > 0 ? c.cadPct : null;
+      case "otPct":        return c.otTotal >= 3 ? c.otPct : null;
+      case "overdueCount": return c.overdueCount > 0 ? c.overdueCount : null;
+      default:             return null;
+    }
+  };
+
   const sorted=[...csms].sort((a,b)=>{
-    const av=a[sort.col]||0,bv=b[sort.col]||0;
-    return sort.dir==="desc"?bv-av:av-bv;
+    const av = getVal(a, sort.col);
+    const bv = getVal(b, sort.col);
+    // Nulls always go to the bottom
+    if (av === null && bv === null) return a.name.localeCompare(b.name);
+    if (av === null) return 1;
+    if (bv === null) return -1;
+    // Both have values — sort by direction
+    if (av !== bv) return sort.dir === "desc" ? bv - av : av - bv;
+    // Tie-break alphabetically
+    return a.name.localeCompare(b.name);
   });
+
   const medals=["🥇","🥈","🥉"];
   const th=(col,lbl)=>(
     <th onClick={()=>setSort(s=>({col,dir:s.col===col&&s.dir==="desc"?"asc":"desc"}))}
       style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,padding:"0 0 8px",textAlign:"right",cursor:"pointer",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>
-      {lbl}{sort.col===col?(sort.dir==="desc"?" ▼":" ▲"):""}
+      {lbl}{sort.col===col?(sort.dir==="desc"?" ▼":" ▲"):<span style={{color:"#ccc",fontSize:9}}> ↕</span>}
     </th>
   );
   return (
@@ -1085,6 +1109,13 @@ export default function App() {
             {status==="loading"&&<span style={{fontSize:11,padding:"4px 10px",borderRadius:20,background:"rgba(255,255,255,.1)",color:"rgba(255,255,255,.6)"}}>⟳ Loading...</span>}
             {status==="ok"&&<span style={{fontSize:11,padding:"4px 10px",borderRadius:20,background:"rgba(22,163,74,.25)",color:"#86efac"}}>✓ Live{updatedAt?" · "+updatedAt:""}</span>}
             {status==="error"&&<span style={{fontSize:11,padding:"4px 10px",borderRadius:20,background:"rgba(220,38,38,.25)",color:"#fca5a5"}}>✗ Sync error</span>}
+            <button onClick={()=>{
+              const subject = encodeURIComponent("CSM Dashboard Feedback — "+(new Date().toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})));
+              const body = encodeURIComponent("Hi Jacob,\n\nHere\'s some feedback on the CSM Coaching Dashboard:\n\n[Please describe your feedback here]\n\nThanks");
+              window.open("mailto:jacob.baldwin@thryv.com?subject="+subject+"&body="+body);
+            }} style={{background:"transparent",border:"0.5px solid rgba(255,255,255,.35)",color:"rgba(255,255,255,.8)",fontSize:12,fontWeight:500,padding:"7px 14px",borderRadius:6,cursor:"pointer"}}>
+              ✉ Feedback
+            </button>
             {hasData&&<button onClick={openAI} style={{background:"#FF5000",border:"none",color:"#fff",fontSize:12,fontWeight:500,padding:"7px 14px",borderRadius:6,cursor:"pointer"}}>{aiLabel} ↗</button>}
           </div>
         </div>
