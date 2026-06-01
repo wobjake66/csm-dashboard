@@ -12,6 +12,132 @@ const GID_REV     = "322916467";
 const GID_EMAIL   = "0";
 const GID_CADENCE = "1973544046";
 
+const COACHES = [
+  {email:"odirlm01@thryv.com",      name:"Mia O'Dirling",    team:"The Dominican Dream Team"},
+  {email:"chase.boyd@thryv.com",    name:"Chase Boyd",        team:"Boyd Meets World"},
+  {email:"elizabeth.white@thryv.com",name:"Elizabeth White",  team:"White Wave Warriors"},
+  {email:"kendra.morelli@thryv.com", name:"Kendra Morelli",   team:"Team Thryv-More(lli)"},
+  {email:"trisha.stalnaker@thryv.com",name:"Trisha Stalnaker",team:"Team Status Engaged"},
+  {email:"aaron.taylor@thryv.com",  name:"Aaron Taylor",      team:"Team Aurorians"},
+];
+
+const TCOLORS = {
+  "The Dominican Dream Team":"#FF5000","Boyd Meets World":"#4A5D8C",
+  "White Wave Warriors":"#808080","Team Thryv-More(lli)":"#29355D",
+  "Team Status Engaged":"#E03000","Team Aurorians":"#5378FC",
+};
+
+const ROSTER = {
+  "darling danais":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
+  "darling danais santos taveras":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
+  "heidi torres uribe":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
+  "irina larianni molina molina":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
+  "irina molina molina":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
+  "irina molina":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
+  "jathzelyn elizabeth fortuna paulino":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
+  "jathzelyn fortuna":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
+  "jazz fortuna":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
+  "johnny cornielle":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMII"},
+  "johnny cornielle montas":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMII"},
+  "joseph guillermo carmona garcia":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
+  "joseph carmona garcia":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
+  "joseph carmona":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
+  "samuel frias de paula":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMII"},
+  "sam frias de paula":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMII"},
+  "sam frias":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMII"},
+  "sati ananda pimentel malespin":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
+  "sati pimentel malespin":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
+  "sati pimentel":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
+  "victor abner moscoso fernandez":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
+  "victorabner moscoso fernandez":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
+  "victor moscoso":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
+  "wilson mercedes":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMII"},
+  "yessica montero urena":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
+  "yessica montero":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
+  "barbara larrosa presinal":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMII"},
+  "barbara larrosa":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMII"},
+  "deivis pena":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMI"},
+  "elianny tena antigua":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMI"},
+  "eric johnson":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMII"},
+  "katelyn ankrom":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMII"},
+  "kyle dye":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMIII"},
+  "luis aguasvivas peralta":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMI"},
+  "juan liberato":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMI"},
+  "juan liberato paula":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMI"},
+  "sarah swanson":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMI"},
+  "tyler moeggenberg":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMI"},
+  "tyler popplewell":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMI"},
+  "april hall":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII"},
+  "anthony yen":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII"},
+  "damita hill":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII"},
+  "dorka frias lantigua":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMI"},
+  "florence francois nova":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMI"},
+  "kennedy sanchez":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII"},
+  "matt sword":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMI"},
+  "michael furlong":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII"},
+  "rossi valerio tejeda":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMI"},
+  "rossi valerio":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMI"},
+  "steven saunders":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII"},
+  "yolanda ramirez":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII"},
+  "yolanda ramirez-drake":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII"},
+  "alejandro rodriguez-medina":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"SSMII"},
+  "alejandro rodriguez medina":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"SSMII"},
+  "chelsea dingus":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"SSMII"},
+  "karmita turner":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"CSMII"},
+  "karmita k turner":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"CSMII"},
+  "lauren carter":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"CSMII"},
+  "libby booher":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"CSMIII"},
+  "misti dixon":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"CSMIII"},
+  "misty decatur":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"SSMI"},
+  "saira julian guzman":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"CSMI"},
+  "scott mather":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"SSMII"},
+  "ashley shaffer":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMII"},
+  "ashley vasquez mena":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMI"},
+  "ashley vasquez":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMI"},
+  "felix caba jimenez":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMI"},
+  "karen capellan tavarez":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMI"},
+  "karen capellan":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMI"},
+  "karissa hernandez":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMII"},
+  "kellie lester":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMIII"},
+  "mark velazquez":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"SSMII"},
+  "merve (mj) brielmann":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMII"},
+  "mj brielmann":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMII"},
+  "merve brielmann":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMII"},
+  "rafael sencion sencion":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMI"},
+  "rafael sencion":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMI"},
+  "stacy roers":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMIII"},
+  "stacy miron":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMIII"},
+  "taylor kidd":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMI"},
+  "david crisler":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMII"},
+  "dave crisler":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMII"},
+  "ellise payne":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMI"},
+  "indu vijay":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMI"},
+  "matt daly":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMI"},
+  "nikita siepen-bowers":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMI"},
+  "nikita siepen bowers":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMI"},
+  "peter manalac":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMI"},
+  "sakshi mahalwal":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMI"},
+  "sylvia appla":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMI"},
+  "sylvia":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMI"},
+  "tracy-ann gaudencio":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMI"},
+  "tracy ann gaudencio":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMI"},
+  "warda gul":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMI"},
+  "zoltan rudolf":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMII"},
+};
+
+const lk = n => n ? ROSTER[n.toLowerCase().trim()] || null : null;
+const pm = v => { const n = parseFloat(String(v||0).replace(/[$,]/g,"")); return isNaN(n)?0:n; };
+const pn = v => { const n = parseFloat(String(v||0).replace(/,/g,"")); return isNaN(n)?0:n; };
+const f$ = n => "$"+(+n).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+const fk = n => n>=1000?"$"+(n/1000).toFixed(1).replace(/\.0$/,"")+"k":"$"+Math.round(n);
+const fp = n => isNaN(n)||n==null?"—":(n*100).toFixed(1)+"%";
+const tc = t => TCOLORS[t]||"#808080";
+const st = t => (t||"").replace("The ","").replace("Team ","");
+const MID="#29355D", ACC="#FF5000", GRN="#16a34a", YLW="#d97706", RED="#dc2626", MUT="#808080";
+const bCol = (v,hi,lo) => v>=hi?GRN:v>=lo?YLW:RED;
+const pCol = p => p>=0.9?GRN:p>=0.5?YLW:p>0?RED:MUT;
+
+
 function sheetCSVUrl(gid) {
   return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${gid}`;
 }
@@ -78,7 +204,12 @@ async function pullFromSheets() {
 }
 
 function storageSave(data) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch(e) {}
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch(e) {
+    // Quota exceeded - clear and try again
+    try { localStorage.clear(); localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch(e2) {}
+  }
 }
 function storageLoad() {
   try { const r=localStorage.getItem(STORAGE_KEY); return r?JSON.parse(r):null; } catch(e) { return null; }
