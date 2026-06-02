@@ -4,7 +4,7 @@ import * as XLSX from "xlsx";
 const PIN = "thryv2025";
 const PIN_KEY = "csm_pin_v1";
 
-const CSV_REV     = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=322916467&single=true&output=csv";
+const CSV_REV     = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=1721544342&single=true&output=csv"; // live JotForm sync
 const CSV_EMAIL   = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=0&single=true&output=csv";
 const CSV_CAD     = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=1973544046&single=true&output=csv";
 const CSV_DUE     = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=341836664&single=true&output=csv";
@@ -1392,34 +1392,63 @@ export default function App() {
     : filterCSM ? COACHES.filter(c=>{const i=lk(filterCSM);return i&&i.c===c.e;})
     : COACHES;
 
+  // Full load on mount (all 6 tabs)
   useEffect(()=>{
     if (!unlocked) return;
     setStatus("loading");
-    Promise.all([
-      fetchCSV(CSV_REV),
-      fetchCSV(CSV_EMAIL),
-      fetchCSV(CSV_CAD),
-      fetchCSV(CSV_DUE),
-      fetchCSV(CSV_ONTIME),
-      fetchCSV(CSV_HISTORY).catch(()=>[]), // graceful — empty if history tab not published yet
-    ]).then(([revRows, emailRows, cadRows, dueRows, ontimeRows, historyRows]) => {
-      const rev    = mapRev(revRows);
-      const email  = mapEmail(emailRows);
-      const cad    = mapCadence(cadRows);
-      const due    = mapDue(dueRows);
-      const ontime = mapOnTime(ontimeRows);
-      const built  = buildCSMs(rev, email, cad, due, ontime);
-      console.log("Built CSMs:", built.length);
-      setCSMs(built);
-      const hist = mapHistory(historyRows);
-      setHistory(hist);
-      console.log("History rows:", hist.length);
-      setUpdatedAt(new Date().toLocaleTimeString());
-      setStatus("ok");
-    }).catch(err => {
+
+    // Store non-revenue data so revenue polls can reuse it
+    let latestEmail=[], latestCad=[], latestDue=[], latestOntime=[], latestHistory=[];
+
+    function loadAll() {
+      return Promise.all([
+        fetchCSV(CSV_REV),
+        fetchCSV(CSV_EMAIL),
+        fetchCSV(CSV_CAD),
+        fetchCSV(CSV_DUE),
+        fetchCSV(CSV_ONTIME),
+        fetchCSV(CSV_HISTORY).catch(()=>[]),
+      ]).then(([revRows, emailRows, cadRows, dueRows, ontimeRows, historyRows]) => {
+        latestEmail   = emailRows;
+        latestCad     = cadRows;
+        latestDue     = dueRows;
+        latestOntime  = ontimeRows;
+        latestHistory = historyRows;
+        const rev    = mapRev(revRows);
+        const email  = mapEmail(emailRows);
+        const cad    = mapCadence(cadRows);
+        const due    = mapDue(dueRows);
+        const ontime = mapOnTime(ontimeRows);
+        setCSMs(buildCSMs(rev, email, cad, due, ontime));
+        setHistory(mapHistory(historyRows));
+        setUpdatedAt(new Date().toLocaleTimeString());
+        setStatus("ok");
+        console.log("Full load complete");
+      });
+    }
+
+    // Revenue-only refresh — rebuildCSMs with fresh rev + cached other data
+    function refreshRevenue() {
+      fetchCSV(CSV_REV).then(revRows => {
+        const rev    = mapRev(revRows);
+        const email  = mapEmail(latestEmail);
+        const cad    = mapCadence(latestCad);
+        const due    = mapDue(latestDue);
+        const ontime = mapOnTime(latestOntime);
+        setCSMs(buildCSMs(rev, email, cad, due, ontime));
+        setUpdatedAt(new Date().toLocaleTimeString());
+        console.log("Revenue refreshed at", new Date().toLocaleTimeString());
+      }).catch(err => console.warn("Revenue refresh failed:", err));
+    }
+
+    loadAll().catch(err => {
       console.error("Sheet load error:", err);
       setStatus("error");
     });
+
+    // Poll revenue every 2 minutes (JotForm syncs live)
+    const revInterval = setInterval(refreshRevenue, 2 * 60 * 1000);
+    return () => clearInterval(revInterval);
   }, [unlocked]);
 
   function buildAIPrompt() {
@@ -1497,7 +1526,7 @@ export default function App() {
           </div>
           <div style={{display:"flex",alignItems:"center",gap:12}}>
             {status==="loading"&&<span style={{fontSize:11,padding:"4px 10px",borderRadius:20,background:"rgba(255,255,255,.1)",color:"rgba(255,255,255,.6)"}}>⟳ Loading...</span>}
-            {status==="ok"&&<span style={{fontSize:11,padding:"4px 10px",borderRadius:20,background:"rgba(22,163,74,.25)",color:"#86efac"}}>✓ Live{updatedAt?" · "+updatedAt:""}</span>}
+            {status==="ok"&&<span style={{fontSize:11,padding:"4px 10px",borderRadius:20,background:"rgba(22,163,74,.25)",color:"#86efac"}}>✓ Live · Revenue syncs every 2 min{updatedAt?" · "+updatedAt:""}</span>}
             {status==="error"&&<span style={{fontSize:11,padding:"4px 10px",borderRadius:20,background:"rgba(220,38,38,.25)",color:"#fca5a5"}}>✗ Sync error</span>}
             <button onClick={()=>{
               const subject = encodeURIComponent("CSM Dashboard Feedback — "+(new Date().toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})));
