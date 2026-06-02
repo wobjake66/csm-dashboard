@@ -265,12 +265,25 @@ async function fetchCSV(url) {
 }
 
 // ── DATA MAPPERS ───────────────────────────────────────────────────────────
+
+// Validate that a parsed name is actually a real CSM in our roster.
+// This prevents free-text notes, account names, cadence names, or other
+// stray data from being treated as CSM names.
+function isValidCSM(name) {
+  if (!name || name.length < 4) return false;
+  // Must resolve to a known ROSTER entry (exact or via NAME_NORM alias)
+  if (ROSTER[name.toLowerCase().trim()]) return true;
+  // Also allow if norm() mapped it to a canonical name that's in ROSTER
+  const normed = norm(name);
+  return !!ROSTER[normed.toLowerCase().trim()];
+}
+
 function mapRev(rows) {
   const by = {};
   rows.forEach(r => {
     const raw = r["CSM Name"]||r["csm name"]||"";
     const name = norm(raw.trim());
-    if (!name) return;
+    if (!name || !isValidCSM(raw.trim())) return;
     if (!by[name]) by[name] = {name, team:r["CSM Team! "]||r["CSM Team!"]||"", mrr:0, otr:0, total:0, nonrev:0, accts:[]};
     by[name].mrr   += pm(r["MRR $ Added"]||0);
     by[name].otr   += pm(r["OTR $ Added"]||0);
@@ -293,7 +306,7 @@ function mapEmail(rows) {
   rows.forEach(r => {
     const raw = r["Touchpoint: Owner Name \u2191"]||r["Touchpoint: Owner Name"]||r["Name"]||"";
     const name = norm(raw.trim());
-    if (!name||name==="Total") return;
+    if (!name||name==="Total"||!isValidCSM(raw.trim())) return;
     if (!by[name]) by[name] = {name, sent:0, uniqueOpens:0, replies:0};
     by[name].sent        += pn(r["Sum of Emails Sent"]||r["Emails Sent"]||0);
     by[name].uniqueOpens += pn(r["Sum of Unique Opens"]||r["Unique Opens"]||0);
@@ -313,7 +326,7 @@ function mapCadence(rows) {
     const raw = r["Touchpoint: Owner Name \u2191"]||r["Touchpoint: Owner Name"]||r["name"]||r["Name"]||"";
     const name = norm(raw.trim());
     const status = (r["Cadence Member: Status"]||r["Status"]||"").trim();
-    if (!name||name==="Total") return;
+    if (!name||name==="Total"||!isValidCSM(raw.trim())) return;
     if (!by[name]) by[name] = {name, total:0, completed:0, removed:0, pctField:null};
     by[name].total++;
     if (status==="Removed") by[name].removed++;
@@ -333,7 +346,7 @@ function mapDue(rows) {
   rows.forEach(r => {
     const raw = r["Cadence Member: Assigned"]||r["Assigned"]||r["CSM"]||"";
     const name = norm(raw.trim());
-    if (!name) return;
+    if (!name||!isValidCSM(raw.trim())) return;
     if (!by[name]) by[name] = {name, due:0, overdue:0, newToday:0};
     by[name].due++;
     if ((r["Overdue"]||"").trim()==="1") by[name].overdue++;
@@ -347,7 +360,7 @@ function mapOnTime(rows) {
   rows.forEach(r => {
     const raw = r["Cadence Member: Assigned"]||r["Assigned"]||r["CSM"]||"";
     const name = norm(raw.trim());
-    if (!name) return;
+    if (!name||!isValidCSM(raw.trim())) return;
     if (!by[name]) by[name] = {name, total:0, onTime:0};
     by[name].total++;
     if ((r["Completed On Time?"]||r["On Time"]||"").trim()==="1") by[name].onTime++;
