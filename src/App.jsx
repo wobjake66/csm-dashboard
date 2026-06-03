@@ -87,142 +87,143 @@ const ROSTER = {
   // ── Mia O'Dirling — The Dominican Dream Team ──────────────────────────
   "darling danais":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
   "darling taveras":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
-  "darling danais santos taveras":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
+  "darling danais santos taveras":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI",reg:"DR"},
   "heidi torres":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
   "heidi uribe":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
-  "heidi torres uribe":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
+  "heidi torres uribe":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI",reg:"DR"},
   "irina larianni":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
   "irina molina":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
   "irina molina molina":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
-  "irina larianni molina molina":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
+  "irina larianni molina molina":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI",reg:"DR"},
   "jathzelyn elizabeth":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
   "jathzelyn fortuna":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
   "jathzelyn fortuna paulino":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
   "jathzelyn paulino":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
   "jazz fortuna":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
-  "jathzelyn elizabeth fortuna paulino":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
-  "johnny cornielle":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMII"},
+  "jathzelyn elizabeth fortuna paulino":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI",reg:"DR"},
+  "johnny cornielle":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMII",reg:"DR"},
   "johnny cornielle montas":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMII"},
   "joseph carmona":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
   "joseph carmona garcia":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
   "joseph garcia":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
   "joseph guillermo":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
-  "joseph guillermo carmona garcia":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
+  "joseph guillermo carmona garcia":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI",reg:"DR"},
   "sam frias":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMII"},
   "sam frias de paula":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMII"},
   "samuel frias":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMII"},
   "samuel paula":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMII"},
-  "samuel frias de paula":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMII"},
+  "samuel frias de paula":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMII",reg:"DR"},
   "sati ananda":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
   "sati malespin":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
   "sati pimentel":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
   "sati pimentel malespin":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
-  "sati ananda pimentel malespin":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
+  "sati ananda pimentel malespin":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI",reg:"DR"},
   "victor abner":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
   "victor fernandez":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
   "victor moscoso":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
   "victorabner moscoso fernandez":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
-  "victor abner moscoso fernandez":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
-  "wilson mercedes":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMII"},
+  "victor abner moscoso fernandez":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI",reg:"DR"},
+  "wilson mercedes":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMII",reg:"DR"},
   "yessica montero":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
   "yessica urena":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
-  "yessica montero urena":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI"},
+  "yessica montero urena":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI",reg:"DR"},
   // ── Chase Boyd — Boyd Meets World ─────────────────────────────────────
   "barbara larrosa":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMII"},
   "barbara presinal":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMII"},
-  "barbara larrosa presinal":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMII"},
-  "deivis pena":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMI"},
+  "barbara larrosa presinal":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMII",reg:"DR"},
+  "deivis pena":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMI",reg:"DR"},
   "deivis pe\u00f1a":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMI"},
-  "eric johnson":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMII"},
-  "kyle dye":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMIII"},
-  "sarah swanson":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMI"},
-  "tyler moeggenberg":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMI"},
-  "tyler popplewell":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMI"},
+  "eric johnson":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMII",reg:"US"},
+  "kyle dye":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMIII",reg:"US"},
+  "sarah swanson":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMI",reg:"US"},
+  "tyler moeggenberg":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMI",reg:"US"},
+  "tyler popplewell":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMI",reg:"US"},
   "luis aguasvivas":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMI"},
   "luis peralta":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMI"},
-  "luis aguasvivas peralta":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMI"},
+  "luis aguasvivas peralta":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMI",reg:"DR"},
   "juan liberato paula":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMI"},
-  "juan liberato":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMI"},
+  "juan liberato":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMI",reg:"DR"},
   "elianny antigua":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMI"},
   "elianny tena":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMI"},
-  "elianny tena antigua":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMI"},
+  "elianny tena antigua":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMI",reg:"DR"},
   // ── Elizabeth White — White Wave Warriors ─────────────────────────────
-  "damita hill":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII"},
-  "anthony yen":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII"},
-  "april hall":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII"},
-  "katelyn ankrom":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII"},
-  "kennedy sanchez":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII"},
-  "matt sword":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMI"},
-  "michael furlong":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII"},
+  "damita hill":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII",reg:"US"},
+  "anthony yen":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII",reg:"US"},
+  "april hall":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII",reg:"US"},
+  "katelyn ankrom":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII",reg:"US"},
+  "kennedy sanchez":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII",reg:"US"},
+  "matt sword":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMI",reg:"US"},
+  "michael furlong":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII",reg:"US"},
   "yolanda ramirez-drake":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII"},
-  "yolanda ramirez":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII"},
+  "yolanda ramirez":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII",reg:"US"},
   "florence francois":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMI"},
   "florence nova":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMI"},
   "francois nova":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMI"},
-  "florence francois nova":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMI"},
+  "florence francois nova":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMI",reg:"DR"},
   "rossi tejeda":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMI"},
   "rossi valerio":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMI"},
-  "rossi valerio tejeda":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMI"},
+  "rossi valerio tejeda":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMI",reg:"DR"},
   // ── Kendra Morelli — Team Thryv-More(lli) ────────────────────────────
   "alejandro rodriguez medina":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"SSMII"},
-  "alejandro rodriguez-medina":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"SSMII"},
-  "chelsea dingus":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"SSMII"},
+  "alejandro rodriguez-medina":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"SSMII",reg:"US"},
+  "chelsea dingus":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"SSMII",reg:"US"},
   "dorka frias":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"CSMI"},
   "dorka lantigua":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"CSMI"},
-  "dorka frias lantigua":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"CSMI"},
+  "dorka frias lantigua":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"CSMI",reg:"DR"},
   "karmita k turner":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"CSMII"},
-  "karmita turner":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"CSMII"},
-  "lauren carter":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"CSMII"},
-  "libby booher":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"CSMIII"},
-  "misti dixon":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"CSMIII"},
-  "misty decatur":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"SSMI"},
+  "karmita turner":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"CSMII",reg:"US"},
+  "lauren carter":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"CSMII",reg:"US"},
+  "libby booher":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"CSMIII",reg:"US"},
+  "misti dixon":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"CSMIII",reg:"US"},
+  "misty decatur":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"SSMI",reg:"US"},
   "saira guzman":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"CSMI"},
   "saira julian":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"CSMI"},
-  "saira julian guzman":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"CSMI"},
-  "scott mather":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"SSMII"},
-  "steven saunders":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"CSMII"},
+  "saira julian guzman":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"CSMI",reg:"DR"},
+  "scott mather":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"SSMII",reg:"US"},
+  "steven saunders":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"CSMII",reg:"US"},
   // ── Trisha Stalnaker — Team Status Engaged ────────────────────────────
-  "ashley shaffer":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMII"},
+  "ashley shaffer":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMII",reg:"US"},
   "ashley mena":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMI"},
   "ashley vasquez":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMI"},
-  "ashley vasquez mena":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMI"},
+  "ashley vasquez mena":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMI",reg:"DR"},
   "karen capellan":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMI"},
   "karen tavarez":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMI"},
-  "karen capellan tavarez":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMI"},
-  "karissa hernandez":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMII"},
-  "kellie lester":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMIII"},
-  "mark velazquez":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"SSMII"},
+  "karen capellan tavarez":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMI",reg:"DR"},
+  "karissa hernandez":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMII",reg:"US"},
+  "kellie lester":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMIII",reg:"US"},
+  "mark velazquez":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"SSMII",reg:"US"},
   "merve (mj)":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMII"},
   "merve brielmann":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMII"},
   "mj brielmann":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMII"},
-  "merve (mj) brielmann":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMII"},
+  "merve (mj) brielmann":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMII",reg:"US"},
   "rafael sencion":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMI"},
-  "rafael sencion sencion":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMI"},
+  "rafael sencion sencion":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMI",reg:"DR"},
   "stacy miron":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMIII"},
-  "stacy roers":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMIII"},
-  "taylor kidd":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMI"},
+  "stacy roers":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMIII",reg:"US"},
+  "taylor kidd":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMI",reg:"US"},
   "felix caba":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMI"},
   "felix jimenez":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMI"},
-  "felix caba jimenez":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMI"},
+  "felix caba jimenez":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMI",reg:"DR"},
   // ── Aaron Taylor — Team Aurorians ─────────────────────────────────────
   "dave crisler":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMII"},
-  "david crisler":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMII"},
-  "ellise payne":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMI"},
-  "indu vijay":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMI"},
-  "matt daly":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMI"},
+  "david crisler":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMII",reg:"ANZ"},
+  "ellise payne":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMI",reg:"ANZ"},
+  "indu vijay":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMI",reg:"ANZ"},
+  "matt daly":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMI",reg:"ANZ"},
   "nikita siepen bowers":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMI"},
-  "nikita siepen-bowers":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMI"},
-  "peter manalac":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMI"},
-  "sakshi mahalwal":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMI"},
+  "nikita siepen-bowers":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMI",reg:"ANZ"},
+  "peter manalac":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMI",reg:"ANZ"},
+  "sakshi mahalwal":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMI",reg:"ANZ"},
   "sylvia":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMI"},
-  "sylvia appla":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMI"},
+  "sylvia appla":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMI",reg:"ANZ"},
   "tracy ann gaudencio":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMI"},
-  "tracy-ann gaudencio":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMI"},
-  "warda gul":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMI"},
-  "zoltan rudolf":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMII"},
+  "tracy-ann gaudencio":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMI",reg:"ANZ"},
+  "warda gul":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMI",reg:"ANZ"},
+  "zoltan rudolf":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMII",reg:"ANZ"},
 };
 
 function lk(n) { return n ? ROSTER[n.toLowerCase().trim()] || null : null; }
+function region(n) { const i=lk(n); return i&&i.reg ? i.reg : null; }
 function norm(n) { return NAME_NORM[n.toLowerCase().trim()] || n.trim(); }
 function pm(v) { const x = parseFloat(String(v||0).replace(/[$,]/g,"")); return isNaN(x) ? 0 : x; }
 function pn(v) { const x = parseFloat(String(v||0).replace(/,/g,"")); return isNaN(x) ? 0 : x; }
@@ -403,7 +404,7 @@ function buildCSMs(rev, email, cad, due, ontime, skipped) {
   const get = name => {
     if (!m[name]) {
       const i = lk(name);
-      m[name] = {name, team:(i&&i.t)||"", coach:(i&&i.c)||"", tier:(i&&i.r)||"",
+      m[name] = {name, team:(i&&i.t)||"", coach:(i&&i.c)||"", tier:(i&&i.r)||"", region:(i&&i.reg)||"",
         rev:0, mrr:0, ints:0, accts:[],
         sent:0, openRate:0, replyRate:0,
         cadCount:0, cadPct:0,
@@ -1422,6 +1423,8 @@ function TrendsView({history, csms, filterCoach, filterCSM}) {
 // ── REVENUE VIEW ────────────────────────────────────────────────────────────
 function RevenueView({rawRev, csms, filterCoach}) {
   const [lbSort, setLbSort] = useState({col:"total", dir:"desc"});
+  const [regionFilter, setRegionFilter] = useState("all"); // "all" | "DR" | "US" | "ANZ"
+
 
   // Parse raw rows into enriched objects
   const rows = (rawRev||[]).map(r => {
@@ -1436,13 +1439,16 @@ function RevenueView({rawRev, csms, filterCoach}) {
     const biz  = (r["Business Name"]||"").trim();
     const type = (r["Type of Integration"]||"").trim();
     const i    = lk(csm);
-    return {csm, team: (i&&i.t)||team, tier:(i&&i.r)||tier, mrr, otr, tot, nr, mrrInt, biz, type};
+    return {csm, team: (i&&i.t)||team, tier:(i&&i.r)||tier, region:(i&&i.reg)||"", mrr, otr, tot, nr, mrrInt, biz, type};
   }).filter(r=>r.csm && isValidCSM(r.csm));
 
-  // Apply coach filter
-  const filtered = filterCoach
-    ? rows.filter(r=>{ const i=lk(r.csm); return i&&i.c===filterCoach; })
-    : rows;
+  // Apply coach + region filter
+  const filtered = rows.filter(r=>{
+    const i = lk(r.csm);
+    if (filterCoach && !(i&&i.c===filterCoach)) return false;
+    if (regionFilter!=="all" && r.region!==regionFilter) return false;
+    return true;
+  });
 
   // ── Totals ────────────────────────────────────────────────────────────────
   const totalMRR  = filtered.reduce((s,r)=>s+r.mrr,0);
@@ -1525,7 +1531,7 @@ function RevenueView({rawRev, csms, filterCoach}) {
   const byCsm = {};
   filtered.forEach(r=>{
     if(!r.csm) return;
-    if(!byCsm[r.csm]) byCsm[r.csm]={csm:r.csm,team:r.team,tier:r.tier,mrr:0,otr:0,total:0,subs:0,revPerSub:0};
+    if(!byCsm[r.csm]) byCsm[r.csm]={csm:r.csm,team:r.team,tier:r.tier,region:r.region,mrr:0,otr:0,total:0,subs:0,revPerSub:0};
     byCsm[r.csm].mrr+=r.mrr; byCsm[r.csm].otr+=r.otr;
     byCsm[r.csm].total+=r.tot; byCsm[r.csm].subs++;
   });
@@ -1600,32 +1606,37 @@ function RevenueView({rawRev, csms, filterCoach}) {
           })}
         </div>
 
-        {/* Revenue by tier + non-rev types */}
+        {/* Revenue by region */}
         <div style={cardStyle}>
-          <div style={secTitle}>Revenue by CSM Tier</div>
-          {tierOrder.filter(t=>byTier[t]).map(t=>{
-            const d=byTier[t];
-            const maxT=Math.max(...tierOrder.filter(k=>byTier[k]).map(k=>byTier[k].total))||1;
-            return <div key={t} style={{marginBottom:8}}>
-              <div style={{display:"flex",justifyContent:"space-between",fontSize:11,marginBottom:3}}>
-                <span style={{fontWeight:500}}>{tierLabel[t]||t}</span>
-                <span style={{color:"#29355D",fontWeight:500}}>{fk(d.total)}</span>
+          <div style={secTitle}>Revenue by Region</div>
+          {["DR","US","ANZ"].map(reg=>{
+            const regRows = rows.filter(r=>r.region===reg && (!filterCoach||(lk(r.csm)&&lk(r.csm).c===filterCoach)));
+            const regMRR = regRows.reduce((s,r)=>s+r.mrr,0);
+            const regOTR = regRows.reduce((s,r)=>s+r.otr,0);
+            const regTot = regRows.reduce((s,r)=>s+r.tot,0);
+            const regSubs = regRows.length;
+            const maxRegTot = Math.max(...["DR","US","ANZ"].map(r=>rows.filter(x=>x.region===r).reduce((s,x)=>s+x.tot,0)))||1;
+            const REG_COL = {DR:"#FF5000",US:"#29355D",ANZ:"#5378FC"};
+            return <div key={reg} style={{marginBottom:12,cursor:"pointer",opacity:regionFilter===reg||regionFilter==="all"?1:0.4}} onClick={()=>setRegionFilter(r=>r===reg?"all":reg)}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:11,marginBottom:4}}>
+                <span style={{display:"flex",alignItems:"center",gap:8}}>
+                  <span style={{fontSize:13,fontWeight:700,color:REG_COL[reg],width:32}}>{reg}</span>
+                  <span style={{fontWeight:500,color:"#29355D"}}>{regSubs} subs</span>
+                  {regionFilter===reg&&<span style={{fontSize:10,padding:"1px 7px",borderRadius:20,background:REG_COL[reg],color:"#fff"}}>filtered</span>}
+                </span>
+                <span style={{fontWeight:600,color:REG_COL[reg]}}>{fk(regTot)}</span>
               </div>
-              <div style={{height:6,background:"#ECEEF1",borderRadius:3,overflow:"hidden"}}>
-                <div style={{height:"100%",borderRadius:3,background:"#29355D",opacity:0.7,width:(d.total/maxT*100).toFixed(1)+"%"}}/>
+              <div style={{height:8,background:"#ECEEF1",borderRadius:4,overflow:"hidden"}}>
+                <div style={{height:"100%",borderRadius:4,background:REG_COL[reg],width:(regTot/maxRegTot*100).toFixed(1)+"%"}}/>
               </div>
-              <div style={{fontSize:10,color:"#808080",marginTop:2}}>{d.subs} subs · MRR {fk(d.mrr)}</div>
+              <div style={{fontSize:10,color:"#808080",marginTop:3,display:"flex",gap:10}}>
+                <span>MRR {fk(regMRR)}</span>
+                {regOTR>0&&<span>OTR {fk(regOTR)}</span>}
+              </div>
             </div>;
           })}
-          <div style={{height:"0.5px",background:"rgba(41,53,93,.08)",margin:"12px 0"}}/>
-          <div style={secTitle}>Submissions by Tier</div>
-          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-            {tierOrder.filter(t=>byTier[t]).map(t=>(
-              <span key={t} style={{fontSize:11,fontWeight:500,padding:"3px 10px",borderRadius:20,background:"#F4F6FB",color:"#29355D"}}>
-                {tierLabel[t]||t} — {byTier[t].subs}
-              </span>
-            ))}
-          </div>
+          <div style={{height:"0.5px",background:"rgba(41,53,93,.08)",margin:"8px 0"}}/>
+          <div style={{fontSize:11,color:"#808080",textAlign:"center"}}>Click a region to filter · click again to clear</div>
         </div>
 
         {/* Integration type split donut */}
@@ -1662,6 +1673,49 @@ function RevenueView({rawRev, csms, filterCoach}) {
           </div>
         </div>
       </div>
+
+      {/* ── Top 3 by Region spotlight ── */}
+      {regionFilter==="all"&&<div style={{...cardStyle,marginBottom:16}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+          <div style={secTitle}>Top 3 Revenue — By Region</div>
+          <div style={{fontSize:11,color:"#808080"}}>Click a region card to filter the full dashboard</div>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:16}}>
+          {["DR","US","ANZ"].map(reg=>{
+            const REG_COL={DR:"#FF5000",US:"#29355D",ANZ:"#5378FC"};
+            const REG_LABEL={DR:"Dominican Republic","US":"United States","ANZ":"Australia & NZ"};
+            const regCsms = {};
+            rows.filter(r=>r.region===reg && (!filterCoach||(lk(r.csm)&&lk(r.csm).c===filterCoach))).forEach(r=>{
+              if(!regCsms[r.csm]) regCsms[r.csm]={csm:r.csm,total:0,mrr:0,otr:0,subs:0};
+              regCsms[r.csm].total+=r.tot; regCsms[r.csm].mrr+=r.mrr;
+              regCsms[r.csm].otr+=r.otr; regCsms[r.csm].subs++;
+            });
+            const top3 = Object.values(regCsms).sort((a,b)=>b.total-a.total).slice(0,3);
+            const medals=["🥇","🥈","🥉"];
+            return <div key={reg} style={{background:"#F4F6FB",borderRadius:10,padding:16,borderTop:`3px solid ${REG_COL[reg]}`}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+                <div>
+                  <span style={{fontSize:18,fontWeight:700,color:REG_COL[reg],marginRight:8}}>{reg}</span>
+                  <span style={{fontSize:11,color:"#808080"}}>{REG_LABEL[reg]}</span>
+                </div>
+                <button onClick={()=>setRegionFilter(reg)} style={{fontSize:10,color:REG_COL[reg],background:"rgba(0,0,0,.05)",border:`0.5px solid ${REG_COL[reg]}`,borderRadius:20,padding:"2px 10px",cursor:"pointer"}}>Filter ↗</button>
+              </div>
+              {top3.length===0
+                ? <div style={{color:"#808080",fontSize:12,fontStyle:"italic"}}>No revenue data</div>
+                : top3.map((c,idx)=>(
+                  <div key={c.csm} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:idx<top3.length-1?"0.5px solid rgba(41,53,93,.08)":"none"}}>
+                    <span style={{fontSize:18,width:24,flexShrink:0}}>{medals[idx]}</span>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:12,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.csm}</div>
+                      <div style={{fontSize:10,color:"#808080",marginTop:1}}>{c.subs} sub{c.subs!==1?"s":""}{c.mrr>0?" · MRR "+fk(c.mrr):""}{c.otr>0?" · OTR "+fk(c.otr):""}</div>
+                    </div>
+                    <div style={{fontSize:14,fontWeight:600,color:REG_COL[reg],flexShrink:0}}>{fd(c.total)}</div>
+                  </div>
+                ))}
+            </div>;
+          })}
+        </div>
+      </div>}
 
       {/* ── Row 3: Top MRR integrations + Non-revenue breakdown ── */}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}}>
@@ -1714,6 +1768,7 @@ function RevenueView({rawRev, csms, filterCoach}) {
             <th style={thS}>CSM</th>
             <th style={thS}>Team</th>
             <th style={thS}>Tier</th>
+            <th style={thS}>Region</th>
             {thSort("subs","Subs")}
             {thSort("mrr","MRR")}
             {thSort("otr","OTR")}
@@ -1730,6 +1785,7 @@ function RevenueView({rawRev, csms, filterCoach}) {
                 <td style={{...tdS,fontWeight:500}}>{c.csm}</td>
                 <td style={tdS}><span style={{display:"inline-block",width:6,height:6,borderRadius:"50%",background:col,marginRight:4,verticalAlign:"middle"}}/><span style={{color:"#808080"}}>{st(info.t||c.team)}</span></td>
                 <td style={tdS}><span style={{fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:20,background:"#F4F6FB",color:"#29355D"}}>{tierLabel[c.tier]||c.tier||"--"}</span></td>
+                <td style={tdS}>{(()=>{const rg=region(c.csm);const RC={DR:"#FF5000",US:"#29355D",ANZ:"#5378FC"};return rg?<span style={{fontSize:10,fontWeight:600,color:RC[rg]||"#808080"}}>{rg}</span>:"--";})()}</td>
                 <td style={tdRS}>{c.subs}</td>
                 <td style={{...tdRS,color:c.mrr>0?"#FF5000":"#808080",fontWeight:c.mrr>0?500:400}}>{c.mrr>0?fd(c.mrr):"--"}</td>
                 <td style={{...tdRS,color:c.otr>0?"#5378FC":"#808080",fontWeight:c.otr>0?500:400}}>{c.otr>0?fd(c.otr):"--"}</td>
