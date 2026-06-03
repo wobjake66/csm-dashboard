@@ -805,7 +805,7 @@ function CSMDetail({csm, onClear}) {
     const lostPct = Math.abs(csm.bobNet)/csm.bobBoq;
     if (lostPct>0.1) atts.push("Net billing down "+pp(lostPct)+" vs start of quarter — "+fd(Math.abs(csm.bobNet))+" lost");
   }
-  if(csm.skippedCount>0) atts.unshift(  if(csm.skippedCount>0) atts.unshift("🚩 "+csm.skippedCount+" account"+(csm.skippedCount>1?"s":"")+" with Continued After 4th Reschedule: "+csm.skippedAccts.map(a=>a.n).join(", "));
+  if(csm.skippedCount>0) atts.unshift("🚩 "+csm.skippedCount+" account"+(csm.skippedCount>1?"s":"")+" with Continued After 4th Reschedule: "+csm.skippedAccts.map(a=>a.n).join(", "));
   else if(csm.overdueCount>0) atts.push(csm.overdueCount+" overdue tasks across "+overdueAccts.length+" accounts");
   if(csm.cadCount>0) {
     if(csm.cadPct>=0.9) wins.push("Cadence completion on track at "+pp(csm.cadPct));
