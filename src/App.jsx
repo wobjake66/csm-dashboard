@@ -492,7 +492,7 @@ function mapSkipped(rows) {
 }
 
 // ── BUILD UNIFIED CSM LIST ─────────────────────────────────────────────────
-function buildCSMs(rev, email, cad, due, ontime, skipped) {
+function buildCSMs(rev, email, cad, due, ontime, skipped, bobRaw, mcChurn, bcChurn) {
   const m = {};
   const get = name => {
     if (!m[name]) {
@@ -503,7 +503,8 @@ function buildCSMs(rev, email, cad, due, ontime, skipped) {
         cadCount:0, cadPct:0,
         dueCount:0, overdueCount:0, newToday:0,
         otTotal:0, otOnTime:0, otPct:null,
-        skippedCount:0, skippedAccts:[]};
+        skippedCount:0, skippedAccts:[],
+        bobBoq:0, bobLcm:0, bobNet:0, bobRet:null, bobMcc:0, bobMch:[], bobBcc:0, bobBch:[]};
     }
     return m[name];
   };
@@ -535,6 +536,39 @@ function buildCSMs(rev, email, cad, due, ontime, skipped) {
     const c = get(d.name);
     c.skippedCount = d.count;
     c.skippedAccts = d.accounts||[];
+  });
+  // Merge BOB billing data
+  if (bobRaw&&bobRaw.bob) {
+    Object.entries(bobRaw.bob).forEach(([rawName, d]) => {
+      const name = norm(rawName)||rawName;
+      const c = m[name];
+      if (c) { c.bobBoq=d.boq||0; c.bobLcm=d.lcm||0; c.bobNet=d.net||0; c.bobRet=d.ret||null; }
+    });
+  }
+  // Merge MC churn
+  if (mcChurn) {
+    Object.entries(mcChurn).forEach(([rawName, d]) => {
+      const name = norm(rawName)||rawName;
+      const c = m[name];
+      if (c) { c.bobMcc=d.canceled||0; c.bobMch=d.accts||[]; }
+    });
+  }
+  // Merge BC churn
+  if (bcChurn) {
+    Object.entries(bcChurn).forEach(([rawName, d]) => {
+      const name = norm(rawName)||rawName;
+      const c = m[name];
+      if (c) { c.bobBcc=d.canceled||0; c.bobBch=d.accts||[]; }
+    });
+  }
+  // Also populate from hardcoded BOB_CSMS fallback for any CSM not in live data
+  BOB_CSMS.forEach(b => {
+    const c = m[b.n];
+    if (c && c.bobBoq===0 && b.boq>0) {
+      c.bobBoq=b.boq; c.bobLcm=b.lcm; c.bobNet=b.net; c.bobRet=b.ret;
+      if (c.bobMcc===0) { c.bobMcc=b.mcc; c.bobMch=b.mch; }
+      if (c.bobBcc===0) { c.bobBcc=b.bcc; c.bobBch=b.bch; }
+    }
   });
   return Object.values(m);
 }
@@ -651,11 +685,14 @@ function CoachCard({coach, csms, onSelectCSM, onSelectCoach}) {
   const avgOT   = otC.length  ? otC.reduce((s,c)=>s+c.otPct,0)/otC.length : null;
   const revPct  = team.length ? team.filter(c=>c.rev>0||c.ints>0).length/team.length : null;
   const teamRev = team.reduce((s,c)=>s+c.rev,0);
+  const bobC  = team.filter(c=>c.bobRet!=null);
+  const avgBob = bobC.length ? bobC.reduce((s,c)=>s+c.bobRet,0)/bobC.length : null;
   let sc=0,sf=0;
-  if(cadC.length>0&&avgCad!=null){sc+=Math.min(avgCad/0.9,1)*30;sf++;}
-  if(avgOpen!=null){sc+=Math.min(avgOpen/0.7,1)*25;sf++;}
-  if(avgOT!=null){sc+=Math.min(avgOT/0.8,1)*20;sf++;}
-  if(revPct!=null){sc+=Math.min(revPct/0.7,1)*25;sf++;}
+  if(cadC.length>0&&avgCad!=null){sc+=Math.min(avgCad/0.9,1)*25;sf++;}
+  if(avgOpen!=null){sc+=Math.min(avgOpen/0.7,1)*20;sf++;}
+  if(avgOT!=null){sc+=Math.min(avgOT/0.8,1)*15;sf++;}
+  if(revPct!=null){sc+=Math.min(revPct/0.7,1)*20;sf++;}
+  if(avgBob!=null){sc+=Math.min(avgBob/0.91,1)*20;sf++;}
   // Skipped cadence penalty: -5 pts per CSM with skips, capped at -25
   const skippedOnTeam = team.filter(c=>c.skippedCount>0).length;
   if(sf>0 && skippedOnTeam>0) sc = Math.max(0, sc - Math.min(skippedOnTeam*5, 25));
@@ -693,10 +730,11 @@ function CoachCard({coach, csms, onSelectCSM, onSelectCoach}) {
         <span style={{fontSize:40,fontWeight:500,lineHeight:1,color:sCol}}>{score!=null?score:"--"}</span>
         <div style={{fontSize:11,color:"#808080",lineHeight:1.4}}>/ 100<br/><span style={{fontSize:10}}>{wins}✓ {warns}⚠ {atts}✗</span></div>
       </div>
-      <Bar label="Cadence"  val={avgCad}  hi={0.9} lo={0.5}/>
-      <Bar label="On-time"  val={avgOT}   hi={0.8} lo={0.6}/>
-      <Bar label="Email"    val={avgOpen}  hi={0.7} lo={0.35}/>
-      <Bar label="Revenue"  val={revPct}  hi={0.7} lo={0.4}/>
+      <Bar label="Cadence"   val={avgCad}  hi={0.9} lo={0.5}/>
+      <Bar label="On-time"   val={avgOT}   hi={0.8} lo={0.6}/>
+      <Bar label="Email"     val={avgOpen} hi={0.7} lo={0.35}/>
+      <Bar label="Revenue"   val={revPct}  hi={0.7} lo={0.4}/>
+      <Bar label="Retention" val={avgBob}  hi={0.91} lo={0.85}/>
       <div style={{height:.5,background:"rgba(41,53,93,.07)",margin:"10px 0"}}/>
       <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:6}}>CSM Status</div>
       {visible.map(c => {
@@ -755,7 +793,19 @@ function CSMDetail({csm, onClear}) {
     else if(ot.otPct>=0.6) atts.push("On-time rate of "+pp(ot.otPct)+" — some tasks completed late");
     else atts.push("On-time rate of only "+pp(ot.otPct)+" ("+ot.otTotal+" tasks) — timeliness needs focus");
   }
-  if(csm.skippedCount>0) atts.unshift("🚩 "+csm.skippedCount+" account"+(csm.skippedCount>1?"s":"")+" with Continued After 4th Reschedule: "+csm.skippedAccts.map(a=>a.n).join(", "));
+  // BOB retention insights
+  if (csm.bobRet!=null) {
+    if (csm.bobRet>=0.91) wins.push("Book of business retention "+pp(csm.bobRet)+" — above the 91% goal");
+    else if (csm.bobRet>=0.88) atts.push("Retention "+pp(csm.bobRet)+" is near but below the 91% goal — focus on at-risk accounts");
+    else atts.push("Retention "+pp(csm.bobRet)+" is significantly below the 91% goal — prioritize retention conversations");
+  }
+  if (csm.bobMcc>0) atts.push("MC churn: "+csm.bobMcc+" account"+(csm.bobMcc>1?"s":"")+" canceled this quarter"+(csm.bobMch.length?" ("+csm.bobMch.slice(0,3).join(", ")+")":""));
+  if (csm.bobBcc>0) atts.push("BC churn: "+csm.bobBcc+" account"+(csm.bobBcc>1?"s":"")+" canceled this quarter"+(csm.bobBch.length?" ("+csm.bobBch.slice(0,2).join(", ")+")":""));
+  if (csm.bobNet<0&&csm.bobBoq>0) {
+    const lostPct = Math.abs(csm.bobNet)/csm.bobBoq;
+    if (lostPct>0.1) atts.push("Net billing down "+pp(lostPct)+" vs start of quarter — "+fd(Math.abs(csm.bobNet))+" lost");
+  }
+  if(csm.skippedCount>0) atts.unshift(  if(csm.skippedCount>0) atts.unshift("🚩 "+csm.skippedCount+" account"+(csm.skippedCount>1?"s":"")+" with Continued After 4th Reschedule: "+csm.skippedAccts.map(a=>a.n).join(", "));
   else if(csm.overdueCount>0) atts.push(csm.overdueCount+" overdue tasks across "+overdueAccts.length+" accounts");
   if(csm.cadCount>0) {
     if(csm.cadPct>=0.9) wins.push("Cadence completion on track at "+pp(csm.cadPct));
@@ -789,6 +839,7 @@ function CSMDetail({csm, onClear}) {
           {statBox("Email open",    csm.sent>0?pp(csm.openRate):"--",  csm.sent>0?csm.sent+" sent · "+pp(csm.replyRate)+" reply":"No emails",       csm.sent>0?pc(csm.openRate):null)}
           {statBox("Cadence",       csm.cadCount>0?pp(csm.cadPct):csm.overdueCount>0?csm.overdueCount+" overdue":"No tasks", csm.dueCount>0?csm.dueCount+" due · "+csm.newToday+" new":"Nothing due yesterday", csm.cadCount>0?pc(csm.cadPct):csm.overdueCount>0?"#dc2626":null)}
           {statBox("On-time %",     ot&&ot.otTotal>=1?pp(ot.otPct):"--", ot&&ot.otTotal>=1?ot.otOnTime+"/"+ot.otTotal+" on time":"No data",         ot&&ot.otTotal>=1?pc(ot.otPct):null)}
+          {statBox("Retention",     csm.bobRet!=null?pp(csm.bobRet):"--", csm.bobBoq>0?"BOQ "+fd(csm.bobBoq):"No BOB data",                        csm.bobRet!=null?(csm.bobRet>=0.91?"#16a34a":csm.bobRet>=0.85?"#d97706":"#dc2626"):null)}
           {statBox("Integrations",  csm.accts.length||"--",             csm.accts.length>0?fd(totalAcctRev)+" total":null,                          null)}
         </div>
       </div>
@@ -808,6 +859,38 @@ function CSMDetail({csm, onClear}) {
             : atts.map((a,idx)=><div key={idx} style={{fontSize:12,padding:"5px 0",borderBottom:"0.5px solid rgba(0,0,0,.06)",display:"flex",gap:6}}><span style={{color:"#dc2626",flexShrink:0}}>⚠</span>{a}</div>)}
         </div>
       </div>
+
+      {/* Book of business */}
+      {csm.bobBoq>0&&<div style={{...S.card,marginBottom:16}}>
+        <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>Book of business — this quarter</div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(4,minmax(0,1fr))",gap:12,marginBottom:csm.bobMcc+csm.bobBcc>0?16:0}}>
+          {[
+            {l:"Beginning of quarter",v:fd(csm.bobBoq),col:"#29355D"},
+            {l:"Current billing",v:fd(csm.bobLcm),col:"#5378FC"},
+            {l:"Net change",v:(csm.bobNet<0?"-":"+")+fd(Math.abs(csm.bobNet)),col:csm.bobNet<0?"#dc2626":"#16a34a"},
+            {l:"Retention rate",v:pp(csm.bobRet||0),col:csm.bobRet>=0.91?"#16a34a":csm.bobRet>=0.85?"#d97706":"#dc2626"},
+          ].map(s=>(
+            <div key={s.l} style={{background:"#F4F6FB",borderRadius:8,padding:12}}>
+              <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>{s.l}</div>
+              <div style={{fontSize:18,fontWeight:500,color:s.col}}>{s.v}</div>
+            </div>
+          ))}
+        </div>
+        {(csm.bobMcc>0||csm.bobBcc>0)&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+          <div>
+            <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:8}}>MC churned accounts ({csm.bobMcc})</div>
+            {csm.bobMch.length>0
+              ? csm.bobMch.map((a,i)=><div key={i} style={{padding:"4px 0",borderBottom:"0.5px solid rgba(41,53,93,.06)",fontSize:12}}>{a}</div>)
+              : <div style={{color:"#808080",fontSize:12}}>None this quarter</div>}
+          </div>
+          <div>
+            <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:8}}>BC churned accounts ({csm.bobBcc})</div>
+            {csm.bobBch.length>0
+              ? csm.bobBch.map((a,i)=><div key={i} style={{padding:"4px 0",borderBottom:"0.5px solid rgba(41,53,93,.06)",fontSize:12,color:"#991b1b"}}>{a}</div>)
+              : <div style={{color:"#808080",fontSize:12}}>None this quarter</div>}
+          </div>
+        </div>}
+      </div>}
 
       {/* Cadence accounts */}
       <div style={{...S.card,marginBottom:16}}>
@@ -931,9 +1014,11 @@ function CoachingView({csms, coach, onSelectCSM, onSelectCoach, onClear, skipped
   const cols = coaches.length===1?1:coaches.length===2?2:3;
   const overdue = csms.filter(c=>c.overdueCount>0).sort((a,b)=>b.overdueCount-a.overdueCount).slice(0,6);
   const skipped = (skippedCSMs||[]);
-  const attn = csms.filter(c=>(c.cadCount>0&&c.cadPct<0.9)||c.skippedCount>0).sort((a,b)=>{
+  const attn = csms.filter(c=>(c.cadCount>0&&c.cadPct<0.9)||c.skippedCount>0||(c.bobRet!=null&&c.bobRet<0.91)).sort((a,b)=>{
     if(b.skippedCount>0&&!a.skippedCount) return 1;
     if(a.skippedCount>0&&!b.skippedCount) return -1;
+    if(a.bobRet!=null&&a.bobRet<0.91&&(b.bobRet==null||b.bobRet>=0.91)) return -1;
+    if(b.bobRet!=null&&b.bobRet<0.91&&(a.bobRet==null||a.bobRet>=0.91)) return 1;
     return a.cadPct-b.cadPct;
   });
   const wins = csms.filter(c=>c.cadCount>0&&c.cadPct>=0.9&&c.skippedCount===0).sort((a,b)=>b.cadPct-a.cadPct);
@@ -1002,7 +1087,7 @@ function CoachingView({csms, coach, onSelectCSM, onSelectCoach, onClear, skipped
         {attn.length===0
           ? <div style={{textAlign:"center",padding:20,color:"#16a34a",fontWeight:500}}>🎉 Everyone at 90%+ today!</div>
           : <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
-              <thead><tr>{["CSM","Team","Skipped","Cadence","On-time","Overdue","Gap"].map((h,j)=><th key={h} style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,padding:"0 8px 8px 0",textAlign:j>=2?"right":"left",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>{h}</th>)}</tr></thead>
+              <thead><tr>{["CSM","Team","Skipped","Cadence","On-time","Overdue","Gap","BOQ","Retention"].map((h,j)=><th key={h} style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,padding:"0 8px 8px 0",textAlign:j>=2?"right":"left",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>{h}</th>)}</tr></thead>
               <tbody>{attn.map(c=>{
                 const i=lk(c.name)||{};
                 const hasSkip=c.skippedCount>0;
@@ -1023,6 +1108,14 @@ function CoachingView({csms, coach, onSelectCSM, onSelectCoach, onClear, skipped
                   <td style={{padding:"7px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",fontWeight:500,color:c.otTotal>=3?pc(c.otPct):"#888"}}>{c.otTotal>=3?pp(c.otPct):"--"}</td>
                   <td style={{padding:"7px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right"}}>{c.overdueCount>0?<span style={{fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:20,background:"rgba(220,38,38,.1)",color:"#991b1b"}}>{c.overdueCount}</span>:"--"}</td>
                   <td style={{padding:"7px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",fontWeight:500,color:"#dc2626"}}>{c.cadPct<0.9?Math.round((0.9-c.cadPct)*100)+"%":"--"}</td>
+                  <td style={{padding:"7px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#808080",fontSize:11}}>{c.bobBoq>0?fk(c.bobBoq):"--"}</td>
+                  <td style={{padding:"7px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right"}}>
+                    {c.bobRet!=null?<span style={{fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:20,
+                      background:c.bobRet>=0.91?"rgba(22,163,74,.1)":c.bobRet>=0.85?"rgba(217,119,6,.1)":"rgba(220,38,38,.1)",
+                      color:c.bobRet>=0.91?"#166534":c.bobRet>=0.85?"#854d0e":"#991b1b"}}>
+                      {pp(c.bobRet)}
+                    </span>:"--"}
+                  </td>
                 </tr>;
               })}</tbody>
             </table>}
@@ -1065,11 +1158,15 @@ function OverviewView({csms, allCSMs}) {
   const topRev=[...csms].filter(c=>c.rev>0).sort((a,b)=>b.rev-a.rev).slice(0,8);
   const maxRI=topRev[0]&&topRev[0].rev||1;
   const topOT=[...csms].filter(c=>c.otTotal>=3).sort((a,b)=>b.otPct-a.otPct).slice(0,8);
+  const bobC2 = csms.filter(c=>c.bobRet!=null);
+  const avgRet = bobC2.length ? bobC2.reduce((s,c)=>s+c.bobRet,0)/bobC2.length : null;
+  const aboveGoal = bobC2.filter(c=>c.bobRet>=0.91).length;
   const metrics=[
     {l:"Total revenue",v:fd(totalRev),s:"MRR "+fk(totalMRR),col:"#FF5000"},
     {l:"Emails sent",v:totalSent,s:emC.length+" senders",col:"#5378FC"},
     {l:"Avg open rate",v:pp(avgOpen),s:"Target 70%+",col:avgOpen>=0.7?"#16a34a":"#d97706"},
     {l:"Avg on-time %",v:otC.length?pp(avgOT):"--",s:otC.length+" CSMs tracked",col:avgOT>=0.8?"#16a34a":avgOT>=0.6?"#d97706":"#dc2626"},
+    {l:"Avg retention",v:avgRet!=null?pp(avgRet):"--",s:aboveGoal+" of "+bobC2.length+" at goal",col:avgRet!=null?(avgRet>=0.91?"#16a34a":avgRet>=0.88?"#d97706":"#dc2626"):"#808080"},
     {l:"Overdue tasks",v:totalOD,s:csms.filter(c=>c.overdueCount>0).length+" CSMs",col:"#dc2626"},
   ];
   const hbar=(name,pct,val,max,col,onClick)=>(
@@ -1083,7 +1180,7 @@ function OverviewView({csms, allCSMs}) {
   );
   return (
     <div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(5,minmax(0,1fr))",gap:12,marginBottom:20}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(6,minmax(0,1fr))",gap:12,marginBottom:20}}>
         {metrics.map(m=>(
           <div key={m.l} style={{background:"#ECEEF1",borderRadius:8,padding:14,position:"relative",overflow:"hidden"}}>
             <div style={{position:"absolute",top:0,left:0,right:0,height:2,background:m.col,borderRadius:"8px 8px 0 0"}}/>
@@ -1106,6 +1203,24 @@ function OverviewView({csms, allCSMs}) {
           {topRev.map(c=>hbar(c.name.split(" ").slice(0,2).join(" "),c.rev/maxRI,fk(c.rev),maxRI,"#FF5000",()=>{}))}
         </div>
       </div>
+      {bobC2.length>0&&<div style={{...S.card,marginBottom:16}}>
+        <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>
+          Book of business retention — top CSMs &nbsp;
+          <span style={{fontWeight:400,color:"#808080"}}>goal line at 91%</span>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+          {[...bobC2].sort((a,b)=>b.bobRet-a.bobRet).slice(0,12).map(c=>(
+            <div key={c.name} style={{display:"flex",alignItems:"center",gap:8,fontSize:12}}>
+              <span style={{width:130,flexShrink:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name.split(" ").slice(0,2).join(" ")}</span>
+              <div style={{flex:1,height:5,background:"#ECEEF1",borderRadius:3,overflow:"visible",position:"relative"}}>
+                <div style={{width:Math.min(c.bobRet*100,105).toFixed(1)+"%",height:"100%",borderRadius:3,background:bc(c.bobRet,0.91,0.85)}}/>
+                <div style={{position:"absolute",top:-2,bottom:-2,width:"1.5px",background:"rgba(41,53,93,.2)",left:"91%"}}/>
+              </div>
+              <span style={{width:40,textAlign:"right",fontSize:11,fontWeight:500,color:bc(c.bobRet,0.91,0.85),flexShrink:0}}>{pp(c.bobRet)}</span>
+            </div>
+          ))}
+        </div>
+      </div>}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
         <div style={S.card}>
           <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>On-time cadence % — top 8</div>
@@ -1142,6 +1257,8 @@ function LeaderboardView({csms}) {
       case "cadPct":       return c.cadCount > 0 ? c.cadPct : null;
       case "otPct":        return c.otTotal >= 3 ? c.otPct : null;
       case "overdueCount": return c.overdueCount > 0 ? c.overdueCount : null;
+      case "bobBoq":       return c.bobBoq > 0 ? c.bobBoq : null;
+      case "bobRet":       return c.bobRet != null ? c.bobRet : null;
       default:             return null;
     }
   };
@@ -1173,7 +1290,7 @@ function LeaderboardView({csms}) {
           <th style={{width:28,fontSize:10,color:"#808080",fontWeight:500,padding:"0 0 8px",textAlign:"left",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>#</th>
           <th style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,padding:"0 0 8px",textAlign:"left",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>CSM</th>
           <th style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,padding:"0 0 8px",textAlign:"left",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>Team</th>
-          {th("rev","Revenue")}{th("sent","Emails")}{th("openRate","Open %")}{th("cadPct","Cadence")}{th("otPct","On-time %")}{th("overdueCount","Overdue")}
+          {th("rev","Revenue")}{th("sent","Emails")}{th("openRate","Open %")}{th("cadPct","Cadence")}{th("otPct","On-time %")}{th("overdueCount","Overdue")}{th("bobBoq","BOQ $")}{th("bobRet","Retention")}
         </tr></thead>
         <tbody>{sorted.map((c,i)=>{
           const info=lk(c.name)||{};
@@ -1188,6 +1305,8 @@ function LeaderboardView({csms}) {
             <td style={{padding:"9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",fontWeight:500,color:c.cadCount>0?pc(c.cadPct):"#888"}}>{c.cadCount>0?pp(c.cadPct):"--"}</td>
             <td style={{padding:"9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",fontWeight:500,color:c.otTotal>=3?pc(c.otPct):"#888"}}>{c.otTotal>=3?pp(c.otPct):"--"}</td>
             <td style={{padding:"9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right"}}>{c.overdueCount>0?<span style={{fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:20,background:"rgba(220,38,38,.1)",color:"#991b1b"}}>{c.overdueCount}</span>:"--"}</td>
+            <td style={{padding:"9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#808080",fontSize:11}}>{c.bobBoq>0?fk(c.bobBoq):"--"}</td>
+            <td style={{padding:"9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right"}}>{c.bobRet!=null?<span style={{fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:20,background:c.bobRet>=0.91?"rgba(22,163,74,.1)":c.bobRet>=0.85?"rgba(217,119,6,.1)":"rgba(220,38,38,.1)",color:c.bobRet>=0.91?"#166534":c.bobRet>=0.85?"#854d0e":"#991b1b"}}>{pp(c.bobRet)}</span>:"--"}</td>
           </tr>;
         })}</tbody>
       </table>
@@ -2346,7 +2465,7 @@ export default function App() {
         const due     = mapDue(dueRows);
         const ontime  = mapOnTime(ontimeRows);
         const skipped = mapSkipped(skippedRows);
-        const built   = buildCSMs(rev, email, cad, due, ontime, skipped);
+        const built   = buildCSMs(rev, email, cad, due, ontime, skipped, bobRaw, mapChurn(mcRows), mapChurn(bcRows));
         setCSMs(built);
         setSkippedCSMs(built.filter(c=>c.skippedCount>0).sort((a,b)=>b.skippedCount-a.skippedCount));
         setBobRaw(mapBob(bobRows));
@@ -2369,7 +2488,7 @@ export default function App() {
         const due     = mapDue(latestDue);
         const ontime  = mapOnTime(latestOntime);
         const skipped = mapSkipped(latestSkipped);
-        const built   = buildCSMs(rev, email, cad, due, ontime, skipped);
+        const built   = buildCSMs(rev, email, cad, due, ontime, skipped, bobRaw, mapChurn(latestMcChurn), mapChurn(latestBcChurn));
         setCSMs(built);
         setSkippedCSMs(built.filter(c=>c.skippedCount>0).sort((a,b)=>b.skippedCount-a.skippedCount));
         setUpdatedAt(new Date().toLocaleTimeString());
