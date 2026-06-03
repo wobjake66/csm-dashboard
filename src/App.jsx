@@ -1419,6 +1419,337 @@ function TrendsView({history, csms, filterCoach, filterCSM}) {
   );
 }
 
+// ── REVENUE VIEW ────────────────────────────────────────────────────────────
+function RevenueView({rawRev, csms, filterCoach}) {
+  const [lbSort, setLbSort] = useState({col:"total", dir:"desc"});
+
+  // Parse raw rows into enriched objects
+  const rows = (rawRev||[]).map(r => {
+    const csm  = norm(r["CSM Name"]||r["csm_name"]||"");
+    const team = r["CSM Team! "]||r["team"]||"";
+    const tier = r["CSM Tier"]||r["csm_tier"]||"";
+    const mrr  = parseFloat(String(r["MRR $ Added"]||0).replace(/[$,]/g,""))||0;
+    const otr  = parseFloat(String(r["OTR $ Added"]||0).replace(/[$,]/g,""))||0;
+    const tot  = parseFloat(String(r["Total Revenue Added"]||0).replace(/[$,]/g,""))||0;
+    const nr   = (r["Non-Revenue Integrations"]||"").trim();
+    const mrrInt = (r["MRR Integration"]||"").trim();
+    const biz  = (r["Business Name"]||"").trim();
+    const type = (r["Type of Integration"]||"").trim();
+    const i    = lk(csm);
+    return {csm, team: (i&&i.t)||team, tier:(i&&i.r)||tier, mrr, otr, tot, nr, mrrInt, biz, type};
+  }).filter(r=>r.csm && isValidCSM(r.csm));
+
+  // Apply coach filter
+  const filtered = filterCoach
+    ? rows.filter(r=>{ const i=lk(r.csm); return i&&i.c===filterCoach; })
+    : rows;
+
+  // ── Totals ────────────────────────────────────────────────────────────────
+  const totalMRR  = filtered.reduce((s,r)=>s+r.mrr,0);
+  const totalOTR  = filtered.reduce((s,r)=>s+r.otr,0);
+  const totalRev  = filtered.reduce((s,r)=>s+r.tot,0);
+  const totalSubs = filtered.length;
+  const nonRevSubs = filtered.filter(r=>r.type==="Non-Revenue").length;
+  const mrrSubs   = filtered.filter(r=>r.type==="Monthly Recurring Revenue").length;
+  const otrSubs   = filtered.filter(r=>r.type==="One-Time Revenue").length;
+  const activeCsms = new Set(filtered.filter(r=>r.tot>0||r.nr).map(r=>r.csm)).size;
+
+  // ── By team ───────────────────────────────────────────────────────────────
+  const byTeam = {};
+  filtered.forEach(r=>{
+    if(!r.team) return;
+    if(!byTeam[r.team]) byTeam[r.team]={mrr:0,otr:0,total:0,subs:0};
+    byTeam[r.team].mrr+=r.mrr; byTeam[r.team].otr+=r.otr;
+    byTeam[r.team].total+=r.tot; byTeam[r.team].subs++;
+  });
+  const teamRows = Object.entries(byTeam).sort((a,b)=>b[1].total-a[1].total);
+  const maxTeamRev = teamRows[0]?teamRows[0][1].total:1;
+
+  // ── By tier ───────────────────────────────────────────────────────────────
+  const byTier = {};
+  filtered.forEach(r=>{
+    if(!r.tier) return;
+    if(!byTier[r.tier]) byTier[r.tier]={mrr:0,otr:0,total:0,subs:0};
+    byTier[r.tier].mrr+=r.mrr; byTier[r.tier].otr+=r.otr;
+    byTier[r.tier].total+=r.tot; byTier[r.tier].subs++;
+  });
+  const tierOrder = ["CSMI","CSMII","CSMIII","SSMI","SSMII"];
+  const tierLabel = {"CSMI":"CSM 1","CSMII":"CSM 2","CSMIII":"CSM 3","SSMI":"SSM 1","SSMII":"SSM 2"};
+
+  // ── Top MRR integration types ─────────────────────────────────────────────
+  const mrrTypes = {};
+  filtered.filter(r=>r.mrr>0).forEach(r=>{
+    const k = r.mrrInt||"Unspecified";
+    if(!mrrTypes[k]) mrrTypes[k]={count:0,amount:0};
+    mrrTypes[k].count++; mrrTypes[k].amount+=r.mrr;
+  });
+  const mrrTypeRows = Object.entries(mrrTypes).sort((a,b)=>b[1].amount-a[1].amount);
+  const maxMrrAmt = mrrTypeRows[0]?mrrTypeRows[0][1].amount:1;
+
+  // ── Non-revenue types ─────────────────────────────────────────────────────
+  const nrTypes = {};
+  filtered.filter(r=>r.nr).forEach(r=>{
+    if(!nrTypes[r.nr]) nrTypes[r.nr]=0;
+    nrTypes[r.nr]++;
+  });
+  const NR_COLORS = {
+    "Yelp Request a Quote":    "#E31C24",
+    "Tracking Line Provisioned":"#4A5D8C",
+    "Demo Booked":             "#16a34a",
+    "ThryvPay":                "#FF5000",
+    "Webchat":                 "#5378FC",
+  };
+
+  // ── Integration type donut data ───────────────────────────────────────────
+  const donutData = [
+    {label:"MRR",    val:mrrSubs,   col:"#FF5000"},
+    {label:"OTR",    val:otrSubs,   col:"#5378FC"},
+    {label:"Non-Rev",val:nonRevSubs,col:"#ECEEF1"},
+  ];
+  const donutTotal = donutData.reduce((s,d)=>s+d.val,0)||1;
+  // Build SVG donut arcs
+  function donutArcs(data, total, cx, cy, r, stroke) {
+    let angle = -Math.PI/2;
+    return data.map(d=>{
+      const slice = (d.val/total)*2*Math.PI;
+      const x1=cx+r*Math.cos(angle), y1=cy+r*Math.sin(angle);
+      angle+=slice;
+      const x2=cx+r*Math.cos(angle), y2=cy+r*Math.sin(angle);
+      const large=slice>Math.PI?1:0;
+      return {path:`M${cx},${cy} L${x1.toFixed(1)},${y1.toFixed(1)} A${r},${r} 0 ${large},1 ${x2.toFixed(1)},${y2.toFixed(1)} Z`, col:d.col, label:d.label, val:d.val};
+    });
+  }
+  const arcs = donutArcs(donutData, donutTotal, 65, 65, 55, 8);
+
+  // ── CSM leaderboard ───────────────────────────────────────────────────────
+  const byCsm = {};
+  filtered.forEach(r=>{
+    if(!r.csm) return;
+    if(!byCsm[r.csm]) byCsm[r.csm]={csm:r.csm,team:r.team,tier:r.tier,mrr:0,otr:0,total:0,subs:0,revPerSub:0};
+    byCsm[r.csm].mrr+=r.mrr; byCsm[r.csm].otr+=r.otr;
+    byCsm[r.csm].total+=r.tot; byCsm[r.csm].subs++;
+  });
+  Object.values(byCsm).forEach(c=>{ c.revPerSub = c.subs>0?c.total/c.subs:0; });
+  const lbRows = Object.values(byCsm).sort((a,b)=>{
+    const av=a[lbSort.col]||0, bv=b[lbSort.col]||0;
+    return lbSort.dir==="desc"?bv-av:av-bv;
+  });
+  const [showAllLb, setShowAllLb] = useState(false);
+  const visibleLb = showAllLb ? lbRows : lbRows.slice(0,15);
+  const medals=["🥇","🥈","🥉"];
+  const thS = {fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,padding:"0 0 8px",textAlign:"left",borderBottom:"0.5px solid rgba(41,53,93,.08)",cursor:"pointer",whiteSpace:"nowrap"};
+  const thRS = {...thS, textAlign:"right"};
+  const tdS = {padding:"9px 8px 9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",fontSize:12};
+  const tdRS = {...tdS, textAlign:"right"};
+  function thSort(col,lbl) {
+    return <th style={{...thRS,color:lbSort.col===col?"#FF5000":"#808080"}}
+      onClick={()=>setLbSort(s=>({col,dir:s.col===col&&s.dir==="desc"?"asc":"desc"}))}>
+      {lbl}{lbSort.col===col?(lbSort.dir==="desc"?" ▼":" ▲"):<span style={{color:"#ccc",fontSize:9}}> ↕</span>}
+    </th>;
+  }
+
+  const cardStyle = {background:"#fff",border:"0.5px solid rgba(41,53,93,.09)",borderRadius:12,padding:16};
+  const secTitle = {fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12};
+
+  return (
+    <div>
+      {/* ── Top metric tiles ── */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(5,minmax(0,1fr))",gap:12,marginBottom:20}}>
+        {[
+          {l:"Total Revenue Added", v:fd(totalRev),     s:`${totalSubs} submissions shown`,    col:"#FF5000"},
+          {l:"MRR Added",           v:fd(totalMRR),     s:`${Math.round(totalMRR/totalRev*100)||0}% of total · ${mrrSubs} submissions`, col:"#29355D"},
+          {l:"One-Time Revenue",    v:fd(totalOTR),     s:`${otrSubs} one-time submissions`,   col:"#5378FC"},
+          {l:"Submissions",         v:totalSubs,        s:`MRR ${mrrSubs} · OTR ${otrSubs} · Non-rev ${nonRevSubs}`, col:"#d97706"},
+          {l:"Active CSMs",         v:activeCsms,       s:`${lbRows.filter(c=>c.total>0).length} generating revenue`, col:"#16a34a"},
+        ].map(m=>(
+          <div key={m.l} style={{...cardStyle,position:"relative",overflow:"hidden"}}>
+            <div style={{position:"absolute",top:0,left:0,right:0,height:3,background:m.col,borderRadius:"12px 12px 0 0"}}/>
+            <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:6}}>{m.l}</div>
+            <div style={{fontSize:22,fontWeight:500,color:m.col,lineHeight:1,marginBottom:3}}>{m.v}</div>
+            <div style={{fontSize:11,color:"#808080"}}>{m.s}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Row 2: By team + By tier + Integration split ── */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:16,marginBottom:16}}>
+
+        {/* Revenue by team */}
+        <div style={cardStyle}>
+          <div style={secTitle}>Revenue by Team</div>
+          {teamRows.map(([team,d])=>{
+            const coach=COACHES.find(c=>c.t===team);
+            const col=TEAM_COLS[team]||"#888";
+            return <div key={team} style={{marginBottom:8}}>
+              <div style={{display:"flex",justifyContent:"space-between",fontSize:11,marginBottom:3}}>
+                <span style={{display:"flex",alignItems:"center",gap:6}}>
+                  <span style={{width:8,height:8,borderRadius:"50%",background:col,display:"inline-block",flexShrink:0}}/>
+                  <span style={{fontWeight:500}}>{st(team)}</span>
+                </span>
+                <span style={{color:"#29355D",fontWeight:500}}>{fk(d.total)}</span>
+              </div>
+              <div style={{height:6,background:"#ECEEF1",borderRadius:3,overflow:"hidden"}}>
+                <div style={{height:"100%",borderRadius:3,background:col,width:(d.total/maxTeamRev*100).toFixed(1)+"%"}}/>
+              </div>
+              <div style={{fontSize:10,color:"#808080",marginTop:2,display:"flex",gap:8}}>
+                <span>MRR {fk(d.mrr)}</span>
+                {d.otr>0&&<span>OTR {fk(d.otr)}</span>}
+                <span>{d.subs} subs</span>
+              </div>
+            </div>;
+          })}
+        </div>
+
+        {/* Revenue by tier + non-rev types */}
+        <div style={cardStyle}>
+          <div style={secTitle}>Revenue by CSM Tier</div>
+          {tierOrder.filter(t=>byTier[t]).map(t=>{
+            const d=byTier[t];
+            const maxT=Math.max(...tierOrder.filter(k=>byTier[k]).map(k=>byTier[k].total))||1;
+            return <div key={t} style={{marginBottom:8}}>
+              <div style={{display:"flex",justifyContent:"space-between",fontSize:11,marginBottom:3}}>
+                <span style={{fontWeight:500}}>{tierLabel[t]||t}</span>
+                <span style={{color:"#29355D",fontWeight:500}}>{fk(d.total)}</span>
+              </div>
+              <div style={{height:6,background:"#ECEEF1",borderRadius:3,overflow:"hidden"}}>
+                <div style={{height:"100%",borderRadius:3,background:"#29355D",opacity:0.7,width:(d.total/maxT*100).toFixed(1)+"%"}}/>
+              </div>
+              <div style={{fontSize:10,color:"#808080",marginTop:2}}>{d.subs} subs · MRR {fk(d.mrr)}</div>
+            </div>;
+          })}
+          <div style={{height:"0.5px",background:"rgba(41,53,93,.08)",margin:"12px 0"}}/>
+          <div style={secTitle}>Submissions by Tier</div>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+            {tierOrder.filter(t=>byTier[t]).map(t=>(
+              <span key={t} style={{fontSize:11,fontWeight:500,padding:"3px 10px",borderRadius:20,background:"#F4F6FB",color:"#29355D"}}>
+                {tierLabel[t]||t} — {byTier[t].subs}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* Integration type split donut */}
+        <div style={cardStyle}>
+          <div style={secTitle}>Integration Type Split</div>
+          <div style={{display:"flex",alignItems:"center",gap:16}}>
+            <svg width={130} height={130} style={{flexShrink:0}}>
+              {arcs.map((a,i)=>(
+                a.val>0&&<path key={i} d={a.path} fill={a.col} stroke="#fff" strokeWidth={1.5}/>
+              ))}
+              <circle cx={65} cy={65} r={32} fill="#fff"/>
+              <text x={65} y={61} textAnchor="middle" fontSize={11} fill="#808080">Total</text>
+              <text x={65} y={77} textAnchor="middle" fontSize={14} fontWeight="500" fill="#29355D">{totalSubs}</text>
+            </svg>
+            <div style={{flex:1}}>
+              {donutData.map(d=>(
+                <div key={d.label} style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8,fontSize:12}}>
+                  <span style={{display:"flex",alignItems:"center",gap:6}}>
+                    <span style={{width:10,height:10,borderRadius:2,background:d.col,display:"inline-block"}}/>
+                    {d.label}
+                  </span>
+                  <div style={{textAlign:"right"}}>
+                    <div style={{fontWeight:500}}>{d.val}</div>
+                    <div style={{fontSize:10,color:"#808080"}}>{Math.round(d.val/donutTotal*100)}%</div>
+                  </div>
+                </div>
+              ))}
+              <div style={{height:"0.5px",background:"rgba(41,53,93,.08)",margin:"8px 0"}}/>
+              <div style={{fontSize:11,color:"#808080"}}>
+                <div style={{display:"flex",justifyContent:"space-between"}}><span>MRR value</span><span style={{fontWeight:500,color:"#FF5000"}}>{fk(totalMRR)}</span></div>
+                <div style={{display:"flex",justifyContent:"space-between",marginTop:3}}><span>OTR value</span><span style={{fontWeight:500,color:"#5378FC"}}>{fk(totalOTR)}</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Row 3: Top MRR integrations + Non-revenue breakdown ── */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}}>
+
+        {/* Top MRR integration types */}
+        <div style={cardStyle}>
+          <div style={secTitle}>Top MRR Integrations</div>
+          {mrrTypeRows.map(([type,d],i)=>(
+            <div key={type} style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+              <span style={{width:16,fontSize:11,color:"#808080",flexShrink:0}}>{i+1}.</span>
+              <span style={{flex:1,fontSize:12,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{type}</span>
+              <div style={{width:120,height:5,background:"#ECEEF1",borderRadius:3,overflow:"hidden",flexShrink:0}}>
+                <div style={{height:"100%",background:"#FF5000",opacity:.75,borderRadius:3,width:(d.amount/maxMrrAmt*100).toFixed(1)+"%"}}/>
+              </div>
+              <span style={{width:20,fontSize:11,color:"#808080",textAlign:"right",flexShrink:0}}>{d.count}</span>
+              <span style={{width:60,fontSize:11,fontWeight:500,color:"#FF5000",textAlign:"right",flexShrink:0}}>{fk(d.amount)}</span>
+            </div>
+          ))}
+          {mrrTypeRows.length===0&&<div style={{color:"#808080",fontSize:12}}>No MRR data</div>}
+        </div>
+
+        {/* Non-revenue integrations */}
+        <div style={cardStyle}>
+          <div style={secTitle}>Non-Revenue Integrations</div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:10,marginBottom:16}}>
+            {Object.entries(nrTypes).sort((a,b)=>b[1]-a[1]).map(([t,c])=>(
+              <div key={t} style={{display:"flex",flexDirection:"column",alignItems:"center",background:"#F4F6FB",borderRadius:10,padding:"10px 14px",minWidth:80}}>
+                <div style={{fontSize:22,fontWeight:500,color:NR_COLORS[t]||"#29355D"}}>{c}</div>
+                <div style={{fontSize:10,color:"#808080",marginTop:2,textAlign:"center",lineHeight:1.3}}>{t}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{height:"0.5px",background:"rgba(41,53,93,.08)",marginBottom:12}}/>
+          <div style={{display:"flex",justifyContent:"space-between",fontSize:12}}>
+            <span style={{color:"#808080"}}>Total non-revenue</span>
+            <span style={{fontWeight:500,color:"#29355D"}}>{Object.values(nrTypes).reduce((s,v)=>s+v,0)} integrations</span>
+          </div>
+        </div>
+      </div>
+
+      {/* ── CSM Leaderboard ── */}
+      <div style={cardStyle}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+          <div style={secTitle}>CSM Leaderboard</div>
+          <div style={{fontSize:11,color:"#808080"}}>{lbRows.length} CSMs</div>
+        </div>
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+          <thead><tr>
+            <th style={{...thS,width:28}}>#</th>
+            <th style={thS}>CSM</th>
+            <th style={thS}>Team</th>
+            <th style={thS}>Tier</th>
+            {thSort("subs","Subs")}
+            {thSort("mrr","MRR")}
+            {thSort("otr","OTR")}
+            {thSort("revPerSub","Rev/Sub")}
+            {thSort("total","Total Revenue")}
+          </tr></thead>
+          <tbody>
+            {visibleLb.map((c,i)=>{
+              const info=lk(c.csm)||{};
+              const col=TEAM_COLS[info.t||c.team]||"#888";
+              const rank = lbRows.indexOf(c);
+              return <tr key={c.csm}>
+                <td style={tdS}>{rank<3?medals[rank]:(rank+1)+"."}</td>
+                <td style={{...tdS,fontWeight:500}}>{c.csm}</td>
+                <td style={tdS}><span style={{display:"inline-block",width:6,height:6,borderRadius:"50%",background:col,marginRight:4,verticalAlign:"middle"}}/><span style={{color:"#808080"}}>{st(info.t||c.team)}</span></td>
+                <td style={tdS}><span style={{fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:20,background:"#F4F6FB",color:"#29355D"}}>{tierLabel[c.tier]||c.tier||"--"}</span></td>
+                <td style={tdRS}>{c.subs}</td>
+                <td style={{...tdRS,color:c.mrr>0?"#FF5000":"#808080",fontWeight:c.mrr>0?500:400}}>{c.mrr>0?fd(c.mrr):"--"}</td>
+                <td style={{...tdRS,color:c.otr>0?"#5378FC":"#808080",fontWeight:c.otr>0?500:400}}>{c.otr>0?fd(c.otr):"--"}</td>
+                <td style={{...tdRS,color:"#808080"}}>{c.revPerSub>0?fd(c.revPerSub):"$0"}</td>
+                <td style={{...tdRS,color:c.total>0?"#29355D":"#808080",fontWeight:c.total>0?600:400}}>{c.total>0?fd(c.total):"$0.00"}</td>
+              </tr>;
+            })}
+          </tbody>
+        </table>
+        {lbRows.length>15&&(
+          <button onClick={()=>setShowAllLb(s=>!s)}
+            style={{width:"100%",marginTop:12,padding:"8px 0",fontSize:12,fontWeight:500,color:"#FF5000",background:"rgba(255,80,0,.06)",border:"0.5px solid rgba(255,80,0,.2)",borderRadius:6,cursor:"pointer"}}>
+            {showAllLb?"▲ Show less":"▼ Show all "+lbRows.length+" CSMs ↓"}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── PIN LOCK ───────────────────────────────────────────────────────────────
 function PinLock({onUnlock}) {
   const [val,setVal]=useState("");
@@ -1455,6 +1786,7 @@ export default function App() {
   const [updatedAt, setUpdatedAt] = useState(null);
   const [history, setHistory] = useState([]);
   const [skippedCSMs, setSkippedCSMs] = useState([]);
+  const [rawRev, setRawRev] = useState([]);
 
   const allCSMNames = [...new Set(csms.map(c=>c.name))].sort();
 
@@ -1493,6 +1825,7 @@ export default function App() {
         latestOntime  = ontimeRows;
         latestHistory = historyRows;
         latestSkipped = skippedRows;
+        setRawRev(revRows);
         const rev     = mapRev(revRows);
         const email   = mapEmail(emailRows);
         const cad     = mapCadence(cadRows);
@@ -1512,6 +1845,7 @@ export default function App() {
     // Revenue-only refresh — rebuildCSMs with fresh rev + cached other data
     function refreshRevenue() {
       fetchCSV(CSV_REV).then(revRows => {
+        setRawRev(revRows);
         const rev     = mapRev(revRows);
         const email   = mapEmail(latestEmail);
         const cad     = mapCadence(latestCad);
@@ -1624,10 +1958,10 @@ export default function App() {
           </div>
         </div>
         <div style={{display:"flex",alignItems:"stretch",padding:"0 24px"}}>
-          {["coaching","overview","leaderboard","activity","trends"].map(t=>(
+          {["coaching","overview","revenue","leaderboard","activity","trends"].map(t=>(
             <button key={t} onClick={()=>setTab(t)}
               style={{padding:"10px 18px",fontSize:13,fontWeight:500,color:tab===t?"#fff":"rgba(255,255,255,.55)",background:"transparent",border:"none",cursor:"pointer",borderBottom:tab===t?"3px solid #FF5000":"3px solid transparent",whiteSpace:"nowrap"}}>
-              {t==="coaching"?"Coaching":t==="trends"?"📈 Trends":t.charAt(0).toUpperCase()+t.slice(1)}
+              {t==="coaching"?"Coaching":t==="trends"?"📈 Trends":t==="revenue"?"💰 Revenue":t.charAt(0).toUpperCase()+t.slice(1)}
             </button>
           ))}
         </div>
@@ -1676,6 +2010,7 @@ export default function App() {
           {tab==="overview"&&<OverviewView csms={filteredCSMs} allCSMs={csms}/>}
           {tab==="leaderboard"&&<LeaderboardView csms={filteredCSMs}/>}
           {tab==="activity"&&<ActivityView csms={filteredCSMs}/>}
+          {tab==="revenue"&&<RevenueView rawRev={rawRev} csms={filteredCSMs} filterCoach={filterCoach}/>}
           {tab==="trends"&&<TrendsView history={history} csms={csms} filterCoach={filterCoach} filterCSM={filterCSM}/>}
         </div>
       )}
