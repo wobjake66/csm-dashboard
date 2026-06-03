@@ -324,24 +324,64 @@ function mapEmail(rows) {
 
 function mapCadence(rows) {
   const by = {};
+  let currentCSM = "";
+
+  // The new report format has:
+  //   - Several metadata rows at top before real headers
+  //   - CSM name only on the FIRST row of their group (carry-forward)
+  //   - Subtotal rows: col "Touchpoint: Record Type" = "Subtotal" or col "" = "Subtotal"/"Count"
+  //   - Real data rows have a Status value (Completed, In Progress, Skipped, Removed)
+  // Both old flat format and new grouped format are handled here.
+
+  const SKIP_STATUSES = new Set(["Removed"]);
+  const SUBTOTAL_MARKERS = new Set(["Subtotal","Count","Sum","Grand Total"]);
+
   rows.forEach(r => {
-    const raw = r["Touchpoint: Owner Name \u2191"]||r["Touchpoint: Owner Name"]||r["name"]||r["Name"]||"";
-    const name = norm(raw.trim());
-    const status = (r["Cadence Member: Status"]||r["Status"]||"").trim();
-    if (!name||name==="Total"||!isValidCSM(raw.trim())) return;
-    if (!by[name]) by[name] = {name, total:0, completed:0, removed:0, pctField:null};
-    by[name].total++;
-    if (status==="Removed") by[name].removed++;
-    else by[name].completed++;
-    const pv = r["% Completed"]||r["pct"]||"";
-    if (pv && by[name].pctField===null) by[name].pctField = pn(pv);
+    // Detect subtotal/metadata rows — skip them
+    const allVals = Object.values(r).map(v => String(v||"").trim());
+    if (allVals.some(v => SUBTOTAL_MARKERS.has(v))) return;
+
+    // Try to get CSM name — new format uses "Touchpoint: Owner Name  ↑" (double space + arrow)
+    const rawName = (
+      r["Touchpoint: Owner Name  \u2191"] ||  // new format (double space)
+      r["Touchpoint: Owner Name \u2191"]  ||  // old format (single space)
+      r["Touchpoint: Owner Name"]         ||
+      r["name"] || r["Name"] || ""
+    ).trim();
+
+    // If this row has a valid CSM name, update currentCSM
+    if (rawName && rawName !== "None" && rawName !== "") {
+      const candidate = norm(rawName);
+      if (isValidCSM(rawName)) currentCSM = candidate;
+    }
+
+    // Status tells us what happened
+    const status = (r["Cadence Member: Status"] || r["Status"] || "").trim();
+
+    // Must have a status and a current CSM to count
+    if (!status || !currentCSM) return;
+    // Skip pure metadata rows that have no meaningful status
+    if (SUBTOTAL_MARKERS.has(status)) return;
+
+    if (!by[currentCSM]) by[currentCSM] = {name:currentCSM, total:0, completed:0, removed:0, skipped:0};
+    by[currentCSM].total++;
+
+    if (status === "Removed") {
+      by[currentCSM].removed++;
+    } else if (status === "Skipped") {
+      by[currentCSM].skipped++;
+    } else {
+      // Completed, In Progress with outcome, etc. all count as completed touchpoints
+      by[currentCSM].completed++;
+    }
   });
+
   return Object.values(by).map(d => {
-    let pct = d.pctField !== null ? d.pctField : (d.total>0 ? (d.total-d.removed)/d.total : 0);
-    if (pct > 1) pct = pct/100;
-    return {name:d.name, total:d.total, pct};
-  }).filter(d=>d.total>0);
+    const pct = d.total > 0 ? d.completed / d.total : 0;
+    return {name: d.name, total: d.total, pct};
+  }).filter(d => d.total > 0);
 }
+
 
 function mapDue(rows) {
   const by = {};
@@ -1213,10 +1253,32 @@ function ActivityView({csms}) {
           ]}
           rows={dueRows}
         />
-        <div style={S.card}>
-          <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>Cadence completions</div>
-          <div style={{color:"#808080",fontSize:12}}>Data from cadence tab — upload to sheet weekly to see here.</div>
-        </div>
+        <SortableTable
+          title="Cadence completions — yesterday"
+          defaultCol="cadPct"
+          defaultDir="desc"
+          cols={[
+            {key:"name",     label:"CSM",        right:false},
+            {key:"cadCount", label:"Tasks",      right:true},
+            {key:"cadPct",   label:"Completed %",right:true},
+          ]}
+          rows={csms.filter(c=>c.cadCount>0).map(c=>({
+            name:     c.name,
+            cadCount: c.cadCount,
+            cadPct:   c.cadPct,
+            _render: (i) => <tr key={c.name}>
+              <td style={{padding:"6px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",fontSize:12}}>{c.name}</td>
+              <td style={{padding:"6px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",fontSize:12,color:"#808080"}}>{c.cadCount}</td>
+              <td style={{padding:"6px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",fontSize:12}}>
+                <span style={{fontWeight:500,padding:"1px 8px",borderRadius:20,fontSize:10,
+                  background: c.cadPct>=0.9?"rgba(22,163,74,.1)":c.cadPct>=0.5?"rgba(217,119,6,.1)":"rgba(220,38,38,.1)",
+                  color:      c.cadPct>=0.9?"#166534":c.cadPct>=0.5?"#854d0e":"#991b1b"}}>
+                  {pp(c.cadPct)}
+                </span>
+              </td>
+            </tr>
+          }))}
+        />
       </div>
     </div>
   );
