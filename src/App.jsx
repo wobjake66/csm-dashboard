@@ -740,8 +740,8 @@ function CoachCard({coach, csms, onSelectCSM, onSelectCoach}) {
         </div>
         {TEAM_LOGOS[coach.t]&&<img src={TEAM_LOGOS[coach.t]} alt={coach.t}
           style={{width:72,height:72,objectFit:"contain",borderRadius:8,flexShrink:0,marginTop:2,
-            background:coach.t==="White Wave Warriors"?"#1a1a1a":"transparent",
-            padding:coach.t==="White Wave Warriors"?4:0}}/>}
+            background:coach.t==="White Wave Warriors"?"#1a1a1a":coach.t==="Team Status Engaged"||coach.t==="The Dominican Dream Team"?"#fff":"transparent",
+            padding:coach.t==="White Wave Warriors"||coach.t==="Team Status Engaged"||coach.t==="The Dominican Dream Team"?4:0}}/>}
       </div>
       <div style={{display:"flex",alignItems:"baseline",gap:6,marginBottom:8}}>
         <span style={{fontSize:40,fontWeight:500,lineHeight:1,color:sCol}}>{score!=null?score:"--"}</span>
