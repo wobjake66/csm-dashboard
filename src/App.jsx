@@ -2,7 +2,8 @@ import React, { useState, useEffect } from "react";
 import * as XLSX from "xlsx";
 
 const PIN = "thryv2025";
-const PIN_KEY = "csm_pin_v1";
+const PIN_KEY  = "csm_pin_v1";
+const FONT_KEY = "csm_font_v1";
 
 const CSV_REV     = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=1721544342&single=true&output=csv"; // live JotForm sync
 const CSV_EMAIL   = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=0&single=true&output=csv";
@@ -2401,6 +2402,12 @@ function PinLock({onUnlock}) {
 // ── MAIN APP ───────────────────────────────────────────────────────────────
 export default function App() {
   const [unlocked, setUnlocked] = useState(()=>{try{return sessionStorage.getItem(PIN_KEY)==="1";}catch(e){return false;}});
+  const [fontScale, setFontScale] = useState(()=>{try{return parseFloat(sessionStorage.getItem(FONT_KEY)||"1");}catch(e){return 1;}});
+  const changeFontScale = (delta) => setFontScale(s=>{
+    const next = Math.min(1.4, Math.max(0.8, Math.round((s+delta)*10)/10));
+    try{sessionStorage.setItem(FONT_KEY, String(next));}catch(e){}
+    return next;
+  });
   const [csms, setCSMs] = useState([]);
   const [tab, setTab] = useState("coaching");
   const [filterCoach, setFilterCoach] = useState("");
@@ -2583,7 +2590,14 @@ export default function App() {
             {status==="loading"&&<span style={{fontSize:11,padding:"4px 10px",borderRadius:20,background:"rgba(255,255,255,.1)",color:"rgba(255,255,255,.6)"}}>⟳ Loading...</span>}
             {status==="ok"&&<span style={{fontSize:11,padding:"4px 10px",borderRadius:20,background:"rgba(22,163,74,.25)",color:"#86efac"}}>✓ Live · Revenue syncs every 2 min{updatedAt?" · "+updatedAt:""}</span>}
             {status==="error"&&<span style={{fontSize:11,padding:"4px 10px",borderRadius:20,background:"rgba(220,38,38,.25)",color:"#fca5a5"}}>✗ Sync error</span>}
-            <button onClick={()=>{
+            <div style={{display:"flex",alignItems:"center",gap:2,background:"rgba(255,255,255,.08)",borderRadius:6,padding:"3px 6px"}}>
+              <button onClick={()=>changeFontScale(-0.1)} disabled={fontScale<=0.8}
+                style={{background:"none",border:"none",color:"rgba(255,255,255,.7)",fontSize:14,fontWeight:500,cursor:"pointer",padding:"2px 7px",borderRadius:4,lineHeight:1,opacity:fontScale<=0.8?0.4:1}}>A−</button>
+              <span style={{fontSize:11,color:"rgba(255,255,255,.5)",minWidth:30,textAlign:"center"}}>{Math.round(fontScale*100)}%</span>
+              <button onClick={()=>changeFontScale(0.1)} disabled={fontScale>=1.4}
+                style={{background:"none",border:"none",color:"rgba(255,255,255,.9)",fontSize:16,fontWeight:500,cursor:"pointer",padding:"2px 7px",borderRadius:4,lineHeight:1,opacity:fontScale>=1.4?0.4:1}}>A+</button>
+            </div>
+                        <button onClick={()=>{
               const subject = encodeURIComponent("CSM Dashboard Feedback — "+(new Date().toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})));
               const body = encodeURIComponent("Hi Jacob,\n\nHere\'s some feedback on the CSM Coaching Dashboard:\n\n[Please describe your feedback here]\n\nThanks");
               window.open("mailto:jacob.baldwin@thryv.com?subject="+subject+"&body="+body);
@@ -2641,7 +2655,7 @@ export default function App() {
         </div>
       )}
       {hasData&&(
-        <div style={{padding:"20px 24px"}}>
+        <div style={{padding:"20px 24px",zoom:fontScale}}>
           {tab==="coaching"&&<CoachingView csms={filteredCSMs} coach={filterCoach} onSelectCSM={selectCSMFn} onSelectCoach={e=>{setFilterCoach(e);setFilterCSM("");}} onClear={()=>{setFilterCoach("");setFilterCSM("");}} skippedCSMs={skippedCSMs.filter(c=>{const i=lk(c.name);if(filterCoach&&(i&&i.c)!==filterCoach)return false;if(filterCSM&&c.name!==filterCSM)return false;return true;})}/>}
           {tab==="overview"&&<OverviewView csms={filteredCSMs} allCSMs={csms}/>}
           {tab==="leaderboard"&&<LeaderboardView csms={filteredCSMs}/>}
