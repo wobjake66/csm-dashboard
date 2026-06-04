@@ -490,6 +490,7 @@ function mapSkipped(rows) {
   if (rows.length > 0) {
     console.log("[mapSkipped] headers:", Object.keys(rows[0]));
     console.log("[mapSkipped] total rows:", rows.length);
+    console.log("[mapSkipped] first 3 rows (raw):", rows.slice(0,3));
     const outcomes = [...new Set(rows.map(r=>(r["Outcome"]||"").trim()).filter(Boolean))];
     console.log("[mapSkipped] unique outcomes:", outcomes);
     const names = [...new Set(rows.map(r=>(r["Touchpoint: Owner Name"]||r["Touchpoint: Owner Name \u2191"]||r["Owner Name"]||"").trim()).filter(Boolean))].slice(0,5);
