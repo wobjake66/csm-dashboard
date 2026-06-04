@@ -482,47 +482,46 @@ function mapBob(rows) {
 }
 
 function mapSkipped(rows) {
-  const SKIP_OUTCOME = "continued after 4th reschedule";
-  const SKIP_OUTCOME_ALT = "continue after 4th reschedule"; // alternate spelling
+  const FOURTH_RESCHEDULE = "continued after 4th reschedule";
   const by = {};
 
-  // Debug: log first row headers and first few outcomes to console
   if (rows.length > 0) {
     console.log("[mapSkipped] headers:", Object.keys(rows[0]));
     console.log("[mapSkipped] total rows:", rows.length);
     console.log("[mapSkipped] first 3 rows (raw):", rows.slice(0,3));
     const outcomes = [...new Set(rows.map(r=>(r["Outcome"]||"").trim()).filter(Boolean))];
     console.log("[mapSkipped] unique outcomes:", outcomes);
-    const names = [...new Set(rows.map(r=>(r["Touchpoint: Owner Name"]||r["Touchpoint: Owner Name \u2191"]||r["Owner Name"]||"").trim()).filter(Boolean))].slice(0,5);
-    console.log("[mapSkipped] sample names:", names);
   } else {
-    console.log("[mapSkipped] ⚠️ No rows received — check CSV_SKIPPED URL is published");
+    console.log("[mapSkipped] ⚠️ No rows received");
   }
 
   rows.forEach(r => {
-    const outcome = (r["Outcome"]||"").trim().toLowerCase();
-    // Match any variation of "continued/continue after 4th reschedule"
-    const isSkip = outcome === SKIP_OUTCOME
-      || outcome === SKIP_OUTCOME_ALT
-      || (outcome.includes("4th") && (outcome.includes("continued") || outcome.includes("continue")) && outcome.includes("reschedule"));
-    if (!isSkip) return;
-    // Column G in the sheet
+    // This tab contains ALL skipped cadences — capture all rows with a CSM name
     const raw = r["Touchpoint: Owner Name"]||r["Touchpoint: Owner Name \u2191"]||r["Owner Name"]||"";
     const name = norm(raw.trim());
-    // Use the normed name for validation, not raw (handles Dave→David, MJ→Merve, etc.)
-    if (!name || (!isValidCSM(raw.trim()) && !isValidCSM(name))) {
-      if (raw.trim()) console.log("[mapSkipped] ⚠️ Name failed validation:", raw.trim(), "→ normed:", name);
-      return;
-    }
-    if (!by[name]) by[name] = {name, count:0, accounts:[]};
+    if (!name || (!isValidCSM(raw.trim()) && !isValidCSM(name))) return;
+
+    const outcome = (r["Outcome"]||"").trim();
+    const note    = (r["Notes"]||"").trim();
+    const acct    = (r["Account"]||"").trim();
+    const is4th   = outcome.toLowerCase().includes("4th") ||
+                    outcome.toLowerCase() === FOURTH_RESCHEDULE;
+
+    if (!by[name]) by[name] = {name, count:0, fourthCount:0, accounts:[]};
     by[name].count++;
-    const acct = (r["Account"]||"").trim();
+    if (is4th) by[name].fourthCount++;
+
     if (acct && !by[name].accounts.find(a=>a.n===acct)) {
-      by[name].accounts.push({n:acct});
+      by[name].accounts.push({
+        n:    acct,
+        note: note||"",
+        outcome: outcome||"",
+        is4th: is4th,
+      });
     }
   });
 
-  console.log("[mapSkipped] results:", Object.keys(by).length, "CSMs with skips:", Object.keys(by));
+  console.log("[mapSkipped] results:", Object.keys(by).length, "CSMs:", Object.keys(by));
   return Object.values(by);
 }
 
@@ -538,7 +537,7 @@ function buildCSMs(rev, email, cad, due, ontime, skipped, bobRaw, mcChurn, bcChu
         cadCount:0, cadPct:0,
         dueCount:0, overdueCount:0, newToday:0,
         otTotal:0, otOnTime:0, otPct:null,
-        skippedCount:0, skippedAccts:[],
+        skippedCount:0, skippedFourthCount:0, skippedAccts:[],
         bobBoq:0, bobLcm:0, bobNet:0, bobRet:null, bobMcc:0, bobMch:[], bobBcc:0, bobBch:[]};
     }
     return m[name];
@@ -570,6 +569,7 @@ function buildCSMs(rev, email, cad, due, ontime, skipped, bobRaw, mcChurn, bcChu
   (skipped||[]).forEach(d => {
     const c = get(d.name);
     c.skippedCount = d.count;
+    c.skippedFourthCount = d.fourthCount||0;
     c.skippedAccts = d.accounts||[];
   });
   // Merge BOB billing data
@@ -848,7 +848,13 @@ function CSMDetail({csm, onClear}) {
     const lostPct = Math.abs(csm.bobNet)/csm.bobBoq;
     if (lostPct>0.1) atts.push("Net billing down "+pp(lostPct)+" vs start of quarter — "+fd(Math.abs(csm.bobNet))+" lost");
   }
-  if(csm.skippedCount>0) atts.unshift("🚩 "+csm.skippedCount+" account"+(csm.skippedCount>1?"s":"")+" with Continued After 4th Reschedule: "+csm.skippedAccts.map(a=>a.n).join(", "));
+  if(csm.skippedCount>0) {
+    if (csm.skippedFourthCount>0) {
+      atts.unshift("🚩 "+csm.skippedFourthCount+" account"+(csm.skippedFourthCount>1?"s":"")+" Continued After 4th Reschedule — requires immediate coaching conversation");
+    }
+    const regularSkips = csm.skippedCount - csm.skippedFourthCount;
+    if (regularSkips>0) atts.push(regularSkips+" skipped cadence task"+(regularSkips>1?"s":"")+" yesterday — review notes with CSM");
+  }
   else if(csm.overdueCount>0) atts.push(csm.overdueCount+" overdue tasks across "+overdueAccts.length+" accounts");
   if(csm.cadCount>0) {
     if(csm.cadPct>=0.9) wins.push("Cadence completion on track at "+pp(csm.cadPct));
@@ -1068,28 +1074,44 @@ function CoachingView({csms, coach, onSelectCSM, onSelectCoach, onClear, skipped
   return (
     <div>
       {/* 🚩 Red flag: Skipped cadences (Continued After 4th Reschedule) */}
-      {skipped.length>0&&<div style={{background:"rgba(127,29,29,.06)",border:"1px solid rgba(127,29,29,.3)",borderRadius:12,padding:16,marginBottom:16}}>
-        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
-          <span style={{fontSize:16,fontWeight:600,color:"#7f1d1d"}}>🚩 Skipped Cadences — Continued After 4th Reschedule</span>
-          <span style={{fontSize:10,fontWeight:600,padding:"2px 8px",borderRadius:20,background:"rgba(127,29,29,.12)",color:"#7f1d1d"}}>{skipped.length} CSMs · Prior day</span>
+      {skipped.length>0&&<div style={{background:"rgba(127,29,29,.05)",border:"1px solid rgba(127,29,29,.25)",borderRadius:12,padding:16,marginBottom:16}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+          <span style={{fontSize:16,fontWeight:600,color:"#7f1d1d"}}>🚩 Skipped Cadences — Prior Day</span>
+          <span style={{fontSize:10,fontWeight:600,padding:"2px 8px",borderRadius:20,background:"rgba(127,29,29,.12)",color:"#7f1d1d"}}>{skipped.length} CSMs</span>
+          {skipped.some(c=>c.skippedFourthCount>0)&&<span style={{fontSize:10,fontWeight:600,padding:"2px 8px",borderRadius:20,background:"rgba(220,38,38,.15)",color:"#991b1b"}}>
+            ⚠ {skipped.filter(c=>c.skippedFourthCount>0).length} with 4th reschedule
+          </span>}
         </div>
-        <div style={{fontSize:11,color:"#991b1b",marginBottom:10,fontStyle:"italic"}}>High negative impact on score — these accounts have been rescheduled 4+ times without completion</div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
           {skipped.map(c=>{
             const i=lk(c.name)||{};
-            return <div key={c.name} style={{background:"#fff",border:"0.5px solid rgba(127,29,29,.2)",borderRadius:10,padding:12,display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer"}} onClick={()=>onSelectCSM(c.name)}>
-              <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:12,fontWeight:600,color:"#7f1d1d",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</div>
-                <div style={{fontSize:11,color:"#808080",marginTop:2}}>{st(i.t||"")}</div>
-                <div style={{marginTop:6,display:"flex",flexWrap:"wrap",gap:4}}>
-                  {(c.skippedAccts||[]).map((a,ai)=>(
-                    <span key={ai} style={{fontSize:10,padding:"1px 6px",borderRadius:10,background:"rgba(127,29,29,.08)",color:"#7f1d1d",border:"0.5px solid rgba(127,29,29,.15)"}}>{a.n}</span>
-                  ))}
+            const has4th = c.skippedFourthCount>0;
+            const borderCol = has4th ? "rgba(127,29,29,.35)" : "rgba(217,119,6,.3)";
+            const bgCol = has4th ? "#fff" : "#fffbf5";
+            return <div key={c.name} style={{background:bgCol,border:`0.5px solid ${borderCol}`,borderRadius:10,padding:12,cursor:"pointer",borderTop:`3px solid ${has4th?"#7f1d1d":"#d97706"}`}} onClick={()=>onSelectCSM(c.name)}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+                <div style={{minWidth:0}}>
+                  <div style={{fontSize:12,fontWeight:600,color:has4th?"#7f1d1d":"#92400e",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</div>
+                  <div style={{fontSize:11,color:"#808080",marginTop:1}}>{st(i.t||"")}</div>
+                </div>
+                <div style={{textAlign:"right",flexShrink:0,marginLeft:8}}>
+                  <div style={{fontSize:18,fontWeight:700,color:has4th?"#7f1d1d":"#d97706"}}>{c.skippedCount}</div>
+                  <div style={{fontSize:10,color:"#808080"}}>skipped</div>
                 </div>
               </div>
-              <div style={{textAlign:"center",flexShrink:0}}>
-                <div style={{fontSize:20,fontWeight:700,color:"#7f1d1d"}}>{c.skippedCount}</div>
-                <div style={{fontSize:10,color:"#991b1b"}}>skipped</div>
+              {has4th&&<div style={{fontSize:10,fontWeight:600,color:"#991b1b",background:"rgba(220,38,38,.08)",borderRadius:6,padding:"2px 7px",marginBottom:6,display:"inline-block"}}>
+                🚩 {c.skippedFourthCount} × 4th reschedule
+              </div>}
+              <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                {(c.skippedAccts||[]).map((a,ai)=>(
+                  <div key={ai} style={{fontSize:11,borderRadius:6,padding:"4px 7px",background:a.is4th?"rgba(127,29,29,.06)":"rgba(217,119,6,.06)",border:`0.5px solid ${a.is4th?"rgba(127,29,29,.15)":"rgba(217,119,6,.2)"}`}}>
+                    <div style={{fontWeight:500,color:a.is4th?"#7f1d1d":"#92400e",display:"flex",alignItems:"center",gap:4}}>
+                      {a.is4th&&<span>🚩</span>}{a.n}
+                    </div>
+                    {a.note&&<div style={{fontSize:10,color:"#808080",marginTop:2,fontStyle:"italic"}}>"{a.note}"</div>}
+                    {a.outcome&&!a.is4th&&<div style={{fontSize:10,color:"#808080",marginTop:1}}>{a.outcome}</div>}
+                  </div>
+                ))}
               </div>
             </div>;
           })}
