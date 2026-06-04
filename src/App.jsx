@@ -941,6 +941,33 @@ function CSMDetail({csm, onClear}) {
         </div>}
       </div>}
 
+      {/* Skipped cadences detail */}
+      {csm.skippedCount>0&&<div style={{...S.card,marginBottom:16}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
+          <span style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500}}>Skipped cadences — prior day</span>
+          <span style={{fontSize:10,fontWeight:600,padding:"2px 8px",borderRadius:20,background:"rgba(127,29,29,.1)",color:"#7f1d1d"}}>{csm.skippedCount} skipped</span>
+          {csm.skippedFourthCount>0&&<span style={{fontSize:10,fontWeight:600,padding:"2px 8px",borderRadius:20,background:"rgba(220,38,38,.15)",color:"#991b1b"}}>🚩 {csm.skippedFourthCount} × 4th reschedule</span>}
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:6}}>
+          {(csm.skippedAccts||[]).map((a,i)=>(
+            <div key={i} style={{borderRadius:8,padding:"8px 12px",
+              background:a.is4th?"rgba(127,29,29,.04)":"rgba(217,119,6,.04)",
+              border:`0.5px solid ${a.is4th?"rgba(127,29,29,.18)":"rgba(217,119,6,.22)"}`,
+              borderLeft:`3px solid ${a.is4th?"#7f1d1d":"#d97706"}`}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:a.note?4:0}}>
+                <span style={{fontSize:12,fontWeight:500,color:a.is4th?"#7f1d1d":"#92400e"}}>
+                  {a.is4th&&"🚩 "}{a.n}
+                </span>
+                {a.outcome&&<span style={{fontSize:10,padding:"1px 7px",borderRadius:20,
+                  background:a.is4th?"rgba(127,29,29,.1)":"rgba(217,119,6,.1)",
+                  color:a.is4th?"#7f1d1d":"#92400e"}}>{a.outcome}</span>}
+              </div>
+              {a.note&&<div style={{fontSize:11,color:"#808080",fontStyle:"italic"}}>"{a.note}"</div>}
+            </div>
+          ))}
+        </div>
+      </div>}
+
       {/* Cadence accounts */}
       <div style={{...S.card,marginBottom:16}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
@@ -1075,44 +1102,27 @@ function CoachingView({csms, coach, onSelectCSM, onSelectCoach, onClear, skipped
     <div>
       {/* 🚩 Red flag: Skipped cadences (Continued After 4th Reschedule) */}
       {skipped.length>0&&<div style={{background:"rgba(127,29,29,.05)",border:"1px solid rgba(127,29,29,.25)",borderRadius:12,padding:16,marginBottom:16}}>
-        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
           <span style={{fontSize:16,fontWeight:600,color:"#7f1d1d"}}>🚩 Skipped Cadences — Prior Day</span>
           <span style={{fontSize:10,fontWeight:600,padding:"2px 8px",borderRadius:20,background:"rgba(127,29,29,.12)",color:"#7f1d1d"}}>{skipped.length} CSMs</span>
           {skipped.some(c=>c.skippedFourthCount>0)&&<span style={{fontSize:10,fontWeight:600,padding:"2px 8px",borderRadius:20,background:"rgba(220,38,38,.15)",color:"#991b1b"}}>
             ⚠ {skipped.filter(c=>c.skippedFourthCount>0).length} with 4th reschedule
           </span>}
+          <span style={{fontSize:11,color:"#808080",marginLeft:"auto",fontStyle:"italic"}}>Click a name to see account details</span>
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
+        <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
           {skipped.map(c=>{
-            const i=lk(c.name)||{};
             const has4th = c.skippedFourthCount>0;
-            const borderCol = has4th ? "rgba(127,29,29,.35)" : "rgba(217,119,6,.3)";
-            const bgCol = has4th ? "#fff" : "#fffbf5";
-            return <div key={c.name} style={{background:bgCol,border:`0.5px solid ${borderCol}`,borderRadius:10,padding:12,cursor:"pointer",borderTop:`3px solid ${has4th?"#7f1d1d":"#d97706"}`}} onClick={()=>onSelectCSM(c.name)}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
-                <div style={{minWidth:0}}>
-                  <div style={{fontSize:12,fontWeight:600,color:has4th?"#7f1d1d":"#92400e",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</div>
-                  <div style={{fontSize:11,color:"#808080",marginTop:1}}>{st(i.t||"")}</div>
-                </div>
-                <div style={{textAlign:"right",flexShrink:0,marginLeft:8}}>
-                  <div style={{fontSize:18,fontWeight:700,color:has4th?"#7f1d1d":"#d97706"}}>{c.skippedCount}</div>
-                  <div style={{fontSize:10,color:"#808080"}}>skipped</div>
-                </div>
-              </div>
-              {has4th&&<div style={{fontSize:10,fontWeight:600,color:"#991b1b",background:"rgba(220,38,38,.08)",borderRadius:6,padding:"2px 7px",marginBottom:6,display:"inline-block"}}>
-                🚩 {c.skippedFourthCount} × 4th reschedule
-              </div>}
-              <div style={{display:"flex",flexDirection:"column",gap:4}}>
-                {(c.skippedAccts||[]).map((a,ai)=>(
-                  <div key={ai} style={{fontSize:11,borderRadius:6,padding:"4px 7px",background:a.is4th?"rgba(127,29,29,.06)":"rgba(217,119,6,.06)",border:`0.5px solid ${a.is4th?"rgba(127,29,29,.15)":"rgba(217,119,6,.2)"}`}}>
-                    <div style={{fontWeight:500,color:a.is4th?"#7f1d1d":"#92400e",display:"flex",alignItems:"center",gap:4}}>
-                      {a.is4th&&<span>🚩</span>}{a.n}
-                    </div>
-                    {a.note&&<div style={{fontSize:10,color:"#808080",marginTop:2,fontStyle:"italic"}}>"{a.note}"</div>}
-                    {a.outcome&&!a.is4th&&<div style={{fontSize:10,color:"#808080",marginTop:1}}>{a.outcome}</div>}
-                  </div>
-                ))}
-              </div>
+            return <div key={c.name}
+              onClick={()=>onSelectCSM(c.name)}
+              style={{display:"flex",alignItems:"center",gap:8,padding:"7px 12px",borderRadius:8,cursor:"pointer",
+                background:has4th?"rgba(127,29,29,.06)":"rgba(217,119,6,.06)",
+                border:`0.5px solid ${has4th?"rgba(127,29,29,.2)":"rgba(217,119,6,.25)"}`,
+                borderLeft:`3px solid ${has4th?"#7f1d1d":"#d97706"}`}}>
+              {has4th&&<span style={{fontSize:11}}>🚩</span>}
+              <span style={{fontSize:12,fontWeight:600,color:has4th?"#7f1d1d":"#92400e"}}>{c.name}</span>
+              <span style={{fontSize:11,fontWeight:700,color:has4th?"#991b1b":"#d97706",background:has4th?"rgba(127,29,29,.1)":"rgba(217,119,6,.1)",borderRadius:20,padding:"1px 7px"}}>{c.skippedCount}</span>
+              {has4th&&<span style={{fontSize:10,color:"#991b1b"}}>({c.skippedFourthCount}×4th)</span>}
             </div>;
           })}
         </div>
