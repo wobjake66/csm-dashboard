@@ -610,23 +610,61 @@ function buildCSMs(rev, email, cad, due, ontime, skipped, bobRaw, mcChurn, bcChu
 
 // ── PARSE HISTORY TAB ─────────────────────────────────────────────────────
 function mapHistory(rows) {
-  // Returns array of snapshot rows, each with date + all metrics
-  return rows.map(r => ({
-    date:       r["snapshot_date"] || "",
-    week:       r["week_label"]    || "",
-    name:       r["csm_name"]      || "",
-    coach:      r["coach"]         || "",
-    team:       r["team"]          || "",
-    rev:        parseFloat(r["revenue"]      || 0) || 0,
-    mrr:        parseFloat(r["mrr"]          || 0) || 0,
-    sent:       parseFloat(r["emails_sent"]  || 0) || 0,
-    openRate:   r["open_rate"]  !== "" ? parseFloat(r["open_rate"])  : null,
-    replyRate:  r["reply_rate"] !== "" ? parseFloat(r["reply_rate"]) : null,
-    cadPct:     r["cadence_pct"]    !== "" ? parseFloat(r["cadence_pct"])    : null,
-    overdueCount: r["overdue_count"] !== "" ? parseFloat(r["overdue_count"]) : null,
-    otPct:      r["ontime_pct"] !== "" ? parseFloat(r["ontime_pct"]) : null,
-    otTotal:    parseFloat(r["ontime_total"] || 0) || 0,
-  })).filter(r => r.date && r.name);
+  if (!rows || rows.length === 0) return [];
+
+  // Check if first row has our expected headers
+  const firstKeys = Object.keys(rows[0]);
+  const hasHeaders = firstKeys.includes("snapshot_date") || firstKeys.includes("csm_name");
+
+  const pf = v => { const x = parseFloat(v); return isNaN(x) ? null : x; };
+  const pf0 = v => parseFloat(v) || 0;
+
+  if (hasHeaders) {
+    // Named column format (correct header row present)
+    return rows.map(r => ({
+      date:         String(r["snapshot_date"] || "").trim(),
+      week:         String(r["week_label"]    || "").trim(),
+      name:         String(r["csm_name"]      || "").trim(),
+      coach:        r["coach"]  || "",
+      team:         r["team"]   || "",
+      rev:          pf0(r["revenue"]),
+      mrr:          pf0(r["mrr"]),
+      sent:         pf0(r["emails_sent"]),
+      openRate:     pf(r["open_rate"]),
+      replyRate:    pf(r["reply_rate"]),
+      cadPct:       pf(r["cadence_pct"]),
+      overdueCount: pf(r["overdue_count"]),
+      otPct:        pf(r["ontime_pct"]),
+      otTotal:      pf0(r["ontime_total"]),
+    })).filter(r => r.date && r.name && r.name !== "csm_name");
+  } else {
+    // Positional fallback — columns in order the script writes them:
+    // 0:date 1:week 2:name 3:coach 4:team 5:rev 6:mrr 7:otr 8:nonrev
+    // 9:emails_sent 10:open_rate 11:reply_rate 12:cadence_pct 13:cadence_total
+    // 14:overdue_count 15:due_count 16:ontime_pct 17:ontime_total 18:ontime_count 19:skipped_count
+    return rows.map(r => {
+      const vals = Object.values(r);
+      const date = String(vals[0]||"").trim();
+      const name = String(vals[2]||"").trim();
+      if (!date || !name || date === "snapshot_date") return null;
+      return {
+        date,
+        week:         String(vals[1]||"").trim(),
+        name,
+        coach:        String(vals[3]||""),
+        team:         String(vals[4]||""),
+        rev:          pf0(vals[5]),
+        mrr:          pf0(vals[6]),
+        sent:         pf0(vals[9]),
+        openRate:     pf(vals[10]),
+        replyRate:    pf(vals[11]),
+        cadPct:       pf(vals[12]),
+        overdueCount: pf(vals[14]),
+        otPct:        pf(vals[16]),
+        otTotal:      pf0(vals[17]),
+      };
+    }).filter(Boolean);
+  }
 }
 
 // Build per-CSM weekly trend: {csmName: [{week, date, rev, openRate, cadPct, otPct, overdue}]}
@@ -1542,7 +1580,7 @@ function TrendsView({history, csms, filterCoach, filterCSM}) {
   const weeks = getWeeks(history);
   const trends = buildTrends(history);
 
-  if (weeks.length < 2) {
+  if (weeks.length < 1) {
     return (
       <div style={{...S.card, textAlign:"center", padding:40}}>
         <div style={{fontSize:32, marginBottom:12}}>📊</div>
