@@ -484,13 +484,29 @@ function mapBob(rows) {
 function mapSkipped(rows) {
   const SKIP_OUTCOME = "continued after 4th reschedule";
   const by = {};
+
+  // Debug: log first row headers and first few outcomes to console
+  if (rows.length > 0) {
+    console.log("[mapSkipped] headers:", Object.keys(rows[0]));
+    console.log("[mapSkipped] total rows:", rows.length);
+    const outcomes = [...new Set(rows.map(r=>(r["Outcome"]||"").trim()).filter(Boolean))];
+    console.log("[mapSkipped] unique outcomes:", outcomes);
+    const names = [...new Set(rows.map(r=>(r["Touchpoint: Owner Name"]||r["Touchpoint: Owner Name \u2191"]||r["Owner Name"]||"").trim()).filter(Boolean))].slice(0,5);
+    console.log("[mapSkipped] sample names:", names);
+  } else {
+    console.log("[mapSkipped] ⚠️ No rows received — check CSV_SKIPPED URL is published");
+  }
+
   rows.forEach(r => {
     const outcome = (r["Outcome"]||"").trim().toLowerCase();
     if (outcome !== SKIP_OUTCOME) return;
     // Column G in the sheet
     const raw = r["Touchpoint: Owner Name"]||r["Touchpoint: Owner Name \u2191"]||r["Owner Name"]||"";
     const name = norm(raw.trim());
-    if (!name || !isValidCSM(raw.trim())) return;
+    if (!name || !isValidCSM(raw.trim())) {
+      if (raw.trim()) console.log("[mapSkipped] ⚠️ Name failed validation:", raw.trim());
+      return;
+    }
     if (!by[name]) by[name] = {name, count:0, accounts:[]};
     by[name].count++;
     const acct = (r["Account"]||"").trim();
@@ -498,6 +514,8 @@ function mapSkipped(rows) {
       by[name].accounts.push({n:acct});
     }
   });
+
+  console.log("[mapSkipped] results:", Object.keys(by).length, "CSMs with skips:", Object.keys(by));
   return Object.values(by);
 }
 
