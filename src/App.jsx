@@ -1110,19 +1110,22 @@ function CoachingView({csms, coach, onSelectCSM, onSelectCoach, onClear, skipped
           </span>}
           <span style={{fontSize:11,color:"#808080",marginLeft:"auto",fontStyle:"italic"}}>Click a name to see account details</span>
         </div>
-        <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
           {skipped.map(c=>{
+            const i=lk(c.name)||{};
             const has4th = c.skippedFourthCount>0;
             return <div key={c.name}
               onClick={()=>onSelectCSM(c.name)}
-              style={{display:"flex",alignItems:"center",gap:8,padding:"7px 12px",borderRadius:8,cursor:"pointer",
-                background:has4th?"rgba(127,29,29,.06)":"rgba(217,119,6,.06)",
-                border:`0.5px solid ${has4th?"rgba(127,29,29,.2)":"rgba(217,119,6,.25)"}`,
+              style={{...S.card,display:"flex",alignItems:"center",gap:10,cursor:"pointer",padding:12,
                 borderLeft:`3px solid ${has4th?"#7f1d1d":"#d97706"}`}}>
-              {has4th&&<span style={{fontSize:11}}>🚩</span>}
-              <span style={{fontSize:12,fontWeight:600,color:has4th?"#7f1d1d":"#92400e"}}>{c.name}</span>
-              <span style={{fontSize:11,fontWeight:700,color:has4th?"#991b1b":"#d97706",background:has4th?"rgba(127,29,29,.1)":"rgba(217,119,6,.1)",borderRadius:20,padding:"1px 7px"}}>{c.skippedCount}</span>
-              {has4th&&<span style={{fontSize:10,color:"#991b1b"}}>({c.skippedFourthCount}×4th)</span>}
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:12,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</div>
+                <div style={{fontSize:11,color:"#808080",marginTop:2}}>{st(i.t||"")}{has4th?" · 🚩 4th reschedule":""}</div>
+              </div>
+              <div style={{textAlign:"center",flexShrink:0}}>
+                <div style={{fontSize:20,fontWeight:500,color:has4th?"#7f1d1d":"#d97706"}}>{c.skippedCount}</div>
+                <div style={{fontSize:10,color:has4th?"#7f1d1d":"#d97706"}}>skipped</div>
+              </div>
             </div>;
           })}
         </div>
