@@ -297,21 +297,30 @@ function isValidCSM(name) {
 function mapRev(rows) {
   const by = {};
   rows.forEach(r => {
-    const raw = r["CSM Name"]||r["csm name"]||"";
+    const raw = r["CSM Name"]||r["csm name"]||r["csm_name"]||"";
     const name = norm(raw.trim());
     if (!name || !isValidCSM(raw.trim())) return;
-    if (!by[name]) by[name] = {name, team:r["CSM Team! "]||r["CSM Team!"]||"", mrr:0, otr:0, total:0, nonrev:0, accts:[]};
-    by[name].mrr   += pm(r["MRR $ Added"]||0);
-    by[name].otr   += pm(r["OTR $ Added"]||0);
-    by[name].total += pm(r["Total Revenue Added"]||0);
-    if ((r["Non-Revenue Integrations"]||"").trim()) by[name].nonrev++;
-    const biz = (r["Business Name"]||"").trim();
+    // Support both old and new JotForm column name variations
+    const mrr  = pm(r["MRR $ Added"]||r["MRR $"]||r["MRR"]||0);
+    const otr  = pm(r["OTR $ Added"]||r["OTR $"]||r["OTR"]||0);
+    const total= pm(r["Total Revenue Added"]||r["Total Revenue"]||r["Revenue"]||0);
+    const team = r["CSM Team!"]||r["CSM Team! "]||r["csm_team"]||"";
+    const nr   = (r["Non-Revenue Integrations"]||r["Non Revenue Integrations"]||"").trim();
+    const biz  = (r["Business Name"]||r["business_name"]||"").trim();
+    const intType = r["Type of Integration"]||r["type_of_integration"]||"";
+    const mrrInt  = r["MRR Integration"]||r["mrr_integration"]||"";
+    if (!by[name]) by[name] = {name, team, mrr:0, otr:0, total:0, nonrev:0, accts:[]};
+    by[name].mrr   += mrr;
+    by[name].otr   += otr;
+    by[name].total += total;
+    if (nr) by[name].nonrev++;
     if (biz) by[name].accts.push({
       b: biz,
-      t: r["Type of Integration"]||"",
-      m: pm(r["MRR $ Added"]||0),
-      o: pm(r["OTR $ Added"]||0),
-      n: r["Non-Revenue Integrations"]||"",
+      t: intType,
+      m: mrr,
+      o: otr,
+      n: nr,
+      mi: mrrInt,
     });
   });
   return Object.values(by);
@@ -1779,11 +1788,11 @@ function RevenueView({rawRev, csms, filterCoach, filterCSM}) {
   // Parse raw rows into enriched objects
   const rows = (rawRev||[]).map(r => {
     const csm  = norm(r["CSM Name"]||r["csm_name"]||"");
-    const team = r["CSM Team! "]||r["team"]||"";
+    const team = r["CSM Team!"]||r["CSM Team! "]||r["team"]||"";
     const tier = r["CSM Tier"]||r["csm_tier"]||"";
-    const mrr  = parseFloat(String(r["MRR $ Added"]||0).replace(/[$,]/g,""))||0;
-    const otr  = parseFloat(String(r["OTR $ Added"]||0).replace(/[$,]/g,""))||0;
-    const tot  = parseFloat(String(r["Total Revenue Added"]||0).replace(/[$,]/g,""))||0;
+    const mrr  = parseFloat(String(r["MRR $ Added"]||r["MRR $"]||r["MRR"]||0).replace(/[$,]/g,""))||0;
+    const otr  = parseFloat(String(r["OTR $ Added"]||r["OTR $"]||r["OTR"]||0).replace(/[$,]/g,""))||0;
+    const tot  = parseFloat(String(r["Total Revenue Added"]||r["Total Revenue"]||r["Revenue"]||0).replace(/[$,]/g,""))||0;
     const nr   = (r["Non-Revenue Integrations"]||"").trim();
     const mrrInt = (r["MRR Integration"]||"").trim();
     const biz  = (r["Business Name"]||"").trim();
