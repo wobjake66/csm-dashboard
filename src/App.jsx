@@ -29,6 +29,11 @@ const COACHES = [
   {e:"aaron.taylor@thryv.com",  n:"Aaron Taylor",          t:"Team Aurorians",            col:"#5378FC"},
 ];
 
+const MANAGERS = [
+  {id:"carrie", n:"Carrie Reece",  coaches:["odirlm01@thryv.com","chase.boyd@thryv.com","elizabeth.white@thryv.com"]},
+  {id:"jake",   n:"Jake Baldwin",  coaches:["kendra.morelli@thryv.com","trisha.stalnaker@thryv.com","aaron.taylor@thryv.com"]},
+];
+
 const TEAM_COLS = {
   "The Dominican Dream Team":"#FF5000","Boyd Meets World":"#4A5D8C",
   "White Wave Warriors":"#808080","Team Thryv-More(lli)":"#29355D",
@@ -1630,8 +1635,14 @@ function TrendsView({history, csms, filterCoach, filterCSM}) {
   const activeMetric = METRICS.find(m=>m.key===metric);
 
   // Filter CSMs based on coach/CSM filter
+  // Derive coach list for active manager filter
+  const managerCoaches = filterManager
+    ? (MANAGERS.find(m=>m.id===filterManager)?.coaches||[])
+    : null;
+
   const filteredCSMs = csms.filter(c => {
     const i = lk(c.name);
+    if (managerCoaches && !managerCoaches.includes(i&&i.c||c.coach)) return false;
     if (filterCoach && (i&&i.c||c.coach) !== filterCoach) return false;
     if (filterCSM && c.name !== filterCSM) return false;
     return true;
@@ -1795,7 +1806,7 @@ function TrendsView({history, csms, filterCoach, filterCSM}) {
 }
 
 // ── REVENUE VIEW ────────────────────────────────────────────────────────────
-function RevenueView({rawRev, csms, filterCoach, filterCSM}) {
+function RevenueView({rawRev, csms, filterCoach, filterCSM, managerCoaches}) {
   const [lbSort, setLbSort] = useState({col:"total", dir:"desc"});
   const [regionFilter, setRegionFilter] = useState("all"); // "all" | "DR" | "US" | "ANZ"
 
@@ -1816,9 +1827,10 @@ function RevenueView({rawRev, csms, filterCoach, filterCSM}) {
     return {csm, team: (i&&i.t)||team, tier:(i&&i.r)||tier, region:(i&&i.reg)||"", mrr, otr, tot, nr, mrrInt, biz, type};
   }).filter(r=>r.csm && isValidCSM(r.csm));
 
-  // Apply coach + CSM + region filter
+  // Apply manager + coach + CSM + region filter
   const filtered = rows.filter(r=>{
     const i = lk(r.csm);
+    if (managerCoaches && !managerCoaches.includes(i&&i.c)) return false;
     if (filterCoach && !(i&&i.c===filterCoach)) return false;
     if (filterCSM && r.csm !== filterCSM) return false;
     if (regionFilter!=="all" && r.region!==regionFilter) return false;
@@ -1985,7 +1997,7 @@ function RevenueView({rawRev, csms, filterCoach, filterCSM}) {
         <div style={cardStyle}>
           <div style={secTitle}>Revenue by Region</div>
           {["DR","US","ANZ"].map(reg=>{
-            const regRows = rows.filter(r=>r.region===reg && (!filterCoach||(lk(r.csm)&&lk(r.csm).c===filterCoach)) && (!filterCSM||r.csm===filterCSM));
+            const regRows = rows.filter(r=>r.region===reg && (!managerCoaches||managerCoaches.includes(lk(r.csm)&&lk(r.csm).c)) && (!filterCoach||(lk(r.csm)&&lk(r.csm).c===filterCoach)) && (!filterCSM||r.csm===filterCSM));
             const regMRR = regRows.reduce((s,r)=>s+r.mrr,0);
             const regOTR = regRows.reduce((s,r)=>s+r.otr,0);
             const regTot = regRows.reduce((s,r)=>s+r.tot,0);
@@ -2060,7 +2072,7 @@ function RevenueView({rawRev, csms, filterCoach, filterCSM}) {
             const REG_COL={DR:"#FF5000",US:"#29355D",ANZ:"#5378FC"};
             const REG_LABEL={DR:"Dominican Republic","US":"United States","ANZ":"Australia & NZ"};
             const regCsms = {};
-            rows.filter(r=>r.region===reg && (!filterCoach||(lk(r.csm)&&lk(r.csm).c===filterCoach)) && (!filterCSM||r.csm===filterCSM)).forEach(r=>{
+            rows.filter(r=>r.region===reg && (!managerCoaches||managerCoaches.includes(lk(r.csm)&&lk(r.csm).c)) && (!filterCoach||(lk(r.csm)&&lk(r.csm).c===filterCoach)) && (!filterCSM||r.csm===filterCSM)).forEach(r=>{
               if(!regCsms[r.csm]) regCsms[r.csm]={csm:r.csm,total:0,mrr:0,otr:0,subs:0};
               regCsms[r.csm].total+=r.tot; regCsms[r.csm].mrr+=r.mrr;
               regCsms[r.csm].otr+=r.otr; regCsms[r.csm].subs++;
@@ -2194,7 +2206,7 @@ const BOB_COACH_TOTALS = {
 };
 const BOB_CSMS = [{"n":"Chelsea Dingus","c":"Kendra Morelli","boq":21073,"lcm":18316,"net":-2757,"ret":0.8692,"mca":59,"mcc":2,"mch":["Chicago HouseMasters LLC","Stepwise Health Platinum LLC."],"bca":1,"bcc":0,"bch":[]},{"n":"Joseph Guillermo Carmona Garcia","c":"Mia O\u2019Dirling","boq":25700.2,"lcm":21370.2,"net":-4330,"ret":0.8315,"mca":70,"mcc":2,"mch":["Distance Movers","Do It All Mobile Auto Spa"],"bca":1,"bcc":0,"bch":[]},{"n":"Tracy-Ann Gaudencio","c":"Aaron Taylor","boq":28181.32,"lcm":28798.32,"net":617,"ret":1.0219,"mca":73,"mcc":1,"mch":["Account Elite Spray Pave"],"bca":1,"bcc":1,"bch":["AC Gutter Guard"]},{"n":"Dave Crisler","c":"Aaron Taylor","boq":57248.68,"lcm":51738.68,"net":-5510,"ret":0.9037,"mca":158,"mcc":3,"mch":["Shop N Go Car Wash & Care","Top Mix Construction","Yardner"],"bca":2,"bcc":1,"bch":["Tony Hollands Funerals"]},{"n":"Sylvia Appla","c":"Aaron Taylor","boq":54619.5,"lcm":47443.5,"net":-7176,"ret":0.8686,"mca":152,"mcc":9,"mch":["Chisham Express Pharmacy","AAAA Brick Broom Cleaning","Jims Mowing Glen Waverley 1","Jims Mowing Croydon Hills","Viva Voce Choir"],"bca":0,"bcc":0,"bch":[]},{"n":"Ellise Payne","c":"Aaron Taylor","boq":46979.16,"lcm":44413.16,"net":-2566,"ret":0.9454,"mca":125,"mcc":7,"mch":["HAIR @ THE HUB","Easy Excavators","Saferoads Holdings","Erina Auto Parts","HBW Manufacturing"],"bca":0,"bcc":0,"bch":[]},{"n":"Nikita Siepen-Bowers","c":"Aaron Taylor","boq":46777.68,"lcm":42309.68,"net":-4468,"ret":0.9045,"mca":135,"mcc":5,"mch":["Wizard Motors Pty Ltd","Mr Hook Towing and Metal","Sai Thai Restaurant","Manawatu Engineering","Trenchless Technology"],"bca":0,"bcc":0,"bch":[]},{"n":"Warda Gul","c":"Aaron Taylor","boq":55478.96,"lcm":50242.96,"net":-5236,"ret":0.9056,"mca":152,"mcc":3,"mch":["JRs Mower & Motorcycle","Earth 2 Ocean Communications","Otagro Fertilizers Ltd"],"bca":0,"bcc":0,"bch":[]},{"n":"Indu Vijay","c":"Aaron Taylor","boq":52888.08,"lcm":48468.08,"net":-4420,"ret":0.9164,"mca":128,"mcc":5,"mch":["Complete Pool Services","Fresh Concept Foodservice","Pure Fresh Cleaning Services","Pacific Funerals Group","The Trustee"],"bca":0,"bcc":0,"bch":[]},{"n":"Matt Daly","c":"Aaron Taylor","boq":47918.72,"lcm":43990.72,"net":-3928,"ret":0.918,"mca":113,"mcc":4,"mch":["Better Service Solutions","Aotearoa Kiwi Tours","The Garden Guru","Christchurch Building Inspections"],"bca":0,"bcc":0,"bch":[]},{"n":"Peter Manalac","c":"Aaron Taylor","boq":53736.48,"lcm":49224.48,"net":-4512,"ret":0.9161,"mca":143,"mcc":3,"mch":["Rapid Electrical","The Blind Spot Blinds","SADDLERS WELDING"],"bca":0,"bcc":0,"bch":[]},{"n":"Zoltan Rudolf","c":"Aaron Taylor","boq":41388.16,"lcm":36966.16,"net":-4422,"ret":0.8932,"mca":103,"mcc":4,"mch":["Horowhenua Tractor Parts","Taikura Rudolf Steiner","Havelock Village","Masterton Joinery"],"bca":0,"bcc":0,"bch":[]},{"n":"Sakshi Mahalwal","c":"Aaron Taylor","boq":58759.24,"lcm":54437.24,"net":-4322,"ret":0.9265,"mca":142,"mcc":5,"mch":["Cooma Hospital","Pacific Coast Crane Hire","Tasman Insulation NZ Ltd","Taumarunui Car Sales","Mana Vehicle Testing Station"],"bca":0,"bcc":0,"bch":[]},{"n":"Alejandro Rodriguez-Medina","c":"Kendra Morelli","boq":24003.2,"lcm":21219.2,"net":-2784,"ret":0.884,"mca":65,"mcc":5,"mch":["Kountry Korner Hair Salon","Lonestar Lube N Tune","A & H Cates Carpentry","J & K Transport","Hue & Stitches"],"bca":1,"bcc":0,"bch":[]},{"n":"Karmita Turner","c":"Kendra Morelli","boq":23827.8,"lcm":20975.8,"net":-2852,"ret":0.8803,"mca":56,"mcc":3,"mch":["Salon Obsession","Salon On The Blvd","Prestige Motorsports"],"bca":0,"bcc":0,"bch":[]},{"n":"Lauren Carter","c":"Kendra Morelli","boq":23085.2,"lcm":21469.2,"net":-1616,"ret":0.9301,"mca":69,"mcc":4,"mch":["Right Choice Travel","Sperling Mortuary","Sohna Interior","Gentry Moving & Storage"],"bca":0,"bcc":0,"bch":[]},{"n":"Libby Booher","c":"Kendra Morelli","boq":22660.4,"lcm":22260.4,"net":-400,"ret":0.9823,"mca":62,"mcc":2,"mch":["Lonestar Ag Credit","Lonestar"],"bca":0,"bcc":0,"bch":[]},{"n":"Misti Dixon","c":"Kendra Morelli","boq":26034.8,"lcm":23178.8,"net":-2856,"ret":0.8903,"mca":71,"mcc":4,"mch":["Scentsy - Heather Blanton","GoodGear","Stacy's Tiny Tails","Beaus Glass"],"bca":0,"bcc":0,"bch":[]},{"n":"Misty Decatur","c":"Kendra Morelli","boq":19820.4,"lcm":17912.4,"net":-1908,"ret":0.9037,"mca":56,"mcc":2,"mch":["Estes Interiors","Ledbetter Pool Service"],"bca":0,"bcc":0,"bch":[]},{"n":"Saira Julian Guzman","c":"Kendra Morelli","boq":14219.8,"lcm":12875.8,"net":-1344,"ret":0.9055,"mca":38,"mcc":1,"mch":["Hernandez Architecture"],"bca":0,"bcc":0,"bch":[]},{"n":"Scott Mather","c":"Kendra Morelli","boq":19891.8,"lcm":18659.8,"net":-1232,"ret":0.938,"mca":54,"mcc":2,"mch":["Spectrum Pest Control","Woodlands Funeral"],"bca":0,"bcc":0,"bch":[]},{"n":"Steven Saunders","c":"Kendra Morelli","boq":19879.4,"lcm":17983.4,"net":-1896,"ret":0.9046,"mca":56,"mcc":3,"mch":["Paul Schier Plumbing","Homestead Floral","Westside Collision"],"bca":0,"bcc":0,"bch":[]},{"n":"Dorka Frias Lantigua","c":"Kendra Morelli","boq":9547.6,"lcm":8497.6,"net":-1050,"ret":0.89,"mca":25,"mcc":1,"mch":["Luxury Pool Management"],"bca":0,"bcc":0,"bch":[]},{"n":"Kellie Lester","c":"Trisha Stalnaker","boq":35383.6,"lcm":33894.6,"net":-1489,"ret":0.9579,"mca":91,"mcc":5,"mch":["Patriot Properties","Bees by Amos","Russ Dunmire","B2B Network Promotions","Daves Auto & Tires"],"bca":0,"bcc":0,"bch":[]},{"n":"Karissa Hernandez","c":"Trisha Stalnaker","boq":37153.75,"lcm":30192,"net":-6961.75,"ret":0.8126,"mca":91,"mcc":9,"mch":["Parable Christian Store","4 Seasons Property","Advantage Electric","Elites Dance Academy","Hillside Homecare"],"bca":0,"bcc":0,"bch":[]},{"n":"Ashley Vasquez Mena","c":"Trisha Stalnaker","boq":38476.1,"lcm":33200.1,"net":-5276,"ret":0.8629,"mca":97,"mcc":7,"mch":["M & M Industrial","L & S Mechanical","Luxe Dental","Key-Way Lock","City Of Life"],"bca":0,"bcc":0,"bch":[]},{"n":"Karen Capellan Tavarez","c":"Trisha Stalnaker","boq":19914.6,"lcm":18261.6,"net":-1653,"ret":0.917,"mca":54,"mcc":3,"mch":["Always Green Lawn","Accion Chicago","Greenwood Pharmacy"],"bca":0,"bcc":0,"bch":[]},{"n":"Ashley Shaffer","c":"Trisha Stalnaker","boq":34368.4,"lcm":28136.4,"net":-6232,"ret":0.8187,"mca":87,"mcc":11,"mch":["Kiddie Kandids","One Source Comm","Happy Hearts Child","Bingo Night Events","Canary Wharf Grill"],"bca":0,"bcc":0,"bch":[]},{"n":"Merve (MJ) Brielmann","c":"Trisha Stalnaker","boq":24891,"lcm":24507,"net":-384,"ret":0.9846,"mca":62,"mcc":2,"mch":["Bella Vista Pools","Armuchee"],"bca":0,"bcc":0,"bch":[]},{"n":"Taylor Kidd","c":"Trisha Stalnaker","boq":24930.2,"lcm":22369.2,"net":-2561,"ret":0.8973,"mca":58,"mcc":4,"mch":["Twin Cities Comfort","Fitness Zone","Perimeter Pest Control","Camelot Party Supplies"],"bca":0,"bcc":0,"bch":[]},{"n":"Mark Velazquez","c":"Trisha Stalnaker","boq":15438,"lcm":13621,"net":-1817,"ret":0.8823,"mca":37,"mcc":3,"mch":["Trident Plumbing","Saddleback Pest","Mid States Petroleum"],"bca":0,"bcc":0,"bch":[]},{"n":"Felix Caba Jimenez","c":"Trisha Stalnaker","boq":1920,"lcm":1920,"net":0,"ret":1.0,"mca":5,"mcc":0,"mch":[],"bca":0,"bcc":0,"bch":[]},{"n":"Stacy Roers","c":"Trisha Stalnaker","boq":19615.2,"lcm":18590.2,"net":-1025,"ret":0.9477,"mca":51,"mcc":2,"mch":["Glacier Hills","Northwood Auto"],"bca":0,"bcc":0,"bch":[]},{"n":"Rafael Sencion Sencion","c":"Trisha Stalnaker","boq":32490.4,"lcm":28376.4,"net":-4114,"ret":0.8734,"mca":84,"mcc":7,"mch":["Charis Music","Sano Wellness","Magnolia Dental","Blue Sky Realty","Woodmont Hills"],"bca":0,"bcc":0,"bch":[]},{"n":"Victor Abner Moscoso Fernandez","c":"Mia O\u2019Dirling","boq":38942.2,"lcm":36674.2,"net":-2268,"ret":0.9418,"mca":100,"mcc":4,"mch":["Central Florida Towing","Top Notch Beauty","Elite Car Wash","Pines Florist"],"bca":0,"bcc":0,"bch":[]},{"n":"Heidi Torres Uribe","c":"Mia O\u2019Dirling","boq":19764.4,"lcm":18436.4,"net":-1328,"ret":0.9328,"mca":54,"mcc":2,"mch":["Golden Touch Cleaning","Altagracia Beauty"],"bca":0,"bcc":0,"bch":[]},{"n":"Darling Danais Santos Taveras","c":"Mia O\u2019Dirling","boq":19197.6,"lcm":17373.6,"net":-1824,"ret":0.9049,"mca":52,"mcc":3,"mch":["Guzman Landscaping","Rosy Nails","Express Auto Repair"],"bca":0,"bcc":0,"bch":[]},{"n":"Irina Larianni Molina Molina","c":"Mia O\u2019Dirling","boq":10993.2,"lcm":10217.2,"net":-776,"ret":0.9294,"mca":30,"mcc":1,"mch":["Larios Convenience Store"],"bca":0,"bcc":0,"bch":[]},{"n":"Wilson Mercedes","c":"Mia O\u2019Dirling","boq":30065.8,"lcm":26945.8,"net":-3120,"ret":0.8963,"mca":80,"mcc":5,"mch":["Garcia Auto Shop","Queens Bridal","Cali Flowers","Pro Image Sports","Midwest Hauling"],"bca":0,"bcc":0,"bch":[]},{"n":"Jathzelyn Elizabeth Fortuna Paulino","c":"Mia O\u2019Dirling","boq":20671,"lcm":19043,"net":-1628,"ret":0.9213,"mca":53,"mcc":2,"mch":["Bella Nails","Style Zone"],"bca":0,"bcc":0,"bch":[]},{"n":"Yessica Montero Urena","c":"Mia O\u2019Dirling","boq":18399.6,"lcm":16523.6,"net":-1876,"ret":0.8981,"mca":50,"mcc":3,"mch":["Corazon BBQ","Mariana Flowers","Star Nails"],"bca":0,"bcc":0,"bch":[]},{"n":"Johnny Cornielle","c":"Mia O\u2019Dirling","boq":29088.4,"lcm":25356.4,"net":-3732,"ret":0.8717,"mca":78,"mcc":6,"mch":["Blessed Hands Barbershop","City Lights Diner","Prestige Auto","Diamond Cuts","New Wave"],"bca":0,"bcc":0,"bch":[]},{"n":"Sati Ananda Pimentel Malespin","c":"Mia O\u2019Dirling","boq":27040.6,"lcm":24220.6,"net":-2820,"ret":0.8957,"mca":71,"mcc":4,"mch":["Primera Iglesia","Tropical Nails","Elegant Touch","Star Bright"],"bca":0,"bcc":0,"bch":[]},{"n":"Samuel Frias De Paula","c":"Mia O\u2019Dirling","boq":35963.4,"lcm":31866.4,"net":-4097,"ret":0.8861,"mca":94,"mcc":5,"mch":["Santos Beauty","Lux Auto","Island Cuts","Paradise Nails","Glamour Touch"],"bca":0,"bcc":0,"bch":[]},{"n":"Barbara Larrosa Presinal","c":"Chase Boyd","boq":23019.6,"lcm":22379.6,"net":-640,"ret":0.9722,"mca":63,"mcc":2,"mch":["Prestige Cleaning","All Star Sports"],"bca":6,"bcc":1,"bch":["Texas Outdoor Projects"]},{"n":"Deivis Pena","c":"Chase Boyd","boq":19290.4,"lcm":17986.4,"net":-1304,"ret":0.9324,"mca":54,"mcc":3,"mch":["Elite Fence","Gold Star Auto","Diamond Nails"],"bca":0,"bcc":0,"bch":[]},{"n":"Kyle Dye","c":"Chase Boyd","boq":22069.4,"lcm":20661.4,"net":-1408,"ret":0.9362,"mca":58,"mcc":4,"mch":["Cornerstone Realty","Main Street Diner","Heritage Flooring","Summit Pest"],"bca":0,"bcc":0,"bch":[]},{"n":"Sarah Swanson","c":"Chase Boyd","boq":20193.6,"lcm":19869.6,"net":-324,"ret":0.984,"mca":58,"mcc":1,"mch":["Sundown Ranch"],"bca":0,"bcc":0,"bch":[]},{"n":"Tyler Moeggenberg","c":"Chase Boyd","boq":17994.8,"lcm":16758.8,"net":-1236,"ret":0.9313,"mca":48,"mcc":2,"mch":["Premier Auto Glass","Summit Cleaning"],"bca":0,"bcc":0,"bch":[]},{"n":"Tyler Popplewell","c":"Chase Boyd","boq":15017.4,"lcm":13695.4,"net":-1322,"ret":0.912,"mca":41,"mcc":2,"mch":["Parkway Dental","Canyon Creek HVAC"],"bca":0,"bcc":0,"bch":[]},{"n":"Luis Aguasvivas Peralta","c":"Chase Boyd","boq":8272.4,"lcm":7812.4,"net":-460,"ret":0.9444,"mca":22,"mcc":1,"mch":["Santos Landscaping"],"bca":0,"bcc":0,"bch":[]},{"n":"Juan Liberato","c":"Chase Boyd","boq":13063.4,"lcm":12191.4,"net":-872,"ret":0.9333,"mca":36,"mcc":2,"mch":["Tropical Cuts","Island Fresh"],"bca":0,"bcc":0,"bch":[]},{"n":"Elianny Tena Antigua","c":"Chase Boyd","boq":9226.8,"lcm":8468.8,"net":-758,"ret":0.9179,"mca":25,"mcc":1,"mch":["Nails By Design"],"bca":0,"bcc":0,"bch":[]},{"n":"Damita Hill","c":"Elizabeth White","boq":28434.25,"lcm":24734.25,"net":-3700,"ret":0.8699,"mca":72,"mcc":6,"mch":["Park Place Cleaners","Sunshine Academy","Royal Cuts","Elite Image","Pro Nails","Blossom Day Spa"],"bca":0,"bcc":0,"bch":[]},{"n":"Anthony Yen","c":"Elizabeth White","boq":19093.2,"lcm":18005.2,"net":-1088,"ret":0.943,"mca":53,"mcc":3,"mch":["Pacific Rim","Harbor View","Coastal Cuts"],"bca":0,"bcc":0,"bch":[]},{"n":"April Hall","c":"Elizabeth White","boq":22714.8,"lcm":20578.8,"net":-2136,"ret":0.9059,"mca":59,"mcc":4,"mch":["Summit Auto","Valley Dental","Mountain Fresh","Peak Performance"],"bca":0,"bcc":0,"bch":[]},{"n":"Katelyn Ankrom","c":"Elizabeth White","boq":27124.8,"lcm":24412.8,"net":-2712,"ret":0.9001,"mca":72,"mcc":4,"mch":["Bloom Floral","Green Thumb Nursery","Petal Perfect","Garden Gate"],"bca":0,"bcc":0,"bch":[]},{"n":"Kennedy Sanchez","c":"Elizabeth White","boq":16530.6,"lcm":14994.6,"net":-1536,"ret":0.9071,"mca":44,"mcc":2,"mch":["Sunrise Bakery","Golden Key Realty"],"bca":0,"bcc":0,"bch":[]},{"n":"Matt Sword","c":"Elizabeth White","boq":21907.8,"lcm":20635.8,"net":-1272,"ret":0.9419,"mca":58,"mcc":2,"mch":["Lighthouse Moving","Anchor Bay"],"bca":0,"bcc":0,"bch":[]},{"n":"Michael Furlong","c":"Elizabeth White","boq":28540.4,"lcm":25224.4,"net":-3316,"ret":0.8838,"mca":74,"mcc":6,"mch":["Riverside Clinic","Lakeside Auto","Forest Glen","Brook Valley","Clear Water","Sunset Pools"],"bca":0,"bcc":0,"bch":[]},{"n":"Yolanda Ramirez","c":"Elizabeth White","boq":29175,"lcm":26827,"net":-2348,"ret":0.9195,"mca":75,"mcc":4,"mch":["Desert Rose","Oasis Pools","Palm Tree Realty","Cactus Auto"],"bca":0,"bcc":0,"bch":[]},{"n":"Florence Francois Nova","c":"Elizabeth White","boq":22961.4,"lcm":21265.4,"net":-1696,"ret":0.9261,"mca":60,"mcc":3,"mch":["Belle Epoque","Riviera Nails","Paris Dreams"],"bca":0,"bcc":0,"bch":[]},{"n":"Rossi Valerio Tejeda","c":"Elizabeth White","boq":24220,"lcm":21513,"net":-2707,"ret":0.8882,"mca":63,"mcc":5,"mch":["Tropical Breeze","Island Dreams","Caribbean Cuts","Palm Bay","Sunset Nails"],"bca":0,"bcc":0,"bch":[]}];
 
-function BobView({filterCoach, filterCSM, bobRaw, mcChurn, bcChurn, churnAlerts}) {
+function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChurn, churnAlerts}) {
   // Live sheet data when available, hardcoded fallback otherwise
   const liveCoachTotals = (bobRaw && Object.keys(bobRaw.coachTotals||{}).length > 0) ? bobRaw.coachTotals : BOB_COACH_TOTALS;
   const liveGrand       = (bobRaw && bobRaw.grand) ? bobRaw.grand : BOB_GRAND;
@@ -2231,6 +2243,7 @@ function BobView({filterCoach, filterCSM, bobRaw, mcChurn, bcChurn, churnAlerts}
 
   const filtCSMs = () => {
     let list = liveCsms.filter(c=>c.boq>0);
+    if (managerCoaches) list = list.filter(c=>{ const i=lk(c.n); return managerCoaches.includes(i&&i.c||c.c); });
     if (filterCoach) list = list.filter(c=>c.c===filterCoach);
     if (filterCSM)   list = list.filter(c=>c.n===filterCSM);
     return [...list].sort((a,b)=>{
@@ -2274,6 +2287,7 @@ function BobView({filterCoach, filterCSM, bobRaw, mcChurn, bcChurn, churnAlerts}
 
   const coachesVisible = filterCoach ? [filterCoach]
     : filterCSM ? (()=>{const i=lk(filterCSM); return i&&i.c?[i.c]:Object.keys(liveCoachTotals);})()
+    : managerCoaches ? Object.keys(liveCoachTotals).filter(cn=>{ const coach=COACHES.find(c=>c.n===cn); return coach&&managerCoaches.includes(coach.e); })
     : Object.keys(liveCoachTotals);
 
   const renderOverview = () => (
@@ -2579,6 +2593,7 @@ export default function App() {
   });
   const [csms, setCSMs] = useState([]);
   const [tab, setTab] = useState("coaching");
+  const [filterManager, setFilterManager] = useState("");
   const [filterCoach, setFilterCoach] = useState("");
   const [filterCSM, setFilterCSM] = useState("");
   const [status, setStatus] = useState("loading");
@@ -2793,20 +2808,31 @@ export default function App() {
       {/* FILTERS */}
       {hasData&&(
         <div style={{background:"#fff",borderBottom:"0.5px solid rgba(41,53,93,.08)",padding:"8px 24px",display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-          <select value={filterCoach} onChange={e=>{setFilterCoach(e.target.value);setFilterCSM("");}}
+          <select value={filterManager} onChange={e=>{setFilterManager(e.target.value);setFilterCoach("");setFilterCSM("");}}
+            style={{fontSize:12,fontWeight:500,padding:"5px 10px",borderRadius:8,border:"0.5px solid "+(filterManager?"#FF5000":"rgba(41,53,93,.15)"),background:"#F4F6FB",color:filterManager?"#FF5000":"#29355D",cursor:"pointer"}}>
+            <option value="">All managers</option>
+            {MANAGERS.map(m=><option key={m.id} value={m.id}>{m.n}</option>)}
+          </select>
+          <select value={filterCoach} onChange={e=>{setFilterCoach(e.target.value);setFilterCSM("");setFilterManager("");}}
             style={{fontSize:12,fontWeight:500,padding:"5px 10px",borderRadius:8,border:"0.5px solid "+(filterCoach?"#FF5000":"rgba(41,53,93,.15)"),background:"#F4F6FB",color:filterCoach?"#FF5000":"#29355D",cursor:"pointer"}}>
             <option value="">All coaches</option>
-            {COACHES.map(c=><option key={c.e} value={c.e}>{c.n}</option>)}
+            {(managerCoaches?COACHES.filter(c=>managerCoaches.includes(c.e)):COACHES).map(c=><option key={c.e} value={c.e}>{c.n}</option>)}
           </select>
-          <select value={filterCSM} onChange={e=>{setFilterCSM(e.target.value);setFilterCoach("");}}
+          <select value={filterCSM} onChange={e=>{setFilterCSM(e.target.value);setFilterCoach("");setFilterManager("");}}
             style={{fontSize:12,fontWeight:500,padding:"5px 10px",borderRadius:8,border:"0.5px solid "+(filterCSM?"#FF5000":"rgba(41,53,93,.15)"),background:"#F4F6FB",color:filterCSM?"#FF5000":"#29355D",cursor:"pointer"}}>
             <option value="">All CSMs</option>
-            {allCSMNames.map(n=><option key={n} value={n}>{n}</option>)}
+            {allCSMNames.filter(n=>{
+              if(!managerCoaches&&!filterCoach) return true;
+              const i=lk(n);
+              if(managerCoaches&&!managerCoaches.includes(i&&i.c)) return false;
+              if(filterCoach&&(i&&i.c)!==filterCoach) return false;
+              return true;
+            }).map(n=><option key={n} value={n}>{n}</option>)}
           </select>
-          {(filterCoach||filterCSM)&&(
+          {(filterManager||filterCoach||filterCSM)&&(
             <span style={{background:"#FF5000",color:"#fff",fontSize:11,fontWeight:500,padding:"4px 10px",borderRadius:20,display:"inline-flex",alignItems:"center",gap:6}}>
-              {filterCSM||COACHES.find(c=>c.e===filterCoach).n}
-              <button onClick={()=>{setFilterCoach("");setFilterCSM("");}} style={{background:"none",border:"none",color:"rgba(255,255,255,.8)",cursor:"pointer",fontSize:14,lineHeight:1,padding:0}}>✕</button>
+              {filterCSM||filterCoach&&COACHES.find(c=>c.e===filterCoach)?.n||filterManager&&MANAGERS.find(m=>m.id===filterManager)?.n}
+              <button onClick={()=>{setFilterManager("");setFilterCoach("");setFilterCSM("");}} style={{background:"none",border:"none",color:"rgba(255,255,255,.8)",cursor:"pointer",fontSize:14,lineHeight:1,padding:0}}>✕</button>
             </span>
           )}
         </div>
@@ -2833,8 +2859,8 @@ export default function App() {
           {tab==="overview"&&<OverviewView csms={filteredCSMs} allCSMs={csms}/>}
           {tab==="leaderboard"&&<LeaderboardView csms={filteredCSMs}/>}
           {tab==="activity"&&<ActivityView csms={filteredCSMs}/>}
-          {tab==="revenue"&&<RevenueView rawRev={rawRev} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM}/>}
-          {tab==="bob"&&<BobView filterCoach={filterCoach} filterCSM={filterCSM} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} churnAlerts={churnAlerts}/>}
+          {tab==="revenue"&&<RevenueView rawRev={rawRev} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches}/>}
+          {tab==="bob"&&<BobView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} churnAlerts={churnAlerts}/>}
           {tab==="trends"&&<TrendsView history={history} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM}/>}
         </div>
       )}
