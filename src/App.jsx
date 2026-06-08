@@ -1635,14 +1635,8 @@ function TrendsView({history, csms, filterCoach, filterCSM}) {
   const activeMetric = METRICS.find(m=>m.key===metric);
 
   // Filter CSMs based on coach/CSM filter
-  // Derive coach list for active manager filter
-  const managerCoaches = filterManager
-    ? (MANAGERS.find(m=>m.id===filterManager)?.coaches||[])
-    : null;
-
   const filteredCSMs = csms.filter(c => {
     const i = lk(c.name);
-    if (managerCoaches && !managerCoaches.includes(i&&i.c||c.coach)) return false;
     if (filterCoach && (i&&i.c||c.coach) !== filterCoach) return false;
     if (filterCSM && c.name !== filterCSM) return false;
     return true;
@@ -2609,8 +2603,14 @@ export default function App() {
 
   const allCSMNames = [...new Set(csms.map(c=>c.name))].sort();
 
+  // Derive coach list for active manager filter
+  const managerCoaches = filterManager
+    ? (MANAGERS.find(m=>m.id===filterManager)?.coaches||[])
+    : null;
+
   const filteredCSMs = csms.filter(c => {
     const i = lk(c.name);
+    if (managerCoaches && !managerCoaches.includes(i&&i.c||c.coach)) return false;
     if (filterCoach && (i&&i.c||c.coach) !== filterCoach) return false;
     if (filterCSM && c.name !== filterCSM) return false;
     return true;
