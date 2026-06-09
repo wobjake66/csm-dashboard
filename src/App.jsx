@@ -2512,7 +2512,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                   {isExp&&(
                     <tr>
                       <td colSpan={9} style={{padding:"10px 12px",background:"#F4F6FB",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>
-                        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,fontSize:12}}>
+                        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,fontSize:12,marginBottom:12}}>
                           <div>
                             <div style={{fontWeight:500,marginBottom:8,fontSize:11,textTransform:"uppercase",color:"#808080"}}>MC churned ({c.mcc} of {c.mca} active)</div>
                             {c.mch.length ? c.mch.map((a,i)=><div key={i} style={{padding:"4px 0",borderBottom:"0.5px solid rgba(41,53,93,.06)"}}>{a}</div>) : <span style={{color:"#808080"}}>None this quarter</span>}
@@ -2522,6 +2522,35 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                             {c.bch.length ? c.bch.map((a,i)=><div key={i} style={{padding:"4px 0",borderBottom:"0.5px solid rgba(41,53,93,.06)",color:"#991b1b"}}>{a}</div>) : <span style={{color:"#808080"}}>None this quarter</span>}
                           </div>
                         </div>
+                        {(()=>{
+                          const det=BOB_DETAIL[c.n]||{};
+                          const inc=det.i||[], dec=det.d||[];
+                          if(!inc.length&&!dec.length) return null;
+                          const all=[...inc.map(r=>({...r,_t:"i"})),...dec.map(r=>({...r,_t:"d"}))].sort((a,b)=>b.n-a.n);
+                          return <div style={{borderTop:"0.5px solid rgba(41,53,93,.08)",paddingTop:10}}>
+                            <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:8}}>
+                              Billing changes
+                              {inc.length>0&&<span style={{marginLeft:6,padding:"1px 7px",borderRadius:20,background:"rgba(22,163,74,.1)",color:"#166534",fontWeight:500}}>↑ {inc.length}</span>}
+                              {dec.length>0&&<span style={{marginLeft:4,padding:"1px 7px",borderRadius:20,background:"rgba(220,38,38,.1)",color:"#991b1b",fontWeight:500}}>↓ {dec.length}</span>}
+                            </div>
+                            <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+                              <thead><tr>
+                                {["Enterprise ID","Product","BOQ","Current","Net Change"].map(h=><th key={h} style={{textAlign:h==="Enterprise ID"||h==="Product"?"left":"right",color:"#808080",fontWeight:500,padding:"0 8px 6px 0",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>{h}</th>)}
+                              </tr></thead>
+                              <tbody>
+                                {all.map((r,i)=><tr key={i}>
+                                  <td style={{padding:"5px 8px 5px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",fontFamily:"monospace",color:"#808080"}}>{r.e}</td>
+                                  <td style={{padding:"5px 8px 5px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)"}}>{r.l}</td>
+                                  <td style={{padding:"5px 8px 5px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#808080"}}>${r.b.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+                                  <td style={{padding:"5px 8px 5px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right"}}>${r.m.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+                                  <td style={{padding:"5px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",fontWeight:600,color:r._t==="i"?"#16a34a":"#dc2626"}}>
+                                    {r._t==="i"?"+":""}{r.n.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}
+                                  </td>
+                                </tr>)}
+                              </tbody>
+                            </table>
+                          </div>;
+                        })()}
                       </td>
                     </tr>
                   )}
@@ -2593,7 +2622,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                     {isExp&&(
                       <tr>
                         <td colSpan={7} style={{padding:"10px 12px",background:"#F4F6FB",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>
-                          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,fontSize:12}}>
+                          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,fontSize:12,marginBottom:12}}>
                             <div>
                               <div style={{fontWeight:500,marginBottom:8,fontSize:11,textTransform:"uppercase",color:"#808080"}}>MC churned ({c.mcc} of {c.mca})</div>
                               {c.mch.map((a,i)=><div key={i} style={{padding:"4px 0",borderBottom:"0.5px solid rgba(41,53,93,.06)"}}>{i+1}. {a}</div>)}
@@ -2603,6 +2632,35 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                               {c.bch.length ? c.bch.map((a,i)=><div key={i} style={{padding:"4px 0",color:"#991b1b",borderBottom:"0.5px solid rgba(41,53,93,.06)"}}>{i+1}. {a}</div>) : <span style={{color:"#808080"}}>None</span>}
                             </div>
                           </div>
+                          {(()=>{
+                            const det=BOB_DETAIL[c.n]||{};
+                            const inc=det.i||[], dec=det.d||[];
+                            if(!inc.length&&!dec.length) return null;
+                            const all=[...inc.map(r=>({...r,_t:"i"})),...dec.map(r=>({...r,_t:"d"}))].sort((a,b)=>b.n-a.n);
+                            return <div style={{borderTop:"0.5px solid rgba(41,53,93,.08)",paddingTop:10}}>
+                              <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:8}}>
+                                Billing changes
+                                {inc.length>0&&<span style={{marginLeft:6,padding:"1px 7px",borderRadius:20,background:"rgba(22,163,74,.1)",color:"#166534",fontWeight:500}}>↑ {inc.length}</span>}
+                                {dec.length>0&&<span style={{marginLeft:4,padding:"1px 7px",borderRadius:20,background:"rgba(220,38,38,.1)",color:"#991b1b",fontWeight:500}}>↓ {dec.length}</span>}
+                              </div>
+                              <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+                                <thead><tr>
+                                  {["Enterprise ID","Product","BOQ","Current","Net Change"].map(h=><th key={h} style={{textAlign:h==="Enterprise ID"||h==="Product"?"left":"right",color:"#808080",fontWeight:500,padding:"0 8px 6px 0",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>{h}</th>)}
+                                </tr></thead>
+                                <tbody>
+                                  {all.map((r,i)=><tr key={i}>
+                                    <td style={{padding:"5px 8px 5px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",fontFamily:"monospace",color:"#808080"}}>{r.e}</td>
+                                    <td style={{padding:"5px 8px 5px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)"}}>{r.l}</td>
+                                    <td style={{padding:"5px 8px 5px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#808080"}}>${r.b.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+                                    <td style={{padding:"5px 8px 5px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right"}}>${r.m.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+                                    <td style={{padding:"5px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",fontWeight:600,color:r._t==="i"?"#16a34a":"#dc2626"}}>
+                                      {r._t==="i"?"+":""}{r.n.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}
+                                    </td>
+                                  </tr>)}
+                                </tbody>
+                              </table>
+                            </div>;
+                          })()}
                         </td>
                       </tr>
                     )}
