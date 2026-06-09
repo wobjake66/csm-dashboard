@@ -601,11 +601,12 @@ function buildCSMs(rev, email, cad, due, ontime, skipped, bobRaw, mcChurn, bcChu
     c.skippedFourthCount = d.fourthCount||0;
     c.skippedAccts = d.accounts||[];
   });
-  // Merge BOB billing data
+  // Merge BOB billing data from live sheet
   if (bobRaw&&bobRaw.bob) {
     Object.entries(bobRaw.bob).forEach(([rawName, d]) => {
       const name = norm(rawName)||rawName;
-      const c = m[name];
+      // Try exact match first, then normed name
+      const c = m[name] || m[rawName];
       if (c) { c.bobBoq=d.boq||0; c.bobLcm=d.lcm||0; c.bobNet=d.net||0; c.bobRet=d.ret||null; }
     });
   }
@@ -613,7 +614,7 @@ function buildCSMs(rev, email, cad, due, ontime, skipped, bobRaw, mcChurn, bcChu
   if (mcChurn) {
     Object.entries(mcChurn).forEach(([rawName, d]) => {
       const name = norm(rawName)||rawName;
-      const c = m[name];
+      const c = m[name] || m[rawName];
       if (c) { c.bobMcc=d.canceled||0; c.bobMch=d.accts||[]; }
     });
   }
@@ -621,19 +622,23 @@ function buildCSMs(rev, email, cad, due, ontime, skipped, bobRaw, mcChurn, bcChu
   if (bcChurn) {
     Object.entries(bcChurn).forEach(([rawName, d]) => {
       const name = norm(rawName)||rawName;
-      const c = m[name];
+      const c = m[name] || m[rawName];
       if (c) { c.bobBcc=d.canceled||0; c.bobBch=d.accts||[]; }
     });
   }
-  // Also populate from hardcoded BOB_CSMS fallback for any CSM not in live data
-  BOB_CSMS.forEach(b => {
-    const c = m[b.n];
-    if (c && c.bobBoq===0 && b.boq>0) {
-      c.bobBoq=b.boq; c.bobLcm=b.lcm; c.bobNet=b.net; c.bobRet=b.ret;
-      if (c.bobMcc===0) { c.bobMcc=b.mcc; c.bobMch=b.mch; }
-      if (c.bobBcc===0) { c.bobBcc=b.bcc; c.bobBch=b.bch; }
-    }
-  });
+  // Also populate from hardcoded BOB_CSMS fallback ONLY if live data completely absent
+  // (i.e. bobRaw fetch failed entirely — not just a stale number)
+  const hasLiveBob = bobRaw && bobRaw.bob && Object.keys(bobRaw.bob).length > 0;
+  if (!hasLiveBob) {
+    BOB_CSMS.forEach(b => {
+      const c = m[b.n];
+      if (c && c.bobBoq===0 && b.boq>0) {
+        c.bobBoq=b.boq; c.bobLcm=b.lcm; c.bobNet=b.net; c.bobRet=b.ret;
+        if (c.bobMcc===0) { c.bobMcc=b.mcc; c.bobMch=b.mch; }
+        if (c.bobBcc===0) { c.bobBcc=b.bcc; c.bobBch=b.bch; }
+      }
+    });
+  }
   return Object.values(m);
 }
 
