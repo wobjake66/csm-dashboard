@@ -2893,62 +2893,191 @@ export default function App() {
     return () => clearInterval(revInterval);
   }, [unlocked]);
 
-  function buildAIPrompt() {
+  // Build rich data context scoped to current filter
+  function buildContext() {
     const lines = [];
-    if (filterCSM) {
+    const scope = filterCSM ? "CSM" : filterCoach ? "coach_team" : filterManager ? "manager_org" : "full_team";
+
+    // ── SINGLE CSM ──────────────────────────────────────────────────
+    if (scope === "CSM") {
       const c = csms.find(x=>x.name===filterCSM);
-      if (!c) return "No data for "+filterCSM;
-      const i = lk(c.name)||{};
-      const coach = COACHES.find(x=>x.e===(i.c||c.coach));
-      lines.push("I need coaching tips for a specific CSM at Thryv.");
-      lines.push("CSM: "+c.name+" | Team: "+(i.t||"")+" | Tier: "+(i.r||"")+(coach?" | Coach: "+coach.n:""));
+      if (!c) return { scope, text: "No data found for "+filterCSM };
+      const info = lk(c.name)||{};
+      const coach = COACHES.find(x=>x.e===(info.c||c.coach));
+      const det = BOB_DETAIL[c.name]||{};
+      const bob = bobRaw.find(r=>r.rep===c.name)||{};
+      const mc = mcChurn.filter(r=>r.rep===c.name);
+      const bc = bcChurn.filter(r=>r.rep===c.name);
+
+      lines.push("=== CSM PROFILE ===");
+      lines.push("Name: "+c.name);
+      lines.push("Coach: "+(coach?coach.n:"Unknown")+" | Team: "+(info.t||"Unknown")+" | Tier: "+(info.r||"Unknown"));
       lines.push("");
-      lines.push("PERFORMANCE:");
-      lines.push("  Revenue: "+(c.rev>0?fd(c.rev)+" (MRR "+fd(c.mrr)+")":"None this period"));
-      lines.push("  Email: "+(c.sent>0?c.sent+" sent, "+pp(c.openRate)+" open rate, "+pp(c.replyRate)+" reply rate":"No email activity"));
-      lines.push("  On-time cadence: "+(c.otTotal>=3?pp(c.otPct)+" ("+c.otOnTime+"/"+c.otTotal+" tasks)":"Not enough data"));
-      lines.push("  Overdue tasks: "+(c.overdueCount>0?c.overdueCount:"None"));
-      if (c.accts.length>0) lines.push("  Accounts: "+c.accts.slice(0,5).map(a=>a.b+(a.m>0?" MRR "+fd(a.m):a.o>0?" OTR "+fd(a.o):"")).join(", "));
+
+      lines.push("=== CADENCE & ENGAGEMENT ===");
+      lines.push("Cadence completion: "+(c.cadCount>0?pp(c.cadPct)+" ("+c.cadDone+"/"+c.cadCount+" accounts)":"No data"));
+      lines.push("On-time tasks: "+(c.otTotal>=3?pp(c.otPct)+" ("+c.otOnTime+"/"+c.otTotal+" tasks)":"Insufficient data"));
+      lines.push("Overdue tasks: "+(c.overdueCount>0?c.overdueCount+" overdue":"None"));
+      lines.push("Email: "+(c.sent>0?c.sent+" sent · "+pp(c.openRate)+" open rate · "+pp(c.replyRate)+" reply rate":"No email activity"));
+      if (c.skippedCount>0) lines.push("Skipped cadences: "+c.skippedCount+" total"+(c.skippedFourthCount>0?" ("+c.skippedFourthCount+" reached 4th reschedule — high risk)":""));
+      if (c.skippedAccts&&c.skippedAccts.length>0) lines.push("Skipped accounts: "+c.skippedAccts.slice(0,5).map(a=>a.n).join(", ")+(c.skippedAccts.length>5?" + "+(c.skippedAccts.length-5)+" more":""));
       lines.push("");
-      lines.push("Give me: (1) What is this CSM doing well? (2) Top 2-3 coaching priorities for our next 1:1? (3) Specific action items for this week. (4) Any red flags?");
-    } else if (filterCoach) {
+
+      lines.push("=== REVENUE ===");
+      lines.push("This period: "+(c.rev>0?fd(c.rev):"None")+" | MRR: "+(c.mrr>0?fd(c.mrr):"None")+" | OTR: "+(c.otr>0?fd(c.otr):"None"));
+      if (c.accts&&c.accts.length>0) lines.push("Top accounts: "+c.accts.slice(0,5).map(a=>a.b+(a.m>0?" MRR "+fd(a.m):a.o>0?" OTR "+fd(a.o):"")).join(", "));
+      lines.push("");
+
+      lines.push("=== BOOK OF BUSINESS ===");
+      lines.push("BOQ: "+(bob.boq?fd(bob.boq):"n/a")+" | Current: "+(bob.lcm?fd(bob.lcm):"n/a")+" | Net: "+(bob.net?(bob.net>0?"+":"")+fd(bob.net):"n/a")+" | Retention: "+(bob.ret?bob.ret:"n/a"));
+      if ((det.i||[]).length>0) lines.push("Billing increases ("+det.i.length+"): "+det.i.map(x=>x.e+" "+x.l+" +"+fd(x.n)).join(", "));
+      if ((det.d||[]).length>0) lines.push("Billing decreases ("+det.d.length+"): "+det.d.map(x=>x.e+" "+x.l+" "+fd(x.n)).join(", "));
+      if (mc.length>0) lines.push("MC churn: "+mc.map(r=>r.acct||r.eid).join(", "));
+      if (bc.length>0) lines.push("BC churn: "+bc.map(r=>r.acct||r.eid).join(", "));
+      if (mc.length===0&&bc.length===0&&!det.d?.length) lines.push("No churn or billing decreases this period.");
+      lines.push("");
+
+    // ── COACH TEAM ──────────────────────────────────────────────────
+    } else if (scope === "coach_team") {
       const coach = COACHES.find(c=>c.e===filterCoach);
-      lines.push("Coaching insights for "+coach.n+"'s team ("+coach.t+") at Thryv.");
+      lines.push("=== TEAM OVERVIEW: "+coach.n+" ("+coach.t+") ===");
+      lines.push("CSM Count: "+filteredCSMs.length);
       lines.push("");
       filteredCSMs.forEach(c=>{
-        lines.push(c.name+": rev="+(c.rev>0?fd(c.rev):"none")+", email open="+(c.sent>0?pp(c.openRate):"n/a")+", on-time="+(c.otTotal>=3?pp(c.otPct):"n/a")+", overdue="+(c.overdueCount>0?c.overdueCount:"none"));
-      });
-      lines.push("");
-      lines.push("(1) Who needs most urgent attention? (2) Team patterns? (3) What should "+coach.n+" prioritize this week? (4) Who is excelling?");
-    } else {
-      lines.push("Full CSM team coaching overview — Thryv.");
-      lines.push("");
-      COACHES.forEach(coach=>{
-        const team=csms.filter(c=>(lk(c.name)&&lk(c.name).c===coach.e)||c.coach===coach.e);
-        const cadC=team.filter(c=>c.cadCount>0);
-        const avgCad=cadC.length?cadC.reduce((s,c)=>s+c.cadPct,0)/cadC.length:null;
-        const otC=team.filter(c=>c.otTotal>=3);
-        const avgOT=otC.length?otC.reduce((s,c)=>s+c.otPct,0)/otC.length:null;
-        const totR=team.reduce((s,c)=>s+c.rev,0);
-        lines.push("COACH: "+coach.n+" | "+coach.t);
-        lines.push("  Revenue: $"+Math.round(totR).toLocaleString()+" | Cadence: "+(avgCad!=null?Math.round(avgCad*100)+"%":"n/a")+" | On-time: "+(avgOT!=null?Math.round(avgOT*100)+"%":"n/a"));
-        lines.push("  Needs coaching: "+cadC.filter(c=>c.cadPct<0.9).map(c=>c.name).join(", ")||"none");
+        const bob = bobRaw.find(r=>r.rep===c.name)||{};
+        const mc = mcChurn.filter(r=>r.rep===c.name);
+        const bc = bcChurn.filter(r=>r.rep===c.name);
+        const det = BOB_DETAIL[c.name]||{};
+        lines.push("── "+c.name);
+        lines.push("   Revenue: "+(c.rev>0?fd(c.rev):"none")+" | Email open: "+(c.sent>0?pp(c.openRate):"n/a")+" | On-time: "+(c.otTotal>=3?pp(c.otPct):"n/a")+" | Overdue: "+(c.overdueCount||0));
+        lines.push("   Cadence: "+(c.cadCount>0?pp(c.cadPct):"n/a")+" | BOB net: "+(bob.net?(bob.net>0?"+":"")+fd(bob.net):"n/a")+" | Retention: "+(bob.ret||"n/a"));
+        if (c.skippedCount>0) lines.push("   ⚠ "+c.skippedCount+" skipped cadence(s)"+(c.skippedFourthCount>0?", "+c.skippedFourthCount+" at 4th reschedule":""));
+        if (mc.length>0||bc.length>0) lines.push("   ⚠ Churn: "+(mc.length+bc.length)+" account(s)");
+        if ((det.d||[]).length>0) lines.push("   ↓ "+det.d.length+" billing decrease(s)");
         lines.push("");
       });
-      lines.push("(1) Most urgent attention? (2) Biggest risks this week? (3) Top 3 action items for the leader?");
+
+    // ── MANAGER ORG ─────────────────────────────────────────────────
+    } else if (scope === "manager_org") {
+      const mgr = MANAGERS.find(m=>m.id===filterManager);
+      lines.push("=== ORG OVERVIEW: "+mgr.n+" ===");
+      const mgrCoaches = COACHES.filter(c=>mgr.coaches.includes(c.e));
+      mgrCoaches.forEach(coach=>{
+        const team = csms.filter(c=>(lk(c.name)&&lk(c.name).c===coach.e)||c.coach===coach.e);
+        const totRev = team.reduce((s,c)=>s+c.rev,0);
+        const otTeam = team.filter(c=>c.otTotal>=3);
+        const avgOT = otTeam.length?otTeam.reduce((s,c)=>s+c.otPct,0)/otTeam.length:null;
+        const churnCSMs = team.filter(c=>mcChurn.some(r=>r.rep===c.name)||bcChurn.some(r=>r.rep===c.name));
+        const skipCSMs = team.filter(c=>c.skippedCount>0);
+        lines.push("COACH: "+coach.n+" ("+coach.t+") — "+team.length+" CSMs");
+        lines.push("  Revenue: "+fd(totRev)+" | Avg on-time: "+(avgOT!=null?pp(avgOT):"n/a"));
+        lines.push("  CSMs with churn: "+churnCSMs.length+" | CSMs with skipped cadences: "+skipCSMs.length);
+        lines.push("");
+      });
+
+    // ── FULL TEAM ────────────────────────────────────────────────────
+    } else {
+      lines.push("=== FULL TEAM OVERVIEW — THRYV CSM ORG ===");
+      lines.push("Total CSMs: "+csms.length);
+      lines.push("");
+      COACHES.forEach(coach=>{
+        const team = csms.filter(c=>(lk(c.name)&&lk(c.name).c===coach.e)||c.coach===coach.e);
+        const totRev = team.reduce((s,c)=>s+c.rev,0);
+        const cadTeam = team.filter(c=>c.cadCount>0);
+        const avgCad = cadTeam.length?cadTeam.reduce((s,c)=>s+c.cadPct,0)/cadTeam.length:null;
+        const otTeam = team.filter(c=>c.otTotal>=3);
+        const avgOT = otTeam.length?otTeam.reduce((s,c)=>s+c.otPct,0)/otTeam.length:null;
+        const churnCSMs = team.filter(c=>mcChurn.some(r=>r.rep===c.name)||bcChurn.some(r=>r.rep===c.name));
+        const skipCSMs = team.filter(c=>c.skippedCount>0);
+        const lowCad = cadTeam.filter(c=>c.cadPct<0.9);
+        lines.push("COACH: "+coach.n+" ("+coach.t+") — "+team.length+" CSMs");
+        lines.push("  Revenue: "+fd(totRev)+" | Cadence avg: "+(avgCad!=null?pp(avgCad):"n/a")+" | On-time avg: "+(avgOT!=null?pp(avgOT):"n/a"));
+        lines.push("  CSMs needing cadence help ("+lowCad.length+"): "+(lowCad.map(c=>c.name).join(", ")||"none"));
+        lines.push("  CSMs with churn: "+churnCSMs.length+" | CSMs with skips: "+skipCSMs.length);
+        lines.push("");
+      });
     }
-    return lines.join("\n");
+
+    return { scope, text: lines.join("\n") };
   }
 
-  function openAI() {
-    window.open("https://claude.ai/new?q="+encodeURIComponent(buildAIPrompt()), "_blank");
+  // Call Anthropic API with question-specific system prompts
+  async function runAI(questionType) {
+    setAiLoading(true);
+    setAiResponse("");
+
+    const { scope, text: ctx } = buildContext();
+
+    const scopeLabel = scope==="CSM" ? "this CSM ("+filterCSM+")"
+      : scope==="coach_team" ? "this coaching team"
+      : scope==="manager_org" ? "this manager's org"
+      : "the full CSM team";
+
+    const systemPrompts = {
+      coaching: `You are an expert CSM coaching advisor at Thryv, a SaaS company. You have been given performance data for ${scopeLabel}. 
+Your job: give a manager sharp, actionable coaching guidance they can use immediately.
+Format your response with clear sections:
+1. ✅ STRENGTHS — what's going well (be specific, cite numbers)
+2. 🎯 TOP COACHING PRIORITIES — 2-3 focus areas with specific talking points for the next 1:1
+3. ⚡ THIS WEEK'S ACTION ITEMS — concrete next steps (who does what by when)
+4. 🚩 RED FLAGS — anything that needs urgent attention
+Be direct and specific. Use the actual names and numbers from the data. Keep it under 400 words.`,
+
+      churn: `You are an expert CSM retention analyst at Thryv, a SaaS company. You have been given BOB and churn data for ${scopeLabel}.
+Your job: identify churn risk and give a manager concrete retention guidance.
+Format your response with clear sections:
+1. 🔴 HIGH RISK — accounts or CSMs with active churn or billing decreases (cite EIDs and amounts)
+2. 🟡 WATCH LIST — early warning signs (skipped cadences, low retention %, declining engagement)
+3. 💬 RETENTION TALKING POINTS — specific things to say/do to save at-risk accounts
+4. 📋 IMMEDIATE ACTIONS — what the manager or CSM should do this week
+Be specific with account IDs and dollar amounts. Under 400 words.`,
+
+      revenue: `You are an expert CSM revenue growth advisor at Thryv, a SaaS company. You have been given revenue and BOB data for ${scopeLabel}.
+Your job: surface upsell and expansion opportunities and give a manager a growth plan.
+Format your response with clear sections:
+1. 💰 CURRENT REVENUE SNAPSHOT — summarize what's happening (total, MRR, OTR, billing increases)
+2. 🚀 BEST EXPANSION OPPORTUNITIES — which accounts or CSMs have the most upside and why
+3. 🎯 UPSELL TALKING POINTS — specific products or conversations to have (SEO, Thryv Leads, Social, etc.)
+4. 📋 THIS WEEK'S REVENUE ACTIONS — 3 concrete things to do to move the number
+Cite actual account names or EIDs and dollar amounts where available. Under 400 words.`,
+
+      custom: `You are an expert CSM coaching and retention advisor at Thryv, a SaaS company. You have been given performance data for ${scopeLabel}.
+Answer the manager's specific question directly and concisely, drawing on the data provided.
+Be specific — cite actual names, numbers, and account IDs from the data. Avoid generic advice.
+If the data doesn't contain enough information to answer fully, say so and answer with what you have.
+Keep your response under 350 words.`,
+    };
+
+    const userMessage = questionType === "custom"
+      ? `Here is the data:\n\n${ctx}\n\nMy question: ${aiCustom}`
+      : `Here is the data:\n\n${ctx}`;
+
+    try {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 1000,
+          system: systemPrompts[questionType],
+          messages: [{ role: "user", content: userMessage }],
+        }),
+      });
+      const data = await res.json();
+      const reply = data.content?.find(b=>b.type==="text")?.text || "No response received.";
+      setAiResponse(reply);
+    } catch(e) {
+      setAiResponse("Error reaching AI: "+e.message);
+    }
+    setAiLoading(false);
   }
 
   if (!unlocked) return <PinLock onUnlock={()=>setUnlocked(true)}/>;
 
-  const aiLabel = filterCSM ? "Ask AI: "+filterCSM.split(" ")[0]
-    : filterCoach ? "Ask AI: "+COACHES.find(c=>c.e===filterCoach).n.split(" ")[0]+"'s team"
-    : "Ask AI Coach";
+  const aiLabel = filterCSM ? "🤖 AI: "+filterCSM.split(" ")[0]
+    : filterCoach ? "🤖 AI: "+COACHES.find(c=>c.e===filterCoach).n.split(" ")[0]+"'s team"
+    : filterManager ? "🤖 AI: "+MANAGERS.find(m=>m.id===filterManager).n.split(" ")[0]+"'s org"
+    : "🤖 AI Coach";
 
   const hasData = csms.length > 0;
 
@@ -3056,6 +3185,92 @@ export default function App() {
           {tab==="trends"&&<TrendsView history={history} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM}/>}
         </div>
       )}
+
+      {/* ── AI COACH PANEL ───────────────────────────────────────────── */}
+      {aiOpen&&<div style={{position:"fixed",top:0,right:0,height:"100vh",width:420,background:"#fff",boxShadow:"-4px 0 24px rgba(0,0,0,.12)",zIndex:1000,display:"flex",flexDirection:"column",fontFamily:"Nunito Sans,sans-serif"}}>
+        {/* Header */}
+        <div style={{background:"#29355D",padding:"16px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
+          <div>
+            <div style={{color:"#fff",fontSize:14,fontWeight:600}}>🤖 AI Coach</div>
+            <div style={{color:"rgba(255,255,255,.6)",fontSize:11,marginTop:2}}>
+              {filterCSM?"Focused on: "+filterCSM
+               :filterCoach?"Focused on: "+COACHES.find(c=>c.e===filterCoach)?.n+"'s team"
+               :filterManager?"Focused on: "+MANAGERS.find(m=>m.id===filterManager)?.n+"'s org"
+               :"Full team overview"}
+            </div>
+          </div>
+          <button onClick={()=>setAiOpen(false)} style={{background:"rgba(255,255,255,.1)",border:"none",color:"#fff",fontSize:18,lineHeight:1,padding:"4px 10px",borderRadius:6,cursor:"pointer"}}>×</button>
+        </div>
+
+        {/* Question picker */}
+        {!aiResponse&&!aiLoading&&<div style={{padding:20,flex:1,overflowY:"auto"}}>
+          <div style={{fontSize:11,color:"#808080",marginBottom:14,fontWeight:600,textTransform:"uppercase",letterSpacing:".05em"}}>What would you like to explore?</div>
+          {[
+            {id:"coaching", icon:"🎯", label:"Coaching priorities",    sub:"Top focus areas and 1:1 talking points"},
+            {id:"churn",    icon:"⚠️",  label:"Churn risk analysis",    sub:"At-risk accounts and retention concerns"},
+            {id:"revenue",  icon:"💰", label:"Revenue opportunities",  sub:"Upsell, expansion, and growth potential"},
+            {id:"custom",   icon:"✏️", label:"Ask your own question",  sub:"Type a specific coaching question"},
+          ].map(q=>(
+            <div key={q.id}
+              onClick={()=>{setAiQuestion(q.id);if(q.id!=="custom")runAI(q.id);}}
+              style={{padding:"14px 16px",borderRadius:10,border:"0.5px solid rgba(41,53,93,.12)",
+                background:aiQuestion===q.id?"#F4F6FB":"#fff",marginBottom:8,cursor:"pointer"}}>
+              <div style={{display:"flex",alignItems:"center",gap:10}}>
+                <span style={{fontSize:20}}>{q.icon}</span>
+                <div style={{minWidth:0}}>
+                  <div style={{fontSize:13,fontWeight:600,color:"#29355D"}}>{q.label}</div>
+                  <div style={{fontSize:11,color:"#808080",marginTop:2}}>{q.sub}</div>
+                </div>
+              </div>
+              {q.id==="custom"&&aiQuestion==="custom"&&(
+                <div style={{marginTop:12}} onClick={e=>e.stopPropagation()}>
+                  <textarea value={aiCustom} onChange={e=>setAiCustom(e.target.value)}
+                    placeholder="e.g. What should I focus on in my next 1:1 with this CSM?"
+                    style={{width:"100%",padding:"10px 12px",borderRadius:8,border:"0.5px solid rgba(41,53,93,.2)",
+                      fontSize:12,fontFamily:"Nunito Sans,sans-serif",resize:"vertical",minHeight:80,
+                      outline:"none",boxSizing:"border-box"}}
+                    autoFocus/>
+                  <button onClick={()=>runAI("custom")} disabled={!aiCustom.trim()}
+                    style={{marginTop:8,width:"100%",padding:"10px",borderRadius:8,border:"none",
+                      background:aiCustom.trim()?"#FF5000":"#e5e7eb",color:"#fff",fontSize:13,
+                      fontWeight:600,cursor:aiCustom.trim()?"pointer":"not-allowed"}}>
+                    Ask →
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>}
+
+        {/* Loading */}
+        {aiLoading&&<div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:12,color:"#808080"}}>
+          <div style={{width:36,height:36,border:"3px solid #e5e7eb",borderTop:"3px solid #FF5000",borderRadius:"50%",animation:"spin 0.8s linear infinite"}}/>
+          <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+          <div style={{fontSize:13}}>Analyzing data...</div>
+        </div>}
+
+        {/* Response */}
+        {aiResponse&&!aiLoading&&<>
+          <div style={{flex:1,overflowY:"auto",padding:20}}>
+            <div style={{fontSize:13,lineHeight:1.7,color:"#29355D",whiteSpace:"pre-wrap"}}>{aiResponse}</div>
+          </div>
+          <div style={{padding:"12px 20px",borderTop:"0.5px solid rgba(41,53,93,.08)",display:"flex",gap:8,flexShrink:0}}>
+            <button onClick={()=>{setAiResponse("");setAiQuestion("");setAiCustom("");}}
+              style={{flex:1,padding:"9px",borderRadius:8,border:"0.5px solid rgba(41,53,93,.15)",background:"#fff",color:"#29355D",fontSize:12,fontWeight:500,cursor:"pointer"}}>
+              ← New question
+            </button>
+            <button onClick={()=>{
+                const el=document.createElement("textarea");
+                el.value=aiResponse;document.body.appendChild(el);el.select();
+                document.execCommand("copy");document.body.removeChild(el);
+              }}
+              style={{flex:1,padding:"9px",borderRadius:8,border:"none",background:"#FF5000",color:"#fff",fontSize:12,fontWeight:500,cursor:"pointer"}}>
+              Copy response
+            </button>
+          </div>
+        </>}
+      </div>}
+      {aiOpen&&<div onClick={()=>setAiOpen(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.2)",zIndex:999}}/>}
     </div>
   );
 }
