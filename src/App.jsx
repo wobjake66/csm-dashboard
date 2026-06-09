@@ -3067,16 +3067,18 @@ Keep your response under 350 words.`,
       : `Here is the data:\n\n${ctx}`;
 
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
+      const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 1000,
           system: systemPrompts[questionType],
           messages: [{ role: "user", content: userMessage }],
         }),
       });
+      if (!res.ok) {
+        const err = await res.json().catch(()=>({}));
+        throw new Error(err.error || "Server error "+res.status);
+      }
       const data = await res.json();
       const reply = data.content?.find(b=>b.type==="text")?.text || "No response received.";
       setAiResponse(reply);
