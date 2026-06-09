@@ -2306,9 +2306,21 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
 
   const filtCSMs = () => {
     let list = liveCsms.filter(c=>c.boq>0);
-    if (managerCoaches) list = list.filter(c=>{ const i=lk(c.n); return managerCoaches.includes(i&&i.c||c.c); });
-    if (filterCoach) list = list.filter(c=>c.c===filterCoach);
-    if (filterCSM)   list = list.filter(c=>c.n===filterCSM);
+    if (managerCoaches||filterCoach) {
+      list = list.filter(c=>{
+        // Get coach email — prefer ROSTER lookup over stored coach name
+        const i = lk(c.n);
+        const coachEmail = (i&&i.c) || (() => {
+          // Fall back: match stored coach name to COACHES array
+          const found = COACHES.find(ch => ch.n === c.c);
+          return found ? found.e : null;
+        })();
+        if (managerCoaches && !managerCoaches.includes(coachEmail)) return false;
+        if (filterCoach && coachEmail !== filterCoach) return false;
+        return true;
+      });
+    }
+    if (filterCSM) list = list.filter(c=>c.n===filterCSM);
     return [...list].sort((a,b)=>{
       const av=a[bobSort.col]??-999, bv=b[bobSort.col]??-999;
       return bobSort.dir==="desc"?bv-av:av-bv;
@@ -2349,8 +2361,8 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
   );
 
   const coachesVisible = filterCoach ? [filterCoach]
-    : filterCSM ? (()=>{const i=lk(filterCSM); return i&&i.c?[i.c]:Object.keys(liveCoachTotals);})()
-    : managerCoaches ? Object.keys(liveCoachTotals).filter(cn=>{ const coach=COACHES.find(c=>c.n===cn); return coach&&managerCoaches.includes(coach.e); })
+    : filterCSM ? (()=>{ const i=lk(filterCSM); return i&&i.c?[i.c]:Object.keys(liveCoachTotals); })()
+    : managerCoaches ? COACHES.filter(c=>managerCoaches.includes(c.e)).map(c=>c.e)
     : Object.keys(liveCoachTotals);
 
   const renderOverview = () => (
@@ -2376,12 +2388,15 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
       {/* Coach scorecards */}
       <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>Retention by coach — goal line at 91%</div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:12,marginBottom:20}}>
-        {coachesVisible.map(cn=>{
-          const d=liveCoachTotals[cn]; if(!d) return null;
-          const col=TEAM_COLS[COACHES.find(c=>c.n===cn)?.t||""]||"#808080";
+        {coachesVisible.map(ce=>{
+          // ce is a coach email — resolve to name for liveCoachTotals lookup
+          const coach = COACHES.find(c=>c.e===ce);
+          const cn = coach?.n||ce; // name or email fallback
+          const d = liveCoachTotals[cn] || BOB_COACH_TOTALS[cn]; if(!d) return null;
+          const col=TEAM_COLS[coach?.t||""]||"#808080";
           const diff=(d.pct-GOAL)*100;
           return (
-            <div key={cn} style={{...S.card,position:"relative",overflow:"hidden",borderTop:`3px solid ${col}`}}>
+            <div key={ce} style={{...S.card,position:"relative",overflow:"hidden",borderTop:`3px solid ${col}`}}>
               <div style={{fontSize:12,fontWeight:500,marginBottom:2}}>{cn}</div>
               <div style={{fontSize:26,fontWeight:500,color:rCol(d.pct),margin:"6px 0"}}>{fmtP(d.pct)}</div>
               {barRow(d.pct, col)}
