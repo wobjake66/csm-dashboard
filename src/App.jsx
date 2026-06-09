@@ -880,7 +880,22 @@ function CoachCard({coach, csms, onSelectCSM, onSelectCoach}) {
 }
 
 // ── CSM DETAIL VIEW ────────────────────────────────────────────────────────
-function CSMDetail({csm, onClear}) {
+function CSMDetail({csm: csmRaw, onClear, bobRaw, mcChurn, bcChurn}) {
+  // Merge live BOB data over whatever's in csm object (live sheet > hardcoded)
+  const liveBob = (bobRaw&&bobRaw.bob) ? Object.entries(bobRaw.bob).find(([k])=>norm(k)===csmRaw.name||k===csmRaw.name) : null;
+  const liveMc  = mcChurn  ? Object.entries(mcChurn).find(([k])=>norm(k)===csmRaw.name||k===csmRaw.name)  : null;
+  const liveBc  = bcChurn  ? Object.entries(bcChurn).find(([k])=>norm(k)===csmRaw.name||k===csmRaw.name)  : null;
+  const csm = {
+    ...csmRaw,
+    bobBoq: liveBob ? liveBob[1].boq||0 : csmRaw.bobBoq,
+    bobLcm: liveBob ? liveBob[1].lcm||0 : csmRaw.bobLcm,
+    bobNet: liveBob ? liveBob[1].net||0 : csmRaw.bobNet,
+    bobRet: liveBob ? liveBob[1].ret     : csmRaw.bobRet,
+    bobMcc: liveMc  ? liveMc[1].canceled||0  : csmRaw.bobMcc,
+    bobMch: liveMc  ? liveMc[1].accts||[]    : csmRaw.bobMch,
+    bobBcc: liveBc  ? liveBc[1].canceled||0  : csmRaw.bobBcc,
+    bobBch: liveBc  ? liveBc[1].accts||[]    : csmRaw.bobBch,
+  };
   const [cadTab, setCadTab] = useState("due"); // "due" | "ontime"
   const i = lk(csm.name)||{};
   const coach = COACHES.find(c=>c.e===(i.c||csm.coach));
@@ -1200,10 +1215,10 @@ function CSMDetail({csm, onClear}) {
 }
 
 // ── COACHING TAB ───────────────────────────────────────────────────────────
-function CoachingView({csms, coach, onSelectCSM, onSelectCoach, onClear, skippedCSMs}) {
+function CoachingView({csms, coach, onSelectCSM, onSelectCoach, onClear, skippedCSMs, bobRaw, mcChurn, bcChurn}) {
   if (onSelectCSM._selected) {
     const c = csms.find(x=>x.name===onSelectCSM._selected)||csms[0];
-    return c ? <CSMDetail csm={c} onClear={onClear}/> : null;
+    return c ? <CSMDetail csm={c} onClear={onClear} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn}/> : null;
   }
   const coaches = coach ? COACHES.filter(c=>c.e===coach) : COACHES;
   const cols = coaches.length===1?1:coaches.length===2?2:3;
@@ -2913,7 +2928,7 @@ export default function App() {
       )}
       {hasData&&(
         <div style={{padding:"20px 24px",zoom:fontScale}}>
-          {tab==="coaching"&&<CoachingView csms={filteredCSMs} coach={filterCoach} onSelectCSM={selectCSMFn} onSelectCoach={e=>{setFilterCoach(e);setFilterCSM("");}} onClear={()=>{setFilterCoach("");setFilterCSM("");}} skippedCSMs={skippedCSMs.filter(c=>{const i=lk(c.name);if(managerCoaches&&!(i&&managerCoaches.includes(i.c)))return false;if(filterCoach&&(i&&i.c)!==filterCoach)return false;if(filterCSM&&c.name!==filterCSM)return false;return true;})}/>}
+          {tab==="coaching"&&<CoachingView csms={filteredCSMs} coach={filterCoach} onSelectCSM={selectCSMFn} onSelectCoach={e=>{setFilterCoach(e);setFilterCSM("");}} onClear={()=>{setFilterCoach("");setFilterCSM("");}} skippedCSMs={skippedCSMs.filter(c=>{const i=lk(c.name);if(managerCoaches&&!(i&&managerCoaches.includes(i.c)))return false;if(filterCoach&&(i&&i.c)!==filterCoach)return false;if(filterCSM&&c.name!==filterCSM)return false;return true;})} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn}/>}
           {tab==="overview"&&<OverviewView csms={filteredCSMs} allCSMs={csms}/>}
           {tab==="leaderboard"&&<LeaderboardView csms={filteredCSMs}/>}
           {tab==="activity"&&<ActivityView csms={filteredCSMs}/>}
