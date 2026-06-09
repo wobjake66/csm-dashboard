@@ -2793,6 +2793,13 @@ export default function App() {
   const [bcChurn, setBcChurn] = useState({});
   const [churnAlerts, setChurnAlerts] = useState([]);
 
+  // AI Coach panel state
+  const [aiOpen,     setAiOpen]     = useState(false);
+  const [aiLoading,  setAiLoading]  = useState(false);
+  const [aiResponse, setAiResponse] = useState("");
+  const [aiQuestion, setAiQuestion] = useState("");
+  const [aiCustom,   setAiCustom]   = useState("");
+
   const allCSMNames = [...new Set(csms.map(c=>c.name))].sort();
 
   // Derive coach list for active manager filter
@@ -2999,6 +3006,13 @@ export default function App() {
     }
 
     return { scope, text: lines.join("\n") };
+  }
+
+  function openAI() {
+    setAiOpen(true);
+    setAiResponse("");
+    setAiQuestion("");
+    setAiCustom("");
   }
 
   // Call Anthropic API with question-specific system prompts
