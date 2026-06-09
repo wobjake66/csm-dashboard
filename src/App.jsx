@@ -2901,9 +2901,26 @@ export default function App() {
   }, [unlocked]);
 
   // Build rich data context scoped to current filter
+  // mcChurn / bcChurn are {csmName: {canceled, accts}} objects — NOT arrays
   function buildContext() {
     const lines = [];
     const scope = filterCSM ? "CSM" : filterCoach ? "coach_team" : filterManager ? "manager_org" : "full_team";
+
+    // Helper: get churn data for a CSM name from the object maps
+    const getMc = name => {
+      const key = Object.keys(mcChurn).find(k => norm(k)===name || k===name);
+      return key ? mcChurn[key] : null;
+    };
+    const getBc = name => {
+      const key = Object.keys(bcChurn).find(k => norm(k)===name || k===name);
+      return key ? bcChurn[key] : null;
+    };
+    // Helper: get BOB data for a CSM from bobRaw.bob object
+    const getBob = name => {
+      if (!bobRaw||!bobRaw.bob) return null;
+      const key = Object.keys(bobRaw.bob).find(k => norm(k)===name || k===name);
+      return key ? bobRaw.bob[key] : null;
+    };
 
     // ── SINGLE CSM ──────────────────────────────────────────────────
     if (scope === "CSM") {
@@ -2912,9 +2929,9 @@ export default function App() {
       const info = lk(c.name)||{};
       const coach = COACHES.find(x=>x.e===(info.c||c.coach));
       const det = BOB_DETAIL[c.name]||{};
-      const bob = bobRaw.find(r=>r.rep===c.name)||{};
-      const mc = mcChurn.filter(r=>r.rep===c.name);
-      const bc = bcChurn.filter(r=>r.rep===c.name);
+      const bob = getBob(c.name) || {boq:c.bobBoq,lcm:c.bobLcm,net:c.bobNet,ret:c.bobRet};
+      const mc = getMc(c.name);
+      const bc = getBc(c.name);
 
       lines.push("=== CSM PROFILE ===");
       lines.push("Name: "+c.name);
@@ -2922,26 +2939,26 @@ export default function App() {
       lines.push("");
 
       lines.push("=== CADENCE & ENGAGEMENT ===");
-      lines.push("Cadence completion: "+(c.cadCount>0?pp(c.cadPct)+" ("+c.cadDone+"/"+c.cadCount+" accounts)":"No data"));
-      lines.push("On-time tasks: "+(c.otTotal>=3?pp(c.otPct)+" ("+c.otOnTime+"/"+c.otTotal+" tasks)":"Insufficient data"));
+      lines.push("Cadence completion: "+(c.cadCount>0?pp(c.cadPct)+" ("+c.cadCount+" tasks)":"No data"));
+      lines.push("On-time tasks: "+(c.otTotal>=3?pp(c.otPct)+" ("+c.otOnTime+"/"+c.otTotal+" on time)":"Insufficient data"));
       lines.push("Overdue tasks: "+(c.overdueCount>0?c.overdueCount+" overdue":"None"));
       lines.push("Email: "+(c.sent>0?c.sent+" sent · "+pp(c.openRate)+" open rate · "+pp(c.replyRate)+" reply rate":"No email activity"));
-      if (c.skippedCount>0) lines.push("Skipped cadences: "+c.skippedCount+" total"+(c.skippedFourthCount>0?" ("+c.skippedFourthCount+" reached 4th reschedule — high risk)":""));
+      if (c.skippedCount>0) lines.push("Skipped cadences: "+c.skippedCount+" total"+(c.skippedFourthCount>0?" ("+c.skippedFourthCount+" at 4th reschedule — HIGH RISK)":""));
       if (c.skippedAccts&&c.skippedAccts.length>0) lines.push("Skipped accounts: "+c.skippedAccts.slice(0,5).map(a=>a.n).join(", ")+(c.skippedAccts.length>5?" + "+(c.skippedAccts.length-5)+" more":""));
       lines.push("");
 
       lines.push("=== REVENUE ===");
-      lines.push("This period: "+(c.rev>0?fd(c.rev):"None")+" | MRR: "+(c.mrr>0?fd(c.mrr):"None")+" | OTR: "+(c.otr>0?fd(c.otr):"None"));
-      if (c.accts&&c.accts.length>0) lines.push("Top accounts: "+c.accts.slice(0,5).map(a=>a.b+(a.m>0?" MRR "+fd(a.m):a.o>0?" OTR "+fd(a.o):"")).join(", "));
+      lines.push("This period: "+(c.rev>0?fd(c.rev):"None")+" | MRR: "+(c.mrr>0?fd(c.mrr):"None"));
+      if (c.accts&&c.accts.length>0) lines.push("Accounts: "+c.accts.slice(0,5).map(a=>a.b+(a.m>0?" MRR "+fd(a.m):a.o>0?" OTR "+fd(a.o):"")).join(", "));
       lines.push("");
 
       lines.push("=== BOOK OF BUSINESS ===");
-      lines.push("BOQ: "+(bob.boq?fd(bob.boq):"n/a")+" | Current: "+(bob.lcm?fd(bob.lcm):"n/a")+" | Net: "+(bob.net?(bob.net>0?"+":"")+fd(bob.net):"n/a")+" | Retention: "+(bob.ret?bob.ret:"n/a"));
+      lines.push("BOQ: "+(bob&&bob.boq?fd(bob.boq):"n/a")+" | Current: "+(bob&&bob.lcm?fd(bob.lcm):"n/a")+" | Net: "+(bob&&bob.net!=null?(bob.net>0?"+":"")+fd(bob.net):"n/a")+" | Retention: "+(bob&&bob.ret!=null?pp(bob.ret):"n/a"));
       if ((det.i||[]).length>0) lines.push("Billing increases ("+det.i.length+"): "+det.i.map(x=>x.e+" "+x.l+" +"+fd(x.n)).join(", "));
       if ((det.d||[]).length>0) lines.push("Billing decreases ("+det.d.length+"): "+det.d.map(x=>x.e+" "+x.l+" "+fd(x.n)).join(", "));
-      if (mc.length>0) lines.push("MC churn: "+mc.map(r=>r.acct||r.eid).join(", "));
-      if (bc.length>0) lines.push("BC churn: "+bc.map(r=>r.acct||r.eid).join(", "));
-      if (mc.length===0&&bc.length===0&&!det.d?.length) lines.push("No churn or billing decreases this period.");
+      if (mc&&mc.canceled>0) lines.push("MC churn ("+mc.canceled+" accounts): "+(mc.accts||[]).slice(0,5).join(", "));
+      if (bc&&bc.canceled>0) lines.push("BC churn ("+bc.canceled+" accounts): "+(bc.accts||[]).slice(0,5).join(", "));
+      if (!mc&&!bc&&!(det.d||[]).length) lines.push("No churn or billing decreases this period.");
       lines.push("");
 
     // ── COACH TEAM ──────────────────────────────────────────────────
@@ -2951,15 +2968,16 @@ export default function App() {
       lines.push("CSM Count: "+filteredCSMs.length);
       lines.push("");
       filteredCSMs.forEach(c=>{
-        const bob = bobRaw.find(r=>r.rep===c.name)||{};
-        const mc = mcChurn.filter(r=>r.rep===c.name);
-        const bc = bcChurn.filter(r=>r.rep===c.name);
+        const bob = getBob(c.name) || {net:c.bobNet, ret:c.bobRet};
+        const mc = getMc(c.name);
+        const bc = getBc(c.name);
         const det = BOB_DETAIL[c.name]||{};
         lines.push("── "+c.name);
         lines.push("   Revenue: "+(c.rev>0?fd(c.rev):"none")+" | Email open: "+(c.sent>0?pp(c.openRate):"n/a")+" | On-time: "+(c.otTotal>=3?pp(c.otPct):"n/a")+" | Overdue: "+(c.overdueCount||0));
-        lines.push("   Cadence: "+(c.cadCount>0?pp(c.cadPct):"n/a")+" | BOB net: "+(bob.net?(bob.net>0?"+":"")+fd(bob.net):"n/a")+" | Retention: "+(bob.ret||"n/a"));
+        lines.push("   Cadence: "+(c.cadCount>0?pp(c.cadPct):"n/a")+" | BOB net: "+(bob&&bob.net!=null?(bob.net>0?"+":"")+fd(bob.net):"n/a")+" | Retention: "+(bob&&bob.ret!=null?pp(bob.ret):"n/a"));
         if (c.skippedCount>0) lines.push("   ⚠ "+c.skippedCount+" skipped cadence(s)"+(c.skippedFourthCount>0?", "+c.skippedFourthCount+" at 4th reschedule":""));
-        if (mc.length>0||bc.length>0) lines.push("   ⚠ Churn: "+(mc.length+bc.length)+" account(s)");
+        const churnCount = ((mc&&mc.canceled)||0)+((bc&&bc.canceled)||0);
+        if (churnCount>0) lines.push("   ⚠ Churn: "+churnCount+" account(s)");
         if ((det.d||[]).length>0) lines.push("   ↓ "+det.d.length+" billing decrease(s)");
         lines.push("");
       });
@@ -2974,7 +2992,7 @@ export default function App() {
         const totRev = team.reduce((s,c)=>s+c.rev,0);
         const otTeam = team.filter(c=>c.otTotal>=3);
         const avgOT = otTeam.length?otTeam.reduce((s,c)=>s+c.otPct,0)/otTeam.length:null;
-        const churnCSMs = team.filter(c=>mcChurn.some(r=>r.rep===c.name)||bcChurn.some(r=>r.rep===c.name));
+        const churnCSMs = team.filter(c=>{ const m=getMc(c.name),b=getBc(c.name); return (m&&m.canceled>0)||(b&&b.canceled>0); });
         const skipCSMs = team.filter(c=>c.skippedCount>0);
         lines.push("COACH: "+coach.n+" ("+coach.t+") — "+team.length+" CSMs");
         lines.push("  Revenue: "+fd(totRev)+" | Avg on-time: "+(avgOT!=null?pp(avgOT):"n/a"));
@@ -2994,7 +3012,7 @@ export default function App() {
         const avgCad = cadTeam.length?cadTeam.reduce((s,c)=>s+c.cadPct,0)/cadTeam.length:null;
         const otTeam = team.filter(c=>c.otTotal>=3);
         const avgOT = otTeam.length?otTeam.reduce((s,c)=>s+c.otPct,0)/otTeam.length:null;
-        const churnCSMs = team.filter(c=>mcChurn.some(r=>r.rep===c.name)||bcChurn.some(r=>r.rep===c.name));
+        const churnCSMs = team.filter(c=>{ const m=getMc(c.name),b=getBc(c.name); return (m&&m.canceled>0)||(b&&b.canceled>0); });
         const skipCSMs = team.filter(c=>c.skippedCount>0);
         const lowCad = cadTeam.filter(c=>c.cadPct<0.9);
         lines.push("COACH: "+coach.n+" ("+coach.t+") — "+team.length+" CSMs");
