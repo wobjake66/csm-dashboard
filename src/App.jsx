@@ -3082,19 +3082,11 @@ My question: ${aiCustom}`,
 
     const fullPrompt = prompts[questionType] || prompts.coaching;
 
-    // Copy to clipboard then open Claude.ai
-    navigator.clipboard.writeText(fullPrompt).catch(()=>{
-      // Fallback: create a textarea and execCommand
-      const el = document.createElement("textarea");
-      el.value = fullPrompt;
-      document.body.appendChild(el);
-      el.select();
-      document.execCommand("copy");
-      document.body.removeChild(el);
-    });
+    // Open Claude.ai with prompt pre-filled via ?q= param
+    const url = "https://claude.ai/new?q=" + encodeURIComponent(fullPrompt);
+    window.open(url, "_blank", "noopener,noreferrer");
 
-    setAiQuestion(questionType);
-    setAiResponse("__copied__");
+    setAiOpen(false);
   }
 
   if (!unlocked) return <PinLock onUnlock={()=>setUnlocked(true)}/>;
@@ -3228,8 +3220,9 @@ My question: ${aiCustom}`,
         </div>
 
         {/* Question picker */}
-        {!aiResponse&&!aiLoading&&<div style={{padding:20,flex:1,overflowY:"auto"}}>
-          <div style={{fontSize:11,color:"#808080",marginBottom:14,fontWeight:600,textTransform:"uppercase",letterSpacing:".05em"}}>What would you like to explore?</div>
+        <div style={{padding:20,flex:1,overflowY:"auto"}}>
+          <div style={{fontSize:11,color:"#808080",marginBottom:4,fontWeight:600,textTransform:"uppercase",letterSpacing:".05em"}}>What would you like to explore?</div>
+          <div style={{fontSize:11,color:"#808080",marginBottom:14}}>Selecting a question opens Claude.ai with your data pre-loaded.</div>
           {[
             {id:"coaching", icon:"🎯", label:"Coaching priorities",    sub:"Top focus areas and 1:1 talking points"},
             {id:"churn",    icon:"⚠️",  label:"Churn risk analysis",    sub:"At-risk accounts and retention concerns"},
@@ -3265,28 +3258,8 @@ My question: ${aiCustom}`,
               )}
             </div>
           ))}
-        </div>}
+        </div>
 
-        {/* Copied — open Claude.ai */}
-        {aiResponse==="__copied__"&&<div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:16,padding:24,textAlign:"center"}}>
-          <div style={{fontSize:40}}>📋</div>
-          <div style={{fontSize:15,fontWeight:600,color:"#29355D"}}>Prompt copied!</div>
-          <div style={{fontSize:12,color:"#808080",lineHeight:1.6,maxWidth:300}}>
-            Your coaching prompt with all the live data is on your clipboard.
-            Open Claude, paste it in, and get your analysis.
-          </div>
-          <a href="https://claude.ai/new" target="_blank" rel="noreferrer"
-            style={{display:"block",width:"100%",padding:"12px",borderRadius:10,border:"none",
-              background:"#FF5000",color:"#fff",fontSize:13,fontWeight:600,cursor:"pointer",
-              textDecoration:"none",textAlign:"center",boxSizing:"border-box"}}>
-            Open Claude.ai ↗
-          </a>
-          <button onClick={()=>{setAiResponse("");setAiQuestion("");setAiCustom("");}}
-            style={{width:"100%",padding:"10px",borderRadius:10,border:"0.5px solid rgba(41,53,93,.15)",
-              background:"#fff",color:"#29355D",fontSize:12,fontWeight:500,cursor:"pointer"}}>
-            ← Try a different question
-          </button>
-        </div>}
       </div>}
       {aiOpen&&<div onClick={()=>setAiOpen(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.2)",zIndex:999}}/>}
     </div>
