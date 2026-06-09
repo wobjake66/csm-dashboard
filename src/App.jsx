@@ -2421,6 +2421,52 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
           ))}
         </div>
       </div>
+      {/* Billing changes detail — only when a single CSM is selected */}
+      {filterCSM&&(()=>{
+        const det = BOB_DETAIL[filterCSM]||{};
+        const inc = det.i||[], dec = det.d||[];
+        if (inc.length===0 && dec.length===0) return null;
+        const thS={fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,padding:"0 8px 8px 0",textAlign:"left",borderBottom:"0.5px solid rgba(41,53,93,.08)"};
+        const tdS={padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",fontSize:12,verticalAlign:"top"};
+        return <div style={{...S.card,marginTop:16}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
+            <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500}}>Billing changes this quarter — {filterCSM}</div>
+            {inc.length>0&&<span style={{fontSize:10,fontWeight:500,padding:"2px 8px",borderRadius:20,background:"rgba(22,163,74,.1)",color:"#166534"}}>↑ {inc.length} increase{inc.length!==1?"s":""}</span>}
+            {dec.length>0&&<span style={{fontSize:10,fontWeight:500,padding:"2px 8px",borderRadius:20,background:"rgba(220,38,38,.1)",color:"#991b1b"}}>↓ {dec.length} decrease{dec.length!==1?"s":""}</span>}
+          </div>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+            <thead><tr>
+              <th style={thS}>Enterprise ID</th>
+              <th style={thS}>Product</th>
+              <th style={{...thS,textAlign:"right"}}>BOQ</th>
+              <th style={{...thS,textAlign:"right"}}>Current</th>
+              <th style={{...thS,textAlign:"right"}}>Change</th>
+              <th style={thS}>Type</th>
+            </tr></thead>
+            <tbody>
+              {[...inc.map(r=>({...r,_t:"increase"})),...dec.map(r=>({...r,_t:"decrease"}))].sort((a,b)=>b.n-a.n).map((r,i)=>{
+                const isInc = r._t==="increase";
+                return <tr key={i}>
+                  <td style={{...tdS,fontFamily:"monospace",fontSize:11,color:"#808080"}}>{r.e}</td>
+                  <td style={tdS}>{r.l}</td>
+                  <td style={{...tdS,textAlign:"right",color:"#808080"}}>${r.b.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+                  <td style={{...tdS,textAlign:"right"}}>${r.m.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+                  <td style={{...tdS,textAlign:"right",fontWeight:600,color:isInc?"#16a34a":"#dc2626"}}>
+                    {isInc?"+":""}{r.n.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}
+                  </td>
+                  <td style={tdS}>
+                    <span style={{fontSize:10,fontWeight:500,padding:"2px 8px",borderRadius:20,
+                      background:isInc?"rgba(22,163,74,.1)":"rgba(220,38,38,.1)",
+                      color:isInc?"#166534":"#991b1b"}}>
+                      {isInc?"↑ Increase":"↓ Decrease"}
+                    </span>
+                  </td>
+                </tr>;
+              })}
+            </tbody>
+          </table>
+        </div>;
+      })()}
     </div>
   );
 
