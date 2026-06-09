@@ -3015,11 +3015,8 @@ export default function App() {
     setAiCustom("");
   }
 
-  // Call Anthropic API with question-specific system prompts
-  async function runAI(questionType) {
-    setAiLoading(true);
-    setAiResponse("");
-
+  // Build prompt and open Claude.ai in a new tab with it pre-copied to clipboard
+  function runAI(questionType) {
     const { scope, text: ctx } = buildContext();
 
     const scopeLabel = scope==="CSM" ? "this CSM ("+filterCSM+")"
@@ -3027,65 +3024,77 @@ export default function App() {
       : scope==="manager_org" ? "this manager's org"
       : "the full CSM team";
 
-    const systemPrompts = {
-      coaching: `You are an expert CSM coaching advisor at Thryv, a SaaS company. You have been given performance data for ${scopeLabel}. 
-Your job: give a manager sharp, actionable coaching guidance they can use immediately.
+    const prompts = {
+      coaching:
+`You are an expert CSM coaching advisor at Thryv, a SaaS company. You have been given performance data for ${scopeLabel}.
+Give a manager sharp, actionable coaching guidance they can use immediately.
 Format your response with clear sections:
 1. ✅ STRENGTHS — what's going well (be specific, cite numbers)
 2. 🎯 TOP COACHING PRIORITIES — 2-3 focus areas with specific talking points for the next 1:1
 3. ⚡ THIS WEEK'S ACTION ITEMS — concrete next steps (who does what by when)
 4. 🚩 RED FLAGS — anything that needs urgent attention
-Be direct and specific. Use the actual names and numbers from the data. Keep it under 400 words.`,
+Be direct and specific. Use the actual names and numbers from the data. Keep it under 400 words.
 
-      churn: `You are an expert CSM retention analyst at Thryv, a SaaS company. You have been given BOB and churn data for ${scopeLabel}.
-Your job: identify churn risk and give a manager concrete retention guidance.
+Here is the data:
+
+${ctx}`,
+
+      churn:
+`You are an expert CSM retention analyst at Thryv, a SaaS company. You have been given BOB and churn data for ${scopeLabel}.
+Identify churn risk and give a manager concrete retention guidance.
 Format your response with clear sections:
 1. 🔴 HIGH RISK — accounts or CSMs with active churn or billing decreases (cite EIDs and amounts)
 2. 🟡 WATCH LIST — early warning signs (skipped cadences, low retention %, declining engagement)
 3. 💬 RETENTION TALKING POINTS — specific things to say/do to save at-risk accounts
 4. 📋 IMMEDIATE ACTIONS — what the manager or CSM should do this week
-Be specific with account IDs and dollar amounts. Under 400 words.`,
+Be specific with account IDs and dollar amounts. Under 400 words.
 
-      revenue: `You are an expert CSM revenue growth advisor at Thryv, a SaaS company. You have been given revenue and BOB data for ${scopeLabel}.
-Your job: surface upsell and expansion opportunities and give a manager a growth plan.
+Here is the data:
+
+${ctx}`,
+
+      revenue:
+`You are an expert CSM revenue growth advisor at Thryv, a SaaS company. You have been given revenue and BOB data for ${scopeLabel}.
+Surface upsell and expansion opportunities and give a manager a growth plan.
 Format your response with clear sections:
 1. 💰 CURRENT REVENUE SNAPSHOT — summarize what's happening (total, MRR, OTR, billing increases)
 2. 🚀 BEST EXPANSION OPPORTUNITIES — which accounts or CSMs have the most upside and why
 3. 🎯 UPSELL TALKING POINTS — specific products or conversations to have (SEO, Thryv Leads, Social, etc.)
 4. 📋 THIS WEEK'S REVENUE ACTIONS — 3 concrete things to do to move the number
-Cite actual account names or EIDs and dollar amounts where available. Under 400 words.`,
+Cite actual account names or EIDs and dollar amounts where available. Under 400 words.
 
-      custom: `You are an expert CSM coaching and retention advisor at Thryv, a SaaS company. You have been given performance data for ${scopeLabel}.
-Answer the manager's specific question directly and concisely, drawing on the data provided.
-Be specific — cite actual names, numbers, and account IDs from the data. Avoid generic advice.
-If the data doesn't contain enough information to answer fully, say so and answer with what you have.
-Keep your response under 350 words.`,
+Here is the data:
+
+${ctx}`,
+
+      custom:
+`You are an expert CSM coaching and retention advisor at Thryv, a SaaS company. You have been given performance data for ${scopeLabel}.
+Answer the question below directly and concisely, drawing on the data provided.
+Be specific — cite actual names, numbers, and account IDs. Avoid generic advice.
+Keep your response under 350 words.
+
+Here is the data:
+
+${ctx}
+
+My question: ${aiCustom}`,
     };
 
-    const userMessage = questionType === "custom"
-      ? `Here is the data:\n\n${ctx}\n\nMy question: ${aiCustom}`
-      : `Here is the data:\n\n${ctx}`;
+    const fullPrompt = prompts[questionType] || prompts.coaching;
 
-    try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          system: systemPrompts[questionType],
-          messages: [{ role: "user", content: userMessage }],
-        }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(()=>({}));
-        throw new Error(err.error || "Server error "+res.status);
-      }
-      const data = await res.json();
-      const reply = data.content?.find(b=>b.type==="text")?.text || "No response received.";
-      setAiResponse(reply);
-    } catch(e) {
-      setAiResponse("Error reaching AI: "+e.message);
-    }
-    setAiLoading(false);
+    // Copy to clipboard then open Claude.ai
+    navigator.clipboard.writeText(fullPrompt).catch(()=>{
+      // Fallback: create a textarea and execCommand
+      const el = document.createElement("textarea");
+      el.value = fullPrompt;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand("copy");
+      document.body.removeChild(el);
+    });
+
+    setAiQuestion(questionType);
+    setAiResponse("__copied__");
   }
 
   if (!unlocked) return <PinLock onUnlock={()=>setUnlocked(true)}/>;
@@ -3258,33 +3267,26 @@ Keep your response under 350 words.`,
           ))}
         </div>}
 
-        {/* Loading */}
-        {aiLoading&&<div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:12,color:"#808080"}}>
-          <div style={{width:36,height:36,border:"3px solid #e5e7eb",borderTop:"3px solid #FF5000",borderRadius:"50%",animation:"spin 0.8s linear infinite"}}/>
-          <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-          <div style={{fontSize:13}}>Analyzing data...</div>
+        {/* Copied — open Claude.ai */}
+        {aiResponse==="__copied__"&&<div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:16,padding:24,textAlign:"center"}}>
+          <div style={{fontSize:40}}>📋</div>
+          <div style={{fontSize:15,fontWeight:600,color:"#29355D"}}>Prompt copied!</div>
+          <div style={{fontSize:12,color:"#808080",lineHeight:1.6,maxWidth:300}}>
+            Your coaching prompt with all the live data is on your clipboard.
+            Open Claude, paste it in, and get your analysis.
+          </div>
+          <a href="https://claude.ai/new" target="_blank" rel="noreferrer"
+            style={{display:"block",width:"100%",padding:"12px",borderRadius:10,border:"none",
+              background:"#FF5000",color:"#fff",fontSize:13,fontWeight:600,cursor:"pointer",
+              textDecoration:"none",textAlign:"center",boxSizing:"border-box"}}>
+            Open Claude.ai ↗
+          </a>
+          <button onClick={()=>{setAiResponse("");setAiQuestion("");setAiCustom("");}}
+            style={{width:"100%",padding:"10px",borderRadius:10,border:"0.5px solid rgba(41,53,93,.15)",
+              background:"#fff",color:"#29355D",fontSize:12,fontWeight:500,cursor:"pointer"}}>
+            ← Try a different question
+          </button>
         </div>}
-
-        {/* Response */}
-        {aiResponse&&!aiLoading&&<>
-          <div style={{flex:1,overflowY:"auto",padding:20}}>
-            <div style={{fontSize:13,lineHeight:1.7,color:"#29355D",whiteSpace:"pre-wrap"}}>{aiResponse}</div>
-          </div>
-          <div style={{padding:"12px 20px",borderTop:"0.5px solid rgba(41,53,93,.08)",display:"flex",gap:8,flexShrink:0}}>
-            <button onClick={()=>{setAiResponse("");setAiQuestion("");setAiCustom("");}}
-              style={{flex:1,padding:"9px",borderRadius:8,border:"0.5px solid rgba(41,53,93,.15)",background:"#fff",color:"#29355D",fontSize:12,fontWeight:500,cursor:"pointer"}}>
-              ← New question
-            </button>
-            <button onClick={()=>{
-                const el=document.createElement("textarea");
-                el.value=aiResponse;document.body.appendChild(el);el.select();
-                document.execCommand("copy");document.body.removeChild(el);
-              }}
-              style={{flex:1,padding:"9px",borderRadius:8,border:"none",background:"#FF5000",color:"#fff",fontSize:12,fontWeight:500,cursor:"pointer"}}>
-              Copy response
-            </button>
-          </div>
-        </>}
       </div>}
       {aiOpen&&<div onClick={()=>setAiOpen(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.2)",zIndex:999}}/>}
     </div>
