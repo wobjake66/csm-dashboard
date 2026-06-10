@@ -996,6 +996,33 @@ function CSMDetail({csm: csmRaw, onClear, bobRaw, mcChurn, bcChurn}) {
         </div>
       </div>
 
+      {/* 🚩 Skipped cadences — shown at top when present */}
+      {csm.skippedCount>0&&<div style={{background:"rgba(127,29,29,.05)",border:"1px solid rgba(127,29,29,.25)",borderRadius:12,padding:16,marginBottom:16}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
+          <span style={{fontSize:14,fontWeight:600,color:"#7f1d1d"}}>🚩 Skipped Cadences — Prior Day</span>
+          <span style={{fontSize:10,fontWeight:600,padding:"2px 8px",borderRadius:20,background:"rgba(127,29,29,.12)",color:"#7f1d1d"}}>{csm.skippedCount} skipped</span>
+          {csm.skippedFourthCount>0&&<span style={{fontSize:10,fontWeight:600,padding:"2px 8px",borderRadius:20,background:"rgba(220,38,38,.15)",color:"#991b1b"}}>🚩 {csm.skippedFourthCount} × 4th reschedule</span>}
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:6}}>
+          {(csm.skippedAccts||[]).map((a,idx)=>(
+            <div key={idx} style={{borderRadius:8,padding:"10px 14px",
+              background:a.is4th?"rgba(127,29,29,.04)":"rgba(217,119,6,.04)",
+              border:`0.5px solid ${a.is4th?"rgba(127,29,29,.18)":"rgba(217,119,6,.22)"}`,
+              borderLeft:`3px solid ${a.is4th?"#7f1d1d":"#d97706"}`}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:a.note?4:0}}>
+                <span style={{fontSize:13,fontWeight:600,color:a.is4th?"#7f1d1d":"#92400e"}}>
+                  {a.is4th&&"🚩 "}{a.n}
+                </span>
+                {a.outcome&&<span style={{fontSize:10,padding:"2px 9px",borderRadius:20,
+                  background:a.is4th?"rgba(127,29,29,.1)":"rgba(217,119,6,.1)",
+                  color:a.is4th?"#7f1d1d":"#92400e"}}>{a.outcome}</span>}
+              </div>
+              {a.note&&<div style={{fontSize:11,color:"#808080",fontStyle:"italic",marginTop:2}}>"{a.note}"</div>}
+            </div>
+          ))}
+        </div>
+      </div>}
+
       {/* Book of business */}
       {csm.bobBoq>0&&<div style={{...S.card,marginBottom:16}}>
         <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>Book of business — this quarter</div>
@@ -1026,33 +1053,6 @@ function CSMDetail({csm: csmRaw, onClear, bobRaw, mcChurn, bcChurn}) {
               : <div style={{color:"#808080",fontSize:12}}>None this quarter</div>}
           </div>
         </div>}
-      </div>}
-
-      {/* Skipped cadences detail */}
-      {csm.skippedCount>0&&<div style={{...S.card,marginBottom:16}}>
-        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
-          <span style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500}}>Skipped cadences — prior day</span>
-          <span style={{fontSize:10,fontWeight:600,padding:"2px 8px",borderRadius:20,background:"rgba(127,29,29,.1)",color:"#7f1d1d"}}>{csm.skippedCount} skipped</span>
-          {csm.skippedFourthCount>0&&<span style={{fontSize:10,fontWeight:600,padding:"2px 8px",borderRadius:20,background:"rgba(220,38,38,.15)",color:"#991b1b"}}>🚩 {csm.skippedFourthCount} × 4th reschedule</span>}
-        </div>
-        <div style={{display:"flex",flexDirection:"column",gap:6}}>
-          {(csm.skippedAccts||[]).map((a,i)=>(
-            <div key={i} style={{borderRadius:8,padding:"8px 12px",
-              background:a.is4th?"rgba(127,29,29,.04)":"rgba(217,119,6,.04)",
-              border:`0.5px solid ${a.is4th?"rgba(127,29,29,.18)":"rgba(217,119,6,.22)"}`,
-              borderLeft:`3px solid ${a.is4th?"#7f1d1d":"#d97706"}`}}>
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:a.note?4:0}}>
-                <span style={{fontSize:12,fontWeight:500,color:a.is4th?"#7f1d1d":"#92400e"}}>
-                  {a.is4th&&"🚩 "}{a.n}
-                </span>
-                {a.outcome&&<span style={{fontSize:10,padding:"1px 7px",borderRadius:20,
-                  background:a.is4th?"rgba(127,29,29,.1)":"rgba(217,119,6,.1)",
-                  color:a.is4th?"#7f1d1d":"#92400e"}}>{a.outcome}</span>}
-              </div>
-              {a.note&&<div style={{fontSize:11,color:"#808080",fontStyle:"italic"}}>"{a.note}"</div>}
-            </div>
-          ))}
-        </div>
       </div>}
 
       {/* BOB billing detail — increases / decreases */}
@@ -1250,16 +1250,29 @@ function CoachingView({csms, coach, onSelectCSM, onSelectCoach, onClear, skipped
             const has4th = c.skippedFourthCount>0;
             return <div key={c.name}
               onClick={()=>onSelectCSM(c.name)}
-              style={{...S.card,display:"flex",alignItems:"center",gap:10,cursor:"pointer",padding:12,
+              style={{...S.card,cursor:"pointer",padding:12,
                 borderLeft:`3px solid ${has4th?"#7f1d1d":"#d97706"}`}}>
-              <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:12,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</div>
-                <div style={{fontSize:11,color:"#808080",marginTop:2}}>{st(i.t||"")}{has4th?" · 🚩 4th reschedule":""}</div>
+              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:(c.skippedAccts&&c.skippedAccts.length>0)?8:0}}>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:12,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</div>
+                  <div style={{fontSize:11,color:"#808080",marginTop:2}}>{st(i.t||"")}{has4th?" · 🚩 4th reschedule":""}</div>
+                </div>
+                <div style={{textAlign:"center",flexShrink:0}}>
+                  <div style={{fontSize:20,fontWeight:500,color:has4th?"#7f1d1d":"#d97706"}}>{c.skippedCount}</div>
+                  <div style={{fontSize:10,color:has4th?"#7f1d1d":"#d97706"}}>skipped</div>
+                </div>
               </div>
-              <div style={{textAlign:"center",flexShrink:0}}>
-                <div style={{fontSize:20,fontWeight:500,color:has4th?"#7f1d1d":"#d97706"}}>{c.skippedCount}</div>
-                <div style={{fontSize:10,color:has4th?"#7f1d1d":"#d97706"}}>skipped</div>
-              </div>
+              {(c.skippedAccts&&c.skippedAccts.length>0)&&<div style={{display:"flex",flexDirection:"column",gap:4}}>
+                {c.skippedAccts.slice(0,5).map((a,idx)=>(
+                  <div key={idx} style={{display:"flex",alignItems:"center",gap:6,padding:"3px 6px",borderRadius:6,
+                    background:a.is4th?"rgba(127,29,29,.06)":"rgba(217,119,6,.06)"}}>
+                    <span style={{fontSize:10,flexShrink:0,color:a.is4th?"#7f1d1d":"#d97706"}}>{a.is4th?"🚩":"·"}</span>
+                    <span style={{fontSize:11,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:a.is4th?"#7f1d1d":"#92400e",fontWeight:500}}>{a.n}</span>
+                    {a.outcome&&<span style={{fontSize:10,color:"#808080",flexShrink:0,marginLeft:"auto",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:90}}>{a.outcome}</span>}
+                  </div>
+                ))}
+                {c.skippedAccts.length>5&&<div style={{fontSize:10,color:"#808080",paddingLeft:6}}>+{c.skippedAccts.length-5} more — click to see all</div>}
+              </div>}
             </div>;
           })}
         </div>
@@ -2901,26 +2914,9 @@ export default function App() {
   }, [unlocked]);
 
   // Build rich data context scoped to current filter
-  // mcChurn / bcChurn are {csmName: {canceled, accts}} objects — NOT arrays
   function buildContext() {
     const lines = [];
     const scope = filterCSM ? "CSM" : filterCoach ? "coach_team" : filterManager ? "manager_org" : "full_team";
-
-    // Helper: get churn data for a CSM name from the object maps
-    const getMc = name => {
-      const key = Object.keys(mcChurn).find(k => norm(k)===name || k===name);
-      return key ? mcChurn[key] : null;
-    };
-    const getBc = name => {
-      const key = Object.keys(bcChurn).find(k => norm(k)===name || k===name);
-      return key ? bcChurn[key] : null;
-    };
-    // Helper: get BOB data for a CSM from bobRaw.bob object
-    const getBob = name => {
-      if (!bobRaw||!bobRaw.bob) return null;
-      const key = Object.keys(bobRaw.bob).find(k => norm(k)===name || k===name);
-      return key ? bobRaw.bob[key] : null;
-    };
 
     // ── SINGLE CSM ──────────────────────────────────────────────────
     if (scope === "CSM") {
@@ -2929,9 +2925,9 @@ export default function App() {
       const info = lk(c.name)||{};
       const coach = COACHES.find(x=>x.e===(info.c||c.coach));
       const det = BOB_DETAIL[c.name]||{};
-      const bob = getBob(c.name) || {boq:c.bobBoq,lcm:c.bobLcm,net:c.bobNet,ret:c.bobRet};
-      const mc = getMc(c.name);
-      const bc = getBc(c.name);
+      const bob = bobRaw.find(r=>r.rep===c.name)||{};
+      const mc = mcChurn.filter(r=>r.rep===c.name);
+      const bc = bcChurn.filter(r=>r.rep===c.name);
 
       lines.push("=== CSM PROFILE ===");
       lines.push("Name: "+c.name);
@@ -2939,26 +2935,26 @@ export default function App() {
       lines.push("");
 
       lines.push("=== CADENCE & ENGAGEMENT ===");
-      lines.push("Cadence completion: "+(c.cadCount>0?pp(c.cadPct)+" ("+c.cadCount+" tasks)":"No data"));
-      lines.push("On-time tasks: "+(c.otTotal>=3?pp(c.otPct)+" ("+c.otOnTime+"/"+c.otTotal+" on time)":"Insufficient data"));
+      lines.push("Cadence completion: "+(c.cadCount>0?pp(c.cadPct)+" ("+c.cadDone+"/"+c.cadCount+" accounts)":"No data"));
+      lines.push("On-time tasks: "+(c.otTotal>=3?pp(c.otPct)+" ("+c.otOnTime+"/"+c.otTotal+" tasks)":"Insufficient data"));
       lines.push("Overdue tasks: "+(c.overdueCount>0?c.overdueCount+" overdue":"None"));
       lines.push("Email: "+(c.sent>0?c.sent+" sent · "+pp(c.openRate)+" open rate · "+pp(c.replyRate)+" reply rate":"No email activity"));
-      if (c.skippedCount>0) lines.push("Skipped cadences: "+c.skippedCount+" total"+(c.skippedFourthCount>0?" ("+c.skippedFourthCount+" at 4th reschedule — HIGH RISK)":""));
+      if (c.skippedCount>0) lines.push("Skipped cadences: "+c.skippedCount+" total"+(c.skippedFourthCount>0?" ("+c.skippedFourthCount+" reached 4th reschedule — high risk)":""));
       if (c.skippedAccts&&c.skippedAccts.length>0) lines.push("Skipped accounts: "+c.skippedAccts.slice(0,5).map(a=>a.n).join(", ")+(c.skippedAccts.length>5?" + "+(c.skippedAccts.length-5)+" more":""));
       lines.push("");
 
       lines.push("=== REVENUE ===");
-      lines.push("This period: "+(c.rev>0?fd(c.rev):"None")+" | MRR: "+(c.mrr>0?fd(c.mrr):"None"));
-      if (c.accts&&c.accts.length>0) lines.push("Accounts: "+c.accts.slice(0,5).map(a=>a.b+(a.m>0?" MRR "+fd(a.m):a.o>0?" OTR "+fd(a.o):"")).join(", "));
+      lines.push("This period: "+(c.rev>0?fd(c.rev):"None")+" | MRR: "+(c.mrr>0?fd(c.mrr):"None")+" | OTR: "+(c.otr>0?fd(c.otr):"None"));
+      if (c.accts&&c.accts.length>0) lines.push("Top accounts: "+c.accts.slice(0,5).map(a=>a.b+(a.m>0?" MRR "+fd(a.m):a.o>0?" OTR "+fd(a.o):"")).join(", "));
       lines.push("");
 
       lines.push("=== BOOK OF BUSINESS ===");
-      lines.push("BOQ: "+(bob&&bob.boq?fd(bob.boq):"n/a")+" | Current: "+(bob&&bob.lcm?fd(bob.lcm):"n/a")+" | Net: "+(bob&&bob.net!=null?(bob.net>0?"+":"")+fd(bob.net):"n/a")+" | Retention: "+(bob&&bob.ret!=null?pp(bob.ret):"n/a"));
+      lines.push("BOQ: "+(bob.boq?fd(bob.boq):"n/a")+" | Current: "+(bob.lcm?fd(bob.lcm):"n/a")+" | Net: "+(bob.net?(bob.net>0?"+":"")+fd(bob.net):"n/a")+" | Retention: "+(bob.ret?bob.ret:"n/a"));
       if ((det.i||[]).length>0) lines.push("Billing increases ("+det.i.length+"): "+det.i.map(x=>x.e+" "+x.l+" +"+fd(x.n)).join(", "));
       if ((det.d||[]).length>0) lines.push("Billing decreases ("+det.d.length+"): "+det.d.map(x=>x.e+" "+x.l+" "+fd(x.n)).join(", "));
-      if (mc&&mc.canceled>0) lines.push("MC churn ("+mc.canceled+" accounts): "+(mc.accts||[]).slice(0,5).join(", "));
-      if (bc&&bc.canceled>0) lines.push("BC churn ("+bc.canceled+" accounts): "+(bc.accts||[]).slice(0,5).join(", "));
-      if (!mc&&!bc&&!(det.d||[]).length) lines.push("No churn or billing decreases this period.");
+      if (mc.length>0) lines.push("MC churn: "+mc.map(r=>r.acct||r.eid).join(", "));
+      if (bc.length>0) lines.push("BC churn: "+bc.map(r=>r.acct||r.eid).join(", "));
+      if (mc.length===0&&bc.length===0&&!det.d?.length) lines.push("No churn or billing decreases this period.");
       lines.push("");
 
     // ── COACH TEAM ──────────────────────────────────────────────────
@@ -2968,16 +2964,15 @@ export default function App() {
       lines.push("CSM Count: "+filteredCSMs.length);
       lines.push("");
       filteredCSMs.forEach(c=>{
-        const bob = getBob(c.name) || {net:c.bobNet, ret:c.bobRet};
-        const mc = getMc(c.name);
-        const bc = getBc(c.name);
+        const bob = bobRaw.find(r=>r.rep===c.name)||{};
+        const mc = mcChurn.filter(r=>r.rep===c.name);
+        const bc = bcChurn.filter(r=>r.rep===c.name);
         const det = BOB_DETAIL[c.name]||{};
         lines.push("── "+c.name);
         lines.push("   Revenue: "+(c.rev>0?fd(c.rev):"none")+" | Email open: "+(c.sent>0?pp(c.openRate):"n/a")+" | On-time: "+(c.otTotal>=3?pp(c.otPct):"n/a")+" | Overdue: "+(c.overdueCount||0));
-        lines.push("   Cadence: "+(c.cadCount>0?pp(c.cadPct):"n/a")+" | BOB net: "+(bob&&bob.net!=null?(bob.net>0?"+":"")+fd(bob.net):"n/a")+" | Retention: "+(bob&&bob.ret!=null?pp(bob.ret):"n/a"));
+        lines.push("   Cadence: "+(c.cadCount>0?pp(c.cadPct):"n/a")+" | BOB net: "+(bob.net?(bob.net>0?"+":"")+fd(bob.net):"n/a")+" | Retention: "+(bob.ret||"n/a"));
         if (c.skippedCount>0) lines.push("   ⚠ "+c.skippedCount+" skipped cadence(s)"+(c.skippedFourthCount>0?", "+c.skippedFourthCount+" at 4th reschedule":""));
-        const churnCount = ((mc&&mc.canceled)||0)+((bc&&bc.canceled)||0);
-        if (churnCount>0) lines.push("   ⚠ Churn: "+churnCount+" account(s)");
+        if (mc.length>0||bc.length>0) lines.push("   ⚠ Churn: "+(mc.length+bc.length)+" account(s)");
         if ((det.d||[]).length>0) lines.push("   ↓ "+det.d.length+" billing decrease(s)");
         lines.push("");
       });
@@ -2992,7 +2987,7 @@ export default function App() {
         const totRev = team.reduce((s,c)=>s+c.rev,0);
         const otTeam = team.filter(c=>c.otTotal>=3);
         const avgOT = otTeam.length?otTeam.reduce((s,c)=>s+c.otPct,0)/otTeam.length:null;
-        const churnCSMs = team.filter(c=>{ const m=getMc(c.name),b=getBc(c.name); return (m&&m.canceled>0)||(b&&b.canceled>0); });
+        const churnCSMs = team.filter(c=>mcChurn.some(r=>r.rep===c.name)||bcChurn.some(r=>r.rep===c.name));
         const skipCSMs = team.filter(c=>c.skippedCount>0);
         lines.push("COACH: "+coach.n+" ("+coach.t+") — "+team.length+" CSMs");
         lines.push("  Revenue: "+fd(totRev)+" | Avg on-time: "+(avgOT!=null?pp(avgOT):"n/a"));
@@ -3012,7 +3007,7 @@ export default function App() {
         const avgCad = cadTeam.length?cadTeam.reduce((s,c)=>s+c.cadPct,0)/cadTeam.length:null;
         const otTeam = team.filter(c=>c.otTotal>=3);
         const avgOT = otTeam.length?otTeam.reduce((s,c)=>s+c.otPct,0)/otTeam.length:null;
-        const churnCSMs = team.filter(c=>{ const m=getMc(c.name),b=getBc(c.name); return (m&&m.canceled>0)||(b&&b.canceled>0); });
+        const churnCSMs = team.filter(c=>mcChurn.some(r=>r.rep===c.name)||bcChurn.some(r=>r.rep===c.name));
         const skipCSMs = team.filter(c=>c.skippedCount>0);
         const lowCad = cadTeam.filter(c=>c.cadPct<0.9);
         lines.push("COACH: "+coach.n+" ("+coach.t+") — "+team.length+" CSMs");
@@ -3100,11 +3095,19 @@ My question: ${aiCustom}`,
 
     const fullPrompt = prompts[questionType] || prompts.coaching;
 
-    // Open Claude.ai with prompt pre-filled via ?q= param
-    const url = "https://claude.ai/new?q=" + encodeURIComponent(fullPrompt);
-    window.open(url, "_blank", "noopener,noreferrer");
+    // Copy to clipboard then open Claude.ai
+    navigator.clipboard.writeText(fullPrompt).catch(()=>{
+      // Fallback: create a textarea and execCommand
+      const el = document.createElement("textarea");
+      el.value = fullPrompt;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand("copy");
+      document.body.removeChild(el);
+    });
 
-    setAiOpen(false);
+    setAiQuestion(questionType);
+    setAiResponse("__copied__");
   }
 
   if (!unlocked) return <PinLock onUnlock={()=>setUnlocked(true)}/>;
@@ -3238,9 +3241,8 @@ My question: ${aiCustom}`,
         </div>
 
         {/* Question picker */}
-        <div style={{padding:20,flex:1,overflowY:"auto"}}>
-          <div style={{fontSize:11,color:"#808080",marginBottom:4,fontWeight:600,textTransform:"uppercase",letterSpacing:".05em"}}>What would you like to explore?</div>
-          <div style={{fontSize:11,color:"#808080",marginBottom:14}}>Selecting a question opens Claude.ai with your data pre-loaded.</div>
+        {!aiResponse&&!aiLoading&&<div style={{padding:20,flex:1,overflowY:"auto"}}>
+          <div style={{fontSize:11,color:"#808080",marginBottom:14,fontWeight:600,textTransform:"uppercase",letterSpacing:".05em"}}>What would you like to explore?</div>
           {[
             {id:"coaching", icon:"🎯", label:"Coaching priorities",    sub:"Top focus areas and 1:1 talking points"},
             {id:"churn",    icon:"⚠️",  label:"Churn risk analysis",    sub:"At-risk accounts and retention concerns"},
@@ -3276,8 +3278,28 @@ My question: ${aiCustom}`,
               )}
             </div>
           ))}
-        </div>
+        </div>}
 
+        {/* Copied — open Claude.ai */}
+        {aiResponse==="__copied__"&&<div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:16,padding:24,textAlign:"center"}}>
+          <div style={{fontSize:40}}>📋</div>
+          <div style={{fontSize:15,fontWeight:600,color:"#29355D"}}>Prompt copied!</div>
+          <div style={{fontSize:12,color:"#808080",lineHeight:1.6,maxWidth:300}}>
+            Your coaching prompt with all the live data is on your clipboard.
+            Open Claude, paste it in, and get your analysis.
+          </div>
+          <a href="https://claude.ai/new" target="_blank" rel="noreferrer"
+            style={{display:"block",width:"100%",padding:"12px",borderRadius:10,border:"none",
+              background:"#FF5000",color:"#fff",fontSize:13,fontWeight:600,cursor:"pointer",
+              textDecoration:"none",textAlign:"center",boxSizing:"border-box"}}>
+            Open Claude.ai ↗
+          </a>
+          <button onClick={()=>{setAiResponse("");setAiQuestion("");setAiCustom("");}}
+            style={{width:"100%",padding:"10px",borderRadius:10,border:"0.5px solid rgba(41,53,93,.15)",
+              background:"#fff",color:"#29355D",fontSize:12,fontWeight:500,cursor:"pointer"}}>
+            ← Try a different question
+          </button>
+        </div>}
       </div>}
       {aiOpen&&<div onClick={()=>setAiOpen(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.2)",zIndex:999}}/>}
     </div>
