@@ -935,22 +935,18 @@ function CSMDetail({csm: csmRaw, onClear, bobRaw, mcChurn, bcChurn}) {
   const coach = COACHES.find(c=>c.e===(i.c||csm.coach));
   const ot = csm.otTotal>=1 ? csm : null;
   const totalAcctRev = csm.accts.reduce((s,a)=>s+a.m+a.o,0);
-  // Use live sheet data for due/overdue (from CSV_DUE), fall back to hardcoded for on-time
+  // Due/overdue comes ONLY from live sheet (gid=341836664) — no hardcoded fallback
   const liveAccts = csm.liveAccounts || {};
-  const hasLiveDue = Object.keys(liveAccts).length > 0;
+  const dueAccts = Object.entries(liveAccts)
+    .map(([acctName, tasks]) => ({n: acctName, d: tasks}))
+    .filter(a => a.d.length > 0)
+    .sort((a,b) => {
+      const aOv = a.d.some(t=>t.ov) ? 1 : 0;
+      const bOv = b.d.some(t=>t.ov) ? 1 : 0;
+      return bOv - aOv || a.n.localeCompare(b.n);
+    });
 
-  // Build dueAccts from live data: [{n, d:[{t,due,ov,nw}]}]
-  const dueAccts = hasLiveDue
-    ? Object.entries(liveAccts).map(([acctName, tasks]) => ({n: acctName, d: tasks}))
-        .filter(a => a.d.length > 0)
-        .sort((a,b) => {
-          const aOv = a.d.some(t=>t.ov) ? 1 : 0;
-          const bOv = b.d.some(t=>t.ov) ? 1 : 0;
-          return bOv - aOv || a.n.localeCompare(b.n);
-        })
-    : (CAD_ACCTS[csm.name]||[]).filter(a=>a.d&&a.d.length>0);
-
-  // On-time history still comes from hardcoded CAD_ACCTS (not in live due sheet)
+  // On-time history still comes from hardcoded CAD_ACCTS (separate data source)
   const cadAccts = CAD_ACCTS[csm.name] || [];
   const otAccts  = cadAccts.filter(a=>a.ott>0);
   const totalDueTasks = dueAccts.reduce((s,a)=>s+a.d.length,0);
