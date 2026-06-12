@@ -415,27 +415,44 @@ function mapCadence(rows) {
 function mapDue(rows) {
   const by = {};
   // Exact column names confirmed from sheet screenshot:
-  // Col A: "Touchpoint: Touchpoint Name"
-  // Col B: "Due Date/Time"
-  // Col C: "Overdue"  (1 = overdue)
-  // Col F: "New Today" (1 = new)
-  // Col I: "Cadence Member: Assigned"  ← CSM name
+  // Col A: "Touchpoint: Touchpoint Name"  e.g. "Highlight Video", "Email"
+  // Col B: "Due Date/Time"                e.g. "6/11/2026 8:00"
+  // Col C: "Overdue"                      1 = overdue
+  // Col F: "New Today"                    1 = new today
+  // Col H: "Cadence Member: Account"      account/business name
+  // Col I: "Cadence Member: Assigned"     CSM name
   rows.forEach(r => {
     const raw = (r["Cadence Member: Assigned"] || "").trim();
     if (!raw) return;
-    // Use norm() to resolve aliases — don't gate on isValidCSM
-    // because sheet may have minor name variants
     const name = norm(raw) || raw;
     if (!name || name.length < 3) return;
 
-    if (!by[name]) by[name] = {name, due:0, overdue:0, newToday:0};
-    by[name].due++;
-
+    const taskType = (r["Touchpoint: Touchpoint Name"] || r["Touchpoint: Record Type"] || "Task").trim();
+    const dueRaw   = (r["Due Date/Time"] || "").trim();
+    const acctName = (r["Cadence Member: Account"] || "").trim();
     const ov = String(r["Overdue"] || "").trim();
-    if (ov === "1" || ov.toLowerCase() === "true") by[name].overdue++;
-
     const nt = String(r["New Today"] || "").trim();
-    if (nt === "1" || nt.toLowerCase() === "true") by[name].newToday++;
+    const isOverdue  = ov === "1" || ov.toLowerCase() === "true";
+    const isNewToday = nt === "1" || nt.toLowerCase() === "true";
+
+    // Format due date nicely e.g. "6/11/2026 8:00" → "6/11/2026"
+    const dueDateStr = dueRaw ? dueRaw.split(" ")[0] : "";
+
+    if (!by[name]) by[name] = {name, due:0, overdue:0, newToday:0, accounts:{}};
+    by[name].due++;
+    if (isOverdue)  by[name].overdue++;
+    if (isNewToday) by[name].newToday++;
+
+    // Group tasks by account so CSM detail can show them
+    if (acctName) {
+      if (!by[name].accounts[acctName]) by[name].accounts[acctName] = [];
+      by[name].accounts[acctName].push({
+        t: taskType,
+        due: dueDateStr,
+        ov: isOverdue,
+        nw: isNewToday,
+      });
+    }
   });
   console.log("[mapDue]", Object.keys(by).length, "CSMs,",
     Object.values(by).reduce((s,c)=>s+c.overdue,0), "overdue,",
@@ -583,7 +600,7 @@ function buildCSMs(rev, email, cad, due, ontime, skipped, bobRaw, mcChurn, bcChu
         cadCount:0, cadPct:0,
         dueCount:0, overdueCount:0, newToday:0,
         otTotal:0, otOnTime:0, otPct:null,
-        skippedCount:0, skippedFourthCount:0, skippedAccts:[],
+        skippedCount:0, skippedFourthCount:0, skippedAccts:[], liveAccounts:{},
         bobBoq:0, bobLcm:0, bobNet:0, bobRet:null, bobMcc:0, bobMch:[], bobBcc:0, bobBch:[]};
     }
     return m[name];
@@ -606,7 +623,7 @@ function buildCSMs(rev, email, cad, due, ontime, skipped, bobRaw, mcChurn, bcChu
   });
   (due||[]).forEach(d => {
     const c = get(d.name);
-    c.dueCount=d.due; c.overdueCount=d.overdue; c.newToday=d.newToday;
+    c.dueCount=d.due; c.overdueCount=d.overdue; c.newToday=d.newToday; c.liveAccounts=d.accounts||{};
   });
   (ontime||[]).forEach(d => {
     const c = get(d.name);
@@ -918,10 +935,23 @@ function CSMDetail({csm: csmRaw, onClear, bobRaw, mcChurn, bcChurn}) {
   const coach = COACHES.find(c=>c.e===(i.c||csm.coach));
   const ot = csm.otTotal>=1 ? csm : null;
   const totalAcctRev = csm.accts.reduce((s,a)=>s+a.m+a.o,0);
-  const cadAccts = CAD_ACCTS[csm.name] || [];
+  // Use live sheet data for due/overdue (from CSV_DUE), fall back to hardcoded for on-time
+  const liveAccts = csm.liveAccounts || {};
+  const hasLiveDue = Object.keys(liveAccts).length > 0;
 
-  // Separate accounts with due/overdue tasks vs on-time history
-  const dueAccts = cadAccts.filter(a=>a.d&&a.d.length>0);
+  // Build dueAccts from live data: [{n, d:[{t,due,ov,nw}]}]
+  const dueAccts = hasLiveDue
+    ? Object.entries(liveAccts).map(([acctName, tasks]) => ({n: acctName, d: tasks}))
+        .filter(a => a.d.length > 0)
+        .sort((a,b) => {
+          const aOv = a.d.some(t=>t.ov) ? 1 : 0;
+          const bOv = b.d.some(t=>t.ov) ? 1 : 0;
+          return bOv - aOv || a.n.localeCompare(b.n);
+        })
+    : (CAD_ACCTS[csm.name]||[]).filter(a=>a.d&&a.d.length>0);
+
+  // On-time history still comes from hardcoded CAD_ACCTS (not in live due sheet)
+  const cadAccts = CAD_ACCTS[csm.name] || [];
   const otAccts  = cadAccts.filter(a=>a.ott>0);
   const totalDueTasks = dueAccts.reduce((s,a)=>s+a.d.length,0);
   const overdueAccts  = dueAccts.filter(a=>a.d.some(t=>t.ov));
@@ -3034,6 +3064,10 @@ export default function App() {
 
   // Build prompt and open Claude.ai in a new tab with it pre-copied to clipboard
   function runAI(questionType) {
+    // Open Claude.ai FIRST (must be synchronous in the click event)
+    // then build context — browser allows window.open only from trusted events
+    const claudeWin = window.open("", "_blank", "noopener,noreferrer");
+
     const { scope, text: ctx } = buildContext();
 
     const scopeLabel = scope==="CSM" ? "this CSM ("+filterCSM+")"
@@ -3099,9 +3133,14 @@ My question: ${aiCustom}`,
 
     const fullPrompt = prompts[questionType] || prompts.coaching;
 
-    // Open Claude.ai with the full prompt pre-loaded in the input box
+    // Navigate the pre-opened window to the Claude URL with prompt
     const claudeUrl = "https://claude.ai/new?q=" + encodeURIComponent(fullPrompt);
-    window.open(claudeUrl, "_blank", "noopener,noreferrer");
+    if (claudeWin) {
+      claudeWin.location.href = claudeUrl;
+    } else {
+      // Fallback if pop-up was blocked — try direct open
+      window.open(claudeUrl, "_blank");
+    }
 
     setAiQuestion(questionType);
     setAiResponse("__opened__");
@@ -3248,7 +3287,7 @@ My question: ${aiCustom}`,
             {id:"custom",   icon:"✏️", label:"Ask your own question",  sub:"Type a specific coaching question"},
           ].map(q=>(
             <div key={q.id}
-              onClick={()=>{setAiQuestion(q.id);if(q.id!=="custom")runAI(q.id);}}
+              onClick={()=>{if(q.id!=="custom")runAI(q.id);else setAiQuestion(q.id);}}
               style={{padding:"14px 16px",borderRadius:10,border:"0.5px solid rgba(41,53,93,.12)",
                 background:aiQuestion===q.id?"#F4F6FB":"#fff",marginBottom:8,cursor:"pointer"}}>
               <div style={{display:"flex",alignItems:"center",gap:10}}>
