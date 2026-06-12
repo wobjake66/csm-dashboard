@@ -3059,7 +3059,7 @@ export default function App() {
   }
 
   // Build prompt and open Claude.ai in a new tab with it pre-copied to clipboard
-  function runAI(questionType) {
+  async function runAI(questionType) {
     // Open Claude.ai FIRST (must be synchronous in the click event)
     // then build context — browser allows window.open only from trusted events
     const claudeWin = window.open("", "_blank", "noopener,noreferrer");
@@ -3129,13 +3129,17 @@ My question: ${aiCustom}`,
 
     const fullPrompt = prompts[questionType] || prompts.coaching;
 
-    // Navigate the pre-opened window to the Claude URL with prompt
-    const claudeUrl = "https://claude.ai/new?q=" + encodeURIComponent(fullPrompt);
+    // Copy prompt to clipboard
+    try { await navigator.clipboard.writeText(fullPrompt); } catch(e) {
+      const el = document.createElement("textarea");
+      el.value = fullPrompt; document.body.appendChild(el);
+      el.select(); document.execCommand("copy");
+      document.body.removeChild(el);
+    }
+
+    // Navigate the pre-opened blank tab to Claude
     if (claudeWin) {
-      claudeWin.location.href = claudeUrl;
-    } else {
-      // Fallback if pop-up was blocked — try direct open
-      window.open(claudeUrl, "_blank");
+      claudeWin.location.href = "https://claude.ai/new";
     }
 
     setAiQuestion(questionType);
@@ -3314,15 +3318,21 @@ My question: ${aiCustom}`,
         </div>}
 
         {/* Claude opened confirmation */}
-        {aiResponse==="__opened__"&&<div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:16,padding:24,textAlign:"center"}}>
-          <div style={{fontSize:48}}>🤖</div>
+        {aiResponse==="__opened__"&&<div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:14,padding:24,textAlign:"center"}}>
+          <div style={{fontSize:44}}>🤖</div>
           <div style={{fontSize:16,fontWeight:700,color:"#29355D"}}>Claude is opening!</div>
           <div style={{fontSize:12,color:"#808080",lineHeight:1.7,maxWidth:320}}>
-            Your prompt with all the live dashboard data has been sent to Claude.ai in a new tab.
-            Just press <strong>Enter</strong> or click Send to get your analysis.
+            Your prompt has been <strong>copied to the clipboard</strong> and Claude.ai is opening in a new tab.
           </div>
-          <div style={{width:"100%",padding:"12px 16px",borderRadius:10,background:"rgba(255,80,0,.06)",border:"0.5px solid rgba(255,80,0,.2)",fontSize:12,color:"#FF5000",fontWeight:500}}>
-            If the tab didn't open, check your pop-up blocker and allow claude.ai
+          <div style={{width:"100%",padding:"14px 16px",borderRadius:10,background:"#29355D",border:"none",fontSize:13,color:"#fff",lineHeight:1.8,textAlign:"left"}}>
+            <div style={{fontWeight:700,marginBottom:6,fontSize:14}}>📋 In Claude, just:</div>
+            <div>1. Click the message box</div>
+            <div>2. Press <strong>Ctrl+V</strong> (or <strong>⌘V</strong> on Mac)</div>
+            <div>3. Press <strong>Enter</strong> to send</div>
+          </div>
+          <div style={{width:"100%",padding:"10px 14px",borderRadius:10,background:"rgba(255,80,0,.06)",border:"0.5px solid rgba(255,80,0,.2)",fontSize:11,color:"#FF5000"}}>
+            If Claude didn't open, allow pop-ups for this site or{" "}
+            <a href="https://claude.ai/new" target="_blank" rel="noreferrer" style={{color:"#FF5000",fontWeight:600}}>click here to open it manually</a>
           </div>
           <button onClick={()=>{setAiResponse("");setAiQuestion("");setAiCustom("");}}
             style={{width:"100%",padding:"10px",borderRadius:10,border:"0.5px solid rgba(41,53,93,.15)",
