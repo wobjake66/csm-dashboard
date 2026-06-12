@@ -3070,10 +3070,6 @@ export default function App() {
 
   // Build prompt and open Claude.ai in a new tab with it pre-copied to clipboard
   async function runAI(questionType) {
-    // Open Claude.ai FIRST (must be synchronous in the click event)
-    // then build context — browser allows window.open only from trusted events
-    const claudeWin = window.open("", "_blank", "noopener,noreferrer");
-
     const { scope, text: ctx } = buildContext();
 
     const scopeLabel = scope==="CSM" ? "this CSM ("+filterCSM+")"
@@ -3147,13 +3143,8 @@ My question: ${aiCustom}`,
       document.body.removeChild(el);
     }
 
-    // Navigate the pre-opened blank tab to Claude
-    if (claudeWin) {
-      claudeWin.location.href = "https://claude.ai/new";
-    }
-
     setAiQuestion(questionType);
-    setAiResponse("__opened__");
+    setAiResponse("__copied__");
   }
 
   if (!unlocked) return <PinLock onUnlock={()=>setUnlocked(true)}/>;
@@ -3327,22 +3318,19 @@ My question: ${aiCustom}`,
           ))}
         </div>}
 
-        {/* Claude opened confirmation */}
-        {aiResponse==="__opened__"&&<div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:14,padding:24,textAlign:"center"}}>
-          <div style={{fontSize:44}}>🤖</div>
-          <div style={{fontSize:16,fontWeight:700,color:"#29355D"}}>Claude is opening!</div>
-          <div style={{fontSize:12,color:"#808080",lineHeight:1.7,maxWidth:320}}>
-            Your prompt has been <strong>copied to the clipboard</strong> and Claude.ai is opening in a new tab.
+        {/* Copied confirmation */}
+        {aiResponse==="__copied__"&&<div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:16,padding:24,textAlign:"center"}}>
+          <div style={{fontSize:48}}>📋</div>
+          <div style={{fontSize:16,fontWeight:700,color:"#29355D"}}>Prompt copied!</div>
+          <div style={{fontSize:12,color:"#808080",lineHeight:1.7,maxWidth:300}}>
+            Your coaching prompt and all live dashboard data has been copied to your clipboard.
           </div>
-          <div style={{width:"100%",padding:"14px 16px",borderRadius:10,background:"#29355D",border:"none",fontSize:13,color:"#fff",lineHeight:1.8,textAlign:"left"}}>
-            <div style={{fontWeight:700,marginBottom:6,fontSize:14}}>📋 In Claude, just:</div>
-            <div>1. Click the message box</div>
-            <div>2. Press <strong>Ctrl+V</strong> (or <strong>⌘V</strong> on Mac)</div>
-            <div>3. Press <strong>Enter</strong> to send</div>
-          </div>
-          <div style={{width:"100%",padding:"10px 14px",borderRadius:10,background:"rgba(255,80,0,.06)",border:"0.5px solid rgba(255,80,0,.2)",fontSize:11,color:"#FF5000"}}>
-            If Claude didn't open, allow pop-ups for this site or{" "}
-            <a href="https://claude.ai/new" target="_blank" rel="noreferrer" style={{color:"#FF5000",fontWeight:600}}>click here to open it manually</a>
+          <div style={{width:"100%",padding:"16px",borderRadius:10,background:"#29355D",fontSize:13,color:"#fff",lineHeight:2,textAlign:"left"}}>
+            <div style={{fontWeight:700,marginBottom:4}}>Next steps:</div>
+            <div>1. Open <a href="https://claude.ai/new" target="_blank" rel="noreferrer" style={{color:"#FF5000",fontWeight:700}}>claude.ai/new</a></div>
+            <div>2. Click the message box</div>
+            <div>3. Press <strong>Ctrl+V</strong> (⌘V on Mac) to paste</div>
+            <div>4. Press <strong>Enter</strong> to send</div>
           </div>
           <button onClick={()=>{setAiResponse("");setAiQuestion("");setAiCustom("");}}
             style={{width:"100%",padding:"10px",borderRadius:10,border:"0.5px solid rgba(41,53,93,.15)",
