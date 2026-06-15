@@ -513,6 +513,39 @@ function mapChurn(rows) {
   return by;
 }
 
+function mapBobDet(rows) {
+  // Columns: A=CSM Name, B=Enterprise ID, C=Account Name, D=L2, E=BOQ, F=LCM, G=Net Billing, H=Retention%
+  const pf = v => { const x=parseFloat(String(v||0).replace(/[$,%]/g,"")); return isNaN(x)?0:x; };
+  const lf = raw => {
+    if (!raw) return "";
+    const s = String(raw).trim();
+    if (!s||/TOTAL|GRAND/i.test(s)) return "";
+    if (s.includes(",")) { const [last,first]=s.split(",",2); return (first.trim()+" "+last.trim()).replace(/  +/g," ").trim(); }
+    return s;
+  };
+  const det = {};
+  rows.forEach(r => {
+    const csmRaw = String(r["CSM Name"]||"").trim();
+    if (!csmRaw||/TOTAL|GRAND/i.test(csmRaw)) return;
+    const csm = norm(lf(csmRaw))||lf(csmRaw);
+    if (!csm||csm.length<3) return;
+    const net = pf(r["Net Billing"]||0);
+    if (net===0) return;
+    const entry = {
+      e: String(r["Enterprise ID"]||"").trim(),
+      a: String(r["Account Name"]||"").trim(),
+      l: String(r["L2"]||"").trim(),
+      b: pf(r["Beginning of Quarter"]||0),
+      m: pf(r["Last Completed Month"]||0),
+      n: net,
+    };
+    if (!det[csm]) det[csm] = {i:[],d:[]};
+    if (net>0) det[csm].i.push(entry);
+    else det[csm].d.push(entry);
+  });
+  return det;
+}
+
 function mapBob(rows) {
   const bob = {}, coachTotals = {}; let grand = null;
   const pf = v => { const x=parseFloat(String(v||0).replace(/[$,%]/g,"")); return isNaN(x)?0:x; };
@@ -1100,7 +1133,7 @@ function CSMDetail({csm: csmRaw, onClear, bobRaw, mcChurn, bcChurn}) {
 
       {/* BOB billing detail — increases / decreases */}
       {(()=>{
-        const det = BOB_DETAIL[csm.name]||{};
+        const det = getDet(csm.name)||{};
         const inc = det.i||[], dec = det.d||[];
         if (inc.length===0 && dec.length===0) return null;
         const tdS2={padding:"7px 8px 7px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",fontSize:12,verticalAlign:"top"};
@@ -1745,6 +1778,9 @@ function TrendsView({history, csms, filterCoach, filterCSM}) {
   const activeMetric = METRICS.find(m=>m.key===metric);
 
   // Filter CSMs based on coach/CSM filter
+  // getDet: look up BOB billing detail — prefers live CSV over hardcoded BOB_DETAIL
+  const getDet = n => liveBobDet[n]||liveBobDet[norm(n)]||BOB_DETAIL[n]||BOB_DETAIL[norm(n)]||{};
+
   const filteredCSMs = csms.filter(c => {
     const i = lk(c.name);
     if (filterCoach && (i&&i.c||c.coach) !== filterCoach) return false;
@@ -2481,7 +2517,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
       </div>
       {/* Billing changes detail — only when a single CSM is selected */}
       {filterCSM&&(()=>{
-        const det = BOB_DETAIL[filterCSM]||{};
+        const det = getDet(filterCSM)||{};
         const inc = det.i||[], dec = det.d||[];
         if (inc.length===0 && dec.length===0) return null;
         const thS={fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,padding:"0 8px 8px 0",textAlign:"left",borderBottom:"0.5px solid rgba(41,53,93,.08)"};
@@ -2581,7 +2617,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                           </div>
                         </div>
                         {(()=>{
-                          const det=BOB_DETAIL[c.n]||{};
+                          const det=getDet(c.n)||{};
                           const inc=det.i||[], dec=det.d||[];
                           if(!inc.length&&!dec.length) return null;
                           const all=[...inc.map(r=>({...r,_t:"i"})),...dec.map(r=>({...r,_t:"d"}))].sort((a,b)=>b.n-a.n);
@@ -2691,7 +2727,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                             </div>
                           </div>
                           {(()=>{
-                            const det=BOB_DETAIL[c.n]||{};
+                            const det=getDet(c.n)||{};
                             const inc=det.i||[], dec=det.d||[];
                             if(!inc.length&&!dec.length) return null;
                             const all=[...inc.map(r=>({...r,_t:"i"})),...dec.map(r=>({...r,_t:"d"}))].sort((a,b)=>b.n-a.n);
@@ -2832,6 +2868,7 @@ export default function App() {
   const [rawRev, setRawRev] = useState([]);
   const [bobData, setBobData] = useState(null);
   const [bobRaw,  setBobRaw]  = useState({bob:{},coachTotals:{},grand:null});
+  const [liveBobDet, setLiveBobDet] = useState({});
   const [mcChurn, setMcChurn] = useState({});
   const [bcChurn, setBcChurn] = useState({});
   const [churnAlerts, setChurnAlerts] = useState([]);
@@ -2880,10 +2917,11 @@ export default function App() {
         fetchCSV(CSV_HISTORY).catch(()=>[]),
         fetchCSV(CSV_SKIPPED).catch(()=>[]),
         fetchCSV(CSV_BOB).catch(()=>[]),
+        fetchCSV(CSV_BOB_DET).catch(()=>[]),
         fetchCSV(CSV_MC_CHURN).catch(()=>[]),
         fetchCSV(CSV_BC_CHURN).catch(()=>[]),
         fetchCSV(CSV_CHURN_ALERTS).catch(()=>[]),
-      ]).then(([revRows, emailRows, cadRows, dueRows, ontimeRows, historyRows, skippedRows, bobRows, mcRows, bcRows, churnAlertRows]) => {
+      ]).then(([revRows, emailRows, cadRows, dueRows, ontimeRows, historyRows, skippedRows, bobRows, bobDetRows, mcRows, bcRows, churnAlertRows]) => {
         latestEmail   = emailRows;
         latestCad     = cadRows;
         latestDue     = dueRows;
@@ -2905,6 +2943,7 @@ export default function App() {
         setCSMs(built);
         setSkippedCSMs(built.filter(c=>c.skippedCount>0).sort((a,b)=>b.skippedCount-a.skippedCount));
         setBobRaw(mapBob(bobRows));
+        if (bobDetRows&&bobDetRows.length>0) setLiveBobDet(mapBobDet(bobDetRows));
         setMcChurn(mapChurn(mcRows));
         setBcChurn(mapChurn(bcRows));
         setChurnAlerts(mapChurnAlerts(churnAlertRows));
@@ -2964,7 +3003,7 @@ export default function App() {
       if (!c) return { scope, text: "No data found for "+filterCSM };
       const info = lk(c.name)||{};
       const coach = COACHES.find(x=>x.e===(info.c||c.coach));
-      const det = BOB_DETAIL[c.name]||{};
+      const det = getDet(c.name)||{};
       const bob = getBob(c.name)||{boq:c.bobBoq,lcm:c.bobLcm,net:c.bobNet,ret:c.bobRet};
       const mc = getMc(c.name);
       const bc = getBc(c.name);
@@ -3005,7 +3044,7 @@ export default function App() {
         const bob = getBob(c.name)||{net:c.bobNet,ret:c.bobRet,boq:c.bobBoq,lcm:c.bobLcm};
         const mc = getMc(c.name);
         const bc = getBc(c.name);
-        const det = BOB_DETAIL[c.name]||{};
+        const det = getDet(c.name)||{};
         const ret = bob&&bob.boq>0&&bob.lcm!=null ? bob.lcm/bob.boq : (bob&&bob.ret!=null?bob.ret:null);
         lines.push("── "+c.name);
         lines.push("   Revenue: "+(c.rev>0?fd(c.rev):"none")+" | Email open: "+(c.sent>0?pp(c.openRate):"n/a")+" | On-time: "+(c.otTotal>=3?pp(c.otPct):"n/a")+" | Overdue: "+(c.overdueCount||0));
