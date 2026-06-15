@@ -2533,6 +2533,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
             <thead><tr>
               <th style={thS}>Enterprise ID</th>
+              <th style={thS}>Account</th>
               <th style={thS}>Product</th>
               <th style={{...thS,textAlign:"right"}}>BOQ</th>
               <th style={{...thS,textAlign:"right"}}>Current</th>
@@ -2544,6 +2545,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                 const isInc = r._t==="increase";
                 return <tr key={i}>
                   <td style={{...tdS,fontFamily:"monospace",fontSize:11,color:"#808080"}}>{r.e}</td>
+                  <td style={{...tdS,maxWidth:130,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.a||"—"}</td>
                   <td style={tdS}>{r.l}</td>
                   <td style={{...tdS,textAlign:"right",color:"#808080"}}>${r.b.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
                   <td style={{...tdS,textAlign:"right"}}>${r.m.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
@@ -2631,7 +2633,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                             </div>
                             <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
                               <thead><tr>
-                                {["Enterprise ID","Product","BOQ","Current","Net Change"].map(h=><th key={h} style={{textAlign:h==="Enterprise ID"||h==="Product"?"left":"right",color:"#808080",fontWeight:500,padding:"0 8px 6px 0",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>{h}</th>)}
+                                {["Enterprise ID","Account","Product","BOQ","Current","Net Change"].map(h=><th key={h} style={{textAlign:h==="Enterprise ID"||h==="Account"||h==="Product"?"left":"right",color:"#808080",fontWeight:500,padding:"0 8px 6px 0",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>{h}</th>)}
                               </tr></thead>
                               <tbody>
                                 {all.map((r,i)=><tr key={i}>
@@ -2741,11 +2743,12 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                               </div>
                               <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
                                 <thead><tr>
-                                  {["Enterprise ID","Product","BOQ","Current","Net Change"].map(h=><th key={h} style={{textAlign:h==="Enterprise ID"||h==="Product"?"left":"right",color:"#808080",fontWeight:500,padding:"0 8px 6px 0",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>{h}</th>)}
+                                  {["Enterprise ID","Account","Product","BOQ","Current","Net Change"].map(h=><th key={h} style={{textAlign:h==="Enterprise ID"||h==="Account"||h==="Product"?"left":"right",color:"#808080",fontWeight:500,padding:"0 8px 6px 0",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>{h}</th>)}
                                 </tr></thead>
                                 <tbody>
                                   {all.map((r,i)=><tr key={i}>
                                     <td style={{padding:"5px 8px 5px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",fontFamily:"monospace",color:"#808080"}}>{r.e}</td>
+                                    <td style={{padding:"5px 8px 5px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",maxWidth:130,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.a||"—"}</td>
                                     <td style={{padding:"5px 8px 5px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)"}}>{r.l}</td>
                                     <td style={{padding:"5px 8px 5px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#808080"}}>${r.b.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
                                     <td style={{padding:"5px 8px 5px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right"}}>${r.m.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
