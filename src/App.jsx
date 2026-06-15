@@ -535,7 +535,7 @@ function mapBob(rows) {
     if (/GRAND/i.test(csmRaw)) { grand={boq,lcm,net,pct}; return; }
     if (/TOTAL/i.test(csmRaw)) {
       const cn=lf(csmRaw.replace(/total/gi,"").replace(/,\s*$/,"").trim());
-      if (cn) coachTotals[cn]={boq,lcm,net,pct}; return;
+      if (cn) coachTotals[cn]={boq,lcm,net,pct:boq>0?lcm/boq:pct}; return;
     }
     const csm=norm(lf(csmRaw))||lf(csmRaw);
     if (!csm||csm.length<3) return;
