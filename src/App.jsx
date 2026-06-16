@@ -674,7 +674,7 @@ function buildCSMs(rev, email, cad, due, ontime, skipped, bobRaw, mcChurn, bcChu
       const name = norm(rawName)||rawName;
       // Try exact match first, then normed name
       const c = m[name] || m[rawName];
-      if (c) { c.bobBoq=d.boq||0; c.bobLcm=d.lcm||0; c.bobNet=d.net||0; c.bobRet=d.ret||null; }
+      if (c) { c.bobBoq=d.boq||0; c.bobLcm=d.lcm||0; c.bobNet=d.net||0; c.bobRet=(d.boq>0&&d.lcm!=null)?d.lcm/d.boq:(d.ret||null); }
     });
   }
   // Merge MC churn
@@ -700,7 +700,7 @@ function buildCSMs(rev, email, cad, due, ontime, skipped, bobRaw, mcChurn, bcChu
     BOB_CSMS.forEach(b => {
       const c = m[b.n];
       if (c && c.bobBoq===0 && b.boq>0) {
-        c.bobBoq=b.boq; c.bobLcm=b.lcm; c.bobNet=b.net; c.bobRet=b.ret;
+        c.bobBoq=b.boq; c.bobLcm=b.lcm; c.bobNet=b.net; c.bobRet=(b.boq>0&&b.lcm!=null)?b.lcm/b.boq:(b.ret||null);
         if (c.bobMcc===0) { c.bobMcc=b.mcc; c.bobMch=b.mch; }
         if (c.bobBcc===0) { c.bobBcc=b.bcc; c.bobBch=b.bch; }
       }
@@ -958,7 +958,7 @@ function CSMDetail({csm: csmRaw, onClear, bobRaw, mcChurn, bcChurn, liveBobDet={
     bobBoq: liveBob ? liveBob[1].boq||0 : csmRaw.bobBoq,
     bobLcm: liveBob ? liveBob[1].lcm||0 : csmRaw.bobLcm,
     bobNet: liveBob ? liveBob[1].net||0 : csmRaw.bobNet,
-    bobRet: liveBob ? liveBob[1].ret     : csmRaw.bobRet,
+    bobRet: liveBob ? (liveBob[1].boq>0&&liveBob[1].lcm!=null?liveBob[1].lcm/liveBob[1].boq:liveBob[1].ret) : csmRaw.bobRet,
     bobMcc: liveMc  ? liveMc[1].canceled||0  : csmRaw.bobMcc,
     bobMch: liveMc  ? liveMc[1].accts||[]    : csmRaw.bobMch,
     bobBcc: liveBc  ? liveBc[1].canceled||0  : csmRaw.bobBcc,
