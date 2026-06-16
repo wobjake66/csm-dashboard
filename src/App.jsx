@@ -1533,8 +1533,21 @@ function OverviewView({csms, allCSMs}) {
 }
 
 // ── LEADERBOARD TAB ────────────────────────────────────────────────────────
-function LeaderboardView({csms}) {
+function LeaderboardView({csms, bobRaw}) {
   const [sort,setSort]=useState({col:"rev",dir:"desc"});
+
+  // Calculate retention directly from bobRaw lcm/boq — never use stored ret field
+  const getBobRet = c => {
+    if (bobRaw && bobRaw.bob) {
+      const k = Object.keys(bobRaw.bob).find(k => norm(k)===c.name || k===c.name);
+      if (k) {
+        const d = bobRaw.bob[k];
+        if (d.boq > 0 && d.lcm != null) return d.lcm / d.boq;
+      }
+    }
+    // Fall back to c.bobRet (already fixed to be lcm/boq in buildCSMs)
+    return c.bobRet != null ? c.bobRet : null;
+  };
 
   // For each column, define what the "real" sortable value is.
   // null means "no data" — always sorted to the bottom regardless of direction.
@@ -1547,7 +1560,7 @@ function LeaderboardView({csms}) {
       case "otPct":        return c.otTotal >= 3 ? c.otPct : null;
       case "overdueCount": return c.overdueCount > 0 ? c.overdueCount : null;
       case "bobBoq":       return c.bobBoq > 0 ? c.bobBoq : null;
-      case "bobRet":       return c.bobRet != null ? c.bobRet : null;
+      case "bobRet":       return getBobRet(c);
       default:             return null;
     }
   };
@@ -1595,7 +1608,7 @@ function LeaderboardView({csms}) {
             <td style={{padding:"9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",fontWeight:500,color:c.otTotal>=3?pc(c.otPct):"#888"}}>{c.otTotal>=3?pp(c.otPct):"--"}</td>
             <td style={{padding:"9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right"}}>{c.overdueCount>0?<span style={{fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:20,background:"rgba(220,38,38,.1)",color:"#991b1b"}}>{c.overdueCount}</span>:"--"}</td>
             <td style={{padding:"9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#808080",fontSize:11}}>{c.bobBoq>0?fk(c.bobBoq):"--"}</td>
-            <td style={{padding:"9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right"}}>{c.bobRet!=null?<span style={{fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:20,background:c.bobRet>=0.91?"rgba(22,163,74,.1)":c.bobRet>=0.85?"rgba(217,119,6,.1)":"rgba(220,38,38,.1)",color:c.bobRet>=0.91?"#166534":c.bobRet>=0.85?"#854d0e":"#991b1b"}}>{pp(c.bobRet)}</span>:"--"}</td>
+            {(()=>{const r=getBobRet(c);return <td style={{padding:"9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right"}}>{r!=null?<span style={{fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:20,background:r>=0.91?"rgba(22,163,74,.1)":r>=0.85?"rgba(217,119,6,.1)":"rgba(220,38,38,.1)",color:r>=0.91?"#166534":r>=0.85?"#854d0e":"#991b1b"}}>{pp(r)}</span>:"--"}</td>})()}
           </tr>;
         })}</tbody>
       </table>
@@ -3297,7 +3310,7 @@ My question: ${aiCustom}`,
         <div style={{padding:"20px 24px",zoom:fontScale}}>
           {tab==="coaching"&&<CoachingView csms={filteredCSMs} coach={filterCoach} onSelectCSM={selectCSMFn} onSelectCoach={e=>{setFilterCoach(e);setFilterCSM("");}} onClear={()=>{setFilterCoach("");setFilterCSM("");}} skippedCSMs={skippedCSMs.filter(c=>{const i=lk(c.name);if(managerCoaches&&!(i&&managerCoaches.includes(i.c)))return false;if(filterCoach&&(i&&i.c)!==filterCoach)return false;if(filterCSM&&c.name!==filterCSM)return false;return true;})} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} liveBobDet={liveBobDet}/>}
           {tab==="overview"&&<OverviewView csms={filteredCSMs} allCSMs={csms}/>}
-          {tab==="leaderboard"&&<LeaderboardView csms={filteredCSMs}/>}
+          {tab==="leaderboard"&&<LeaderboardView csms={filteredCSMs} bobRaw={bobRaw}/>}
           {tab==="activity"&&<ActivityView csms={filteredCSMs}/>}
           {tab==="revenue"&&<RevenueView rawRev={rawRev} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches}/>}
           {tab==="bob"&&<BobView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} churnAlerts={churnAlerts} onSelectCSM={selectCSMFn} liveBobDet={liveBobDet}/>}
