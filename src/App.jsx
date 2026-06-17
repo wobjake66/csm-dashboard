@@ -3235,7 +3235,15 @@ export default function App() {
 
   // Build prompt and open Claude.ai in a new tab with it pre-copied to clipboard
   async function runAI(questionType) {
-    const { scope, text: ctx } = buildContext();
+    let scope = "CSM", ctx = "";
+    try {
+      const result = buildContext();
+      scope = result.scope;
+      ctx = result.text;
+    } catch(e) {
+      console.error("buildContext error:", e);
+      ctx = "Error loading context: " + e.message;
+    }
 
     const scopeLabel = scope==="CSM" ? "this CSM ("+filterCSM+")"
       : scope==="coach_team" ? "this coaching team"
@@ -3300,16 +3308,25 @@ My question: ${aiCustom}`,
 
     const fullPrompt = prompts[questionType] || prompts.coaching;
 
-    // Copy prompt to clipboard
-    try { await navigator.clipboard.writeText(fullPrompt); } catch(e) {
-      const el = document.createElement("textarea");
-      el.value = fullPrompt; document.body.appendChild(el);
-      el.select(); document.execCommand("copy");
-      document.body.removeChild(el);
+    // Copy prompt to clipboard — always show confirmation even if clipboard fails
+    let copied = false;
+    try {
+      await navigator.clipboard.writeText(fullPrompt);
+      copied = true;
+    } catch(e) {
+      try {
+        const el = document.createElement("textarea");
+        el.value = fullPrompt;
+        el.style.position = "fixed"; el.style.opacity = "0";
+        document.body.appendChild(el);
+        el.focus(); el.select();
+        copied = document.execCommand("copy");
+        document.body.removeChild(el);
+      } catch(e2) { console.error("Clipboard fallback failed:", e2); }
     }
 
     setAiQuestion(questionType);
-    setAiResponse("__copied__");
+    setAiResponse(copied ? "__copied__" : "__manual__");
   }
 
   if (!unlocked) return <PinLock onUnlock={user=>{
@@ -3515,6 +3532,21 @@ My question: ${aiCustom}`,
           </button>
         </div>}
       </div>}
+        {/* Manual copy fallback */}
+        {aiResponse==="__manual__"&&<div style={{flex:1,display:"flex",flexDirection:"column",gap:12,padding:20}}>
+          <div style={{fontSize:15,fontWeight:700,color:"#29355D"}}>📋 Clipboard unavailable</div>
+          <div style={{fontSize:12,color:"#808080"}}>Your browser blocked auto-copy. Select all the text below and copy it manually (Ctrl+A, Ctrl+C).</div>
+          <textarea readOnly value={aiCustom||""} onClick={e=>e.target.select()}
+            style={{flex:1,minHeight:200,fontSize:11,padding:10,borderRadius:8,border:"1px solid rgba(41,53,93,.15)",resize:"none",fontFamily:"monospace",color:"#29355D"}}/>
+          <a href="https://claude.ai/new" target="_blank" rel="noreferrer"
+            style={{display:"block",padding:"10px",borderRadius:10,background:"#FF5000",color:"#fff",fontSize:13,fontWeight:600,textAlign:"center",textDecoration:"none"}}>
+            Open Claude.ai ↗
+          </a>
+          <button onClick={()=>{setAiResponse("");setAiQuestion("");}}
+            style={{padding:"8px",borderRadius:10,border:"0.5px solid rgba(41,53,93,.15)",background:"#fff",color:"#29355D",fontSize:12,cursor:"pointer"}}>
+            ← Back
+          </button>
+        </div>}
       {aiOpen&&<div onClick={()=>setAiOpen(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.2)",zIndex:999}}/>}
     </div>
   );
