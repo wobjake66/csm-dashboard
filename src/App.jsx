@@ -2516,7 +2516,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
           </div>
           {csms.filter(c=>c.ret>=GOAL).sort((a,b)=>b.ret-a.ret).map(c=>(
             <div key={c.n} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)"}}>
-              <span style={{flex:1,fontSize:12,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.n}</span>
+              <span style={{flex:1,fontSize:12,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{dispName(c.n)}</span>
               <span style={{fontSize:11,color:"#808080"}}>{fmt$(c.boq)}</span>
               {pill(c.ret)}
             </div>
@@ -2528,7 +2528,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
           </div>
           {csms.filter(c=>c.ret<GOAL).sort((a,b)=>a.ret-b.ret).map(c=>(
             <div key={c.n} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)"}}>
-              <span style={{flex:1,fontSize:12,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.n}</span>
+              <span style={{flex:1,fontSize:12,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{dispName(c.n)}</span>
               <span style={{fontSize:11,color:"#808080"}}>{fmt$(c.boq)}</span>
               {pill(c.ret)}
             </div>
@@ -2544,7 +2544,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
         const tdS={padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",fontSize:12,verticalAlign:"top"};
         return <div style={{...S.card,marginTop:16}}>
           <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
-            <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500}}>Billing changes this quarter — {filterCSM}</div>
+            <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500}}>Billing changes this quarter — {dispName(filterCSM)}</div>
             {inc.length>0&&<span style={{fontSize:10,fontWeight:500,padding:"2px 8px",borderRadius:20,background:"rgba(22,163,74,.1)",color:"#166534"}}>↑ {inc.length} increase{inc.length!==1?"s":""}</span>}
             {dec.length>0&&<span style={{fontSize:10,fontWeight:500,padding:"2px 8px",borderRadius:20,background:"rgba(220,38,38,.1)",color:"#991b1b"}}>↓ {dec.length} decrease{dec.length!==1?"s":""}</span>}
           </div>
@@ -2612,7 +2612,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
               return (
                 <React.Fragment key={c.n}>
                   <tr style={{cursor:"pointer"}} onClick={()=>setExpandedBob(n=>n===c.n?null:c.n)}>
-                    <td style={{...tdS,fontWeight:500}}>{c.n}{isExp&&<span style={{fontSize:10,color:"#808080",marginLeft:4}}>▲</span>}</td>
+                    <td style={{...tdS,fontWeight:500}}>{dispName(c.n)}{isExp&&<span style={{fontSize:10,color:"#808080",marginLeft:4}}>▲</span>}</td>
                     <td style={tdS}><span style={{display:"inline-block",width:7,height:7,borderRadius:"50%",background:col,marginRight:4,verticalAlign:"middle"}}/><span style={{color:"#808080"}}>{c.c.split(" ").pop()}</span></td>
                     <td style={tdRS}>{fmt$(c.boq)}</td>
                     <td style={tdRS}>{fmt$(c.lcm)}</td>
@@ -3324,7 +3324,7 @@ My question: ${aiCustom}`,
     }
   }}/>;
 
-  const aiLabel = filterCSM ? "🤖 AI: "+filterCSM.split(" ")[0]
+  const aiLabel = filterCSM ? "🤖 AI: "+dispName(filterCSM).split(" ")[0]
     : filterCoach ? "🤖 AI: "+COACHES.find(c=>c.e===filterCoach).n.split(" ")[0]+"'s team"
     : filterManager ? "🤖 AI: "+MANAGERS.find(m=>m.id===filterManager).n.split(" ")[0]+"'s org"
     : "🤖 AI Coach";
@@ -3403,7 +3403,7 @@ My question: ${aiCustom}`,
           {isCsmView&&<div style={{fontSize:13,fontWeight:600,color:"#29355D",padding:"4px 10px",borderRadius:8,background:"#F4F6FB",border:"0.5px solid rgba(41,53,93,.15)"}}>{dispName(userSession.name)}</div>}
           {(filterManager||filterCoach||filterCSM)&&(
             <span style={{background:"#FF5000",color:"#fff",fontSize:11,fontWeight:500,padding:"4px 10px",borderRadius:20,display:"inline-flex",alignItems:"center",gap:6}}>
-              {filterCSM||filterCoach&&COACHES.find(c=>c.e===filterCoach)?.n||filterManager&&MANAGERS.find(m=>m.id===filterManager)?.n}
+              {dispName(filterCSM)||filterCoach&&COACHES.find(c=>c.e===filterCoach)?.n||filterManager&&MANAGERS.find(m=>m.id===filterManager)?.n}
               {!isCsmView&&<button onClick={()=>{setFilterManager("");setFilterCoach("");setFilterCSM("");}} style={{background:"none",border:"none",color:"rgba(255,255,255,.8)",cursor:"pointer",fontSize:14,lineHeight:1,padding:0}}>✕</button>}
             </span>
           )}
