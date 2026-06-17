@@ -2924,7 +2924,6 @@ function PinLock({onUnlock}) {
 
       // Master PIN check (existing hash)
       if (val.trim() === PIN) {
-        try{sessionStorage.setItem(PIN_KEY,"1");sessionStorage.setItem("userRole","master");sessionStorage.setItem("userName","");}catch(e){}
         onUnlock({role:"master", name:""});
         return;
       }
@@ -2932,11 +2931,6 @@ function PinLock({onUnlock}) {
       // Per-user PIN check
       const user = USER_CREDS[h];
       if (user) {
-        try{
-          sessionStorage.setItem(PIN_KEY,"1");
-          sessionStorage.setItem("userRole", user.role);
-          sessionStorage.setItem("userName", user.name);
-        }catch(e){}
         onUnlock(user);
         return;
       }
@@ -2967,14 +2961,8 @@ function PinLock({onUnlock}) {
 
 // ── MAIN APP ───────────────────────────────────────────────────────────────
 export default function App() {
-  const [unlocked, setUnlocked] = useState(()=>{try{return sessionStorage.getItem(PIN_KEY)==="1";}catch(e){return false;}});
-  const [userSession, setUserSession] = useState(()=>{
-    try{
-      const role=sessionStorage.getItem("userRole")||"master";
-      const name=sessionStorage.getItem("userName")||"";
-      return {role, name};
-    }catch(e){return {role:"master",name:""};}
-  });
+  const [unlocked, setUnlocked] = useState(false);
+  const [userSession, setUserSession] = useState({role:"master",name:""});
   const isCsmView = userSession.role==="csm";
   const [fontScale, setFontScale] = useState(()=>{try{return parseFloat(sessionStorage.getItem(FONT_KEY)||"1");}catch(e){return 1;}});
   const changeFontScale = (delta) => setFontScale(s=>{
