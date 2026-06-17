@@ -3399,7 +3399,7 @@ My question: ${aiCustom}`,
           {(filterManager||filterCoach||filterCSM)&&(
             <span style={{background:"#FF5000",color:"#fff",fontSize:11,fontWeight:500,padding:"4px 10px",borderRadius:20,display:"inline-flex",alignItems:"center",gap:6}}>
               {filterCSM||filterCoach&&COACHES.find(c=>c.e===filterCoach)?.n||filterManager&&MANAGERS.find(m=>m.id===filterManager)?.n}
-              <button onClick={()=>{setFilterManager("");setFilterCoach("");setFilterCSM("");}} style={{background:"none",border:"none",color:"rgba(255,255,255,.8)",cursor:"pointer",fontSize:14,lineHeight:1,padding:0}}>✕</button>
+              {!isCsmView&&<button onClick={()=>{setFilterManager("");setFilterCoach("");setFilterCSM("");}} style={{background:"none",border:"none",color:"rgba(255,255,255,.8)",cursor:"pointer",fontSize:14,lineHeight:1,padding:0}}>✕</button>}
             </span>
           )}
         </div>
