@@ -2484,9 +2484,9 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
         ))}
       </div>
 
-      {/* Coach scorecards */}
-      <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>Retention by coach — goal line at 91%</div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:12,marginBottom:20}}>
+      {/* Coach scorecards — hidden when viewing a single CSM */}
+      {!filterCSM&&<div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>Retention by coach — goal line at 91%</div>}
+      {!filterCSM&&<div style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:12,marginBottom:20}}>
         {coachesVisible.map(ce=>{
           // ce is a coach email — resolve to name for liveCoachTotals lookup
           const coach = COACHES.find(c=>c.e===ce);
@@ -2506,7 +2506,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
             </div>
           );
         })}
-      </div>
+      </div>}
 
       {/* Above / below goal split */}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
