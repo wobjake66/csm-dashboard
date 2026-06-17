@@ -2903,7 +2903,19 @@ const USER_CREDS = {
   "dbaf899fbd964344fefdd5d21bb73a9b0b1654799a0a430106e87ec5b6300a77": {"name": "Kendra Morelli", "role": "coach"},
   "7a866153fcd1a9ed6c44f051287622547d959709cd49731684a70dbfac852c58": {"name": "Jake Baldwin", "role": "manager"},
   "ee1de4914cc26e8f1326b49793b089131870d478714c07e0c99c56cb307704c5": {"name": "Carrie Reece", "role": "manager"},
-};
+
+  "292538a65fd75b332b319f06a93f4144a9b165463a875691bde6b70c08a20387": {"name": "Dave Crisler", "role": "csm"},
+  "bb08deaeb0e2fce9bb14e5e9cf3275fae1d3c8b8631f4e46a2e8a842ec96ae3c": {"name": "Ellise Payne", "role": "csm"},
+  "a138ab3bd14d1133a8dfc665d1f840382c0e76ecbdc44a00130198c329888dde": {"name": "Indu Vijay", "role": "csm"},
+  "b782385fafdd20c39cbaeab6019e47cabec79e5da40fa6be5001198808132e28": {"name": "Matt Daly", "role": "csm"},
+  "c33de0ad08dcd16ac857d335bac61bcc52b398eabab9b4ba257a0f835fc4dd19": {"name": "Nikita Siepen-Bowers", "role": "csm"},
+  "739ec77b846ad913811cc124579cc44f902f83f5bd4e89256ff0e826ddb64ce4": {"name": "Peter Manalac", "role": "csm"},
+  "92a7194ae5db4ecb83f724e83d0d50b3c216561849b48f4d60946b3b0a301a3a": {"name": "Sakshi Mahalwal", "role": "csm"},
+  "3451d35d093f0572f939572b1d8fa2a20a41cf62f5b5927c1c79c37d98aaaa9b": {"name": "Sylvia Appla", "role": "csm"},
+  "251d298116e31fddca158c400fc070e2e6c3333ea0fcd13c778f45390e96f6f9": {"name": "Tracy-Ann Gaudencio", "role": "csm"},
+  "f5509e5b085d20134e183afcda5b4cff714e17e6207b4b561752c9989f29d20a": {"name": "Warda Gul", "role": "csm"},
+  "e18fe13db69f094da76d1ba802042e793327b339b9d8626db18ec4120f2edaf3": {"name": "Zoltan Rudolf", "role": "csm"},
+  "8e0f513c882b1c074fc2dec3436ce46ae0fdf63f21562e2736aa0d07d3b6b355": {"name": "Aaron Taylor", "role": "coach"},};
 
 function sha256(str) {
   // Simple synchronous SHA-256 using SubtleCrypto — returns a promise
