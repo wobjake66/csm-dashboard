@@ -2841,25 +2841,120 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
 }
 
 // ── PIN LOCK ───────────────────────────────────────────────────────────────
+const USER_CREDS = {
+  "c66f1f34f49381e467d3abd43c77947f5d1dd362fd0eec6c2c1f27233ae9adf9": {"name": "Darling Danais Santos Taveras", "role": "csm"},
+  "efe8564971192c24d29c7aedb7c5230aeaf13dbac7815bb7bd2206bdcc483350": {"name": "Heidi Torres Uribe", "role": "csm"},
+  "5fe46e04994d11413f7a0b17bb2e12cb4ce78b5bd2770a9242dc465a50baa18f": {"name": "Irina Larianni Molina Molina", "role": "csm"},
+  "ddd180a4466685b23ed9fee26d0d9cb5f081608808cceaa9cf74a9ece83a5bf4": {"name": "Jathzelyn Elizabeth Fortuna Paulino", "role": "csm"},
+  "9f2b69296b69933a12d3cfe71182c77b9cc50edb46e4ded9b944ce04f779307b": {"name": "Johnny Cornielle", "role": "csm"},
+  "617c14bb6cfaff0ae12cdcfa89bffa353217611d62c53120b8c5473b5acf4581": {"name": "Joseph Guillermo Carmona Garcia", "role": "csm"},
+  "d0ea28283d465708b25553535043283e801e26da23030320d6b649f2b3e4e8c6": {"name": "Samuel Frias De Paula", "role": "csm"},
+  "285cd61ccbba9294f4a2041555271a8671c1ebf0abd33efb9073b240a7b6b5d0": {"name": "Sati Ananda Pimentel Malespin", "role": "csm"},
+  "aa82088246685c17ebf16d48877686b831ed384ffdc42e76494283c271704d7a": {"name": "Victor Abner Moscoso Fernandez", "role": "csm"},
+  "1a145b425f30663a2d6668b6e836bc1fc0afb675e5b82c19ab86a9df6a980476": {"name": "Wilson Mercedes", "role": "csm"},
+  "8f08fb89c225a58e92455fae25d3df22bda90a094bfc8e0240b8a9bd94318159": {"name": "Yessica Montero Urena", "role": "csm"},
+  "cf23dc33d6aba13592a72190564ed18b2c0dae295f681ee0fddc4862f01225cf": {"name": "Barbara Larrosa Presinal", "role": "csm"},
+  "29e2c686a1fab3fa529bacb349d8af3fd7c96ec2b5fafb13f7a4ba82894269c7": {"name": "Deivis Pena", "role": "csm"},
+  "486ea85278bd246cca4a4de0dd8e08ed0802eed350c73eebd662a4578c281496": {"name": "Eric Johnson", "role": "csm"},
+  "459ef54b95078ec14162ab65a269e9179f14488554e29475504b3b25b2f17cb1": {"name": "Kyle Dye", "role": "csm"},
+  "f3cd266d4f44abec08b07d354dbb38879be65f29e631a2ee98f6d8ea24f1e3d0": {"name": "Sarah Swanson", "role": "csm"},
+  "95fc6cd8aeb992c4169c1f26d4514523b37130b38ce5ca12500e621145be3e15": {"name": "Tyler Moeggenberg", "role": "csm"},
+  "df3c5a3eab925a314bfab4065c357c33cefff08fe1e4bd9fd470ed94500a37aa": {"name": "Tyler Popplewell", "role": "csm"},
+  "2f562908d00ead79657c7b033353ef7422e80f047a94cc3749ebf84b58646a00": {"name": "Luis Aguasvivas Peralta", "role": "csm"},
+  "509a9edbeff0c385a956b77657466cb7a2d89a6b3e9ed43b5d80996ca2aa6aaf": {"name": "Juan Liberato", "role": "csm"},
+  "752131c1f2299ffbbffcc84ec0d576915c5eb1a6fc7137feb232a6ab65b25177": {"name": "Elianny Tena Antigua", "role": "csm"},
+  "425ab9e9e0aa2213b4c3e192fa110a9be0a55c21956a474204ea526d294d8bac": {"name": "Damita Hill", "role": "csm"},
+  "1df7964a1cf8172c953a97b801edca4f80d6c6a74f64fd0164c18c350d6af897": {"name": "Anthony Yen", "role": "csm"},
+  "fb7bab9edf08f024aabf3501518399e82ab590666207a8b0ab7963b181ecf4b8": {"name": "April Hall", "role": "csm"},
+  "120e52d7b556d767ec36cded815be09600165124a3913d4586e374056f1d2f9b": {"name": "Katelyn Ankrom", "role": "csm"},
+  "2d6ee4442604779303ee01076435c386b24da01010be6fe49d01e4ab196de6ba": {"name": "Kennedy Sanchez", "role": "csm"},
+  "56280f252f312e642177e33fd389826f6b1ec99220fa41ab669330eb78d78363": {"name": "Matt Sword", "role": "csm"},
+  "b6be463f6999751d74c53b68865247ce565e003583579498f2537892bc13c69a": {"name": "Michael Furlong", "role": "csm"},
+  "2a6a41cdfcbe78c1f94c27f244b17071896f60dc16d5cb3a75708d9cac85c3ff": {"name": "Yolanda Ramirez", "role": "csm"},
+  "4556b34f73d3244386c449798296b3f21c28df98fd7b0da69a691f1dcbd4a261": {"name": "Florence Francois Nova", "role": "csm"},
+  "7ffc04e52e2e7c6b67b3713613899289bc2de48f7f7a7b067db6a5d37f9fda3c": {"name": "Rossi Valerio Tejeda", "role": "csm"},
+  "48edac0718a29c1157a2e5f12944c2b7205e6b7be4d80cb5b731255a756f8df4": {"name": "Alejandro Rodriguez-Medina", "role": "csm"},
+  "0322afb553ec2b3fe95f9e73820a34c07da19d5dc5fff0f42416e01f24b1cb2c": {"name": "Chelsea Dingus", "role": "csm"},
+  "17674574828520aa5f240bbbdf40521549a514c0145e431f11e494d9923073c7": {"name": "Dorka Frias Lantigua", "role": "csm"},
+  "a1dc2a3800abc8019d31afbd94f32a166303390fe03b2c55a424348bf87663b3": {"name": "Karmita Turner", "role": "csm"},
+  "ae9a3fe9af5b61e41097dbe98a367ffe1d99a2cbf5b5bc42e659a2cd27548900": {"name": "Lauren Carter", "role": "csm"},
+  "2e585ada8d9d1c9b19e28c5f1a738b91839aed76c9a3e49b81aa5297e4b5ce34": {"name": "Libby Booher", "role": "csm"},
+  "b44e333111a02e63804eee5cbffff009e2b70492b27f5bfd82f69f151a2e8f13": {"name": "Misti Dixon", "role": "csm"},
+  "f8d64a31eb7d864da9252b7e5dd2659229cf1a3c4bf9d6d544c0318c81e13cff": {"name": "Misty Decatur", "role": "csm"},
+  "ec7f9e1c854ffb831416b9ba82904f4ee061841eb7fa6ba607cbd0849ce07baa": {"name": "Saira Julian Guzman", "role": "csm"},
+  "53f7e2da4872dcc22c8e6de621cc07ef985bb7897534fa443d4c98b7da402439": {"name": "Scott Mather", "role": "csm"},
+  "1d2db6db4635c05a0902d6f8cb10be58a924c34dee511ee6fa1b2d819eac3c02": {"name": "Steven Saunders", "role": "csm"},
+  "5920f16d3d80af59daae3992dc7443bef8f93dce3312a3a13659886b4441d0e1": {"name": "Ashley Shaffer", "role": "csm"},
+  "60bfa6b5188a1c20691b4eb35e8448823072d90877b4c07666af4adfe679cf6d": {"name": "Ashley Vasquez Mena", "role": "csm"},
+  "0d61e38b364591d3df7f23f7cfb204cb05b26233b3f4dd7179d550080c966835": {"name": "Karen Capellan Tavarez", "role": "csm"},
+  "b3e23bcee2ccb38ffed1a3e7caebfe00af8874a3e6dacf9cd051b04d7e55b10c": {"name": "Karissa Hernandez", "role": "csm"},
+  "84bdcd156603935b711cccd5a7c44b59a475e44429ab0f8a27ec18e175817436": {"name": "Kellie Lester", "role": "csm"},
+  "f3c39d0642f4bd32009e7a6bebdfa2be2ae56c3bc16d22dfb9e6e791c316ee37": {"name": "Mark Velazquez", "role": "csm"},
+  "1625f9db144171f78dc64afa00f5f5065f176d05eb8f9dcb11f6c8cd3624aaa6": {"name": "MJ Brielmann", "role": "csm"},
+  "56937aa5a635fe2109aa9f3899f165318620b018b06a875ec8444ca0e286afe5": {"name": "Rafael Sencion Sencion", "role": "csm"},
+  "124ccf031c80742d4d15bbd8ca11865d7555f82e884b826bc8b3fa7c2d448b61": {"name": "Stacy Roers", "role": "csm"},
+  "07aa2015d482734372d4a9a1c07c8290198526b9ce1fd2e2dcff4d05f6792a29": {"name": "Taylor Kidd", "role": "csm"},
+  "51d4f462cbd884ce286a643d345126db1c24ffe88a50b71ab93c1f291bebc1b2": {"name": "Felix Caba Jimenez", "role": "csm"},
+  "dbaf899fbd964344fefdd5d21bb73a9b0b1654799a0a430106e87ec5b6300a77": {"name": "Kendra Morelli", "role": "coach"},
+  "7a866153fcd1a9ed6c44f051287622547d959709cd49731684a70dbfac852c58": {"name": "Jake Baldwin", "role": "manager"},
+  "ee1de4914cc26e8f1326b49793b089131870d478714c07e0c99c56cb307704c5": {"name": "Carrie Reece", "role": "manager"},
+};
+
+function sha256(str) {
+  // Simple synchronous SHA-256 using SubtleCrypto — returns a promise
+  return crypto.subtle.digest("SHA-256", new TextEncoder().encode(str))
+    .then(buf => Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join(""));
+}
+
 function PinLock({onUnlock}) {
   const [val,setVal]=useState("");
   const [err,setErr]=useState(false);
-  const check=()=>{
-    if(val===PIN){try{sessionStorage.setItem(PIN_KEY,"1");}catch(e){}onUnlock();}
-    else{setErr(true);setVal("");setTimeout(()=>setErr(false),1500);}
+  const [checking,setChecking]=useState(false);
+
+  const check = async () => {
+    if (!val.trim()) return;
+    setChecking(true);
+    try {
+      const h = await sha256(val.trim());
+
+      // Master PIN check (existing hash)
+      if (val.trim() === PIN) {
+        try{sessionStorage.setItem(PIN_KEY,"1");sessionStorage.setItem("userRole","master");sessionStorage.setItem("userName","");}catch(e){}
+        onUnlock({role:"master", name:""});
+        return;
+      }
+
+      // Per-user PIN check
+      const user = USER_CREDS[h];
+      if (user) {
+        try{
+          sessionStorage.setItem(PIN_KEY,"1");
+          sessionStorage.setItem("userRole", user.role);
+          sessionStorage.setItem("userName", user.name);
+        }catch(e){}
+        onUnlock(user);
+        return;
+      }
+
+      setErr(true); setVal(""); setTimeout(()=>setErr(false),1500);
+    } finally { setChecking(false); }
   };
+
   return (
     <div style={{minHeight:"100vh",background:"#F4F6FB",display:"flex",alignItems:"center",justifyContent:"center"}}>
       <div style={{background:"#fff",borderRadius:16,padding:"40px 36px",boxShadow:"0 4px 32px rgba(41,53,93,.12)",textAlign:"center",width:340}}>
         <div style={{width:56,height:56,borderRadius:"50%",background:"#29355D",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 20px",fontSize:24}}>🔒</div>
         <div style={{fontFamily:"Nunito,sans-serif",fontSize:20,fontWeight:800,color:"#29355D",marginBottom:6}}>CSM Coaching Dashboard</div>
-        <div style={{fontSize:13,color:"#808080",marginBottom:24}}>Enter your team PIN to continue</div>
+        <div style={{fontSize:13,color:"#808080",marginBottom:24}}>Enter your PIN to continue</div>
         <input type="password" value={val} onChange={e=>setVal(e.target.value)} onKeyDown={e=>e.key==="Enter"&&check()}
           placeholder="Enter PIN" autoFocus
           style={{width:"100%",padding:"10px 14px",fontSize:15,borderRadius:10,border:"1px solid "+(err?"#dc2626":"rgba(41,53,93,.2)"),outline:"none",textAlign:"center",letterSpacing:4,marginBottom:12,fontFamily:"inherit"}}/>
-        {err&&<div style={{color:"#dc2626",fontSize:12,marginBottom:10}}>Incorrect PIN</div>}
-        <button onClick={check} style={{width:"100%",padding:11,background:"#FF5000",border:"none",borderRadius:10,color:"#fff",fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Unlock Dashboard</button>
-        <div style={{fontSize:11,color:"#808080",marginTop:16}}>Contact your coach for the PIN</div>
+        {err&&<div style={{color:"#dc2626",fontSize:12,marginBottom:10}}>Incorrect PIN — check with your coach</div>}
+        <button onClick={check} disabled={checking}
+          style={{width:"100%",padding:11,background:"#FF5000",border:"none",borderRadius:10,color:"#fff",fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"inherit",opacity:checking?0.7:1}}>
+          {checking?"Checking...":"Sign In"}
+        </button>
+        <div style={{fontSize:11,color:"#808080",marginTop:16}}>Contact your coach if you need your PIN</div>
       </div>
     </div>
   );
@@ -2868,6 +2963,14 @@ function PinLock({onUnlock}) {
 // ── MAIN APP ───────────────────────────────────────────────────────────────
 export default function App() {
   const [unlocked, setUnlocked] = useState(()=>{try{return sessionStorage.getItem(PIN_KEY)==="1";}catch(e){return false;}});
+  const [userSession, setUserSession] = useState(()=>{
+    try{
+      const role=sessionStorage.getItem("userRole")||"master";
+      const name=sessionStorage.getItem("userName")||"";
+      return {role, name};
+    }catch(e){return {role:"master",name:""};}
+  });
+  const isCsmView = userSession.role==="csm";
   const [fontScale, setFontScale] = useState(()=>{try{return parseFloat(sessionStorage.getItem(FONT_KEY)||"1");}catch(e){return 1;}});
   const changeFontScale = (delta) => setFontScale(s=>{
     const next = Math.min(1.4, Math.max(0.8, Math.round((s+delta)*10)/10));
@@ -3204,7 +3307,17 @@ My question: ${aiCustom}`,
     setAiResponse("__copied__");
   }
 
-  if (!unlocked) return <PinLock onUnlock={()=>setUnlocked(true)}/>;
+  if (!unlocked) return <PinLock onUnlock={user=>{
+    setUnlocked(true);
+    setUserSession(user);
+    // Auto-filter to this CSM if role=csm
+    if (user.role==="csm") setFilterCSM(user.name);
+    // Auto-filter to coach's team if role=coach
+    if (user.role==="coach") {
+      const c = COACHES.find(c=>c.n===user.name);
+      if (c) setFilterCoach(c.e);
+    }
+  }}/>;
 
   const aiLabel = filterCSM ? "🤖 AI: "+filterCSM.split(" ")[0]
     : filterCoach ? "🤖 AI: "+COACHES.find(c=>c.e===filterCoach).n.split(" ")[0]+"'s team"
@@ -3249,7 +3362,7 @@ My question: ${aiCustom}`,
           </div>
         </div>
         <div style={{display:"flex",alignItems:"stretch",padding:"0 24px"}}>
-          {["coaching","overview","revenue","bob","leaderboard","activity","trends"].map(t=>(
+          {["coaching","overview","revenue","bob","leaderboard","activity","trends"].filter(t=>!isCsmView||(t!=="leaderboard"&&t!=="trends")).map(t=>(
             <button key={t} onClick={()=>setTab(t)}
               style={{padding:"10px 18px",fontSize:13,fontWeight:500,color:tab===t?"#fff":"rgba(255,255,255,.55)",background:"transparent",border:"none",cursor:"pointer",borderBottom:tab===t?"3px solid #FF5000":"3px solid transparent",whiteSpace:"nowrap"}}>
               {t==="coaching"?"Coaching":t==="trends"?"📈 Trends":t==="revenue"?"💰 Revenue":t==="bob"?"📋 Book of Business":t.charAt(0).toUpperCase()+t.slice(1)}
@@ -3261,17 +3374,17 @@ My question: ${aiCustom}`,
       {/* FILTERS */}
       {hasData&&(
         <div style={{background:"#fff",borderBottom:"0.5px solid rgba(41,53,93,.08)",padding:"8px 24px",display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-          <select value={filterManager} onChange={e=>{setFilterManager(e.target.value);setFilterCoach("");setFilterCSM("");}}
+          {!isCsmView&&<select value={filterManager} onChange={e=>{setFilterManager(e.target.value);setFilterCoach("");setFilterCSM("");}}
             style={{fontSize:12,fontWeight:500,padding:"5px 10px",borderRadius:8,border:"0.5px solid "+(filterManager?"#FF5000":"rgba(41,53,93,.15)"),background:"#F4F6FB",color:filterManager?"#FF5000":"#29355D",cursor:"pointer"}}>
             <option value="">All managers</option>
             {MANAGERS.map(m=><option key={m.id} value={m.id}>{m.n}</option>)}
-          </select>
-          <select value={filterCoach} onChange={e=>{setFilterCoach(e.target.value);setFilterCSM("");setFilterManager("");}}
+          </select>}
+          {!isCsmView&&<select value={filterCoach} onChange={e=>{setFilterCoach(e.target.value);setFilterCSM("");setFilterManager("");}}
             style={{fontSize:12,fontWeight:500,padding:"5px 10px",borderRadius:8,border:"0.5px solid "+(filterCoach?"#FF5000":"rgba(41,53,93,.15)"),background:"#F4F6FB",color:filterCoach?"#FF5000":"#29355D",cursor:"pointer"}}>
             <option value="">All coaches</option>
             {(managerCoaches?COACHES.filter(c=>managerCoaches.includes(c.e)):COACHES).map(c=><option key={c.e} value={c.e}>{c.n}</option>)}
-          </select>
-          <select value={filterCSM} onChange={e=>{setFilterCSM(e.target.value);setFilterCoach("");setFilterManager("");}}
+          </select>}
+          {!isCsmView&&<select value={filterCSM} onChange={e=>{setFilterCSM(e.target.value);setFilterCoach("");setFilterManager("");}}
             style={{fontSize:12,fontWeight:500,padding:"5px 10px",borderRadius:8,border:"0.5px solid "+(filterCSM?"#FF5000":"rgba(41,53,93,.15)"),background:"#F4F6FB",color:filterCSM?"#FF5000":"#29355D",cursor:"pointer"}}>
             <option value="">All CSMs</option>
             {allCSMNames.filter(n=>{
@@ -3281,7 +3394,8 @@ My question: ${aiCustom}`,
               if(filterCoach&&(i&&i.c)!==filterCoach) return false;
               return true;
             }).map(n=><option key={n} value={n}>{n}</option>)}
-          </select>
+          </select>}
+          {isCsmView&&<div style={{fontSize:13,fontWeight:600,color:"#29355D",padding:"4px 10px",borderRadius:8,background:"#F4F6FB",border:"0.5px solid rgba(41,53,93,.15)"}}>{userSession.name}</div>}
           {(filterManager||filterCoach||filterCSM)&&(
             <span style={{background:"#FF5000",color:"#fff",fontSize:11,fontWeight:500,padding:"4px 10px",borderRadius:20,display:"inline-flex",alignItems:"center",gap:6}}>
               {filterCSM||filterCoach&&COACHES.find(c=>c.e===filterCoach)?.n||filterManager&&MANAGERS.find(m=>m.id===filterManager)?.n}
