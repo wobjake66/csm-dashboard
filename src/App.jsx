@@ -245,6 +245,11 @@ const ROSTER = {
 function lk(n) { return n ? ROSTER[n.toLowerCase().trim()] || null : null; }
 function region(n) { const i=lk(n); return i&&i.reg ? i.reg : null; }
 function norm(n) { return NAME_NORM[n.toLowerCase().trim()] || n.trim(); }
+function dispName(n) {
+  if (!n) return n;
+  if (n === "Merve (MJ) Brielmann") return "MJ Brielmann";
+  return n;
+}
 function pm(v) { const x = parseFloat(String(v||0).replace(/[$,]/g,"")); return isNaN(x) ? 0 : x; }
 function pn(v) { const x = parseFloat(String(v||0).replace(/,/g,"")); return isNaN(x) ? 0 : x; }
 function pp(v) { return isNaN(v)||v==null ? "--" : (v*100).toFixed(1)+"%"; }
@@ -926,7 +931,7 @@ function CoachCard({coach, csms, onSelectCSM, onSelectCoach}) {
         const bdgFg  = hc?(c.cadPct>=0.9?"#166534":c.cadPct>=0.5?"#854d0e":"#991b1b"):"#808080";
         return (
           <div key={c.name} style={{display:"flex",alignItems:"center",gap:6,padding:"3px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",cursor:"pointer"}} onClick={()=>onSelectCSM(c.name)}>
-            <span style={{flex:1,fontSize:11,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:"#121212"}}>{c.name}</span>
+            <span style={{flex:1,fontSize:11,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:"#121212"}}>{dispName(c.name)}</span>
             <span style={{fontSize:11,fontWeight:500,width:28,textAlign:"right",flexShrink:0,color:hc?pc(c.cadPct):"#888"}}>{hc?Math.round(c.cadPct*100)+"%":"--"}</span>
             <span style={{fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:20,background:bdgCol,color:bdgFg,flexShrink:0}}>{bdgTxt}</span>
             {c.overdueCount>0&&<span style={{fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:20,background:"rgba(220,38,38,.1)",color:"#991b1b",flexShrink:0}}>{c.overdueCount}!</span>}
@@ -1330,7 +1335,7 @@ function CoachingView({csms, coach, onSelectCSM, onSelectCoach, onClear, skipped
               style={{...S.card,display:"flex",alignItems:"center",gap:10,cursor:"pointer",padding:12,
                 borderLeft:`3px solid ${has4th?"#7f1d1d":"#d97706"}`}}>
               <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:12,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</div>
+                <div style={{fontSize:12,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{dispName(c.name)}</div>
                 <div style={{fontSize:11,color:"#808080",marginTop:2}}>{st(i.t||"")}{has4th?" · 🚩 4th reschedule":""}</div>
               </div>
               <div style={{textAlign:"center",flexShrink:0}}>
@@ -1352,7 +1357,7 @@ function CoachingView({csms, coach, onSelectCSM, onSelectCoach, onClear, skipped
             const i=lk(c.name)||{};
             return <div key={c.name} style={{...S.card,display:"flex",alignItems:"center",gap:10,cursor:"pointer",padding:12}} onClick={()=>onSelectCSM(c.name)}>
               <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:12,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</div>
+                <div style={{fontSize:12,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{dispName(c.name)}</div>
                 <div style={{fontSize:11,color:"#808080",marginTop:2}}>{st(i.t||"")}{c.newToday>0?" · "+c.newToday+" new":""}</div>
               </div>
               <div style={{textAlign:"center",flexShrink:0}}>
@@ -1419,7 +1424,7 @@ function CoachingView({csms, coach, onSelectCSM, onSelectCoach, onClear, skipped
           const i=lk(c.name)||{};
           return <div key={c.name} style={{...S.card,display:"flex",alignItems:"center",gap:10,borderLeft:"3px solid #16a34a",cursor:"pointer",padding:12}} onClick={()=>onSelectCSM(c.name)}>
             <div style={{flex:1,minWidth:0}}>
-              <div style={{fontSize:12,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</div>
+              <div style={{fontSize:12,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{dispName(c.name)}</div>
               <div style={{fontSize:11,color:"#808080",marginTop:2}}>{st(i.t||"")} · {Math.round(c.cadPct*100)}%</div>
             </div>
             <span style={{fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:20,background:"rgba(22,163,74,.12)",color:"#166534",flexShrink:0}}>Win</span>
@@ -1521,7 +1526,7 @@ function OverviewView({csms, allCSMs}) {
           <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>Overdue cadence</div>
           {csms.filter(c=>c.overdueCount>0).sort((a,b)=>b.overdueCount-a.overdueCount).map(c=>(
             <div key={c.name} style={{display:"flex",alignItems:"center",gap:8,padding:"4px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)"}}>
-              <span style={{flex:1,fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</span>
+              <span style={{flex:1,fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{dispName(c.name)}</span>
               <span style={{fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:20,background:"rgba(220,38,38,.1)",color:"#991b1b"}}>{c.overdueCount}</span>
               {c.newToday>0&&<span style={{fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:20,background:"rgba(83,120,252,.1)",color:"#1e3a8a"}}>{c.newToday} new</span>}
             </div>
@@ -1599,7 +1604,7 @@ function LeaderboardView({csms, bobRaw}) {
           const col=TEAM_COLS[info.t||c.team]||"#888";
           return <tr key={c.name}>
             <td style={{padding:"9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)"}}>{i<3?medals[i]:(i+1)+"."}</td>
-            <td style={{padding:"9px 8px 9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",fontWeight:500}}>{c.name}</td>
+            <td style={{padding:"9px 8px 9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",fontWeight:500}}>{dispName(c.name)}</td>
             <td style={{padding:"9px 8px 9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)"}}><span style={{display:"inline-block",width:6,height:6,borderRadius:"50%",background:col,marginRight:5,verticalAlign:"middle"}}/><span style={{color:"#808080",fontSize:11}}>{st(info.t||c.team)}</span></td>
             <td style={{padding:"9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#FF5000",fontWeight:500}}>{c.rev>0?fd(c.rev):"--"}</td>
             <td style={{padding:"9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right"}}>{c.sent>0?c.sent:"--"}</td>
@@ -1654,7 +1659,7 @@ function ActivityView({csms}) {
   const emRows = csms.filter(c=>c.sent>0).map(c=>({
     name: c.name, sent: c.sent, openRate: c.openRate, replyRate: c.replyRate,
     _render: (i) => <tr key={c.name}>
-      <td style={tdBase}>{c.name}</td>
+      <td style={tdBase}>{dispName(c.name)}</td>
       <td style={{...tdBase,textAlign:"right"}}>{c.sent}</td>
       <td style={{...tdBase,textAlign:"right",fontWeight:500,color:pc(c.openRate)}}>{pp(c.openRate)}</td>
       <td style={{...tdBase,textAlign:"right",fontWeight:500,color:pc(c.replyRate)}}>{pp(c.replyRate)}</td>
@@ -1665,7 +1670,7 @@ function ActivityView({csms}) {
   const otRows = csms.filter(c=>c.otTotal>=3).map(c=>({
     name: c.name, otTotal: c.otTotal, otOnTime: c.otOnTime, otPct: c.otPct,
     _render: (i) => <tr key={c.name}>
-      <td style={tdBase}>{c.name}</td>
+      <td style={tdBase}>{dispName(c.name)}</td>
       <td style={{...tdBase,textAlign:"right",color:"#808080"}}>{c.otTotal}</td>
       <td style={{...tdBase,textAlign:"right"}}>{c.otOnTime}</td>
       <td style={{...tdBase,textAlign:"right",fontWeight:500,color:bc(c.otPct,0.8,0.6)}}>{pp(c.otPct)}</td>
@@ -1676,7 +1681,7 @@ function ActivityView({csms}) {
   const dueRows = csms.filter(c=>c.dueCount>0).map(c=>({
     name: c.name, dueCount: c.dueCount, overdueCount: c.overdueCount, newToday: c.newToday,
     _render: (i) => <tr key={c.name}>
-      <td style={tdBase}>{c.name}</td>
+      <td style={tdBase}>{dispName(c.name)}</td>
       <td style={{...tdBase,textAlign:"right"}}>{c.dueCount}</td>
       <td style={{...tdBase,textAlign:"right"}}>
         <span style={{fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:20,background:"rgba(220,38,38,.1)",color:"#991b1b"}}>{c.overdueCount}</span>
@@ -1741,7 +1746,7 @@ function ActivityView({csms}) {
             cadCount: c.cadCount,
             cadPct:   c.cadPct,
             _render: (i) => <tr key={c.name}>
-              <td style={{padding:"6px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",fontSize:12}}>{c.name}</td>
+              <td style={{padding:"6px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",fontSize:12}}>{dispName(c.name)}</td>
               <td style={{padding:"6px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",fontSize:12,color:"#808080"}}>{c.cadCount}</td>
               <td style={{padding:"6px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",fontSize:12}}>
                 <span style={{fontWeight:500,padding:"1px 8px",borderRadius:20,fontSize:10,
@@ -2713,7 +2718,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                 return (
                   <React.Fragment key={c.n}>
                     <tr style={{cursor:"pointer"}} onClick={()=>setExpandedBob(n=>n===c.n+"_ch"?null:c.n+"_ch")}>
-                      <td style={{...tdS,fontWeight:500}}>{c.n}</td>
+                      <td style={{...tdS,fontWeight:500}}>{dispName(c.n)}</td>
                       <td style={tdS}><span style={{display:"inline-block",width:7,height:7,borderRadius:"50%",background:col,marginRight:4,verticalAlign:"middle"}}/><span style={{color:"#808080"}}>{c.c.split(" ").pop()}</span></td>
                       <td style={tdRS}>{c.mcc>0?<span style={{fontWeight:500,color:"#dc2626"}}>{c.mcc}</span>:"—"}</td>
                       <td style={tdRS}>{c.bcc>0?<span style={{fontWeight:500,color:"#dc2626"}}>{c.bcc}</span>:"—"}</td>
@@ -2890,7 +2895,7 @@ const USER_CREDS = {
   "b3e23bcee2ccb38ffed1a3e7caebfe00af8874a3e6dacf9cd051b04d7e55b10c": {"name": "Karissa Hernandez", "role": "csm"},
   "84bdcd156603935b711cccd5a7c44b59a475e44429ab0f8a27ec18e175817436": {"name": "Kellie Lester", "role": "csm"},
   "f3c39d0642f4bd32009e7a6bebdfa2be2ae56c3bc16d22dfb9e6e791c316ee37": {"name": "Mark Velazquez", "role": "csm"},
-  "1625f9db144171f78dc64afa00f5f5065f176d05eb8f9dcb11f6c8cd3624aaa6": {"name": "MJ Brielmann", "role": "csm"},
+  "1625f9db144171f78dc64afa00f5f5065f176d05eb8f9dcb11f6c8cd3624aaa6": {"name": "Merve (MJ) Brielmann", "role": "csm"},
   "56937aa5a635fe2109aa9f3899f165318620b018b06a875ec8444ca0e286afe5": {"name": "Rafael Sencion Sencion", "role": "csm"},
   "124ccf031c80742d4d15bbd8ca11865d7555f82e884b826bc8b3fa7c2d448b61": {"name": "Stacy Roers", "role": "csm"},
   "07aa2015d482734372d4a9a1c07c8290198526b9ce1fd2e2dcff4d05f6792a29": {"name": "Taylor Kidd", "role": "csm"},
@@ -3395,7 +3400,7 @@ My question: ${aiCustom}`,
               return true;
             }).map(n=><option key={n} value={n}>{n}</option>)}
           </select>}
-          {isCsmView&&<div style={{fontSize:13,fontWeight:600,color:"#29355D",padding:"4px 10px",borderRadius:8,background:"#F4F6FB",border:"0.5px solid rgba(41,53,93,.15)"}}>{userSession.name}</div>}
+          {isCsmView&&<div style={{fontSize:13,fontWeight:600,color:"#29355D",padding:"4px 10px",borderRadius:8,background:"#F4F6FB",border:"0.5px solid rgba(41,53,93,.15)"}}>{dispName(userSession.name)}</div>}
           {(filterManager||filterCoach||filterCSM)&&(
             <span style={{background:"#FF5000",color:"#fff",fontSize:11,fontWeight:500,padding:"4px 10px",borderRadius:20,display:"inline-flex",alignItems:"center",gap:6}}>
               {filterCSM||filterCoach&&COACHES.find(c=>c.e===filterCoach)?.n||filterManager&&MANAGERS.find(m=>m.id===filterManager)?.n}
