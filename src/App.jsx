@@ -1047,7 +1047,7 @@ function CSMDetail({csm: csmRaw, onClear, bobRaw, mcChurn, bcChurn, liveBobDet={
       <div style={{...S.card,marginBottom:16}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
           <div style={{fontSize:20,fontWeight:500,color:"#29355D"}}>{csm.name}</div>
-          <button onClick={onClear} style={{fontSize:11,color:"#FF5000",background:"none",border:"0.5px solid #FF5000",borderRadius:20,padding:"4px 12px",cursor:"pointer"}}>✕ Clear filter</button>
+          {onClear&&<button onClick={onClear} style={{fontSize:11,color:"#FF5000",background:"none",border:"0.5px solid #FF5000",borderRadius:20,padding:"4px 12px",cursor:"pointer"}}>✕ Clear filter</button>}
         </div>
         <div style={{fontSize:12,color:"#808080",marginBottom:16}}>
           {i.t||csm.team||""}{i.r?" · "+i.r:""}{coach?" · Coach: "+coach.n:""}
@@ -1297,10 +1297,10 @@ function CSMDetail({csm: csmRaw, onClear, bobRaw, mcChurn, bcChurn, liveBobDet={
 }
 
 // ── COACHING TAB ───────────────────────────────────────────────────────────
-function CoachingView({csms, coach, onSelectCSM, onSelectCoach, onClear, skippedCSMs, bobRaw, mcChurn, bcChurn, liveBobDet={}}) {
+function CoachingView({csms, coach, onSelectCSM, onSelectCoach, onClear, skippedCSMs, bobRaw, mcChurn, bcChurn, liveBobDet={}, isCsmView=false}) {
   if (onSelectCSM._selected) {
     const c = csms.find(x=>x.name===onSelectCSM._selected)||csms[0];
-    return c ? <CSMDetail csm={c} onClear={onClear} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} liveBobDet={liveBobDet}/> : null;
+    return c ? <CSMDetail csm={c} onClear={isCsmView?null:onClear} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} liveBobDet={liveBobDet}/> : null;
   }
   const coaches = coach ? COACHES.filter(c=>c.e===coach) : COACHES;
   const cols = coaches.length===1?1:coaches.length===2?2:3;
@@ -3427,7 +3427,7 @@ My question: ${aiCustom}`,
       )}
       {hasData&&(
         <div style={{padding:"20px 24px",zoom:fontScale}}>
-          {tab==="coaching"&&<CoachingView csms={filteredCSMs} coach={filterCoach} onSelectCSM={selectCSMFn} onSelectCoach={e=>{setFilterCoach(e);setFilterCSM("");}} onClear={()=>{setFilterCoach("");setFilterCSM("");}} skippedCSMs={skippedCSMs.filter(c=>{const i=lk(c.name);if(managerCoaches&&!(i&&managerCoaches.includes(i.c)))return false;if(filterCoach&&(i&&i.c)!==filterCoach)return false;if(filterCSM&&c.name!==filterCSM)return false;return true;})} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} liveBobDet={liveBobDet}/>}
+          {tab==="coaching"&&<CoachingView csms={filteredCSMs} coach={filterCoach} onSelectCSM={selectCSMFn} onSelectCoach={e=>{setFilterCoach(e);setFilterCSM("");}} onClear={()=>{setFilterCoach("");setFilterCSM("");}} skippedCSMs={skippedCSMs.filter(c=>{const i=lk(c.name);if(managerCoaches&&!(i&&managerCoaches.includes(i.c)))return false;if(filterCoach&&(i&&i.c)!==filterCoach)return false;if(filterCSM&&c.name!==filterCSM)return false;return true;})} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} liveBobDet={liveBobDet} isCsmView={isCsmView}/>}
           {tab==="overview"&&<OverviewView csms={filteredCSMs} allCSMs={csms}/>}
           {tab==="leaderboard"&&<LeaderboardView csms={filteredCSMs} bobRaw={bobRaw}/>}
           {tab==="activity"&&<ActivityView csms={filteredCSMs}/>}
