@@ -1047,8 +1047,8 @@ function CSMDetail({csm: csmRaw, onClear, bobRaw, mcChurn, bcChurn, liveBobDet={
     else if (csm.bobRet>=0.88) atts.push("Retention "+pp(csm.bobRet)+" is near but below the 91% goal — focus on at-risk accounts");
     else atts.push("Retention "+pp(csm.bobRet)+" is significantly below the 91% goal — prioritize retention conversations");
   }
-  if (csm.bobMcc>0) atts.push("MC churn: "+csm.bobMcc+" account"+(csm.bobMcc>1?"s":"")+" canceled this quarter"+(csm.bobMch.length?" ("+csm.bobMch.slice(0,3).join(", ")+")":""));
-  if (csm.bobBcc>0) atts.push("BC churn: "+csm.bobBcc+" account"+(csm.bobBcc>1?"s":"")+" canceled this quarter"+(csm.bobBch.length?" ("+csm.bobBch.slice(0,2).join(", ")+")":""));
+  if (csm.churnedAccts&&csm.churnedAccts.length>0) atts.push("Churn: "+csm.churnedAccts.length+" account"+(csm.churnedAccts.length>1?"s":"")+" at $0 billing ("+csm.churnedAccts.slice(0,3).map(a=>a.name+(a.products&&a.products.length?" ["+a.products.join(", ")+"]":"")).join(", ")+")");
+  else if (csm.bobMcc>0) atts.push("MC churn: "+csm.bobMcc+" account"+(csm.bobMcc>1?"s":"")+" canceled this quarter");
   if (csm.bobNet<0&&csm.bobBoq>0) {
     const lostPct = Math.abs(csm.bobNet)/csm.bobBoq;
     if (lostPct>0.1) atts.push("Net billing down "+pp(lostPct)+" vs start of quarter — "+fd(Math.abs(csm.bobNet))+" lost");
@@ -2421,25 +2421,25 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
   // Live sheet data when available, hardcoded fallback otherwise
   const liveCoachTotals = (bobRaw && Object.keys(bobRaw.coachTotals||{}).length > 0) ? bobRaw.coachTotals : BOB_COACH_TOTALS;
   const liveGrand       = (bobRaw && bobRaw.grand) ? bobRaw.grand : BOB_GRAND;
+  // Build CSM list from live BOB data; churn derived from liveBobDet (BOQ>0, LCM=0)
   const liveCsms = (bobRaw && Object.keys(bobRaw.bob||{}).length > 0)
     ? Object.entries(bobRaw.bob).map(([name, d]) => {
-        const fallback = BOB_CSMS.find(c => c.n.toLowerCase() === name.toLowerCase()) || {mca:0,mcc:0,mch:[],bca:0,bcc:0,bch:[]};
-        const mcD = mcChurn&&mcChurn[name]||fallback;
-        const bcD = bcChurn&&bcChurn[name]||fallback;
-        return {n:name, c:d.coach||fallback.c||"", boq:d.boq, lcm:d.lcm, net:d.net, ret:d.ret,
-          mca:mcD.active||fallback.mca, mcc:mcD.canceled||fallback.mcc,
-          mch:(mcD.accts&&mcD.accts.length>0)?mcD.accts:fallback.mch,
-          bca:bcD.active||fallback.bca, bcc:bcD.canceled||fallback.bcc,
-          bch:(bcD.accts&&bcD.accts.length>0)?bcD.accts:fallback.bch};
+        const det = getDet(name);
+        const churned = det.churned || [];
+        // unique account names with products for pill display
+        const chmch = churned.map(a => a.name);
+        return {n:name, c:d.coach||"", boq:d.boq, lcm:d.lcm, net:d.net,
+          ret:d.boq>0&&d.lcm!=null?d.lcm/d.boq:d.ret,
+          mcc:churned.length, mch:chmch, churned,
+          mca:0, bcc:0, bcc:0, bca:0, bch:[]};
       }).filter(c => c.boq > 0)
     : BOB_CSMS.map(c => {
-        const mcD = mcChurn&&mcChurn[c.n];
-        const bcD = bcChurn&&bcChurn[c.n];
+        const det = getDet(c.n);
+        const churned = det.churned || [];
         return {...c,
-          mca:mcD?mcD.active:c.mca, mcc:mcD?mcD.canceled:c.mcc,
-          mch:mcD&&mcD.accts.length>0?mcD.accts:c.mch,
-          bca:bcD?bcD.active:c.bca, bcc:bcD?bcD.canceled:c.bcc,
-          bch:bcD&&bcD.accts.length>0?bcD.accts:c.bch};
+          ret:c.boq>0&&c.lcm!=null?c.lcm/c.boq:c.ret,
+          mcc:churned.length||c.mcc, mch:churned.length?churned.map(a=>a.name):c.mch,
+          churned, bcc:0, bch:[]};
       });
   const [bobTab, setBobTab]         = useState("overview");
   const [bobSort, setBobSort]       = useState({col:"ret", dir:"desc"});
@@ -2480,8 +2480,9 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
   const totLcm = csms.reduce((s,c)=>s+(c.lcm||0),0);
   const totNet = csms.reduce((s,c)=>s+(c.net||0),0);
   const avgRet = totBoq>0 ? totLcm/totBoq : 0;
-  const totMcc = csms.reduce((s,c)=>s+c.mcc,0);
-  const totBcc = csms.reduce((s,c)=>s+c.bcc,0);
+  const totChurned = csms.reduce((s,c)=>s+(c.mcc||0),0);
+  const totMcc = totChurned; // kept for compat
+  const totBcc = 0;
 
   const thS = {fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,padding:"0 8px 8px 0",textAlign:"left",borderBottom:"0.5px solid rgba(41,53,93,.08)",cursor:"pointer",whiteSpace:"nowrap"};
   const thRS= {...thS, textAlign:"right"};
@@ -2522,7 +2523,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
           {l:"Last completed month", v:fmt$(totLcm),       s:"Current billing",              col:"#5378FC"},
           {l:"Net billing change",   v:(totNet<0?"-":"+")+fmt$(Math.abs(totNet)), s:"vs start of quarter", col:totNet<0?"#dc2626":"#16a34a"},
           {l:"Retention rate",       v:fmtP(avgRet),       s:"Goal: "+fmtP(GOAL),            col:rCol(avgRet)},
-          {l:"MC / BC churn",        v:totMcc+" / "+totBcc,s:"accounts canceled this qtr",   col:"#d97706"},
+          {l:"Churned accounts",     v:String(totChurned),            s:"accounts w/ $0 billing this qtr", col:"#d97706"},
         ].map(m=>(
           <div key={m.l} style={{background:"#ECEEF1",borderRadius:8,padding:14,position:"relative",overflow:"hidden"}}>
             <div style={{position:"absolute",top:0,left:0,right:0,height:2,background:m.col,borderRadius:"8px 8px 0 0"}}/>
@@ -2650,8 +2651,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
             {thSort("lcm","Current $")}
             {thSort("net","Net")}
             {thSort("ret","Retention")}
-            {thSort("mcc","MC churn")}
-            {thSort("bcc","BC churn")}
+            {thSort("mcc","Churned")}
             <th style={thS}>Churned accounts</th>
           </tr></thead>
           <tbody>
@@ -2679,12 +2679,18 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                       <td colSpan={9} style={{padding:"10px 12px",background:"#F4F6FB",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>
                         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,fontSize:12,marginBottom:12}}>
                           <div>
-                            <div style={{fontWeight:500,marginBottom:8,fontSize:11,textTransform:"uppercase",color:"#808080"}}>MC churned ({c.mcc} of {c.mca} active)</div>
-                            {c.mch.length ? c.mch.map((a,i)=><div key={i} style={{padding:"4px 0",borderBottom:"0.5px solid rgba(41,53,93,.06)"}}>{a}</div>) : <span style={{color:"#808080"}}>None this quarter</span>}
+                            <div style={{fontWeight:500,marginBottom:8,fontSize:11,textTransform:"uppercase",color:"#808080"}}>Churned accounts ({c.mcc})</div>
+                            {(c.churned&&c.churned.length>0) ? c.churned.map((a,i)=>(
+                              <div key={i} style={{padding:"5px 0",borderBottom:"0.5px solid rgba(41,53,93,.06)",display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
+                                <span style={{fontSize:12}}>{a.name}</span>
+                                <span style={{display:"flex",gap:4,flexWrap:"wrap",justifyContent:"flex-end"}}>
+                                  {(a.products||[]).map((p,j)=><span key={j} style={{fontSize:10,padding:"1px 7px",borderRadius:20,background:"rgba(220,38,38,.08)",color:"#991b1b",fontWeight:500}}>{p}</span>)}
+                                </span>
+                              </div>
+                            )) : c.mch.length ? c.mch.map((a,i)=><div key={i} style={{padding:"4px 0",borderBottom:"0.5px solid rgba(41,53,93,.06)"}}>{a}</div>) : <span style={{color:"#808080"}}>None this quarter</span>}
                           </div>
                           <div>
-                            <div style={{fontWeight:500,marginBottom:8,fontSize:11,textTransform:"uppercase",color:"#808080"}}>BC churned ({c.bcc} of {c.bca} active)</div>
-                            {c.bch.length ? c.bch.map((a,i)=><div key={i} style={{padding:"4px 0",borderBottom:"0.5px solid rgba(41,53,93,.06)",color:"#991b1b"}}>{a}</div>) : <span style={{color:"#808080"}}>None this quarter</span>}
+                            <div style={{fontWeight:500,marginBottom:8,fontSize:11,textTransform:"uppercase",color:"#808080"}}></div>
                           </div>
                         </div>
                         {(()=>{
@@ -2729,17 +2735,15 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
   );
 
   const renderChurn = () => {
-    const churnCSMs = csms.filter(c=>c.mcc>0||c.bcc>0).sort((a,b)=>(b.mcc+b.bcc)-(a.mcc+a.bcc));
-    const allMcc = csms.reduce((s,c)=>s+c.mcc,0);
-    const allBcc = csms.reduce((s,c)=>s+c.bcc,0);
-    const allMca = csms.reduce((s,c)=>s+c.mca,0);
-    const allBca = csms.reduce((s,c)=>s+c.bca,0);
+    const churnCSMs = csms.filter(c=>c.mcc>0).sort((a,b)=>b.mcc-a.mcc);
+    const allChurned = csms.reduce((s,c)=>s+(c.mcc||0),0);
+    const allProducts = [...new Set(csms.flatMap(c=>(c.churned||[]).flatMap(a=>a.products||[])))];
     return (
       <div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:12,marginBottom:20}}>
           {[
-            {l:"MC accounts churned",v:allMcc,s:`${allMca.toLocaleString()} active — ${(allMcc/Math.max(allMca,1)*100).toFixed(1)}% rate`,col:"#dc2626"},
-            {l:"BC accounts churned",v:allBcc,s:`${allBca.toLocaleString()} active — ${allBca>0?(allBcc/allBca*100).toFixed(1)+"% rate":"n/a"}`,col:"#dc2626"},
+            {l:"Churned accounts",v:allChurned,s:"accounts at $0 billing this quarter",col:"#dc2626"},
+            {l:"Products affected",v:allProducts.length,s:allProducts.slice(0,3).join(", ")+(allProducts.length>3?" + more":""),col:"#d97706"},
             {l:"CSMs with churn",v:churnCSMs.length,s:`of ${csms.length} total`,col:"#d97706"},
           ].map(m=>(
             <div key={m.l} style={{background:"#ECEEF1",borderRadius:8,padding:14,position:"relative",overflow:"hidden"}}>
@@ -2755,47 +2759,44 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
             <thead><tr>
               <th style={thS}>CSM</th><th style={thS}>Coach</th>
-              <th style={thRS}>MC churn</th><th style={thRS}>BC churn</th>
-              <th style={thRS}>MC active</th><th style={thRS}>MC rate</th>
+              <th style={thRS}>Churned</th>
               <th style={thS}>Accounts</th>
             </tr></thead>
             <tbody>
               {churnCSMs.map(c=>{
                 const isExp=expandedBob===c.n+"_ch";
                 const col=TEAM_COLS[COACHES.find(x=>x.n===c.c)?.t||""]||"#808080";
-                const mcRate=c.mca>0?c.mcc/c.mca:0;
+                const churned = c.churned||c.mch.map(n=>({name:n,products:[]}));
                 return (
                   <React.Fragment key={c.n}>
                     <tr style={{cursor:"pointer"}} onClick={()=>setExpandedBob(n=>n===c.n+"_ch"?null:c.n+"_ch")}>
                       <td style={{...tdS,fontWeight:500}}>{dispName(c.n)}</td>
                       <td style={tdS}><span style={{display:"inline-block",width:7,height:7,borderRadius:"50%",background:col,marginRight:4,verticalAlign:"middle"}}/><span style={{color:"#808080"}}>{c.c.split(" ").pop()}</span></td>
-                      <td style={tdRS}>{c.mcc>0?<span style={{fontWeight:500,color:"#dc2626"}}>{c.mcc}</span>:"—"}</td>
-                      <td style={tdRS}>{c.bcc>0?<span style={{fontWeight:500,color:"#dc2626"}}>{c.bcc}</span>:"—"}</td>
-                      <td style={{...tdRS,color:"#808080"}}>{c.mca}</td>
-                      <td style={tdRS}>
-                        <span style={{fontSize:10,fontWeight:500,padding:"2px 8px",borderRadius:20,
-                          background:mcRate<0.05?"rgba(22,163,74,.1)":mcRate<0.1?"rgba(217,119,6,.1)":"rgba(220,38,38,.1)",
-                          color:mcRate<0.05?"#166534":mcRate<0.1?"#854d0e":"#991b1b"}}>
-                          {fmtP(mcRate)}
-                        </span>
-                      </td>
+                      <td style={tdRS}><span style={{fontWeight:500,color:"#dc2626"}}>{c.mcc}</span></td>
                       <td style={tdS}>
-                        {c.mch.slice(0,2).map((a,i)=><span key={i} style={{display:"inline-block",fontSize:10,padding:"1px 6px",borderRadius:10,background:"#F4F6FB",color:"#808080",border:"0.5px solid rgba(41,53,93,.1)",margin:"1px 2px 1px 0"}}>{a}</span>)}
-                        {c.bch.slice(0,1).map((a,i)=><span key={i} style={{display:"inline-block",fontSize:10,padding:"1px 6px",borderRadius:10,background:"rgba(220,38,38,.06)",color:"#991b1b",border:"0.5px solid rgba(220,38,38,.2)",margin:"1px 2px 1px 0"}}>{a}</span>)}
+                        {churned.slice(0,2).map((a,i)=>{
+                          const nm = typeof a==="string"?a:a.name;
+                          const prods = typeof a==="string"?[]:(a.products||[]);
+                          return <span key={i} style={{display:"inline-block",fontSize:10,padding:"1px 6px",borderRadius:10,background:"rgba(220,38,38,.06)",color:"#991b1b",border:"0.5px solid rgba(220,38,38,.2)",margin:"1px 2px 1px 0"}}>{nm}{prods.length>0?" · "+prods.join(", "):""}</span>;
+                        })}
+                        {churned.length>2&&<span style={{fontSize:10,color:"#808080"}}>+{churned.length-2} more</span>}
                       </td>
                     </tr>
                     {isExp&&(
                       <tr>
-                        <td colSpan={7} style={{padding:"10px 12px",background:"#F4F6FB",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>
-                          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,fontSize:12,marginBottom:12}}>
-                            <div>
-                              <div style={{fontWeight:500,marginBottom:8,fontSize:11,textTransform:"uppercase",color:"#808080"}}>MC churned ({c.mcc} of {c.mca})</div>
-                              {c.mch.map((a,i)=><div key={i} style={{padding:"4px 0",borderBottom:"0.5px solid rgba(41,53,93,.06)"}}>{i+1}. {a}</div>)}
-                            </div>
-                            <div>
-                              <div style={{fontWeight:500,marginBottom:8,fontSize:11,textTransform:"uppercase",color:"#808080"}}>BC churned ({c.bcc} of {c.bca})</div>
-                              {c.bch.length ? c.bch.map((a,i)=><div key={i} style={{padding:"4px 0",color:"#991b1b",borderBottom:"0.5px solid rgba(41,53,93,.06)"}}>{i+1}. {a}</div>) : <span style={{color:"#808080"}}>None</span>}
-                            </div>
+                        <td colSpan={4} style={{padding:"10px 12px",background:"#F4F6FB",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>
+                          <div style={{fontSize:12,marginBottom:12}}>
+                            <div style={{fontWeight:500,marginBottom:8,fontSize:11,textTransform:"uppercase",color:"#808080"}}>Churned accounts ({c.mcc})</div>
+                            {churned.map((a,i)=>{
+                              const nm=typeof a==="string"?a:a.name;
+                              const prods=typeof a==="string"?[]:(a.products||[]);
+                              return <div key={i} style={{padding:"6px 0",borderBottom:"0.5px solid rgba(41,53,93,.06)",display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
+                                <span>{i+1}. {nm}</span>
+                                <span style={{display:"flex",gap:4,flexWrap:"wrap",justifyContent:"flex-end"}}>
+                                  {prods.map((p,j)=><span key={j} style={{fontSize:10,padding:"1px 7px",borderRadius:20,background:"rgba(220,38,38,.08)",color:"#991b1b",fontWeight:500}}>{p}</span>)}
+                                </span>
+                              </div>;
+                            })}
                           </div>
                           {(()=>{
                             const det=getDet(c.n)||{};
