@@ -2442,6 +2442,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
           churned, bcc:0, bch:[]};
       });
   const [bobTab, setBobTab]         = useState("overview");
+  const [churnModal, setChurnModal] = useState(false);
   const [bobSort, setBobSort]       = useState({col:"ret", dir:"desc"});
   const [expandedBob, setExpandedBob] = useState(null);
 
@@ -2738,19 +2739,100 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
     const churnCSMs = csms.filter(c=>c.mcc>0).sort((a,b)=>b.mcc-a.mcc);
     const allChurned = csms.reduce((s,c)=>s+(c.mcc||0),0);
     const allProducts = [...new Set(csms.flatMap(c=>(c.churned||[]).flatMap(a=>a.products||[])))];
+
+    // Build flat list of all churned accounts for modal + export
+    const allChurnedRows = churnCSMs.flatMap(c =>
+      (c.churned||c.mch.map(n=>({name:n,products:[]}))).map(a=>({
+        csm: dispName(c.n), coach: c.c.split(" ").slice(-1)[0],
+        account: typeof a==="string"?a:a.name,
+        products: typeof a==="string"?[]:(a.products||[]),
+        eid: typeof a==="string"?"":a.eid||"",
+      }))
+    );
+
+    const exportCSV = () => {
+      const header = ["CSM","Coach","Account","Enterprise ID","Products"];
+      const rows = allChurnedRows.map(r=>[r.csm,r.coach,r.account,r.eid,r.products.join("; ")]);
+      const csv = [header,...rows].map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n");
+      const a = document.createElement("a");
+      a.href = "data:text/csv;charset=utf-8,"+encodeURIComponent(csv);
+      a.download = "churned_accounts_"+new Date().toISOString().slice(0,10)+".csv";
+      a.click();
+    };
+
     return (
       <div>
+        {/* Churned accounts full list modal */}
+        {churnModal&&<div onClick={()=>setChurnModal(false)}
+          style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div onClick={e=>e.stopPropagation()}
+            style={{background:"#fff",borderRadius:14,width:"100%",maxWidth:820,maxHeight:"85vh",display:"flex",flexDirection:"column",boxShadow:"0 8px 40px rgba(0,0,0,.18)"}}>
+            {/* Modal header */}
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"18px 24px",borderBottom:"0.5px solid rgba(41,53,93,.1)"}}>
+              <div>
+                <div style={{fontSize:16,fontWeight:700,color:"#29355D"}}>All Churned Accounts</div>
+                <div style={{fontSize:12,color:"#808080",marginTop:2}}>{allChurnedRows.length} accounts · {churnCSMs.length} CSMs</div>
+              </div>
+              <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                <button onClick={exportCSV}
+                  style={{padding:"7px 16px",borderRadius:8,border:"none",background:"#29355D",color:"#fff",fontSize:12,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}>
+                  ⬇ Export CSV
+                </button>
+                <button onClick={()=>setChurnModal(false)}
+                  style={{padding:"7px 12px",borderRadius:8,border:"0.5px solid rgba(41,53,93,.2)",background:"#fff",color:"#808080",fontSize:13,cursor:"pointer"}}>✕</button>
+              </div>
+            </div>
+            {/* Table */}
+            <div style={{overflowY:"auto",flex:1,padding:"0 24px 16px"}}>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,marginTop:12}}>
+                <thead style={{position:"sticky",top:0,background:"#fff",zIndex:1}}>
+                  <tr>
+                    {["CSM","Coach","Account","Enterprise ID","Products"].map(h=>(
+                      <th key={h} style={{padding:"8px 8px 8px 0",borderBottom:"1.5px solid rgba(41,53,93,.1)",textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:600,whiteSpace:"nowrap"}}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {allChurnedRows.map((r,i)=>(
+                    <tr key={i} style={{borderBottom:"0.5px solid rgba(41,53,93,.05)"}}>
+                      <td style={{padding:"8px 8px 8px 0",fontWeight:500,color:"#29355D",whiteSpace:"nowrap"}}>{r.csm}</td>
+                      <td style={{padding:"8px 8px 8px 0",color:"#808080",whiteSpace:"nowrap"}}>{r.coach}</td>
+                      <td style={{padding:"8px 8px 8px 0",maxWidth:220,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.account}</td>
+                      <td style={{padding:"8px 8px 8px 0",fontFamily:"monospace",color:"#808080",fontSize:11,whiteSpace:"nowrap"}}>{r.eid}</td>
+                      <td style={{padding:"8px 8px 8px 0"}}>
+                        <div style={{display:"flex",flexWrap:"wrap",gap:3}}>
+                          {r.products.map((p,j)=>(
+                            <span key={j} style={{fontSize:10,padding:"1px 7px",borderRadius:20,background:"rgba(220,38,38,.08)",color:"#991b1b",fontWeight:500,whiteSpace:"nowrap"}}>{p}</span>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>}
+
         <div style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:12,marginBottom:20}}>
           {[
-            {l:"Churned accounts",v:allChurned,s:"accounts at $0 billing this quarter",col:"#dc2626"},
-            {l:"Products affected",v:allProducts.length,s:allProducts.slice(0,3).join(", ")+(allProducts.length>3?" + more":""),col:"#d97706"},
-            {l:"CSMs with churn",v:churnCSMs.length,s:`of ${csms.length} total`,col:"#d97706"},
+            {l:"Churned accounts",v:allChurned,s:"click to view full list",col:"#dc2626",click:()=>setChurnModal(true)},
+            {l:"Products affected",v:allProducts.length,s:allProducts.slice(0,3).join(", ")+(allProducts.length>3?" + more":""),col:"#d97706",click:null},
+            {l:"CSMs with churn",v:churnCSMs.length,s:`of ${csms.length} total`,col:"#d97706",click:null},
           ].map(m=>(
-            <div key={m.l} style={{background:"#ECEEF1",borderRadius:8,padding:14,position:"relative",overflow:"hidden"}}>
+            <div key={m.l} onClick={m.click||undefined}
+              style={{background:"#ECEEF1",borderRadius:8,padding:14,position:"relative",overflow:"hidden",
+                cursor:m.click?"pointer":"default",
+                outline:m.click?"none":"none",
+                transition:"box-shadow .15s",
+              }}
+              onMouseEnter={e=>{if(m.click)e.currentTarget.style.boxShadow="0 2px 12px rgba(220,38,38,.18)";}}
+              onMouseLeave={e=>{e.currentTarget.style.boxShadow="none";}}>
               <div style={{position:"absolute",top:0,left:0,right:0,height:2,background:m.col,borderRadius:"8px 8px 0 0"}}/>
               <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:6}}>{m.l}</div>
               <div style={{fontSize:22,fontWeight:500,color:m.col,lineHeight:1,marginBottom:3}}>{m.v}</div>
-              <div style={{fontSize:11,color:"#808080"}}>{m.s}</div>
+              <div style={{fontSize:11,color:m.click?"#dc2626":"#808080",fontWeight:m.click?500:400}}>{m.s}</div>
+              {m.click&&<div style={{position:"absolute",top:10,right:12,fontSize:11,color:"#dc2626",opacity:.6}}>↗</div>}
             </div>
           ))}
         </div>
