@@ -2547,19 +2547,29 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
       {!filterCSM&&<div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>Retention by coach — goal line at 91%</div>}
       {!filterCSM&&<div style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:12,marginBottom:20}}>
         {coachesVisible.map(ce=>{
-          // ce is a coach email — resolve to name for liveCoachTotals lookup
           const coach = COACHES.find(c=>c.e===ce);
-          const cn = coach?.n||ce; // name or email fallback
-          const d = liveCoachTotals[cn] || BOB_COACH_TOTALS[cn]; if(!d) return null;
-          const col=TEAM_COLS[coach?.t||""]||"#808080";
-          const diff=(d.pct-GOAL)*100;
+          const cn = coach?.n||ce;
+          const col = TEAM_COLS[coach?.t||""]||"#808080";
+          // Calculate from individual CSMs (more accurate than sheet TOTAL rows)
+          const teamCSMs = liveCsms.filter(c=>{
+            const i=lk(c.n);
+            if (i&&i.c) return i.c===ce;
+            const normalize=s=>(s||"").toLowerCase().trim().replace(/[\u2018\u2019']/g,"'");
+            const found=COACHES.find(ch=>normalize(ch.n)===normalize(c.c));
+            return found&&found.e===ce;
+          });
+          if (!teamCSMs.length) return null;
+          const tBoq = teamCSMs.reduce((s,c)=>s+c.boq,0);
+          const tLcm = teamCSMs.reduce((s,c)=>s+(c.lcm||0),0);
+          const pct  = tBoq>0 ? tLcm/tBoq : 0;
+          const diff = (pct-GOAL)*100;
           return (
             <div key={ce} style={{...S.card,position:"relative",overflow:"hidden",borderTop:`3px solid ${col}`}}>
               <div style={{fontSize:12,fontWeight:500,marginBottom:2}}>{cn}</div>
-              <div style={{fontSize:26,fontWeight:500,color:rCol(d.pct),margin:"6px 0"}}>{fmtP(d.pct)}</div>
-              {barRow(d.pct, col)}
+              <div style={{fontSize:26,fontWeight:500,color:rCol(pct),margin:"6px 0"}}>{fmtP(pct)}</div>
+              {barRow(pct, col)}
               <div style={{display:"flex",justifyContent:"space-between",marginTop:6,fontSize:11,color:"#808080"}}>
-                <span>BOQ {fmt$(d.boq)}</span>
+                <span>BOQ {fmt$(tBoq)}</span>
                 <span style={{color:diff>=0?"#16a34a":"#dc2626",fontWeight:500}}>{diff>=0?"+":""}{diff.toFixed(1)}pp vs goal</span>
               </div>
             </div>
