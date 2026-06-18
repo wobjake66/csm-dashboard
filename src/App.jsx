@@ -2457,13 +2457,21 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
     let list = liveCsms.filter(c=>c.boq>0);
     if (managerCoaches||filterCoach) {
       list = list.filter(c=>{
-        // Get coach email — prefer ROSTER lookup over stored coach name
+        // 1. Try ROSTER lookup by CSM name (most reliable)
         const i = lk(c.n);
-        const coachEmail = (i&&i.c) || (() => {
-          // Fall back: match stored coach name to COACHES array
-          const found = COACHES.find(ch => ch.n === c.c);
-          return found ? found.e : null;
-        })();
+        if (i && i.c) {
+          if (managerCoaches && !managerCoaches.includes(i.c)) return false;
+          if (filterCoach && i.c !== filterCoach) return false;
+          return true;
+        }
+        // 2. Fall back: match stored coach name to COACHES array
+        //    Normalize both sides — strip smart quotes, extra spaces, case
+        const normalize = s => (s||"").toLowerCase().trim()
+          .replace(/[‘’‚‛′‵']/g,"'")
+          .replace(/[“”„‟″‶"]/g,'"');
+        const storedCoach = normalize(c.c);
+        const found = COACHES.find(ch => normalize(ch.n) === storedCoach);
+        const coachEmail = found ? found.e : null;
         if (managerCoaches && !managerCoaches.includes(coachEmail)) return false;
         if (filterCoach && coachEmail !== filterCoach) return false;
         return true;
