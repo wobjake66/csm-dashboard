@@ -2967,7 +2967,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
           ))}
         </div>
         <span style={{fontSize:12,color:"#808080"}}>
-          Monthly data · Overall: <strong style={{color:rCol(liveGrand.pct)}}>{fmtP(liveGrand.pct)}</strong> vs <strong>91%</strong> goal
+          Monthly data · Overall: <strong style={{color:rCol(avgRet)}}>{fmtP(avgRet)}</strong> vs <strong>91%</strong> goal
         </span>
       </div>
       {bobTab==="overview" && renderOverview()}
