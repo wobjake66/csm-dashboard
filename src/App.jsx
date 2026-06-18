@@ -529,25 +529,46 @@ function mapBobDet(rows) {
     return s;
   };
   const det = {};
+  // Track canceled accounts per CSM: {acctName: [product, ...]}
+  const canceled = {};
   rows.forEach(r => {
     const csmRaw = String(r["CSM Name"]||"").trim();
     if (!csmRaw||/TOTAL|GRAND/i.test(csmRaw)) return;
     const csm = norm(lf(csmRaw))||lf(csmRaw);
     if (!csm||csm.length<3) return;
+    const boq = pf(r["Beginning of Quarter"]||0);
+    const lcm = pf(r["Last Completed Month"]||0);
     const net = pf(r["Net Billing"]||0);
+    const acct = String(r["Account Name"]||"").trim();
+    const prod = String(r["L2"]||"").trim();
+    const eid  = String(r["Enterprise ID"]||"").trim();
+
+    // Track fully canceled lines (BOQ > 0, LCM = 0)
+    if (boq > 0 && lcm === 0 && acct) {
+      if (!canceled[csm]) canceled[csm] = {};
+      if (!canceled[csm][acct]) canceled[csm][acct] = {eid, products:[]};
+      if (prod && !canceled[csm][acct].products.includes(prod))
+        canceled[csm][acct].products.push(prod);
+    }
+
     if (net===0) return;
     const entry = {
-      e: String(r["Enterprise ID"]||"").trim(),
-      a: String(r["Account Name"]||"").trim(),
-      l: String(r["L2"]||"").trim(),
-      b: pf(r["Beginning of Quarter"]||0),
-      m: pf(r["Last Completed Month"]||0),
-      n: net,
+      e: eid, a: acct, l: prod,
+      b: boq, m: lcm, n: net,
     };
     if (!det[csm]) det[csm] = {i:[],d:[]};
     if (net>0) det[csm].i.push(entry);
     else det[csm].d.push(entry);
   });
+
+  // Attach canceled summary to each CSM's det entry
+  Object.entries(canceled).forEach(([csm, accts]) => {
+    if (!det[csm]) det[csm] = {i:[],d:[]};
+    det[csm].churned = Object.entries(accts).map(([name, v]) => ({
+      name, eid: v.eid, products: v.products
+    }));
+  });
+
   return det;
 }
 
@@ -627,7 +648,7 @@ function mapSkipped(rows) {
 }
 
 // ── BUILD UNIFIED CSM LIST ─────────────────────────────────────────────────
-function buildCSMs(rev, email, cad, due, ontime, skipped, bobRaw, mcChurn, bcChurn) {
+function buildCSMs(rev, email, cad, due, ontime, skipped, bobRaw, mcChurn, bcChurn, liveBobDetArg={}) {
   const m = {};
   const get = name => {
     if (!m[name]) {
@@ -638,7 +659,7 @@ function buildCSMs(rev, email, cad, due, ontime, skipped, bobRaw, mcChurn, bcChu
         cadCount:0, cadPct:0,
         dueCount:0, overdueCount:0, newToday:0,
         otTotal:0, otOnTime:0, otPct:null,
-        skippedCount:0, skippedFourthCount:0, skippedAccts:[], liveAccounts:{},
+        skippedCount:0, skippedFourthCount:0, skippedAccts:[], liveAccounts:{}, churnedAccts:[],
         bobBoq:0, bobLcm:0, bobNet:0, bobRet:null, bobMcc:0, bobMch:[], bobBcc:0, bobBch:[]};
     }
     return m[name];
@@ -698,6 +719,20 @@ function buildCSMs(rev, email, cad, due, ontime, skipped, bobRaw, mcChurn, bcChu
       if (c) { c.bobBcc=d.canceled||0; c.bobBch=d.accts||[]; }
     });
   }
+  // Derive churn from liveBobDet (BOB detail sheet) — account name + products
+  if (liveBobDetArg && Object.keys(liveBobDetArg).length > 0) {
+    Object.entries(liveBobDetArg).forEach(([rawName, det]) => {
+      if (!det.churned || det.churned.length === 0) return;
+      const name = norm(rawName) || rawName;
+      const c = m[name] || m[rawName];
+      if (!c) return;
+      // Store churned accounts with products from BOB detail
+      c.churnedAccts = det.churned; // [{name, eid, products:[]}]
+      c.bobMcc = det.churned.length; // total unique accounts canceled
+      c.bobMch = det.churned.map(a => a.name);
+    });
+  }
+
   // Also populate from hardcoded BOB_CSMS fallback ONLY if live data completely absent
   // (i.e. bobRaw fetch failed entirely — not just a stale number)
   const hasLiveBob = bobRaw && bobRaw.bob && Object.keys(bobRaw.bob).length > 0;
@@ -968,6 +1003,7 @@ function CSMDetail({csm: csmRaw, onClear, bobRaw, mcChurn, bcChurn, liveBobDet={
     bobMch: liveMc  ? liveMc[1].accts||[]    : csmRaw.bobMch,
     bobBcc: liveBc  ? liveBc[1].canceled||0  : csmRaw.bobBcc,
     bobBch: liveBc  ? liveBc[1].accts||[]    : csmRaw.bobBch,
+    churnedAccts: csmRaw.churnedAccts||[],
   };
   const [cadTab, setCadTab] = useState("due"); // "due" | "ontime"
   const i = lk(csm.name)||{};
@@ -1094,20 +1130,33 @@ function CSMDetail({csm: csmRaw, onClear, bobRaw, mcChurn, bcChurn, liveBobDet={
             </div>
           ))}
         </div>
-        {(csm.bobMcc>0||csm.bobBcc>0)&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
-          <div>
-            <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:8}}>MC churned accounts ({csm.bobMcc})</div>
-            {csm.bobMch.length>0
-              ? csm.bobMch.map((a,i)=><div key={i} style={{padding:"4px 0",borderBottom:"0.5px solid rgba(41,53,93,.06)",fontSize:12}}>{a}</div>)
-              : <div style={{color:"#808080",fontSize:12}}>None this quarter</div>}
-          </div>
-          <div>
-            <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:8}}>BC churned accounts ({csm.bobBcc})</div>
-            {csm.bobBch.length>0
-              ? csm.bobBch.map((a,i)=><div key={i} style={{padding:"4px 0",borderBottom:"0.5px solid rgba(41,53,93,.06)",fontSize:12,color:"#991b1b"}}>{a}</div>)
-              : <div style={{color:"#808080",fontSize:12}}>None this quarter</div>}
-          </div>
-        </div>}
+        {/* Churned accounts from BOB detail (preferred) or MC/BC fallback */}
+        {(csm.churnedAccts&&csm.churnedAccts.length>0)
+          ? <div>
+              <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:10}}>
+                Churned accounts this quarter ({csm.churnedAccts.length})
+              </div>
+              {csm.churnedAccts.map((a,i)=>(
+                <div key={i} style={{padding:"8px 0",borderBottom:"0.5px solid rgba(41,53,93,.06)",display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
+                  <div style={{fontSize:12,fontWeight:500,color:"#29355D"}}>{a.name}</div>
+                  <div style={{display:"flex",flexWrap:"wrap",gap:4,justifyContent:"flex-end"}}>
+                    {(a.products||[]).map((p,j)=>(
+                      <span key={j} style={{fontSize:10,padding:"2px 8px",borderRadius:20,background:"rgba(220,38,38,.08)",color:"#991b1b",fontWeight:500,whiteSpace:"nowrap"}}>{p}</span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          : (csm.bobMcc>0||csm.bobBcc>0)&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+              <div>
+                <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:8}}>MC churned ({csm.bobMcc})</div>
+                {csm.bobMch.map((a,i)=><div key={i} style={{padding:"4px 0",borderBottom:"0.5px solid rgba(41,53,93,.06)",fontSize:12}}>{a}</div>)}
+              </div>
+              <div>
+                <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:8}}>BC churned ({csm.bobBcc})</div>
+                {csm.bobBch.map((a,i)=><div key={i} style={{padding:"4px 0",borderBottom:"0.5px solid rgba(41,53,93,.06)",fontSize:12,color:"#991b1b"}}>{a}</div>)}
+              </div>
+            </div>}
       </div>}
 
       {/* Skipped cadences detail */}
@@ -3031,7 +3080,7 @@ export default function App() {
     setStatus("loading");
 
     // Store non-revenue data so revenue polls can reuse it
-    let latestEmail=[], latestCad=[], latestDue=[], latestOntime=[], latestHistory=[], latestSkipped=[], latestBob=[], latestMcChurn=[], latestBcChurn=[], latestChurnAlerts=[];
+    let latestEmail=[], latestCad=[], latestDue=[], latestOntime=[], latestHistory=[], latestSkipped=[], latestBob=[], latestBobDet=[], latestMcChurn=[], latestBcChurn=[], latestChurnAlerts=[];
 
     function loadAll() {
       return Promise.all([
@@ -3055,6 +3104,7 @@ export default function App() {
         latestHistory = historyRows;
         latestSkipped = skippedRows;
         latestBob         = bobRows;
+        latestBobDet      = bobDetRows||[];
         latestMcChurn     = mcRows;
         latestBcChurn     = bcRows;
         latestChurnAlerts = churnAlertRows;
@@ -3065,7 +3115,7 @@ export default function App() {
         const due     = mapDue(dueRows);
         const ontime  = mapOnTime(ontimeRows);
         const skipped = mapSkipped(skippedRows);
-        const built   = buildCSMs(rev, email, cad, due, ontime, skipped, bobRaw, mapChurn(mcRows), mapChurn(bcRows));
+        const built   = buildCSMs(rev, email, cad, due, ontime, skipped, bobRaw, mapChurn(mcRows), mapChurn(bcRows), mapBobDet(bobDetRows||[]));
         setCSMs(built);
         setSkippedCSMs(built.filter(c=>c.skippedCount>0).sort((a,b)=>b.skippedCount-a.skippedCount));
         setBobRaw(mapBob(bobRows));
@@ -3090,7 +3140,7 @@ export default function App() {
         const due     = mapDue(latestDue);
         const ontime  = mapOnTime(latestOntime);
         const skipped = mapSkipped(latestSkipped);
-        const built   = buildCSMs(rev, email, cad, due, ontime, skipped, bobRaw, mapChurn(latestMcChurn), mapChurn(latestBcChurn));
+        const built   = buildCSMs(rev, email, cad, due, ontime, skipped, bobRaw, mapChurn(latestMcChurn), mapChurn(latestBcChurn), latestBobDet||{});
         setCSMs(built);
         setSkippedCSMs(built.filter(c=>c.skippedCount>0).sort((a,b)=>b.skippedCount-a.skippedCount));
         setUpdatedAt(new Date().toLocaleTimeString());
