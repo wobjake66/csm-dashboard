@@ -1970,6 +1970,7 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}}) {
   const [callCustomTo,   setCallCustomTo]   = useState("");
   const [callSelectedCSM, setCallSelectedCSM] = useState(null);
   const [callSelectedSvc, setCallSelectedSvc] = useState(null);
+  const [callCompare, setCallCompare]         = useState(false);
 
   const weeks = getWeeks(history);
   const trends = buildTrends(history);
@@ -2356,6 +2357,42 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}}) {
         const lastCW  = callWeeks[callWeeks.length-1];
         const prevCW  = callWeeks[callWeeks.length-2];
 
+        // Compare: prior equivalent period
+        const priorWeeks = (() => {
+          if (!callCompare || callDateFilter === "all") return [];
+          const span = callWeeks.length; // number of weeks in current period
+          // Find weeks just before the current period
+          const currentFirst = callWeeks[0];
+          return allCallWeeks.filter(w => w < currentFirst).slice(-span);
+        })();
+        const hasPrior = callCompare && priorWeeks.length > 0;
+        const priorLabel = hasPrior ? (priorWeeks[0] + " – " + priorWeeks[priorWeeks.length-1]) : "";
+        const curLabel   = callWeeks.length > 0 ? (callWeeks[0] + (callWeeks.length>1?" – "+lastCW:"")) : "";
+
+        // Aggregate for a specific set of weeks
+        const aggForWeeks = (csmList, svcFilter, weeks) => {
+          const acc = {completed:0, noShow:0, total:0, bySvc:{}, byCsm:{}};
+          csmList.forEach(n => {
+            weeks.forEach(w => {
+              const wData = (callData[resolveCSM(n)]||{})[w]||{};
+              Object.entries(wData).forEach(([svc,d])=>{
+                if (svcFilter && svc!==svcFilter) return;
+                if (!acc.bySvc[svc]) acc.bySvc[svc]={completed:0,noShow:0};
+                acc.bySvc[svc].completed += d.completed;
+                acc.bySvc[svc].noShow    += d.noShow;
+                if (!acc.byCsm[n]) acc.byCsm[n]={completed:0,noShow:0};
+                acc.byCsm[n].completed   += d.completed;
+                acc.byCsm[n].noShow      += d.noShow;
+                acc.completed += d.completed;
+                acc.noShow    += d.noShow;
+              });
+            });
+          });
+          acc.total = acc.completed + acc.noShow;
+          acc.rate  = acc.total>0 ? acc.noShow/acc.total : 0;
+          return acc;
+        };
+
         // CSM filter
         const filtNames = csms.filter(c=>{
           const i=lk(c.name);
@@ -2390,11 +2427,18 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}}) {
           return acc;
         };
 
-        const orgTotals = aggTotals(callCSMs, callSelectedSvc);
-        const orgRate   = orgTotals.rate;
+        const orgTotals  = aggForWeeks(callCSMs, callSelectedSvc, callWeeks);
+        const priorTotals= hasPrior ? aggForWeeks(callCSMs, callSelectedSvc, priorWeeks) : null;
+        const orgRate    = orgTotals.rate;
         const NO_SHOW_GOAL = 0.08;
         const rateColor = r => r<=0.05?"#16a34a":r<=0.10?"#d97706":"#dc2626";
         const svcTotals = orgTotals.bySvc;
+        const deltaColor = d => d < 0 ? "#16a34a" : d > 0 ? "#dc2626" : "#808080";
+        const fmtDelta = (a, b, isPct) => {
+          if (b==null||b.total===0||a.total===0) return null;
+          const d = isPct ? (a.rate - b.rate)*100 : a.total - b.total;
+          return {v: (d>0?"+":"")+d.toFixed(isPct?1:0)+(isPct?"pp":""), neg: d<0, pos: d>0};
+        };
 
         return (
           <div style={{marginTop:24}}>
@@ -2426,6 +2470,14 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}}) {
                   <input type="date" value={callCustomTo} onChange={e=>setCallCustomTo(e.target.value)}
                     style={{padding:"4px 8px",borderRadius:8,border:"0.5px solid rgba(41,53,93,.2)",fontSize:11}}/>
                 </>}
+                {/* Compare toggle */}
+                <button onClick={()=>setCallCompare(c=>!c)}
+                  style={{padding:"4px 12px",borderRadius:20,fontSize:11,fontWeight:600,cursor:"pointer",
+                    border:"0.5px solid "+(callCompare?"#5378FC":"rgba(41,53,93,.2)"),
+                    background:callCompare?"#5378FC":"#fff",
+                    color:callCompare?"#fff":"#29355D"}}>
+                  ⇄ Compare
+                </button>
                 {/* Clear filters */}
                 {(callSelectedCSM||callSelectedSvc)&&(
                   <button onClick={()=>{setCallSelectedCSM(null);setCallSelectedSvc(null);}}
@@ -2437,20 +2489,39 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}}) {
               </div>
             </div>
 
+            {/* Compare banner */}
+            {hasPrior&&<div style={{marginBottom:12,padding:"8px 14px",borderRadius:8,background:"rgba(83,120,252,.06)",
+              border:"0.5px solid rgba(83,120,252,.2)",fontSize:11,color:"#3b5bdb",display:"flex",gap:16,flexWrap:"wrap"}}>
+              <span>🟦 <strong>Current:</strong> {curLabel}</span>
+              <span>⇄</span>
+              <span>⬜ <strong>Prior:</strong> {priorLabel}</span>
+            </div>}
+
             {/* Org summary tiles */}
             <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:20}}>
               {[
-                {l:"Completed",    v:orgTotals.completed, col:"#16a34a"},
-                {l:"No Shows",     v:orgTotals.noShow,    col:"#dc2626"},
-                {l:"Total Calls",  v:orgTotals.total,     col:"#29355D"},
-                {l:"No Show Rate", v:(orgRate*100).toFixed(1)+"%", col:rateColor(orgRate), sub:"Goal: <8%"},
-              ].map(t=>(
-                <div key={t.l} style={{background:"#ECEEF1",borderRadius:8,padding:"12px 14px",borderTop:"2px solid "+t.col}}>
-                  <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>{t.l}</div>
-                  <div style={{fontSize:22,fontWeight:600,color:t.col,lineHeight:1}}>{t.v}</div>
-                  {t.sub&&<div style={{fontSize:10,color:"#808080",marginTop:3}}>{t.sub}</div>}
-                </div>
-              ))}
+                {l:"Completed",    cur:orgTotals.completed, prior:priorTotals?.completed, col:"#16a34a", isPct:false},
+                {l:"No Shows",     cur:orgTotals.noShow,    prior:priorTotals?.noShow,    col:"#dc2626", isPct:false},
+                {l:"Total Calls",  cur:orgTotals.total,     prior:priorTotals?.total,     col:"#29355D", isPct:false},
+                {l:"No Show Rate", cur:orgRate,              prior:priorTotals?.rate,      col:rateColor(orgRate), isPct:true, sub:"Goal: <8%"},
+              ].map(t=>{
+                const d = hasPrior&&t.prior!=null ? (t.isPct?(t.cur-t.prior)*100:(t.cur-t.prior)) : null;
+                return (
+                  <div key={t.l} style={{background:"#ECEEF1",borderRadius:8,padding:"12px 14px",borderTop:"2px solid "+t.col}}>
+                    <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>{t.l}</div>
+                    <div style={{fontSize:22,fontWeight:600,color:t.col,lineHeight:1}}>
+                      {t.isPct?(t.cur*100).toFixed(1)+"%":t.cur}
+                    </div>
+                    {hasPrior&&<div style={{fontSize:11,color:"#808080",marginTop:3}}>
+                      Prior: {t.isPct?(t.prior*100).toFixed(1)+"%":t.prior}
+                      {d!=null&&<span style={{marginLeft:6,fontWeight:600,color:t.l==="No Shows"||t.l==="No Show Rate"?(d<0?"#16a34a":d>0?"#dc2626":"#808080"):(d>0?"#16a34a":d<0?"#dc2626":"#808080")}}>
+                        {d>0?"+":""}{d.toFixed(t.isPct?1:0)}{t.isPct?"pp":""}
+                      </span>}
+                    </div>}
+                    {!hasPrior&&t.sub&&<div style={{fontSize:10,color:"#808080",marginTop:3}}>{t.sub}</div>}
+                  </div>
+                );
+              })}
             </div>
 
             {/* Service breakdown */}
@@ -2484,7 +2555,7 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}}) {
             {/* CSM table */}
             <div style={S.card}>
               <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>
-                CSM call performance — {lastCW}{prevCW?" vs "+prevCW:""}
+                CSM call performance{hasPrior?" — current vs prior period":lastCW?" — "+lastCW:""}
               </div>
               <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
                 <thead><tr>
@@ -2493,7 +2564,9 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}}) {
                   <th style={{padding:"0 8px 8px 0",textAlign:"right",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>No Shows</th>
                   <th style={{padding:"0 8px 8px 0",textAlign:"right",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>Total</th>
                   <th style={{padding:"0 8px 8px 0",textAlign:"right",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>No Show %</th>
-                  <th style={{padding:"0 8px 8px 0",textAlign:"right",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>vs Prior Wk</th>
+                  {hasPrior
+                    ? <th style={{padding:"0 8px 8px 0",textAlign:"right",fontSize:10,textTransform:"uppercase",color:"#5378FC",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>vs Prior</th>
+                    : <th style={{padding:"0 8px 8px 0",textAlign:"right",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>vs Prior Wk</th>}
                 </tr></thead>
                 <tbody>
                   {callCSMs.sort((a,b)=>{
@@ -2515,7 +2588,12 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}}) {
                       Object.entries(wData).forEach(([svc,d])=>{ if(!callSelectedSvc||svc===callSelectedSvc){c+=d.completed;ns+=d.noShow;} });
                       return {completed:c,noShow:ns,total:c+ns,rate:c+ns>0?ns/(c+ns):0};
                     })() : null;
-                    const delta = tLast&&tPrev&&tLast.total>0&&tPrev.total>0 ? tLast.rate-tPrev.rate : null;
+                    // Delta: compare mode uses prior period, otherwise week-over-week
+                    const csmPrior = hasPrior ? aggForWeeks([n], callSelectedSvc, priorWeeks) : null;
+                    const delta = hasPrior
+                      ? (csmPrior&&csmPrior.total>0&&t.total>0 ? t.rate-csmPrior.rate : null)
+                      : (tLast&&tPrev&&tLast.total>0&&tPrev.total>0 ? tLast.rate-tPrev.rate : null);
+                    const deltaRef = hasPrior ? csmPrior : null;
                     if (t.total===0) return null;
                     const isSelected = callSelectedCSM===n;
                     return (
@@ -2531,6 +2609,7 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}}) {
                             color:rateColor(t.rate)}}>{(t.rate*100).toFixed(1)}%</span>
                         </td>
                         <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",fontSize:11}}>
+                          {hasPrior&&deltaRef!=null&&<div style={{fontSize:10,color:"#808080"}}>{deltaRef.total} calls / {(deltaRef.rate*100).toFixed(1)}%</div>}
                           {delta!=null
                             ? <span style={{color:delta<=0?"#16a34a":"#dc2626",fontWeight:500}}>
                                 {delta<=0?"↓":"↑"}{Math.abs(delta*100).toFixed(1)}pp
