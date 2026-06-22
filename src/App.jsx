@@ -3256,25 +3256,34 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
         </div>
       </div>
       {/* Score filters */}
-      {!filterCSM&&<div style={{display:"flex",gap:6,marginBottom:16,flexWrap:"wrap"}}>
+      {!filterCSM&&<div style={{display:"flex",gap:10,marginBottom:20,flexWrap:"wrap",alignItems:"center"}}>
+        {/* All CSMs pill */}
+        <button onClick={()=>setScoreFilter("all")}
+          style={{padding:"6px 16px",borderRadius:20,fontSize:12,fontWeight:600,cursor:"pointer",
+            border:"1.5px solid "+(scoreFilter==="all"?"#29355D":"rgba(41,53,93,.15)"),
+            background:scoreFilter==="all"?"#29355D":"#fff",
+            color:scoreFilter==="all"?"#fff":"#808080",transition:"all .15s"}}>
+          All CSMs
+        </button>
+        {/* Image buttons */}
         {[
-          {k:"all",    l:"All CSMs",      bg:"#F4F6FB",  col:"#29355D",  border:"rgba(41,53,93,.2)"},
-          {k:"green",  l:"🟢 Crushing It", bg:"rgba(22,163,74,.1)",  col:"#166534", border:"#16a34a"},
-          {k:"yellow", l:"🟡 Almost There",bg:"rgba(217,119,6,.1)",  col:"#854d0e", border:"#d97706"},
-          {k:"red",    l:"🔴 Needs Love",  bg:"rgba(220,38,38,.1)",  col:"#991b1b", border:"#dc2626"},
+          {k:"green",  img:"/crushing_it.png"},
+          {k:"yellow", img:"/almost_there.png"},
+          {k:"red",    img:"/needs_love.png"},
         ].map(f=>(
           <button key={f.k} onClick={()=>setScoreFilter(scoreFilter===f.k?"all":f.k)}
-            style={{padding:"5px 14px",borderRadius:20,fontSize:12,fontWeight:600,cursor:"pointer",
-              border:"1.5px solid "+(scoreFilter===f.k?f.border:"rgba(41,53,93,.12)"),
-              background:scoreFilter===f.k?f.bg:"#fff",
-              color:scoreFilter===f.k?f.col:"#808080",
-              boxShadow:scoreFilter===f.k?"0 1px 4px rgba(0,0,0,.08)":"none",
-              transition:"all .15s"}}>
-            {f.l}
+            style={{padding:0,border:"none",background:"transparent",cursor:"pointer",
+              borderRadius:12,overflow:"hidden",
+              opacity:scoreFilter!=="all"&&scoreFilter!==f.k?0.45:1,
+              transform:scoreFilter===f.k?"scale(1.04)":"scale(1)",
+              boxShadow:scoreFilter===f.k?"0 4px 16px rgba(0,0,0,.18)":"0 1px 4px rgba(0,0,0,.08)",
+              transition:"all .2s"}}>
+            <img src={f.img} alt={f.k}
+              style={{display:"block",height:52,width:"auto",maxWidth:220,objectFit:"cover"}}/>
           </button>
         ))}
-        {scoreFilter!="all"&&<span style={{fontSize:11,color:"#808080",alignSelf:"center",marginLeft:4}}>
-          {visibleCSMs.filter(c=>worstScore(buildSignals(c).map(s=>s.score).filter(s=>s!="gray"))===scoreFilter).length} CSMs
+        {scoreFilter!=="all"&&<span style={{fontSize:12,fontWeight:600,color:"#808080",marginLeft:4}}>
+          {visibleCSMs.filter(c=>worstScore(buildSignals(c).map(s=>s.score).filter(s=>s!=="gray"))===scoreFilter).length} CSMs
         </span>}
       </div>}
 
