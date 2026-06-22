@@ -775,61 +775,73 @@ function buildCSMs(rev, email, cad, due, ontime, skipped, bobRaw, mcChurn, bcChu
 
 // ── PARSE HISTORY TAB ─────────────────────────────────────────────────────
 function mapHistory(rows) {
-  if (!rows || rows.length === 0) return [];
-
-  // Check if first row has our expected headers
-  const firstKeys = Object.keys(rows[0]);
-  const hasHeaders = firstKeys.includes("snapshot_date") || firstKeys.includes("csm_name");
+  if (!rows || rows.length === 0) { console.log("[mapHistory] no rows"); return []; }
+  console.log("[mapHistory] total rows:", rows.length, "first keys:", Object.keys(rows[0]));
 
   const pf = v => { const x = parseFloat(v); return isNaN(x) ? null : x; };
   const pf0 = v => parseFloat(v) || 0;
 
+  // Check if first row has named headers (e.g. snapshot_date, csm_name)
+  const firstKeys = Object.keys(rows[0]);
+  const hasHeaders = firstKeys.some(k =>
+    k === "snapshot_date" || k === "csm_name" || k === "week_label"
+  );
+
   if (hasHeaders) {
-    // Named column format (correct header row present)
     return rows.map(r => ({
       date:         String(r["snapshot_date"] || "").trim(),
-      week:         String(r["week_label"]    || "").trim(),
-      name:         String(r["csm_name"]      || "").trim(),
-      coach:        r["coach"]  || "",
-      team:         r["team"]   || "",
+      week:         String(r["week_label"] || r["week"] || "").trim(),
+      name:         String(r["csm_name"]   || "").trim(),
+      coach:        String(r["coach"]      || ""),
+      team:         String(r["team"]       || ""),
       rev:          pf0(r["revenue"]),
       mrr:          pf0(r["mrr"]),
       sent:         pf0(r["emails_sent"]),
       openRate:     pf(r["open_rate"]),
       replyRate:    pf(r["reply_rate"]),
       cadPct:       pf(r["cadence_pct"]),
-      overdueCount: pf(r["overdue_count"]),
+      overdueCount: pf0(r["overdue_count"]),
       otPct:        pf(r["ontime_pct"]),
       otTotal:      pf0(r["ontime_total"]),
+      skipped:      pf0(r["skipped_count"]),
     })).filter(r => r.date && r.name && r.name !== "csm_name");
-  } else {
-    // Positional fallback — columns in order the script writes them:
-    // 0:date 1:week 2:name 3:coach 4:team 5:rev 6:mrr 7:otr 8:nonrev
-    // 9:emails_sent 10:open_rate 11:reply_rate 12:cadence_pct 13:cadence_total
-    // 14:overdue_count 15:due_count 16:ontime_pct 17:ontime_total 18:ontime_count 19:skipped_count
-    return rows.map(r => {
-      const vals = Object.values(r);
-      const date = String(vals[0]||"").trim();
-      const name = String(vals[2]||"").trim();
-      if (!date || !name || date === "snapshot_date") return null;
-      return {
-        date,
-        week:         String(vals[1]||"").trim(),
-        name,
-        coach:        String(vals[3]||""),
-        team:         String(vals[4]||""),
-        rev:          pf0(vals[5]),
-        mrr:          pf0(vals[6]),
-        sent:         pf0(vals[9]),
-        openRate:     pf(vals[10]),
-        replyRate:    pf(vals[11]),
-        cadPct:       pf(vals[12]),
-        overdueCount: pf(vals[14]),
-        otPct:        pf(vals[16]),
-        otTotal:      pf0(vals[17]),
-      };
-    }).filter(Boolean);
   }
+
+  // No header row — positional mapping confirmed from sheet screenshot:
+  // A=date B=week C=name D=coach E=team F=rev G=mrr H=otr I=nonrev
+  // J=emails_sent K=open_rate L=reply_rate M=cadence_pct N=cadence_total
+  // O=overdue_count P=due_count Q=ontime_pct R=ontime_total S=ontime_count T=skipped_count
+  return rows.map(r => {
+    const vals = Object.values(r);
+    const date = String(vals[0]||"").trim();
+    const name = String(vals[2]||"").trim();
+    // Skip header-like rows or empty rows
+    if (!date || !name) return null;
+    if (date === "snapshot_date" || name === "csm_name") return null;
+    // Validate date looks like a date
+    if (!/^\d{4}-\d{2}-\d{2}/.test(date)) return null;
+    return {
+      date,
+      week:         String(vals[1]||"").trim(),
+      name:         norm(name)||name,
+      coach:        String(vals[3]||""),
+      team:         String(vals[4]||""),
+      rev:          pf0(vals[5]),
+      mrr:          pf0(vals[6]),
+      // vals[7]=otr, vals[8]=nonrev
+      sent:         pf0(vals[9]),   // emails_sent
+      openRate:     pf(vals[10]),   // open_rate
+      replyRate:    pf(vals[11]),   // reply_rate
+      cadPct:       pf(vals[12]),   // cadence_pct
+      // vals[13]=cadence_total
+      overdueCount: pf0(vals[14]),  // overdue_count
+      // vals[15]=due_count
+      otPct:        pf(vals[16]),   // ontime_pct
+      otTotal:      pf0(vals[17]),  // ontime_total
+      // vals[18]=ontime_count
+      skipped:      pf0(vals[19]),  // skipped_count
+    };
+  }).filter(Boolean);
 }
 
 // Build per-CSM weekly trend: {csmName: [{week, date, rev, openRate, cadPct, otPct, overdue}]}
@@ -1861,11 +1873,8 @@ function TrendsView({history, csms, filterCoach, filterCSM}) {
         <div style={{fontSize:32, marginBottom:12}}>📊</div>
         <div style={{fontSize:16, fontWeight:500, color:"#29355D", marginBottom:8}}>No trend data yet</div>
         <div style={{fontSize:13, color:"#808080", maxWidth:420, margin:"0 auto", lineHeight:1.6}}>
-          Run the weekly snapshot script in Google Apps Script to start collecting data.
-          After 2+ snapshots, week-over-week trends will appear here.
-        </div>
-        <div style={{marginTop:20, padding:"12px 16px", background:"#F4F6FB", borderRadius:8, textAlign:"left", fontSize:12, color:"#29355D"}}>
-          <strong>Setup:</strong> In your Google Sheet → Extensions → Apps Script → paste the snapshot script → run <code>takeSnapshot</code>
+          The history sheet was found but no valid rows could be parsed.
+          Check that the snapshot script is writing date values in YYYY-MM-DD format in column A.
         </div>
       </div>
     );
