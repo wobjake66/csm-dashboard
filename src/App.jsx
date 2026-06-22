@@ -549,15 +549,17 @@ function weekStart(dateStr) {
 function mapCalls(rows) {
   if (!rows || rows.length === 0) return {};
   console.log("[mapCalls] rows:", rows.length, "first keys:", Object.keys(rows[0]));
-  // Log first row field values for debugging
+  // Log which fields contain completed/no show values
   if (rows.length > 1) {
     const r1 = rows[1];
-    console.log("[mapCalls] sample - StaffName:", repr(r1["Staff Name"]),
-      "ServiceName:", repr(r1["Service Name"]),
-      "Status:", repr(r1["Status"]),
-      "ApptTime:", repr(r1["Appointment Time"]));
+    const statusFields = Object.entries(r1).filter(([k,v])=>
+      String(v||"").toLowerCase().includes("complet")||
+      String(v||"").toLowerCase().includes("no show")||
+      String(v||"").toLowerCase().includes("cancel")
+    );
+    console.log("[mapCalls] status-bearing fields:", statusFields.map(([k,v])=>k+"="+v));
+    console.log("[mapCalls] StaffName:", r1["Staff Name"], "ApptTime:", r1["Appointment Time"]);
   }
-  function repr(v) { return JSON.stringify(v); }
 
   // {csmName: {week: {service: {completed, noShow}}}}
   const by = {};
@@ -2151,6 +2153,22 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}}) {
 
   return (
     <div>
+      {/* Subtab bar */}
+      <div style={{display:"flex",gap:4,marginBottom:20,background:"#ECEEF1",borderRadius:10,padding:4,width:"fit-content"}}>
+        {[["performance","📈 Performance"],["calls","📞 Calls"]].map(([t,l])=>(
+          <button key={t} onClick={()=>setTrendsTab(t)}
+            style={{padding:"7px 18px",borderRadius:7,border:"none",fontSize:12,fontWeight:600,cursor:"pointer",
+              background:trendsTab===t?"#29355D":"transparent",
+              color:trendsTab===t?"#fff":"#808080",
+              boxShadow:trendsTab===t?"0 1px 4px rgba(0,0,0,.12)":"none"}}>
+            {l}
+          </button>
+        ))}
+      </div>
+
+      {/* Performance tab content */}
+      {trendsTab==="performance"&&<div>
+
       {/* Metric picker + view toggle */}
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20,flexWrap:"wrap",gap:12}}>
         <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
@@ -2294,8 +2312,10 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}}) {
         </div>
       )}
 
-      {/* ── CALL TRENDS SECTION ─────────────────────────────────────────── */}
-      {(()=>{
+      </div>} {/* end performance tab */}
+
+      {/* ── CALLS TAB ────────────────────────────────────────────────────── */}
+      {trendsTab==="calls"&&(()=>{
         const callWeeks = getCallWeeks(callData);
         if (callWeeks.length === 0) return (
           <div style={{...S.card, marginTop:20, textAlign:"center", padding:32}}>
