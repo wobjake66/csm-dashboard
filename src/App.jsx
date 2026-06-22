@@ -2330,21 +2330,21 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}}) {
           </div>
         );
 
-        // Date filter logic
-        const now = new Date();
+        // Date filter logic — relative to latest data, not today
         const toDate = d => new Date(d);
+        const latestDate = allCallWeeks.length > 0 ? toDate(allCallWeeks[allCallWeeks.length-1]) : new Date();
         const filterWeek = w => {
           const wd = toDate(w);
           if (callDateFilter==="last_week") {
-            const wkAgo = new Date(now); wkAgo.setDate(wkAgo.getDate()-7);
+            const wkAgo = new Date(latestDate); wkAgo.setDate(wkAgo.getDate()-7);
             return wd >= wkAgo;
           }
           if (callDateFilter==="last_month") {
-            const moAgo = new Date(now); moAgo.setMonth(moAgo.getMonth()-1);
+            const moAgo = new Date(latestDate); moAgo.setMonth(moAgo.getMonth()-1);
             return wd >= moAgo;
           }
           if (callDateFilter==="last_quarter") {
-            const qAgo = new Date(now); qAgo.setMonth(qAgo.getMonth()-3);
+            const qAgo = new Date(latestDate); qAgo.setMonth(qAgo.getMonth()-3);
             return wd >= qAgo;
           }
           if (callDateFilter==="custom" && callCustomFrom && callCustomTo) {
