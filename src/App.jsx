@@ -16,6 +16,8 @@ const CSV_BOB     = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGw
 const CSV_BOB_DET = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=873304103&single=true&output=csv"; // book of business detail
 const CSV_BOB_ADJ = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=132587094&single=true&output=csv"; // bob adjustments
 const CSV_CALLS   = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=466716688&single=true&output=csv"; // calls history (raw bookings export)
+const CSV_QA_MC   = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=1435312575&single=true&output=csv"; // MC Activation QA
+const CSV_QA_SS   = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=2091285368&single=true&output=csv"; // Setup & Strategy QA
 const CSV_BC_CHURN= "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=295771282&single=true&output=csv"; // BC churn by coach/rep
 const CSV_MC_CHURN= "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=1002996767&single=true&output=csv"; // MC churn by coach/rep
 const CSV_CHURN_ALERTS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=724984916&single=true&output=csv"; // daily new churn alerts
@@ -517,6 +519,123 @@ function mapChurn(rows) {
     by[csm].canceled += canceled;
     if (canceled > 0 && acct && !by[csm].accts.includes(acct)) by[csm].accts.push(acct);
   });
+  return by;
+}
+
+// ── QA PARSER ──────────────────────────────────────────────────────────────
+// Parses QA sheets — one row per CSM per month
+// Handles both "2026-04" and "April" / "April 2026" month formats
+function parseMonthKey(raw) {
+  if (!raw) return null;
+  const s = String(raw).trim();
+  // Already YYYY-MM format
+  if (/^\d{4}-\d{2}$/.test(s)) return s;
+  // "April 2026" or "April"
+  const months = {january:"01",february:"02",march:"03",april:"04",may:"05",june:"06",
+    july:"07",august:"08",september:"09",october:"10",november:"11",december:"12"};
+  const lo = s.toLowerCase();
+  const mo = Object.keys(months).find(m => lo.includes(m));
+  if (!mo) return null;
+  const yearMatch = s.match(/\d{4}/);
+  const year = yearMatch ? yearMatch[0] : "2026";
+  return year + "-" + months[mo];
+}
+
+function formatMonthLabel(key) {
+  if (!key) return "";
+  const [y, m] = key.split("-");
+  const names = ["","January","February","March","April","May","June",
+    "July","August","September","October","November","December"];
+  return (names[parseInt(m)]||m) + " " + y;
+}
+
+function mapQA(rows, type) {
+  // type: "mc" | "ss"
+  if (!rows || rows.length === 0) return {};
+  console.log("[mapQA "+type+"] rows:", rows.length, "keys:", Object.keys(rows[0]));
+
+  const MC_CRITERIA  = ["pre_kickoff_email","defined_csm_role","presented_journey_deck",
+    "confirmed_priorities","next_call_agenda","provided_actionable_task","wrapup_email"];
+  const SS_CRITERIA  = ["rapport_building","presented_journey_deck","agenda_open_items",
+    "next_call_agenda","provided_actionable_task","wrapup_email","cer_notes"];
+  const CRITERIA = type === "mc" ? MC_CRITERIA : SS_CRITERIA;
+
+  // Also support flexible column name matching
+  const MC_ALIASES = {
+    "pre_kickoff_email":["pre_kickoff_email","pre-kickoff email","pre kickoff email","pre activation email","pre-activation email"],
+    "defined_csm_role":["defined_csm_role","defined csm role"],
+    "presented_journey_deck":["presented_journey_deck","presented journey deck"],
+    "confirmed_priorities":["confirmed_priorities","confirmed priorities"],
+    "next_call_agenda":["next_call_agenda","next call agenda"],
+    "provided_actionable_task":["provided_actionable_task","provided actionable task"],
+    "wrapup_email":["wrapup_email","wrap-up email","wrap up email","wrapup email"],
+  };
+  const SS_ALIASES = {
+    "rapport_building":["rapport_building","rapport building"],
+    "presented_journey_deck":["presented_journey_deck","presented journey deck"],
+    "agenda_open_items":["agenda_open_items","agenda / open items / client tasks","agenda open items","agenda/open items"],
+    "next_call_agenda":["next_call_agenda","next call agenda"],
+    "provided_actionable_task":["provided_actionable_task","provided actionable task"],
+    "wrapup_email":["wrapup_email","wrap-up email","wrap up email","wrapup email"],
+    "cer_notes":["cer_notes","cer notes"],
+  };
+  const ALIASES = type === "mc" ? MC_ALIASES : SS_ALIASES;
+
+  // Build lowercase key map for flexible matching
+  const colMap = {}; // canonical -> actual csv key
+  if (rows.length > 0) {
+    const keys = Object.keys(rows[0]).map(k => k.toLowerCase().trim());
+    Object.entries(ALIASES).forEach(([canon, variants]) => {
+      const match = variants.find(v => keys.includes(v.toLowerCase()));
+      if (match) {
+        const actual = Object.keys(rows[0]).find(k => k.toLowerCase().trim() === match.toLowerCase());
+        if (actual) colMap[canon] = actual;
+      }
+    });
+  }
+
+  const pf = v => {
+    if (v === null || v === undefined || String(v).trim() === "" || 
+        String(v).toLowerCase() === "n/a" || String(v).toLowerCase() === "na") return null;
+    const s = String(v).replace(/%/g,"").trim();
+    const x = parseFloat(s);
+    if (isNaN(x)) return null;
+    // Convert percentages > 1 to decimal
+    return x > 1 ? x/100 : x;
+  };
+
+  // {month: {csm: {audits, total, criteria...}}}
+  const by = {};
+
+  rows.forEach(r => {
+    const monthRaw = String(r["month"] || r["Month"] || r["MONTH"] || Object.values(r)[0] || "").trim();
+    const month = parseMonthKey(monthRaw);
+    if (!month) return;
+
+    const csmRaw = String(r["csm_name"] || r["CSM Name"] || r["CSM"] || r["Name"] || Object.values(r)[1] || "").trim();
+    const csm = norm(csmRaw) || csmRaw;
+    if (!csm || csm.length < 2 || csm === month) return;
+
+    const audits = parseInt(r["audits"] || r["Audits"] || r["# of Audits"] || 0) || 0;
+    const total  = pf(r["total_achievement"] || r["Total Achievement"] || r["Total
+Achievement"] || 0);
+
+    if (!by[month]) by[month] = {};
+    const entry = {audits, total, criteria:{}};
+    CRITERIA.forEach(c => {
+      const key = colMap[c];
+      if (key) entry.criteria[c] = pf(r[key]);
+      else {
+        // Try direct key match
+        const direct = Object.keys(r).find(k => k.toLowerCase().replace(/[^a-z]/g,"").includes(c.replace(/_/g,"")));
+        entry.criteria[c] = direct ? pf(r[direct]) : null;
+      }
+    });
+    by[month][csm] = entry;
+  });
+
+  const months = Object.keys(by).sort();
+  console.log("[mapQA "+type+"] months:", months, "CSMs in latest:", months.length > 0 ? Object.keys(by[months[months.length-1]]).length : 0);
   return by;
 }
 
@@ -1961,7 +2080,7 @@ function ActivityView({csms}) {
 }
 
 // ── TRENDS VIEW ────────────────────────────────────────────────────────────
-function TrendsView({history, csms, filterCoach, filterCSM, callData={}}) {
+function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}, qass={}}) {
   const [metric, setMetric] = useState("otPct");
   const [view,   setView]         = useState("team"); // "team" | "csm"
   const [trendsTab, setTrendsTab]   = useState("performance");
@@ -2159,7 +2278,7 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}}) {
     <div>
       {/* Subtab bar */}
       <div style={{display:"flex",gap:4,marginBottom:20,background:"#ECEEF1",borderRadius:10,padding:4,width:"fit-content"}}>
-        {[["performance","📈 Performance"],["calls","📞 Calls"]].map(([t,l])=>(
+        {[["performance","📈 Performance"],["calls","📞 Calls"],["qa","🎯 Call QA"]].map(([t,l])=>(
           <button key={t} onClick={()=>setTrendsTab(t)}
             style={{padding:"7px 18px",borderRadius:7,border:"none",fontSize:12,fontWeight:600,cursor:"pointer",
               background:trendsTab===t?"#29355D":"transparent",
@@ -2621,6 +2740,231 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}}) {
                   }).filter(Boolean)}
                 </tbody>
               </table>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── CALL QA TAB ──────────────────────────────────────────────────── */}
+      {trendsTab==="qa"&&(()=>{
+        const MC_CRITERIA = [
+          {key:"pre_kickoff_email",      label:"Pre-Kickoff Email"},
+          {key:"defined_csm_role",       label:"Defined CSM Role"},
+          {key:"presented_journey_deck", label:"Journey Deck"},
+          {key:"confirmed_priorities",   label:"Confirmed Priorities"},
+          {key:"next_call_agenda",       label:"Next Call Agenda"},
+          {key:"provided_actionable_task",label:"Actionable Task"},
+          {key:"wrapup_email",           label:"Wrap-Up Email"},
+        ];
+        const SS_CRITERIA = [
+          {key:"rapport_building",        label:"Rapport Building"},
+          {key:"presented_journey_deck",  label:"Journey Deck"},
+          {key:"agenda_open_items",       label:"Agenda / Open Items"},
+          {key:"next_call_agenda",        label:"Next Call Agenda"},
+          {key:"provided_actionable_task",label:"Actionable Task"},
+          {key:"wrapup_email",            label:"Wrap-Up Email"},
+          {key:"cer_notes",               label:"CER Notes"},
+        ];
+        const GOAL = 0.93;
+        const scoreColor = v => v==null?"#e5e7eb":v>=0.93?"#16a34a":v>=0.80?"#d97706":"#dc2626";
+        const scoreBg    = v => v==null?"rgba(0,0,0,.04)":v>=0.93?"rgba(22,163,74,.1)":v>=0.80?"rgba(217,119,6,.1)":"rgba(220,38,38,.1)";
+        const fmtPct     = v => v==null?"N/A":(v*100).toFixed(1)+"%";
+
+        const [qaType, setQaType] = React.useState("mc");
+        const [qaMonth, setQaMonth] = React.useState(null);
+        const [qaCompare, setQaCompare] = React.useState(false);
+        const [qaSortCol, setQaSortCol] = React.useState("total");
+        const [qaSortDir, setQaSortDir] = React.useState("asc");
+
+        const data = qaType==="mc" ? qamc : qass;
+        const criteria = qaType==="mc" ? MC_CRITERIA : SS_CRITERIA;
+        const months = Object.keys(data).sort();
+        const activeMonth = qaMonth || months[months.length-1];
+        const prevMonth = months[months.indexOf(activeMonth)-1];
+        const hasData = months.length > 0;
+
+        if (!hasData) return (
+          <div style={{...S.card, marginTop:20, textAlign:"center", padding:32}}>
+            <div style={{fontSize:28, marginBottom:10}}>🎯</div>
+            <div style={{fontSize:15, fontWeight:600, color:"#29355D", marginBottom:6}}>No QA data yet</div>
+            <div style={{fontSize:12, color:"#808080", lineHeight:1.7, maxWidth:440, margin:"0 auto"}}>
+              Add your QA data to the <strong>qa mc</strong> and <strong>qa ss</strong> tabs in Google Sheets.<br/>
+              Columns: <code>month, csm_name, audits, total_achievement</code> + criterion scores.
+            </div>
+          </div>
+        );
+
+        // Filter CSMs by coach/csm filter
+        const filtNames = csms.filter(c=>{
+          const i=lk(c.name);
+          if (filterCoach&&(i&&i.c||c.coach)!==filterCoach) return false;
+          if (filterCSM&&c.name!==filterCSM) return false;
+          return true;
+        }).map(c=>c.name);
+
+        const monthData = data[activeMonth] || {};
+        const prevData  = prevMonth ? (data[prevMonth]||{}) : {};
+
+        // Filter to visible CSMs
+        const visibleCSMs = Object.keys(monthData).filter(n => {
+          if (filtNames.length === 0) return true;
+          return filtNames.some(fn => fn===n || norm(fn)===n || fn===norm(n));
+        }).sort((a,b) => {
+          const va = qaSortCol==="total" ? (monthData[a]?.total||0) : (monthData[a]?.criteria[qaSortCol]||0);
+          const vb = qaSortCol==="total" ? (monthData[b]?.total||0) : (monthData[b]?.criteria[qaSortCol]||0);
+          return qaSortDir==="asc" ? va-vb : vb-va;
+        });
+
+        // Team averages
+        const teamAvg = col => {
+          const vals = visibleCSMs.map(n => col==="total" ? monthData[n]?.total : monthData[n]?.criteria[col]).filter(v=>v!=null);
+          return vals.length ? vals.reduce((s,v)=>s+v,0)/vals.length : null;
+        };
+        const prevTeamAvg = col => {
+          const vals = visibleCSMs.map(n => col==="total" ? prevData[n]?.total : prevData[n]?.criteria[col]).filter(v=>v!=null);
+          return vals.length ? vals.reduce((s,v)=>s+v,0)/vals.length : null;
+        };
+
+        const totalAudits = visibleCSMs.reduce((s,n)=>s+(monthData[n]?.audits||0),0);
+        const belowGoal   = visibleCSMs.filter(n=>(monthData[n]?.total||0)<0.80);
+
+        return (
+          <div style={{marginTop:24}}>
+            {/* Header controls */}
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16,flexWrap:"wrap",gap:8}}>
+              {/* Report type toggle */}
+              <div style={{display:"flex",gap:4,background:"#ECEEF1",borderRadius:8,padding:3}}>
+                {[["mc","MC Activation"],["ss","Setup & Strategy"]].map(([v,l])=>(
+                  <button key={v} onClick={()=>setQaType(v)}
+                    style={{padding:"6px 14px",fontSize:12,fontWeight:600,borderRadius:6,border:"none",cursor:"pointer",
+                      background:qaType===v?"#29355D":"transparent",color:qaType===v?"#fff":"#808080"}}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+              {/* Month picker */}
+              <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
+                <span style={{fontSize:11,color:"#808080"}}>Month:</span>
+                {months.map(m=>(
+                  <button key={m} onClick={()=>setQaMonth(m)}
+                    style={{padding:"4px 10px",borderRadius:20,fontSize:11,fontWeight:500,cursor:"pointer",
+                      border:"0.5px solid "+(activeMonth===m?"#29355D":"rgba(41,53,93,.15)"),
+                      background:activeMonth===m?"#29355D":"#fff",
+                      color:activeMonth===m?"#fff":"#808080"}}>
+                    {formatMonthLabel(m)}
+                  </button>
+                ))}
+                {prevMonth&&<button onClick={()=>setQaCompare(c=>!c)}
+                  style={{padding:"4px 12px",borderRadius:20,fontSize:11,fontWeight:600,cursor:"pointer",
+                    border:"0.5px solid "+(qaCompare?"#5378FC":"rgba(41,53,93,.2)"),
+                    background:qaCompare?"#5378FC":"#fff",color:qaCompare?"#fff":"#29355D"}}>
+                  ⇄ vs {formatMonthLabel(prevMonth)}
+                </button>}
+              </div>
+            </div>
+
+            {/* Summary tiles */}
+            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:16}}>
+              {[
+                {l:"Total Audits",   v:totalAudits,                        col:"#29355D", sub:formatMonthLabel(activeMonth)},
+                {l:"Team Average",   v:fmtPct(teamAvg("total")),           col:scoreColor(teamAvg("total")), sub:"Goal: 93%"},
+                {l:"Above Goal ≥93%",v:visibleCSMs.filter(n=>(monthData[n]?.total||0)>=0.93).length, col:"#16a34a", sub:"of "+visibleCSMs.length+" CSMs"},
+                {l:"Below 80%",      v:belowGoal.length,                   col:belowGoal.length>0?"#dc2626":"#16a34a", sub:belowGoal.length>0?belowGoal.map(n=>dispName(n)).slice(0,2).join(", ")+(belowGoal.length>2?" +more":""):"All above 80%"},
+              ].map(t=>(
+                <div key={t.l} style={{background:"#ECEEF1",borderRadius:8,padding:"12px 14px",borderTop:"2px solid "+t.col}}>
+                  <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>{t.l}</div>
+                  <div style={{fontSize:22,fontWeight:600,color:t.col,lineHeight:1}}>{t.v}</div>
+                  <div style={{fontSize:10,color:"#808080",marginTop:3}}>{t.sub}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Criterion team averages bar */}
+            <div style={{...S.card,marginBottom:16}}>
+              <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>
+                Team averages by criterion — {formatMonthLabel(activeMonth)}
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:8}}>
+                {criteria.map(cr=>{
+                  const cur  = teamAvg(cr.key);
+                  const prev = qaCompare ? prevTeamAvg(cr.key) : null;
+                  const delta = cur!=null&&prev!=null ? (cur-prev)*100 : null;
+                  return (
+                    <div key={cr.key} style={{padding:"10px 12px",borderRadius:8,background:scoreBg(cur),
+                      border:"0.5px solid rgba(41,53,93,.08)"}}>
+                      <div style={{fontSize:10,color:"#808080",marginBottom:4,fontWeight:500}}>{cr.label}</div>
+                      <div style={{fontSize:18,fontWeight:600,color:scoreColor(cur)}}>{fmtPct(cur)}</div>
+                      {qaCompare&&delta!=null&&<div style={{fontSize:10,marginTop:2,fontWeight:600,
+                        color:delta>=0?"#16a34a":"#dc2626"}}>
+                        {delta>=0?"↑":"↓"}{Math.abs(delta).toFixed(1)}pp vs prior
+                      </div>}
+                      {!qaCompare&&cur!=null&&<div style={{marginTop:6,height:3,borderRadius:2,background:"rgba(41,53,93,.08)"}}>
+                        <div style={{height:3,borderRadius:2,background:scoreColor(cur),width:Math.min(cur*100,100)+"%"}}/>
+                      </div>}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* CSM scorecard table */}
+            <div style={S.card}>
+              <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>
+                CSM scorecard — {formatMonthLabel(activeMonth)}{qaCompare&&prevMonth?" vs "+formatMonthLabel(prevMonth):""}
+              </div>
+              <div style={{overflowX:"auto"}}>
+                <table style={{width:"100%",borderCollapse:"collapse",fontSize:11,minWidth:700}}>
+                  <thead><tr>
+                    {[{k:"name",l:"CSM"},{k:"audits",l:"Audits"},{k:"total",l:"Overall"},...criteria.map(c=>({k:c.key,l:c.label}))].map(h=>(
+                      <th key={h.k} onClick={()=>{if(h.k!=="name"){setQaSortCol(h.k);setQaSortDir(d=>d==="asc"?"desc":"asc");}}}
+                        style={{padding:"0 8px 8px 0",textAlign:h.k==="name"?"left":"right",fontSize:10,
+                          textTransform:"uppercase",color:qaSortCol===h.k?"#29355D":"#808080",
+                          fontWeight:qaSortCol===h.k?700:500,borderBottom:"0.5px solid rgba(41,53,93,.08)",
+                          cursor:h.k!=="name"?"pointer":"default",whiteSpace:"nowrap"}}>
+                        {h.l}{qaSortCol===h.k?(qaSortDir==="asc"?" ↑":" ↓"):""}
+                      </th>
+                    ))}
+                  </tr></thead>
+                  <tbody>
+                    {visibleCSMs.map(n=>{
+                      const d = monthData[n]||{};
+                      const p = qaCompare ? (prevData[n]||{}) : null;
+                      return (
+                        <tr key={n} style={{borderBottom:"0.5px solid rgba(41,53,93,.04)"}}>
+                          <td style={{padding:"7px 8px 7px 0",fontWeight:500,whiteSpace:"nowrap"}}>{dispName(n)}</td>
+                          <td style={{padding:"7px 8px 7px 0",textAlign:"right",color:"#808080"}}>{d.audits||"—"}</td>
+                          <td style={{padding:"7px 8px 7px 0",textAlign:"right"}}>
+                            <span style={{fontSize:11,fontWeight:600,padding:"2px 8px",borderRadius:20,
+                              background:scoreBg(d.total),color:scoreColor(d.total)}}>
+                              {fmtPct(d.total)}
+                            </span>
+                            {p&&p.total!=null&&d.total!=null&&<span style={{fontSize:10,marginLeft:4,
+                              color:(d.total-p.total)>=0?"#16a34a":"#dc2626"}}>
+                              {(d.total-p.total)>=0?"↑":"↓"}{Math.abs((d.total-p.total)*100).toFixed(1)}pp
+                            </span>}
+                          </td>
+                          {criteria.map(cr=>{
+                            const v = d.criteria?.[cr.key];
+                            const pv = p?.criteria?.[cr.key];
+                            return (
+                              <td key={cr.key} style={{padding:"7px 8px 7px 0",textAlign:"right"}}>
+                                <span style={{fontSize:10,padding:"1px 6px",borderRadius:20,
+                                  background:scoreBg(v),color:scoreColor(v)}}>
+                                  {fmtPct(v)}
+                                </span>
+                                {qaCompare&&pv!=null&&v!=null&&<div style={{fontSize:9,
+                                  color:(v-pv)>=0?"#16a34a":"#dc2626"}}>
+                                  {(v-pv)>=0?"↑":"↓"}{Math.abs((v-pv)*100).toFixed(1)}pp
+                                </div>}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         );
@@ -3776,6 +4120,8 @@ export default function App() {
   const [liveBobDet, setLiveBobDet] = useState({});
   const [bobAdj, setBobAdj]         = useState({});
   const [callData, setCallData]     = useState({});
+  const [qamc, setQamc]             = useState({});
+  const [qass, setQass]             = useState({});
   const [mcChurn, setMcChurn] = useState({});
   const [bcChurn, setBcChurn] = useState({});
   const [churnAlerts, setChurnAlerts] = useState([]);
@@ -3827,10 +4173,12 @@ export default function App() {
         fetchCSV(CSV_BOB_DET).catch(()=>[]),
         fetchCSV(CSV_BOB_ADJ).catch(()=>[]),
         fetchCSV(CSV_CALLS).catch(()=>[]),
+        fetchCSV(CSV_QA_MC).catch(()=>[]),
+        fetchCSV(CSV_QA_SS).catch(()=>[]),
         fetchCSV(CSV_MC_CHURN).catch(()=>[]),
         fetchCSV(CSV_BC_CHURN).catch(()=>[]),
         fetchCSV(CSV_CHURN_ALERTS).catch(()=>[]),
-      ]).then(([revRows, emailRows, cadRows, dueRows, ontimeRows, historyRows, skippedRows, bobRows, bobDetRows, bobAdjRows, callRows, mcRows, bcRows, churnAlertRows]) => {
+      ]).then(([revRows, emailRows, cadRows, dueRows, ontimeRows, historyRows, skippedRows, bobRows, bobDetRows, bobAdjRows, callRows, qaMcRows, qaSSRows, mcRows, bcRows, churnAlertRows]) => {
         latestEmail   = emailRows;
         latestCad     = cadRows;
         latestDue     = dueRows;
@@ -3841,6 +4189,8 @@ export default function App() {
         latestBobDet      = bobDetRows||[];
         latestBobAdj      = bobAdjRows||[];
         latestCalls       = callRows||[];
+        latestQaMc        = qaMcRows||[];
+        latestQaSs        = qaSSRows||[];
         latestMcChurn     = mcRows;
         latestBcChurn     = bcRows;
         latestChurnAlerts = churnAlertRows;
@@ -3858,6 +4208,8 @@ export default function App() {
         if (bobDetRows&&bobDetRows.length>0) setLiveBobDet(mapBobDet(bobDetRows));
         if (bobAdjRows&&bobAdjRows.length>0) setBobAdj(mapBobAdj(bobAdjRows));
         if (callRows&&callRows.length>0) setCallData(mapCalls(callRows));
+        if (qaMcRows&&qaMcRows.length>0) setQamc(mapQA(qaMcRows,"mc"));
+        if (qaSSRows&&qaSSRows.length>0) setQass(mapQA(qaSSRows,"ss"));
         setMcChurn(mapChurn(mcRows));
         setBcChurn(mapChurn(bcRows));
         setChurnAlerts(mapChurnAlerts(churnAlertRows));
@@ -4238,7 +4590,7 @@ My question: ${aiCustom}`,
           {tab==="activity"&&<ActivityView csms={filteredCSMs}/>}
           {tab==="revenue"&&<RevenueView rawRev={rawRev} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches}/>}
           {tab==="bob"&&<BobView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} churnAlerts={churnAlerts} onSelectCSM={selectCSMFn} liveBobDet={liveBobDet} bobAdj={bobAdj}/>}
-          {tab==="trends"&&<TrendsView history={history} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData}/>}
+          {tab==="trends"&&<TrendsView history={history} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} qamc={qamc} qass={qass}/>}
         </div>
       )}
 
