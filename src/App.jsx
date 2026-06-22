@@ -787,58 +787,49 @@ function mapHistory(rows) {
     k === "snapshot_date" || k === "csm_name" || k === "week_label"
   );
 
-  if (hasHeaders) {
-    return rows.map(r => ({
-      date:         String(r["snapshot_date"] || "").trim(),
-      week:         String(r["week_label"] || r["week"] || "").trim(),
-      name:         String(r["csm_name"]   || "").trim(),
-      coach:        String(r["coach"]      || ""),
-      team:         String(r["team"]       || ""),
-      rev:          pf0(r["revenue"]),
-      mrr:          pf0(r["mrr"]),
-      sent:         pf0(r["emails_sent"]),
-      openRate:     pf(r["open_rate"]),
-      replyRate:    pf(r["reply_rate"]),
-      cadPct:       pf(r["cadence_pct"]),
-      cadTotal:     pf0(r["cadence_total"]),
-      skipped:      pf0(r["skipped_count"]),
-      // optional extras if present
-      overdueCount: pf0(r["overdue_count"]||0),
-      otPct:        pf(r["ontime_pct"]||null),
-      otTotal:      pf0(r["ontime_total"]||0),
-    })).filter(r => r.date && r.name && r.name !== "csm_name");
-  }
-
-  // No header row — positional mapping (A→O = 15 cols):
-  // A=snapshot_date B=week_label C=csm_name D=coach E=team
-  // F=revenue G=mrr H=otr I=nonrev J=emails_sent
-  // K=open_rate L=reply_rate M=cadence_pct N=cadence_total O=skipped_count
-  return rows.map(r => {
-    const vals = Object.values(r);
-    const date = String(vals[0]||"").trim();
-    const name = String(vals[2]||"").trim();
+  // Exact column mapping from Apps Script (20 cols):
+  // 0:snapshot_date 1:week_label 2:csm_name 3:coach 4:team
+  // 5:revenue 6:mrr 7:otr 8:non_rev_ints
+  // 9:emails_sent 10:open_rate 11:reply_rate
+  // 12:cadence_pct 13:cadence_total
+  // 14:overdue_count 15:due_count
+  // 16:ontime_pct 17:ontime_total 18:ontime_count
+  // 19:skipped_count
+  const parseRow = (r, byName) => {
+    const date = String(byName ? r["snapshot_date"] : r[0] || "").trim();
+    const name = String(byName ? r["csm_name"]      : r[2] || "").trim();
     if (!date || !name) return null;
     if (date === "snapshot_date" || name === "csm_name") return null;
     if (!/^\d{4}-\d{2}-\d{2}/.test(date)) return null;
+    const g = (key, idx) => byName ? r[key] : r[idx];
     return {
       date,
-      week:         String(vals[1]||"").trim(),
-      name:         norm(name)||name,
-      coach:        String(vals[3]||""),
-      team:         String(vals[4]||""),
-      rev:          pf0(vals[5]),
-      mrr:          pf0(vals[6]),
-      sent:         pf0(vals[9]),   // J=emails_sent
-      openRate:     pf(vals[10]),   // K=open_rate
-      replyRate:    pf(vals[11]),   // L=reply_rate
-      cadPct:       pf(vals[12]),   // M=cadence_pct
-      cadTotal:     pf0(vals[13]),  // N=cadence_total
-      skipped:      pf0(vals[14]),  // O=skipped_count
-      overdueCount: 0,
-      otPct:        null,
-      otTotal:      0,
+      week:         String(g("week_label",   1) || "").trim(),
+      name:         norm(name) || name,
+      coach:        String(g("coach",        3) || ""),
+      team:         String(g("team",         4) || ""),
+      rev:          pf0(g("revenue",        5)),
+      mrr:          pf0(g("mrr",            6)),
+      sent:         pf0(g("emails_sent",    9)),
+      openRate:     pf(g("open_rate",       10)),
+      replyRate:    pf(g("reply_rate",      11)),
+      cadPct:       pf(g("cadence_pct",     12)),
+      cadTotal:     pf0(g("cadence_total",  13)),
+      overdueCount: pf0(g("overdue_count",  14)),
+      dueCount:     pf0(g("due_count",      15)),
+      otPct:        pf(g("ontime_pct",      16)),
+      otTotal:      pf0(g("ontime_total",   17)),
+      otOnTime:     pf0(g("ontime_count",   18)),
+      skipped:      pf0(g("skipped_count",  19)),
     };
-  }).filter(Boolean);
+  };
+
+  if (hasHeaders) {
+    return rows.map(r => parseRow(r, true)).filter(Boolean);
+  }
+
+  // Positional fallback (no header row)
+  return rows.map(r => parseRow(Object.values(r), false)).filter(Boolean);
 }
 
 // Build per-CSM weekly trend: {csmName: [{week, date, rev, openRate, cadPct, otPct, overdue}]}
