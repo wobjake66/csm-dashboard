@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from "react";
+import imgCrushingIt  from "../crushing_it.png";
+import imgAlmostThere from "../almost_there.png";
+import imgNeedsLove   from "../needs_love.png";
 import * as XLSX from "xlsx";
 
 const PIN = "thryv2025";
@@ -3267,9 +3270,9 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
         </button>
         {/* Image buttons */}
         {[
-          {k:"green",  img:"/crushing_it.png"},
-          {k:"yellow", img:"/almost_there.png"},
-          {k:"red",    img:"/needs_love.png"},
+          {k:"green",  img:imgCrushingIt},
+          {k:"yellow", img:imgAlmostThere},
+          {k:"red",    img:imgNeedsLove},
         ].map(f=>(
           <button key={f.k} onClick={()=>setScoreFilter(scoreFilter===f.k?"all":f.k)}
             style={{padding:0,border:"none",background:"transparent",cursor:"pointer",
