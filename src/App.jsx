@@ -549,6 +549,15 @@ function weekStart(dateStr) {
 function mapCalls(rows) {
   if (!rows || rows.length === 0) return {};
   console.log("[mapCalls] rows:", rows.length, "first keys:", Object.keys(rows[0]));
+  // Log first row field values for debugging
+  if (rows.length > 1) {
+    const r1 = rows[1];
+    console.log("[mapCalls] sample - StaffName:", repr(r1["Staff Name"]),
+      "ServiceName:", repr(r1["Service Name"]),
+      "Status:", repr(r1["Status"]),
+      "ApptTime:", repr(r1["Appointment Time"]));
+  }
+  function repr(v) { return JSON.stringify(v); }
 
   // {csmName: {week: {service: {completed, noShow}}}}
   const by = {};
@@ -566,15 +575,15 @@ function mapCalls(rows) {
     const week = weekStart(apptTime) || apptTime.slice(0,10); // fallback if already a date
     const svc  = normalizeService(svcRaw) || svcRaw || "Other";
 
-    // Determine if completed or no-show
-    const isCompleted = status === "completed" || status === "complete";
-    const isNoShow    = status === "no show"   || status === "no-show" || status === "noshow" || status === "cancelled" || status === "canceled";
-    if (!isCompleted && !isNoShow) return; // skip other statuses
-
+    // Determine if completed or no-show — be permissive with variants
+    const isCompleted = status.includes("complet");
+    const isNoShow    = status.includes("no show") || status.includes("no-show") ||
+                        status.includes("noshow")   || status.includes("cancel");
     // Also support pre-aggregated format (manual entry with completed/no_show columns)
     const preComp   = parseInt(r["completed"]||0);
-    const preNoShow = parseInt(r["no_show"]||0);
-    const isPreAgg  = preComp > 0 || preNoShow > 0;
+    const preNoShow = parseInt(r["no_show"]||r["no show"]||0);
+    const isPreAgg  = !r["Appointment Time"] && (preComp > 0 || preNoShow > 0);
+    if (!isCompleted && !isNoShow && !isPreAgg) return; // skip other statuses
 
     if (!by[csm]) by[csm] = {};
     if (!by[csm][week]) by[csm][week] = {};
