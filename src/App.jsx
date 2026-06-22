@@ -800,25 +800,25 @@ function mapHistory(rows) {
       openRate:     pf(r["open_rate"]),
       replyRate:    pf(r["reply_rate"]),
       cadPct:       pf(r["cadence_pct"]),
-      overdueCount: pf0(r["overdue_count"]),
-      otPct:        pf(r["ontime_pct"]),
-      otTotal:      pf0(r["ontime_total"]),
+      cadTotal:     pf0(r["cadence_total"]),
       skipped:      pf0(r["skipped_count"]),
+      // optional extras if present
+      overdueCount: pf0(r["overdue_count"]||0),
+      otPct:        pf(r["ontime_pct"]||null),
+      otTotal:      pf0(r["ontime_total"]||0),
     })).filter(r => r.date && r.name && r.name !== "csm_name");
   }
 
-  // No header row — positional mapping confirmed from sheet screenshot:
-  // A=date B=week C=name D=coach E=team F=rev G=mrr H=otr I=nonrev
-  // J=emails_sent K=open_rate L=reply_rate M=cadence_pct N=cadence_total
-  // O=overdue_count P=due_count Q=ontime_pct R=ontime_total S=ontime_count T=skipped_count
+  // No header row — positional mapping (A→O = 15 cols):
+  // A=snapshot_date B=week_label C=csm_name D=coach E=team
+  // F=revenue G=mrr H=otr I=nonrev J=emails_sent
+  // K=open_rate L=reply_rate M=cadence_pct N=cadence_total O=skipped_count
   return rows.map(r => {
     const vals = Object.values(r);
     const date = String(vals[0]||"").trim();
     const name = String(vals[2]||"").trim();
-    // Skip header-like rows or empty rows
     if (!date || !name) return null;
     if (date === "snapshot_date" || name === "csm_name") return null;
-    // Validate date looks like a date
     if (!/^\d{4}-\d{2}-\d{2}/.test(date)) return null;
     return {
       date,
@@ -828,18 +828,15 @@ function mapHistory(rows) {
       team:         String(vals[4]||""),
       rev:          pf0(vals[5]),
       mrr:          pf0(vals[6]),
-      // vals[7]=otr, vals[8]=nonrev
-      sent:         pf0(vals[9]),   // emails_sent
-      openRate:     pf(vals[10]),   // open_rate
-      replyRate:    pf(vals[11]),   // reply_rate
-      cadPct:       pf(vals[12]),   // cadence_pct
-      // vals[13]=cadence_total
-      overdueCount: pf0(vals[14]),  // overdue_count
-      // vals[15]=due_count
-      otPct:        pf(vals[16]),   // ontime_pct
-      otTotal:      pf0(vals[17]),  // ontime_total
-      // vals[18]=ontime_count
-      skipped:      pf0(vals[19]),  // skipped_count
+      sent:         pf0(vals[9]),   // J=emails_sent
+      openRate:     pf(vals[10]),   // K=open_rate
+      replyRate:    pf(vals[11]),   // L=reply_rate
+      cadPct:       pf(vals[12]),   // M=cadence_pct
+      cadTotal:     pf0(vals[13]),  // N=cadence_total
+      skipped:      pf0(vals[14]),  // O=skipped_count
+      overdueCount: 0,
+      otPct:        null,
+      otTotal:      0,
     };
   }).filter(Boolean);
 }
