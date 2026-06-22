@@ -565,9 +565,9 @@ function mapCalls(rows) {
   rows.forEach(r => {
     // Support both raw export columns and manual entry columns
     const apptTime  = String(r["Appointment Time"] || r["appointment_time"] || r["week"] || "").trim();
-    const staffRaw  = String(r["Staff Name"]        || r["csm_name"]         || "").trim();
-    const svcRaw    = String(r["Service Name"]      || r["service_type"]     || "").trim();
-    const status    = String(r["Status"]            || "").trim().toLowerCase();
+    const staffRaw  = String(r["Staff Name"]  || r["Staff"] || r["csm_name"] || r["Assigned To"] || "").trim();
+    const svcRaw    = String(r["Service Name"]|| r["Service"]|| r["service_type"] || r["Appointment Type"] || "").trim();
+    const status    = String(r["Status"]      || "").trim().toLowerCase();
 
     if (!staffRaw || !apptTime) return;
 
@@ -575,10 +575,19 @@ function mapCalls(rows) {
     const week = weekStart(apptTime) || apptTime.slice(0,10); // fallback if already a date
     const svc  = normalizeService(svcRaw) || svcRaw || "Other";
 
-    // Determine if completed or no-show — be permissive with variants
-    const isCompleted = status.includes("complet");
-    const isNoShow    = status.includes("no show") || status.includes("no-show") ||
-                        status.includes("noshow")   || status.includes("cancel");
+    // Scan all fields for the appointment status — could be in various columns
+    // The "Status" column in Thryv exports is sometimes customer status, not appt status
+    const allVals = Object.values(r).map(v=>String(v||"").toLowerCase());
+    const hasCompleted = allVals.some(v=>v==="completed"||v==="complete");
+    const hasNoShow    = allVals.some(v=>v==="no show"||v==="no-show"||v==="noshow");
+    // Also check named fields with various possible header names
+    const apptStatus = String(
+      r["Status"]||r["Appointment Status"]||r["status"]||
+      r["Booking Status"]||r["appointment_status"]||""
+    ).toLowerCase().trim();
+    const isCompleted = hasCompleted || apptStatus.includes("complet");
+    const isNoShow    = hasNoShow    || apptStatus.includes("no show") ||
+                        apptStatus.includes("no-show") || apptStatus.includes("noshow");
     // Also support pre-aggregated format (manual entry with completed/no_show columns)
     const preComp   = parseInt(r["completed"]||0);
     const preNoShow = parseInt(r["no_show"]||r["no show"]||0);
