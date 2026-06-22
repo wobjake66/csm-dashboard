@@ -549,16 +549,16 @@ function weekStart(dateStr) {
 function mapCalls(rows) {
   if (!rows || rows.length === 0) return {};
   console.log("[mapCalls] rows:", rows.length, "first keys:", Object.keys(rows[0]));
-  // Log which fields contain completed/no show values
+  // Log ALL field values in first row to find status field
   if (rows.length > 1) {
     const r1 = rows[1];
+    console.log("[mapCalls] ALL fields in row 1:", Object.entries(r1).map(([k,v])=>k+":"+JSON.stringify(String(v||"").substring(0,30))));
     const statusFields = Object.entries(r1).filter(([k,v])=>
       String(v||"").toLowerCase().includes("complet")||
       String(v||"").toLowerCase().includes("no show")||
       String(v||"").toLowerCase().includes("cancel")
     );
     console.log("[mapCalls] status-bearing fields:", statusFields.map(([k,v])=>k+"="+v));
-    console.log("[mapCalls] StaffName:", r1["Staff Name"], "ApptTime:", r1["Appointment Time"]);
   }
 
   // {csmName: {week: {service: {completed, noShow}}}}
@@ -1966,7 +1966,8 @@ function ActivityView({csms}) {
 // ── TRENDS VIEW ────────────────────────────────────────────────────────────
 function TrendsView({history, csms, filterCoach, filterCSM, callData={}}) {
   const [metric, setMetric] = useState("otPct");
-  const [view,   setView]   = useState("team"); // "team" | "csm"
+  const [view,   setView]         = useState("team"); // "team" | "csm"
+  const [trendsTab, setTrendsTab] = useState("performance");
 
   const weeks = getWeeks(history);
   const trends = buildTrends(history);
