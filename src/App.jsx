@@ -612,16 +612,17 @@ function mapQA(rows, type) {
 
   rows.forEach(r => {
     const vals = Object.values(r);
-    const monthRaw = String(r["month"] || r["Month"] || r["MONTH"] || vals[0] || "").trim();
+    // Col A header is blank in the sheet — CSV key will be empty string or undefined
+    const monthRaw = String(r["month"]||r["Month"]||r["MONTH"]||r[""]||r[" "]||vals[0]||"").trim();
     const month = parseMonthKey(monthRaw);
     if (!month) return;
 
-    const csmRaw = String(r["csm_name"] || r["CSM Name"] || r["CSM"] || r["Name"] ||
-      r["Full Name"] || vals[1] || "").trim();
+    const csmRaw = String(r["csm_name"]||r["CSM Name"]||r["CSM"]||r["Name"]||
+      r["Full Name"]||r["CSM name"]||vals[1]||"").trim();
     const csm = norm(csmRaw) || csmRaw;
     if (!csm || csm.length < 2 || csm === month) return;
 
-    const audits = parseInt(r["audits"] || r["Audits"] || r["# of Audits"] || vals[2] || 0) || 0;
+    const audits = parseInt(r["audits"]||r["Audits"]||r["# of Audits"]||r["# of\nAudits"]||vals[2]||0)||0;
     const total  = pf(r["total_achievement"] || r["Total Achievement"] ||
       Object.entries(r).find(([k])=>k.toLowerCase().includes("total")&&k.toLowerCase().includes("achieve"))?.[1] ||
       vals[3] || 0);
