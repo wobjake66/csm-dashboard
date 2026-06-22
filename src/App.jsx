@@ -3011,6 +3011,7 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
   const [period, setPeriod] = React.useState("week");
   const [expanded, setExpanded] = React.useState(null);
   const [aiCopied, setAiCopied] = React.useState(false);
+  const [scoreFilter, setScoreFilter] = React.useState("all");
 
   const PERIODS = [
     {k:"yesterday", l:"Yesterday"},
@@ -3254,6 +3255,28 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
           </button>
         </div>
       </div>
+      {/* Score filters */}
+      {!filterCSM&&<div style={{display:"flex",gap:6,marginBottom:16,flexWrap:"wrap"}}>
+        {[
+          {k:"all",    l:"All CSMs",      bg:"#F4F6FB",  col:"#29355D",  border:"rgba(41,53,93,.2)"},
+          {k:"green",  l:"🟢 Crushing It", bg:"rgba(22,163,74,.1)",  col:"#166534", border:"#16a34a"},
+          {k:"yellow", l:"🟡 Almost There",bg:"rgba(217,119,6,.1)",  col:"#854d0e", border:"#d97706"},
+          {k:"red",    l:"🔴 Needs Love",  bg:"rgba(220,38,38,.1)",  col:"#991b1b", border:"#dc2626"},
+        ].map(f=>(
+          <button key={f.k} onClick={()=>setScoreFilter(scoreFilter===f.k?"all":f.k)}
+            style={{padding:"5px 14px",borderRadius:20,fontSize:12,fontWeight:600,cursor:"pointer",
+              border:"1.5px solid "+(scoreFilter===f.k?f.border:"rgba(41,53,93,.12)"),
+              background:scoreFilter===f.k?f.bg:"#fff",
+              color:scoreFilter===f.k?f.col:"#808080",
+              boxShadow:scoreFilter===f.k?"0 1px 4px rgba(0,0,0,.08)":"none",
+              transition:"all .15s"}}>
+            {f.l}
+          </button>
+        ))}
+        {scoreFilter!="all"&&<span style={{fontSize:11,color:"#808080",alignSelf:"center",marginLeft:4}}>
+          {visibleCSMs.filter(c=>worstScore(buildSignals(c).map(s=>s.score).filter(s=>s!="gray"))===scoreFilter).length} CSMs
+        </span>}
+      </div>}
 
       {aiCopied&&<div style={{marginBottom:16,padding:"10px 16px",borderRadius:10,background:"#29355D",
         color:"#fff",fontSize:12,display:"flex",gap:16,alignItems:"center",flexWrap:"wrap"}}>
@@ -3293,7 +3316,11 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
       {/* CSM tiles (coach view) or single CSM detail */}
       {!filterCSM&&visibleCSMs.length>1
         ? <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:12}}>
-            {visibleCSMs.map(csm=>{
+            {visibleCSMs.filter(csm=>{
+              if (scoreFilter==="all") return true;
+              const sigs = buildSignals(csm);
+              return worstScore(sigs.map(s=>s.score).filter(s=>s!=="gray"))===scoreFilter;
+            }).map(csm=>{
               const sigs = buildSignals(csm);
               const overall = worstScore(sigs.map(s=>s.score).filter(s=>s!=="gray"));
               const isExp = expanded===csm.name;
