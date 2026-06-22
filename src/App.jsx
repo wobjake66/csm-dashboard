@@ -715,12 +715,12 @@ function mapCalls(rows) {
     // The "Status" column in Thryv exports is sometimes customer status, not appt status
     const allVals = Object.values(r).map(v=>String(v||"").toLowerCase());
     const hasCompleted = allVals.some(v=>v==="completed"||v==="complete");
-    const hasNoShow    = allVals.some(v=>v==="no show"||v==="no-show"||v==="noshow");
+    const hasNoShow    = allVals.some(v=>v==="no show"||v==="no-show"||v==="noshow"||v==="cancelled"||v==="canceled");
     // Also check named fields with various possible header names
     const apptStatus = String(r["Appointment Status"]||r["Status"]||r["status"]||"").toLowerCase().trim();
     const isCompleted = apptStatus.includes("complet") || hasCompleted;
     const isNoShow    = apptStatus.includes("no show") || apptStatus.includes("no-show") ||
-                        apptStatus.includes("noshow")   || hasNoShow;
+                        apptStatus.includes("noshow")   || apptStatus.includes("cancel") || hasNoShow;
     // Also support pre-aggregated format (manual entry with completed/no_show columns)
     const preComp   = parseInt(r["completed"]||0);
     const preNoShow = parseInt(r["no_show"]||r["no show"]||0);
