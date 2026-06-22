@@ -2083,12 +2083,17 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
   const [metric, setMetric] = useState("otPct");
   const [view,   setView]         = useState("team"); // "team" | "csm"
   const [trendsTab, setTrendsTab]   = useState("performance");
-  const [callDateFilter, setCallDateFilter] = useState("all"); // all|last_week|last_month|last_quarter|custom
+  const [callDateFilter, setCallDateFilter] = useState("all");
   const [callCustomFrom, setCallCustomFrom] = useState("");
   const [callCustomTo,   setCallCustomTo]   = useState("");
   const [callSelectedCSM, setCallSelectedCSM] = useState(null);
   const [callSelectedSvc, setCallSelectedSvc] = useState(null);
   const [callCompare, setCallCompare]         = useState(false);
+  const [qaType, setQaType]                   = useState("mc");
+  const [qaMonth, setQaMonth]                 = useState(null);
+  const [qaCompare, setQaCompare]             = useState(false);
+  const [qaSortCol, setQaSortCol]             = useState("total");
+  const [qaSortDir, setQaSortDir]             = useState("asc");
 
   const weeks = getWeeks(history);
   const trends = buildTrends(history);
@@ -2768,12 +2773,6 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
         const scoreColor = v => v==null?"#e5e7eb":v>=0.93?"#16a34a":v>=0.80?"#d97706":"#dc2626";
         const scoreBg    = v => v==null?"rgba(0,0,0,.04)":v>=0.93?"rgba(22,163,74,.1)":v>=0.80?"rgba(217,119,6,.1)":"rgba(220,38,38,.1)";
         const fmtPct     = v => v==null?"N/A":(v*100).toFixed(1)+"%";
-
-        const [qaType, setQaType] = React.useState("mc");
-        const [qaMonth, setQaMonth] = React.useState(null);
-        const [qaCompare, setQaCompare] = React.useState(false);
-        const [qaSortCol, setQaSortCol] = React.useState("total");
-        const [qaSortDir, setQaSortDir] = React.useState("asc");
 
         const data = qaType==="mc" ? qamc : qass;
         const criteria = qaType==="mc" ? MC_CRITERIA : SS_CRITERIA;
