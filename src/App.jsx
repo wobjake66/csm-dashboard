@@ -1964,7 +1964,12 @@ function ActivityView({csms}) {
 function TrendsView({history, csms, filterCoach, filterCSM, callData={}}) {
   const [metric, setMetric] = useState("otPct");
   const [view,   setView]         = useState("team"); // "team" | "csm"
-  const [trendsTab, setTrendsTab] = useState("performance");
+  const [trendsTab, setTrendsTab]   = useState("performance");
+  const [callDateFilter, setCallDateFilter] = useState("all"); // all|last_week|last_month|last_quarter|custom
+  const [callCustomFrom, setCallCustomFrom] = useState("");
+  const [callCustomTo,   setCallCustomTo]   = useState("");
+  const [callSelectedCSM, setCallSelectedCSM] = useState(null);
+  const [callSelectedSvc, setCallSelectedSvc] = useState(null);
 
   const weeks = getWeeks(history);
   const trends = buildTrends(history);
@@ -2314,62 +2319,121 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}}) {
 
       {/* ── CALLS TAB ────────────────────────────────────────────────────── */}
       {trendsTab==="calls"&&(()=>{
-        const callWeeks = getCallWeeks(callData);
-        if (callWeeks.length === 0) return (
+        const allCallWeeks = getCallWeeks(callData);
+        if (allCallWeeks.length === 0) return (
           <div style={{...S.card, marginTop:20, textAlign:"center", padding:32}}>
             <div style={{fontSize:28, marginBottom:10}}>📞</div>
             <div style={{fontSize:15, fontWeight:600, color:"#29355D", marginBottom:6}}>No call data yet</div>
             <div style={{fontSize:12, color:"#808080", lineHeight:1.7, maxWidth:400, margin:"0 auto"}}>
-              Create a <strong>calls</strong> tab in your Google Sheet, publish it as CSV,
-              then paste your weekly bookings export directly — no cleanup needed.
+              Paste your weekly bookings export into the <strong>calls</strong> tab — no cleanup needed.
             </div>
           </div>
         );
 
+        // Date filter logic
+        const now = new Date();
+        const toDate = d => new Date(d);
+        const filterWeek = w => {
+          const wd = toDate(w);
+          if (callDateFilter==="last_week") {
+            const wkAgo = new Date(now); wkAgo.setDate(wkAgo.getDate()-7);
+            return wd >= wkAgo;
+          }
+          if (callDateFilter==="last_month") {
+            const moAgo = new Date(now); moAgo.setMonth(moAgo.getMonth()-1);
+            return wd >= moAgo;
+          }
+          if (callDateFilter==="last_quarter") {
+            const qAgo = new Date(now); qAgo.setMonth(qAgo.getMonth()-3);
+            return wd >= qAgo;
+          }
+          if (callDateFilter==="custom" && callCustomFrom && callCustomTo) {
+            return wd >= toDate(callCustomFrom) && wd <= toDate(callCustomTo);
+          }
+          return true; // all
+        };
+        const callWeeks = allCallWeeks.filter(filterWeek);
         const lastCW  = callWeeks[callWeeks.length-1];
         const prevCW  = callWeeks[callWeeks.length-2];
 
-        // Filter CSMs
+        // CSM filter
         const filtNames = csms.filter(c=>{
           const i=lk(c.name);
           if (filterCoach&&(i&&i.c||c.coach)!==filterCoach) return false;
           if (filterCSM&&c.name!==filterCSM) return false;
           return true;
         }).map(c=>c.name);
-
-        // Only CSMs that have call data
-        const callCSMs = filtNames.filter(n=>callData[n]||Object.keys(callData).find(k=>norm(k)===n));
         const resolveCSM = n => callData[n] ? n : Object.keys(callData).find(k=>norm(k)===n)||n;
+        let callCSMs = filtNames.filter(n=>callData[n]||Object.keys(callData).find(k=>norm(k)===n));
 
-        // Org-wide totals for last week
-        const orgTotals = callCSMs.reduce((acc,n)=>{
-          const t = getCallTotals(callData, resolveCSM(n), lastCW);
-          acc.completed += t.completed; acc.noShow += t.noShow; acc.total += t.total;
-          return acc;
-        }, {completed:0, noShow:0, total:0});
-        const orgRate = orgTotals.total>0 ? orgTotals.noShow/orgTotals.total : 0;
+        // Apply selected CSM drill-down
+        if (callSelectedCSM) callCSMs = callCSMs.filter(n=>n===callSelectedCSM||resolveCSM(n)===callSelectedCSM);
 
-        // Service breakdown org-wide
-        const svcTotals = {};
-        callCSMs.forEach(n=>{
-          const wData = (callData[resolveCSM(n)]||{})[lastCW]||{};
-          Object.entries(wData).forEach(([svc,d])=>{
-            if (!svcTotals[svc]) svcTotals[svc]={completed:0,noShow:0};
-            svcTotals[svc].completed += d.completed;
-            svcTotals[svc].noShow   += d.noShow;
+        // Aggregate totals across filtered weeks
+        const aggTotals = (csmList, svcFilter) => {
+          const acc = {completed:0, noShow:0, total:0, bySvc:{}};
+          csmList.forEach(n => {
+            callWeeks.forEach(w => {
+              const wData = (callData[resolveCSM(n)]||{})[w]||{};
+              Object.entries(wData).forEach(([svc,d])=>{
+                if (svcFilter && svc!==svcFilter) return;
+                if (!acc.bySvc[svc]) acc.bySvc[svc]={completed:0,noShow:0};
+                acc.bySvc[svc].completed += d.completed;
+                acc.bySvc[svc].noShow    += d.noShow;
+                acc.completed += d.completed;
+                acc.noShow    += d.noShow;
+              });
+            });
           });
-        });
+          acc.total = acc.completed + acc.noShow;
+          acc.rate  = acc.total>0 ? acc.noShow/acc.total : 0;
+          return acc;
+        };
 
-        const NO_SHOW_GOAL = 0.08; // 8% target
+        const orgTotals = aggTotals(callCSMs, callSelectedSvc);
+        const orgRate   = orgTotals.rate;
+        const NO_SHOW_GOAL = 0.08;
         const rateColor = r => r<=0.05?"#16a34a":r<=0.10?"#d97706":"#dc2626";
+        const svcTotals = orgTotals.bySvc;
 
         return (
           <div style={{marginTop:24}}>
-            {/* Header */}
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16,flexWrap:"wrap",gap:8}}>
+            {/* Header + date filter */}
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,flexWrap:"wrap",gap:8}}>
               <div>
-                <div style={{fontSize:13,fontWeight:600,color:"#29355D"}}>📞 Call Trends</div>
-                <div style={{fontSize:11,color:"#808080"}}>{callWeeks.length} weeks · Latest: {lastCW}{prevCW?" · Prev: "+prevCW:""}</div>
+                <div style={{fontSize:13,fontWeight:600,color:"#29355D"}}>
+                  📞 Call Trends
+                  {callSelectedCSM&&<span style={{marginLeft:8,fontSize:12,color:"#FF5000"}}> — {dispName(callSelectedCSM)}</span>}
+                  {callSelectedSvc&&<span style={{marginLeft:8,fontSize:12,color:"#FF5000"}}> — {callSelectedSvc}</span>}
+                </div>
+                <div style={{fontSize:11,color:"#808080"}}>{callWeeks.length} weeks · Latest: {lastCW}</div>
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                {/* Date filter pills */}
+                {[["all","All"],["last_week","Last week"],["last_month","Last month"],["last_quarter","Last quarter"],["custom","Custom"]].map(([v,l])=>(
+                  <button key={v} onClick={()=>setCallDateFilter(v)}
+                    style={{padding:"4px 10px",borderRadius:20,border:"0.5px solid "+(callDateFilter===v?"#29355D":"rgba(41,53,93,.15)"),
+                      background:callDateFilter===v?"#29355D":"#fff",color:callDateFilter===v?"#fff":"#808080",
+                      fontSize:11,fontWeight:500,cursor:"pointer"}}>
+                    {l}
+                  </button>
+                ))}
+                {/* Custom date pickers */}
+                {callDateFilter==="custom"&&<>
+                  <input type="date" value={callCustomFrom} onChange={e=>setCallCustomFrom(e.target.value)}
+                    style={{padding:"4px 8px",borderRadius:8,border:"0.5px solid rgba(41,53,93,.2)",fontSize:11}}/>
+                  <span style={{fontSize:11,color:"#808080"}}>to</span>
+                  <input type="date" value={callCustomTo} onChange={e=>setCallCustomTo(e.target.value)}
+                    style={{padding:"4px 8px",borderRadius:8,border:"0.5px solid rgba(41,53,93,.2)",fontSize:11}}/>
+                </>}
+                {/* Clear filters */}
+                {(callSelectedCSM||callSelectedSvc)&&(
+                  <button onClick={()=>{setCallSelectedCSM(null);setCallSelectedSvc(null);}}
+                    style={{padding:"4px 10px",borderRadius:20,border:"0.5px solid #FF5000",background:"#fff",
+                      color:"#FF5000",fontSize:11,fontWeight:500,cursor:"pointer"}}>
+                    ✕ Clear filter
+                  </button>
+                )}
               </div>
             </div>
 
@@ -2397,14 +2461,18 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}}) {
                   {Object.entries(svcTotals).sort((a,b)=>(b[1].completed+b[1].noShow)-(a[1].completed+a[1].noShow)).map(([svc,d])=>{
                     const tot=d.completed+d.noShow;
                     const rate=tot>0?d.noShow/tot:0;
+                    const isSelected = callSelectedSvc===svc;
                     return (
-                      <div key={svc} style={{flex:"1 1 160px",padding:"10px 14px",borderRadius:8,
-                        background:"rgba(41,53,93,.04)",border:"0.5px solid rgba(41,53,93,.1)"}}>
-                        <div style={{fontSize:11,fontWeight:600,color:"#29355D",marginBottom:6}}>{svc}</div>
+                      <div key={svc} onClick={()=>setCallSelectedSvc(isSelected?null:svc)}
+                        style={{flex:"1 1 160px",padding:"10px 14px",borderRadius:8,cursor:"pointer",
+                          background:isSelected?"#29355D":"rgba(41,53,93,.04)",
+                          border:"0.5px solid "+(isSelected?"#29355D":"rgba(41,53,93,.1)"),
+                          transition:"all .15s"}}>
+                        <div style={{fontSize:11,fontWeight:600,color:isSelected?"#fff":"#29355D",marginBottom:6}}>{svc}</div>
                         <div style={{display:"flex",justifyContent:"space-between",fontSize:12}}>
-                          <span style={{color:"#16a34a"}}>✓ {d.completed}</span>
-                          <span style={{color:"#dc2626"}}>✗ {d.noShow}</span>
-                          <span style={{fontWeight:600,color:rateColor(rate)}}>{(rate*100).toFixed(0)}%</span>
+                          <span style={{color:isSelected?"#86efac":"#16a34a"}}>✓ {d.completed}</span>
+                          <span style={{color:isSelected?"#fca5a5":"#dc2626"}}>✗ {d.noShow}</span>
+                          <span style={{fontWeight:600,color:isSelected?"#fff":rateColor(rate)}}>{(rate*100).toFixed(0)}%</span>
                         </div>
                       </div>
                     );
@@ -2429,17 +2497,31 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}}) {
                 </tr></thead>
                 <tbody>
                   {callCSMs.sort((a,b)=>{
-                    const ta=getCallTotals(callData,resolveCSM(a),lastCW);
-                    const tb=getCallTotals(callData,resolveCSM(b),lastCW);
+                    const ta=aggTotals([a],callSelectedSvc);
+                    const tb=aggTotals([b],callSelectedSvc);
                     return tb.rate-ta.rate;
                   }).map(n=>{
-                    const t    = getCallTotals(callData, resolveCSM(n), lastCW);
-                    const tp   = prevCW ? getCallTotals(callData, resolveCSM(n), prevCW) : null;
-                    const delta= tp&&tp.total>0&&t.total>0 ? t.rate-tp.rate : null;
+                    const t    = aggTotals([n], callSelectedSvc);
+                    // Week-over-week delta using last two weeks
+                    const tLast = lastCW ? (() => {
+                      const wData = (callData[resolveCSM(n)]||{})[lastCW]||{};
+                      let c=0,ns=0;
+                      Object.entries(wData).forEach(([svc,d])=>{ if(!callSelectedSvc||svc===callSelectedSvc){c+=d.completed;ns+=d.noShow;} });
+                      return {completed:c,noShow:ns,total:c+ns,rate:c+ns>0?ns/(c+ns):0};
+                    })() : null;
+                    const tPrev = prevCW ? (() => {
+                      const wData = (callData[resolveCSM(n)]||{})[prevCW]||{};
+                      let c=0,ns=0;
+                      Object.entries(wData).forEach(([svc,d])=>{ if(!callSelectedSvc||svc===callSelectedSvc){c+=d.completed;ns+=d.noShow;} });
+                      return {completed:c,noShow:ns,total:c+ns,rate:c+ns>0?ns/(c+ns):0};
+                    })() : null;
+                    const delta = tLast&&tPrev&&tLast.total>0&&tPrev.total>0 ? tLast.rate-tPrev.rate : null;
                     if (t.total===0) return null;
+                    const isSelected = callSelectedCSM===n;
                     return (
-                      <tr key={n}>
-                        <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",fontWeight:500}}>{dispName(n)}</td>
+                      <tr key={n} onClick={()=>setCallSelectedCSM(isSelected?null:n)}
+                        style={{cursor:"pointer",background:isSelected?"rgba(41,53,93,.04)":"transparent"}}>
+                        <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",fontWeight:isSelected?700:500,color:isSelected?"#29355D":"inherit"}}>{dispName(n)}</td>
                         <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#16a34a"}}>{t.completed}</td>
                         <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:t.noShow>0?"#dc2626":"#808080"}}>{t.noShow}</td>
                         <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#808080"}}>{t.total}</td>
