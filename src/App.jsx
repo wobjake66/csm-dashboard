@@ -608,7 +608,7 @@ function mapQA(rows, type) {
   const by = {};
 
   // Log first row keys to debug
-  if (rows.length > 0) console.log("[mapQA "+type+"] first row keys:", Object.keys(rows[0]), "values:", Object.values(rows[0]).slice(0,5));
+  if (rows.length > 0) { const r0=rows[0]; console.log("[mapQA "+type+"] ALL keys+vals:", Object.entries(r0).map(([k,v])=>JSON.stringify(k)+":"+JSON.stringify(String(v||"").slice(0,20)))); }
 
   rows.forEach(r => {
     const vals = Object.values(r);
