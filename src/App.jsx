@@ -15,6 +15,7 @@ const CSV_HISTORY = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGw
 const CSV_BOB     = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=729347262&single=true&output=csv"; // book of business billing
 const CSV_BOB_DET = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=873304103&single=true&output=csv"; // book of business detail
 const CSV_BOB_ADJ = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=132587094&single=true&output=csv"; // bob adjustments
+const CSV_CALLS   = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=466716688&single=true&output=csv"; // calls history (raw bookings export)
 const CSV_BC_CHURN= "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=295771282&single=true&output=csv"; // BC churn by coach/rep
 const CSV_MC_CHURN= "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=1002996767&single=true&output=csv"; // MC churn by coach/rep
 const CSV_CHURN_ALERTS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=724984916&single=true&output=csv"; // daily new churn alerts
@@ -517,6 +518,101 @@ function mapChurn(rows) {
     if (canceled > 0 && acct && !by[csm].accts.includes(acct)) by[csm].accts.push(acct);
   });
   return by;
+}
+
+// ── CALLS / BOOKINGS PARSER ────────────────────────────────────────────────
+// Accepts raw Thryv bookings export: Appointment Time, Staff Name, Service Name, Status
+// Groups by CSM + week + service category
+function normalizeService(raw) {
+  const s = (raw||"").toLowerCase();
+  if (s.includes("continuation"))          return "Continuation Call";
+  if (s.includes("kickoff"))               return "Kickoff Call";
+  if (s.includes("set up")||s.includes("setup")||s.includes("onboarding")) return "Set Up Call";
+  if (s.includes("strategy"))              return "Strategy Session";
+  if (s.includes("franchise"))             return "Franchise";
+  if (s.includes("implementation"))        return "Implementation";
+  if (s.includes("keap"))                  return "Keap";
+  if (s.includes("integrated"))            return "Integrated Onboarding";
+  return "Other";
+}
+
+function weekStart(dateStr) {
+  // Returns Monday of the week as YYYY-MM-DD
+  const d = new Date(dateStr);
+  if (isNaN(d)) return null;
+  const day = d.getDay(); // 0=Sun
+  const diff = (day === 0) ? -6 : 1 - day; // back to Monday
+  d.setDate(d.getDate() + diff);
+  return d.toISOString().slice(0,10);
+}
+
+function mapCalls(rows) {
+  if (!rows || rows.length === 0) return {};
+  console.log("[mapCalls] rows:", rows.length, "first keys:", Object.keys(rows[0]));
+
+  // {csmName: {week: {service: {completed, noShow}}}}
+  const by = {};
+
+  rows.forEach(r => {
+    // Support both raw export columns and manual entry columns
+    const apptTime  = String(r["Appointment Time"] || r["appointment_time"] || r["week"] || "").trim();
+    const staffRaw  = String(r["Staff Name"]        || r["csm_name"]         || "").trim();
+    const svcRaw    = String(r["Service Name"]      || r["service_type"]     || "").trim();
+    const status    = String(r["Status"]            || "").trim().toLowerCase();
+
+    if (!staffRaw || !apptTime) return;
+
+    const csm  = norm(staffRaw) || staffRaw;
+    const week = weekStart(apptTime) || apptTime.slice(0,10); // fallback if already a date
+    const svc  = normalizeService(svcRaw) || svcRaw || "Other";
+
+    // Determine if completed or no-show
+    const isCompleted = status === "completed" || status === "complete";
+    const isNoShow    = status === "no show"   || status === "no-show" || status === "noshow" || status === "cancelled" || status === "canceled";
+    if (!isCompleted && !isNoShow) return; // skip other statuses
+
+    // Also support pre-aggregated format (manual entry with completed/no_show columns)
+    const preComp   = parseInt(r["completed"]||0);
+    const preNoShow = parseInt(r["no_show"]||0);
+    const isPreAgg  = preComp > 0 || preNoShow > 0;
+
+    if (!by[csm]) by[csm] = {};
+    if (!by[csm][week]) by[csm][week] = {};
+    if (!by[csm][week][svc]) by[csm][week][svc] = {completed:0, noShow:0};
+
+    if (isPreAgg) {
+      by[csm][week][svc].completed += preComp;
+      by[csm][week][svc].noShow    += preNoShow;
+    } else {
+      if (isCompleted) by[csm][week][svc].completed++;
+      if (isNoShow)    by[csm][week][svc].noShow++;
+    }
+  });
+
+  console.log("[mapCalls] parsed", Object.keys(by).length, "CSMs");
+  return by;
+}
+
+function getCallWeeks(callData) {
+  const weeks = new Set();
+  Object.values(callData).forEach(csmData =>
+    Object.keys(csmData).forEach(w => weeks.add(w))
+  );
+  return [...weeks].sort();
+}
+
+function getCallTotals(callData, csmName, week) {
+  const wData = (callData[csmName]||{})[week] || {};
+  const totals = {completed:0, noShow:0, total:0, byService:{}};
+  Object.entries(wData).forEach(([svc, d]) => {
+    totals.completed += d.completed;
+    totals.noShow    += d.noShow;
+    totals.byService[svc] = {...d, total: d.completed+d.noShow,
+      rate: d.completed+d.noShow > 0 ? d.noShow/(d.completed+d.noShow) : 0};
+  });
+  totals.total = totals.completed + totals.noShow;
+  totals.rate  = totals.total > 0 ? totals.noShow / totals.total : 0;
+  return totals;
 }
 
 function mapBobAdj(rows) {
@@ -1848,7 +1944,7 @@ function ActivityView({csms}) {
 }
 
 // ── TRENDS VIEW ────────────────────────────────────────────────────────────
-function TrendsView({history, csms, filterCoach, filterCSM}) {
+function TrendsView({history, csms, filterCoach, filterCSM, callData={}}) {
   const [metric, setMetric] = useState("otPct");
   const [view,   setView]   = useState("team"); // "team" | "csm"
 
@@ -2179,6 +2275,159 @@ function TrendsView({history, csms, filterCoach, filterCSM}) {
           </table>
         </div>
       )}
+
+      {/* ── CALL TRENDS SECTION ─────────────────────────────────────────── */}
+      {(()=>{
+        const callWeeks = getCallWeeks(callData);
+        if (callWeeks.length === 0) return (
+          <div style={{...S.card, marginTop:20, textAlign:"center", padding:32}}>
+            <div style={{fontSize:28, marginBottom:10}}>📞</div>
+            <div style={{fontSize:15, fontWeight:600, color:"#29355D", marginBottom:6}}>No call data yet</div>
+            <div style={{fontSize:12, color:"#808080", lineHeight:1.7, maxWidth:400, margin:"0 auto"}}>
+              Create a <strong>calls</strong> tab in your Google Sheet, publish it as CSV,
+              then paste your weekly bookings export directly — no cleanup needed.
+            </div>
+          </div>
+        );
+
+        const lastCW  = callWeeks[callWeeks.length-1];
+        const prevCW  = callWeeks[callWeeks.length-2];
+
+        // Filter CSMs
+        const filtNames = csms.filter(c=>{
+          const i=lk(c.name);
+          if (filterCoach&&(i&&i.c||c.coach)!==filterCoach) return false;
+          if (filterCSM&&c.name!==filterCSM) return false;
+          return true;
+        }).map(c=>c.name);
+
+        // Only CSMs that have call data
+        const callCSMs = filtNames.filter(n=>callData[n]||Object.keys(callData).find(k=>norm(k)===n));
+        const resolveCSM = n => callData[n] ? n : Object.keys(callData).find(k=>norm(k)===n)||n;
+
+        // Org-wide totals for last week
+        const orgTotals = callCSMs.reduce((acc,n)=>{
+          const t = getCallTotals(callData, resolveCSM(n), lastCW);
+          acc.completed += t.completed; acc.noShow += t.noShow; acc.total += t.total;
+          return acc;
+        }, {completed:0, noShow:0, total:0});
+        const orgRate = orgTotals.total>0 ? orgTotals.noShow/orgTotals.total : 0;
+
+        // Service breakdown org-wide
+        const svcTotals = {};
+        callCSMs.forEach(n=>{
+          const wData = (callData[resolveCSM(n)]||{})[lastCW]||{};
+          Object.entries(wData).forEach(([svc,d])=>{
+            if (!svcTotals[svc]) svcTotals[svc]={completed:0,noShow:0};
+            svcTotals[svc].completed += d.completed;
+            svcTotals[svc].noShow   += d.noShow;
+          });
+        });
+
+        const NO_SHOW_GOAL = 0.08; // 8% target
+        const rateColor = r => r<=0.05?"#16a34a":r<=0.10?"#d97706":"#dc2626";
+
+        return (
+          <div style={{marginTop:24}}>
+            {/* Header */}
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16,flexWrap:"wrap",gap:8}}>
+              <div>
+                <div style={{fontSize:13,fontWeight:600,color:"#29355D"}}>📞 Call Trends</div>
+                <div style={{fontSize:11,color:"#808080"}}>{callWeeks.length} weeks · Latest: {lastCW}{prevCW?" · Prev: "+prevCW:""}</div>
+              </div>
+            </div>
+
+            {/* Org summary tiles */}
+            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:20}}>
+              {[
+                {l:"Completed",    v:orgTotals.completed, col:"#16a34a"},
+                {l:"No Shows",     v:orgTotals.noShow,    col:"#dc2626"},
+                {l:"Total Calls",  v:orgTotals.total,     col:"#29355D"},
+                {l:"No Show Rate", v:(orgRate*100).toFixed(1)+"%", col:rateColor(orgRate), sub:"Goal: <8%"},
+              ].map(t=>(
+                <div key={t.l} style={{background:"#ECEEF1",borderRadius:8,padding:"12px 14px",borderTop:"2px solid "+t.col}}>
+                  <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>{t.l}</div>
+                  <div style={{fontSize:22,fontWeight:600,color:t.col,lineHeight:1}}>{t.v}</div>
+                  {t.sub&&<div style={{fontSize:10,color:"#808080",marginTop:3}}>{t.sub}</div>}
+                </div>
+              ))}
+            </div>
+
+            {/* Service breakdown */}
+            {Object.keys(svcTotals).length>0&&(
+              <div style={{...S.card,marginBottom:16}}>
+                <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>By service type — {lastCW}</div>
+                <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+                  {Object.entries(svcTotals).sort((a,b)=>(b[1].completed+b[1].noShow)-(a[1].completed+a[1].noShow)).map(([svc,d])=>{
+                    const tot=d.completed+d.noShow;
+                    const rate=tot>0?d.noShow/tot:0;
+                    return (
+                      <div key={svc} style={{flex:"1 1 160px",padding:"10px 14px",borderRadius:8,
+                        background:"rgba(41,53,93,.04)",border:"0.5px solid rgba(41,53,93,.1)"}}>
+                        <div style={{fontSize:11,fontWeight:600,color:"#29355D",marginBottom:6}}>{svc}</div>
+                        <div style={{display:"flex",justifyContent:"space-between",fontSize:12}}>
+                          <span style={{color:"#16a34a"}}>✓ {d.completed}</span>
+                          <span style={{color:"#dc2626"}}>✗ {d.noShow}</span>
+                          <span style={{fontWeight:600,color:rateColor(rate)}}>{(rate*100).toFixed(0)}%</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* CSM table */}
+            <div style={S.card}>
+              <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>
+                CSM call performance — {lastCW}{prevCW?" vs "+prevCW:""}
+              </div>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+                <thead><tr>
+                  <th style={{padding:"0 8px 8px 0",textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>CSM</th>
+                  <th style={{padding:"0 8px 8px 0",textAlign:"right",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>Completed</th>
+                  <th style={{padding:"0 8px 8px 0",textAlign:"right",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>No Shows</th>
+                  <th style={{padding:"0 8px 8px 0",textAlign:"right",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>Total</th>
+                  <th style={{padding:"0 8px 8px 0",textAlign:"right",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>No Show %</th>
+                  <th style={{padding:"0 8px 8px 0",textAlign:"right",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>vs Prior Wk</th>
+                </tr></thead>
+                <tbody>
+                  {callCSMs.sort((a,b)=>{
+                    const ta=getCallTotals(callData,resolveCSM(a),lastCW);
+                    const tb=getCallTotals(callData,resolveCSM(b),lastCW);
+                    return tb.rate-ta.rate;
+                  }).map(n=>{
+                    const t    = getCallTotals(callData, resolveCSM(n), lastCW);
+                    const tp   = prevCW ? getCallTotals(callData, resolveCSM(n), prevCW) : null;
+                    const delta= tp&&tp.total>0&&t.total>0 ? t.rate-tp.rate : null;
+                    if (t.total===0) return null;
+                    return (
+                      <tr key={n}>
+                        <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",fontWeight:500}}>{dispName(n)}</td>
+                        <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#16a34a"}}>{t.completed}</td>
+                        <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:t.noShow>0?"#dc2626":"#808080"}}>{t.noShow}</td>
+                        <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#808080"}}>{t.total}</td>
+                        <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right"}}>
+                          <span style={{fontSize:11,fontWeight:500,padding:"2px 8px",borderRadius:20,
+                            background:t.rate<=0.05?"rgba(22,163,74,.1)":t.rate<=0.10?"rgba(217,119,6,.1)":"rgba(220,38,38,.1)",
+                            color:rateColor(t.rate)}}>{(t.rate*100).toFixed(1)}%</span>
+                        </td>
+                        <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",fontSize:11}}>
+                          {delta!=null
+                            ? <span style={{color:delta<=0?"#16a34a":"#dc2626",fontWeight:500}}>
+                                {delta<=0?"↓":"↑"}{Math.abs(delta*100).toFixed(1)}pp
+                              </span>
+                            : <span style={{color:"#808080"}}>--</span>}
+                        </td>
+                      </tr>
+                    );
+                  }).filter(Boolean)}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -3329,6 +3578,7 @@ export default function App() {
   const [bobRaw,  setBobRaw]  = useState({bob:{},coachTotals:{},grand:null});
   const [liveBobDet, setLiveBobDet] = useState({});
   const [bobAdj, setBobAdj]         = useState({});
+  const [callData, setCallData]     = useState({});
   const [mcChurn, setMcChurn] = useState({});
   const [bcChurn, setBcChurn] = useState({});
   const [churnAlerts, setChurnAlerts] = useState([]);
@@ -3379,10 +3629,11 @@ export default function App() {
         fetchCSV(CSV_BOB).catch(()=>[]),
         fetchCSV(CSV_BOB_DET).catch(()=>[]),
         fetchCSV(CSV_BOB_ADJ).catch(()=>[]),
+        fetchCSV(CSV_CALLS).catch(()=>[]),
         fetchCSV(CSV_MC_CHURN).catch(()=>[]),
         fetchCSV(CSV_BC_CHURN).catch(()=>[]),
         fetchCSV(CSV_CHURN_ALERTS).catch(()=>[]),
-      ]).then(([revRows, emailRows, cadRows, dueRows, ontimeRows, historyRows, skippedRows, bobRows, bobDetRows, bobAdjRows, mcRows, bcRows, churnAlertRows]) => {
+      ]).then(([revRows, emailRows, cadRows, dueRows, ontimeRows, historyRows, skippedRows, bobRows, bobDetRows, bobAdjRows, callRows, mcRows, bcRows, churnAlertRows]) => {
         latestEmail   = emailRows;
         latestCad     = cadRows;
         latestDue     = dueRows;
@@ -3392,6 +3643,7 @@ export default function App() {
         latestBob         = bobRows;
         latestBobDet      = bobDetRows||[];
         latestBobAdj      = bobAdjRows||[];
+        latestCalls       = callRows||[];
         latestMcChurn     = mcRows;
         latestBcChurn     = bcRows;
         latestChurnAlerts = churnAlertRows;
@@ -3408,6 +3660,7 @@ export default function App() {
         setBobRaw(mapBob(bobRows));
         if (bobDetRows&&bobDetRows.length>0) setLiveBobDet(mapBobDet(bobDetRows));
         if (bobAdjRows&&bobAdjRows.length>0) setBobAdj(mapBobAdj(bobAdjRows));
+        if (callRows&&callRows.length>0) setCallData(mapCalls(callRows));
         setMcChurn(mapChurn(mcRows));
         setBcChurn(mapChurn(bcRows));
         setChurnAlerts(mapChurnAlerts(churnAlertRows));
@@ -3788,7 +4041,7 @@ My question: ${aiCustom}`,
           {tab==="activity"&&<ActivityView csms={filteredCSMs}/>}
           {tab==="revenue"&&<RevenueView rawRev={rawRev} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches}/>}
           {tab==="bob"&&<BobView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} churnAlerts={churnAlerts} onSelectCSM={selectCSMFn} liveBobDet={liveBobDet} bobAdj={bobAdj}/>}
-          {tab==="trends"&&<TrendsView history={history} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM}/>}
+          {tab==="trends"&&<TrendsView history={history} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData}/>}
         </div>
       )}
 
