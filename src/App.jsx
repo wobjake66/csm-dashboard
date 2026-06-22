@@ -715,28 +715,31 @@ function mapCalls(rows) {
     // The "Status" column in Thryv exports is sometimes customer status, not appt status
     const allVals = Object.values(r).map(v=>String(v||"").toLowerCase());
     const hasCompleted = allVals.some(v=>v==="completed"||v==="complete");
-    const hasNoShow    = allVals.some(v=>v==="no show"||v==="no-show"||v==="noshow"||v==="cancelled"||v==="canceled");
-    // Also check named fields with various possible header names
+    const hasNoShow    = allVals.some(v=>v==="no show"||v==="no-show"||v==="noshow");
+    const hasCancelled = allVals.some(v=>v==="cancelled"||v==="canceled"||v==="cancellation");
     const apptStatus = String(r["Appointment Status"]||r["Status"]||r["status"]||"").toLowerCase().trim();
-    const isCompleted = apptStatus.includes("complet") || hasCompleted;
-    const isNoShow    = apptStatus.includes("no show") || apptStatus.includes("no-show") ||
-                        apptStatus.includes("noshow")   || apptStatus.includes("cancel") || hasNoShow;
+    const isCompleted  = apptStatus.includes("complet") || hasCompleted;
+    const isNoShow     = (apptStatus.includes("no show")||apptStatus.includes("no-show")||apptStatus.includes("noshow")) || hasNoShow;
+    const isCancelled  = (apptStatus.includes("cancel")) || hasCancelled;
     // Also support pre-aggregated format (manual entry with completed/no_show columns)
     const preComp   = parseInt(r["completed"]||0);
     const preNoShow = parseInt(r["no_show"]||r["no show"]||0);
-    const isPreAgg  = !r["Appointment Time"] && (preComp > 0 || preNoShow > 0);
-    if (!isCompleted && !isNoShow && !isPreAgg) return; // skip other statuses
+    const preCancel = parseInt(r["cancelled"]||r["canceled"]||0);
+    const isPreAgg  = !r["Appointment Time"] && (preComp > 0 || preNoShow > 0 || preCancel > 0);
+    if (!isCompleted && !isNoShow && !isCancelled && !isPreAgg) return;
 
     if (!by[csm]) by[csm] = {};
     if (!by[csm][week]) by[csm][week] = {};
-    if (!by[csm][week][svc]) by[csm][week][svc] = {completed:0, noShow:0};
+    if (!by[csm][week][svc]) by[csm][week][svc] = {completed:0, noShow:0, cancelled:0};
 
     if (isPreAgg) {
-      by[csm][week][svc].completed += preComp;
-      by[csm][week][svc].noShow    += preNoShow;
+      by[csm][week][svc].completed  += preComp;
+      by[csm][week][svc].noShow     += preNoShow;
+      by[csm][week][svc].cancelled  += preCancel;
     } else {
       if (isCompleted) by[csm][week][svc].completed++;
       if (isNoShow)    by[csm][week][svc].noShow++;
+      if (isCancelled) by[csm][week][svc].cancelled++;
     }
   });
 
@@ -754,15 +757,17 @@ function getCallWeeks(callData) {
 
 function getCallTotals(callData, csmName, week) {
   const wData = (callData[csmName]||{})[week] || {};
-  const totals = {completed:0, noShow:0, total:0, byService:{}};
+  const totals = {completed:0, noShow:0, cancelled:0, total:0, byService:{}};
   Object.entries(wData).forEach(([svc, d]) => {
     totals.completed += d.completed;
     totals.noShow    += d.noShow;
-    totals.byService[svc] = {...d, total: d.completed+d.noShow,
+    totals.cancelled += (d.cancelled||0);
+    const svcTotal = d.completed+d.noShow+(d.cancelled||0);
+    totals.byService[svc] = {...d, cancelled:d.cancelled||0, total: svcTotal,
       rate: d.completed+d.noShow > 0 ? d.noShow/(d.completed+d.noShow) : 0};
   });
-  totals.total = totals.completed + totals.noShow;
-  totals.rate  = totals.total > 0 ? totals.noShow / totals.total : 0;
+  totals.total = totals.completed + totals.noShow + totals.cancelled;
+  totals.rate  = totals.completed+totals.noShow > 0 ? totals.noShow/(totals.completed+totals.noShow) : 0;
   return totals;
 }
 
@@ -2510,25 +2515,28 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
 
         // Aggregate for a specific set of weeks
         const aggForWeeks = (csmList, svcFilter, weeks) => {
-          const acc = {completed:0, noShow:0, total:0, bySvc:{}, byCsm:{}};
+          const acc = {completed:0, noShow:0, cancelled:0, total:0, bySvc:{}, byCsm:{}};
           csmList.forEach(n => {
             weeks.forEach(w => {
               const wData = (callData[resolveCSM(n)]||{})[w]||{};
               Object.entries(wData).forEach(([svc,d])=>{
                 if (svcFilter && svc!==svcFilter) return;
-                if (!acc.bySvc[svc]) acc.bySvc[svc]={completed:0,noShow:0};
+                if (!acc.bySvc[svc]) acc.bySvc[svc]={completed:0,noShow:0,cancelled:0};
                 acc.bySvc[svc].completed += d.completed;
                 acc.bySvc[svc].noShow    += d.noShow;
-                if (!acc.byCsm[n]) acc.byCsm[n]={completed:0,noShow:0};
+                acc.bySvc[svc].cancelled += (d.cancelled||0);
+                if (!acc.byCsm[n]) acc.byCsm[n]={completed:0,noShow:0,cancelled:0};
                 acc.byCsm[n].completed   += d.completed;
                 acc.byCsm[n].noShow      += d.noShow;
+                acc.byCsm[n].cancelled   += (d.cancelled||0);
                 acc.completed += d.completed;
                 acc.noShow    += d.noShow;
+                acc.cancelled += (d.cancelled||0);
               });
             });
           });
-          acc.total = acc.completed + acc.noShow;
-          acc.rate  = acc.total>0 ? acc.noShow/acc.total : 0;
+          acc.total = acc.completed + acc.noShow + acc.cancelled;
+          acc.rate  = acc.completed+acc.noShow>0 ? acc.noShow/(acc.completed+acc.noShow) : 0;
           return acc;
         };
 
@@ -2639,10 +2647,10 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
             {/* Org summary tiles */}
             <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:20}}>
               {[
-                {l:"Completed",    cur:orgTotals.completed, prior:priorTotals?.completed, col:"#16a34a", isPct:false},
-                {l:"No Shows",     cur:orgTotals.noShow,    prior:priorTotals?.noShow,    col:"#dc2626", isPct:false},
-                {l:"Total Calls",  cur:orgTotals.total,     prior:priorTotals?.total,     col:"#29355D", isPct:false},
-                {l:"No Show Rate", cur:orgRate,              prior:priorTotals?.rate,      col:rateColor(orgRate), isPct:true, sub:"Goal: <8%"},
+                {l:"Completed",    cur:orgTotals.completed,  prior:priorTotals?.completed, col:"#16a34a", isPct:false},
+                {l:"No Shows",     cur:orgTotals.noShow,     prior:priorTotals?.noShow,    col:"#dc2626", isPct:false},
+                {l:"Cancelled",    cur:orgTotals.cancelled,  prior:priorTotals?.cancelled, col:"#d97706", isPct:false},
+                {l:"No Show Rate", cur:orgRate,               prior:priorTotals?.rate,      col:rateColor(orgRate), isPct:true, sub:"Goal: <8%"},
               ].map(t=>{
                 const d = hasPrior&&t.prior!=null ? (t.isPct?(t.cur-t.prior)*100:(t.cur-t.prior)) : null;
                 return (
@@ -2682,6 +2690,7 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
                         <div style={{display:"flex",justifyContent:"space-between",fontSize:12}}>
                           <span style={{color:isSelected?"#86efac":"#16a34a"}}>✓ {d.completed}</span>
                           <span style={{color:isSelected?"#fca5a5":"#dc2626"}}>✗ {d.noShow}</span>
+                          {(d.cancelled||0)>0&&<span style={{color:isSelected?"#fcd34d":"#d97706"}}>⊘ {d.cancelled}</span>}
                           <span style={{fontWeight:600,color:isSelected?"#fff":rateColor(rate)}}>{(rate*100).toFixed(0)}%</span>
                         </div>
                       </div>
@@ -2701,6 +2710,7 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
                   <th style={{padding:"0 8px 8px 0",textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>CSM</th>
                   <th style={{padding:"0 8px 8px 0",textAlign:"right",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>Completed</th>
                   <th style={{padding:"0 8px 8px 0",textAlign:"right",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>No Shows</th>
+                  <th style={{padding:"0 8px 8px 0",textAlign:"right",fontSize:10,textTransform:"uppercase",color:"#d97706",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>Cancelled</th>
                   <th style={{padding:"0 8px 8px 0",textAlign:"right",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>Total</th>
                   <th style={{padding:"0 8px 8px 0",textAlign:"right",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>No Show %</th>
                   {hasPrior
@@ -2741,6 +2751,7 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
                         <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",fontWeight:isSelected?700:500,color:isSelected?"#29355D":"inherit"}}>{dispName(n)}</td>
                         <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#16a34a"}}>{t.completed}</td>
                         <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:t.noShow>0?"#dc2626":"#808080"}}>{t.noShow}</td>
+                        <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:(t.cancelled||0)>0?"#d97706":"#808080"}}>{t.cancelled||0}</td>
                         <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#808080"}}>{t.total}</td>
                         <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right"}}>
                           <span style={{fontSize:11,fontWeight:500,padding:"2px 8px",borderRadius:20,
