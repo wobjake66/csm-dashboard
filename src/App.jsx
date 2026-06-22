@@ -607,27 +607,42 @@ function mapQA(rows, type) {
   // {month: {csm: {audits, total, criteria...}}}
   const by = {};
 
+  // Log first row keys to debug
+  if (rows.length > 0) console.log("[mapQA "+type+"] first row keys:", Object.keys(rows[0]), "values:", Object.values(rows[0]).slice(0,5));
+
   rows.forEach(r => {
-    const monthRaw = String(r["month"] || r["Month"] || r["MONTH"] || Object.values(r)[0] || "").trim();
+    const vals = Object.values(r);
+    const monthRaw = String(r["month"] || r["Month"] || r["MONTH"] || vals[0] || "").trim();
     const month = parseMonthKey(monthRaw);
     if (!month) return;
 
-    const csmRaw = String(r["csm_name"] || r["CSM Name"] || r["CSM"] || r["Name"] || Object.values(r)[1] || "").trim();
+    const csmRaw = String(r["csm_name"] || r["CSM Name"] || r["CSM"] || r["Name"] ||
+      r["Full Name"] || vals[1] || "").trim();
     const csm = norm(csmRaw) || csmRaw;
     if (!csm || csm.length < 2 || csm === month) return;
 
-    const audits = parseInt(r["audits"] || r["Audits"] || r["# of Audits"] || 0) || 0;
-    const total  = pf(r["total_achievement"] || r["Total Achievement"] || Object.entries(r).find(([k])=>k.toLowerCase().includes("total")&&k.toLowerCase().includes("achieve"))?.[1] || 0);
+    const audits = parseInt(r["audits"] || r["Audits"] || r["# of Audits"] || vals[2] || 0) || 0;
+    const total  = pf(r["total_achievement"] || r["Total Achievement"] ||
+      Object.entries(r).find(([k])=>k.toLowerCase().includes("total")&&k.toLowerCase().includes("achieve"))?.[1] ||
+      vals[3] || 0);
 
     if (!by[month]) by[month] = {};
     const entry = {audits, total, criteria:{}};
-    CRITERIA.forEach(c => {
+    // MC positional: cols 4-10 = criteria; SS positional: cols 4-10 = criteria
+    const criteriaStartCol = 4;
+    CRITERIA.forEach((c, idx) => {
       const key = colMap[c];
-      if (key) entry.criteria[c] = pf(r[key]);
-      else {
-        // Try direct key match
+      if (key) {
+        entry.criteria[c] = pf(r[key]);
+      } else {
+        // Try flexible name match
         const direct = Object.keys(r).find(k => k.toLowerCase().replace(/[^a-z]/g,"").includes(c.replace(/_/g,"")));
-        entry.criteria[c] = direct ? pf(r[direct]) : null;
+        if (direct) {
+          entry.criteria[c] = pf(r[direct]);
+        } else {
+          // Positional fallback
+          entry.criteria[c] = pf(vals[criteriaStartCol + idx]);
+        }
       }
     });
     by[month][csm] = entry;
