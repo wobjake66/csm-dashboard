@@ -1912,6 +1912,128 @@ function TrendsView({history, csms, filterCoach, filterCSM}) {
   const tdStyle = {padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",fontSize:12};
   const tdRStyle = {...tdStyle, textAlign:"right"};
 
+  // Build context string from trend data for AI analysis
+  const buildTrendsContext = () => {
+    const lines = [];
+    const fmt = v => v!=null ? (Math.round(v*100)+"%") : "n/a";
+    const fmtN = v => v!=null ? Math.round(v) : "n/a";
+
+    lines.push("=== TRENDS ANALYSIS — THRYV CSM DASHBOARD ===");
+    lines.push("Weeks available: " + weeks.join(", "));
+    lines.push("Last snapshot: " + lastWeek + (prevWeek ? " | Previous: " + prevWeek : " | No prior week yet"));
+    lines.push("");
+
+    // Team-level summary
+    lines.push("=== TEAM RETENTION TRENDS ===");
+    COACHES.forEach(coach => {
+      const teamCSMs = csmNames.filter(n => { const i=lk(n); return i&&i.c===coach.e; });
+      if (!teamCSMs.length) return;
+      const getTeamAvg = (week, key) => {
+        const vals = teamCSMs.map(n => {
+          const snap = (trends[n]||[]).find(s=>s.week===week);
+          return snap ? snap[key] : null;
+        }).filter(v=>v!=null);
+        return vals.length ? vals.reduce((s,v)=>s+v,0)/vals.length : null;
+      };
+      const last = {
+        ot: getTeamAvg(lastWeek,"otPct"),
+        cad: getTeamAvg(lastWeek,"cadPct"),
+        open: getTeamAvg(lastWeek,"openRate"),
+        rev: getTeamAvg(lastWeek,"rev"),
+        overdue: getTeamAvg(lastWeek,"overdueCount"),
+      };
+      const prev = prevWeek ? {
+        ot: getTeamAvg(prevWeek,"otPct"),
+        cad: getTeamAvg(prevWeek,"cadPct"),
+        open: getTeamAvg(prevWeek,"openRate"),
+      } : null;
+      const delta = (a,b) => a!=null&&b!=null ? (a>b?"↑":"↓") : "";
+      lines.push("COACH: " + coach.n + " (" + teamCSMs.length + " CSMs)");
+      lines.push("  On-time: " + fmt(last.ot) + (prev?" "+delta(last.ot,prev.ot):"") +
+        " | Cadence: " + fmt(last.cad) + (prev?" "+delta(last.cad,prev.cad):"") +
+        " | Email open: " + fmt(last.open) + (prev?" "+delta(last.open,prev.open):"") +
+        " | Overdue: " + fmtN(last.overdue));
+      lines.push("");
+    });
+
+    // CSM-level detail — flag notable trends
+    lines.push("=== CSM TREND HIGHLIGHTS ===");
+    const declining = [], improving = [], consistent = [];
+    csmNames.forEach(name => {
+      const snaps = (trends[name]||[]).filter(s=>weeks.slice(-3).includes(s.week));
+      if (snaps.length < 2) return;
+      const last3ot = snaps.map(s=>s.otPct).filter(v=>v!=null);
+      if (last3ot.length >= 2) {
+        const trend = last3ot[last3ot.length-1] - last3ot[0];
+        const latest = last3ot[last3ot.length-1];
+        if (trend < -0.05) declining.push({name, metric:"on-time", val:fmt(latest), chg:fmt(trend)});
+        else if (trend > 0.05) improving.push({name, metric:"on-time", val:fmt(latest), chg:"+"+fmt(trend)});
+        else if (latest < 0.7) consistent.push({name, note:"consistently low on-time "+fmt(latest)});
+      }
+    });
+    if (declining.length) {
+      lines.push("📉 DECLINING (on-time dropping >5pp):");
+      declining.forEach(d => lines.push("  " + d.name + ": " + d.val + " (" + d.chg + " vs 3wk ago)"));
+    }
+    if (improving.length) {
+      lines.push("📈 IMPROVING (on-time up >5pp):");
+      improving.forEach(d => lines.push("  " + d.name + ": " + d.val + " (+" + d.chg + " vs 3wk ago)"));
+    }
+    if (consistent.length) {
+      lines.push("⚠️  CONSISTENTLY LOW:");
+      consistent.forEach(d => lines.push("  " + d.name + ": " + d.note));
+    }
+    lines.push("");
+
+    // All CSM week-by-week table
+    lines.push("=== FULL CSM WEEKLY DATA (last " + Math.min(weeks.length,4) + " weeks) ===");
+    lines.push("CSM | " + weeks.slice(-4).join(" | ") + " (on-time %)");
+    csmNames.forEach(name => {
+      const vals = weeks.slice(-4).map(w => {
+        const s = (trends[name]||[]).find(x=>x.week===w);
+        return s&&s.otPct!=null ? fmt(s.otPct) : "--";
+      });
+      lines.push(name + " | " + vals.join(" | "));
+    });
+
+    return lines.join("
+");
+  };
+
+  const [trendsAiCopied, setTrendsAiCopied] = useState(false);
+
+  const runTrendsAI = async () => {
+    const ctx = buildTrendsContext();
+    const prompt = \`You are an expert CSM coaching advisor at Thryv. You have been given week-over-week trend data for the CSM team.
+
+Analyze this data and provide:
+1. 📊 TREND SUMMARY — what are the 2-3 most important patterns across the team?
+2. 🚨 CONCERNS — which CSMs or teams are trending in the wrong direction and why might that be?
+3. 📈 BRIGHT SPOTS — who is improving and what might be driving that?
+4. 🎯 COACHING PRIORITIES — based on trends, what should coaches focus on this week?
+5. 📋 RECOMMENDED ACTIONS — 3 specific things to do based on the data
+
+Be specific — cite actual names and numbers. Keep response under 500 words.
+
+Here is the trend data:
+
+\${ctx}\`;
+
+    try {
+      await navigator.clipboard.writeText(prompt);
+    } catch(e) {
+      const el = document.createElement("textarea");
+      el.value = prompt;
+      el.style.position="fixed"; el.style.opacity="0";
+      document.body.appendChild(el);
+      el.focus(); el.select();
+      document.execCommand("copy");
+      document.body.removeChild(el);
+    }
+    setTrendsAiCopied(true);
+    setTimeout(() => setTrendsAiCopied(false), 4000);
+  };
+
   return (
     <div>
       {/* Metric picker + view toggle */}
@@ -1924,15 +2046,30 @@ function TrendsView({history, csms, filterCoach, filterCSM}) {
             </button>
           ))}
         </div>
-        <div style={{display:"flex",gap:4,background:"#ECEEF1",borderRadius:8,padding:3}}>
-          {["team","csm"].map(v=>(
-            <button key={v} onClick={()=>setView(v)}
-              style={{padding:"5px 14px",fontSize:12,fontWeight:500,borderRadius:6,border:"none",background:view===v?"#fff":"transparent",color:view===v?"#29355D":"#808080",cursor:"pointer",boxShadow:view===v?"0 1px 3px rgba(0,0,0,.1)":"none"}}>
-              {v==="team"?"By team":"By CSM"}
-            </button>
-          ))}
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <div style={{display:"flex",gap:4,background:"#ECEEF1",borderRadius:8,padding:3}}>
+            {["team","csm"].map(v=>(
+              <button key={v} onClick={()=>setView(v)}
+                style={{padding:"5px 14px",fontSize:12,fontWeight:500,borderRadius:6,border:"none",background:view===v?"#fff":"transparent",color:view===v?"#29355D":"#808080",cursor:"pointer",boxShadow:view===v?"0 1px 3px rgba(0,0,0,.1)":"none"}}>
+                {v==="team"?"By team":"By CSM"}
+              </button>
+            ))}
+          </div>
+          <button onClick={runTrendsAI}
+            style={{display:"flex",alignItems:"center",gap:6,padding:"7px 14px",borderRadius:8,border:"none",
+              background:trendsAiCopied?"#16a34a":"#FF5000",color:"#fff",
+              fontSize:12,fontWeight:600,cursor:"pointer",transition:"background .3s",whiteSpace:"nowrap"}}>
+            {trendsAiCopied?"✓ Copied — paste into Claude":"🤖 AI Analysis"}
+          </button>
         </div>
       </div>
+      {trendsAiCopied&&<div style={{marginBottom:16,padding:"12px 16px",borderRadius:10,
+        background:"#29355D",color:"#fff",fontSize:13,lineHeight:1.9,display:"flex",alignItems:"center",gap:16,flexWrap:"wrap"}}>
+        <span>📋 <strong>Trend prompt copied!</strong></span>
+        <span>1. Open <a href="https://claude.ai/new" target="_blank" rel="noreferrer" style={{color:"#FF5000",fontWeight:700}}>claude.ai/new</a></span>
+        <span>2. Click message box</span>
+        <span>3. <strong>Ctrl+V</strong> → <strong>Enter</strong></span>
+      </div>}
 
       {/* Summary: last week vs week before */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:12,marginBottom:20}}>
