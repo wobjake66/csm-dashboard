@@ -617,8 +617,7 @@ function mapQA(rows, type) {
     if (!csm || csm.length < 2 || csm === month) return;
 
     const audits = parseInt(r["audits"] || r["Audits"] || r["# of Audits"] || 0) || 0;
-    const total  = pf(r["total_achievement"] || r["Total Achievement"] || r["Total
-Achievement"] || 0);
+    const total  = pf(r["total_achievement"] || r["Total Achievement"] || Object.entries(r).find(([k])=>k.toLowerCase().includes("total")&&k.toLowerCase().includes("achieve"))?.[1] || 0);
 
     if (!by[month]) by[month] = {};
     const entry = {audits, total, criteria:{}};
