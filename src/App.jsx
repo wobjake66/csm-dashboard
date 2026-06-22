@@ -1996,28 +1996,29 @@ function TrendsView({history, csms, filterCoach, filterCSM}) {
       lines.push(name + " | " + vals.join(" | "));
     });
 
-    return lines.join("
-");
+    return lines.join("\n");
   };
 
   const [trendsAiCopied, setTrendsAiCopied] = useState(false);
 
   const runTrendsAI = async () => {
     const ctx = buildTrendsContext();
-    const prompt = \`You are an expert CSM coaching advisor at Thryv. You have been given week-over-week trend data for the CSM team.
-
-Analyze this data and provide:
-1. 📊 TREND SUMMARY — what are the 2-3 most important patterns across the team?
-2. 🚨 CONCERNS — which CSMs or teams are trending in the wrong direction and why might that be?
-3. 📈 BRIGHT SPOTS — who is improving and what might be driving that?
-4. 🎯 COACHING PRIORITIES — based on trends, what should coaches focus on this week?
-5. 📋 RECOMMENDED ACTIONS — 3 specific things to do based on the data
-
-Be specific — cite actual names and numbers. Keep response under 500 words.
-
-Here is the trend data:
-
-\${ctx}\`;
+    const prompt = [
+      "You are an expert CSM coaching advisor at Thryv. You have been given week-over-week trend data for the CSM team.",
+      "",
+      "Analyze this data and provide:",
+      "1. TREND SUMMARY - what are the 2-3 most important patterns across the team?",
+      "2. CONCERNS - which CSMs or teams are trending in the wrong direction and why?",
+      "3. BRIGHT SPOTS - who is improving and what might be driving that?",
+      "4. COACHING PRIORITIES - based on trends, what should coaches focus on this week?",
+      "5. RECOMMENDED ACTIONS - 3 specific things to do based on the data",
+      "",
+      "Be specific - cite actual names and numbers. Keep response under 500 words.",
+      "",
+      "Here is the trend data:",
+      "",
+      ctx,
+    ].join("\n");
 
     try {
       await navigator.clipboard.writeText(prompt);
