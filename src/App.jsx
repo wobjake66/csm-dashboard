@@ -3615,7 +3615,7 @@ export default function App() {
     setStatus("loading");
 
     // Store non-revenue data so revenue polls can reuse it
-    let latestEmail=[], latestCad=[], latestDue=[], latestOntime=[], latestHistory=[], latestSkipped=[], latestBob=[], latestBobDet=[], latestBobAdj=[], latestMcChurn=[], latestBcChurn=[], latestChurnAlerts=[];
+    let latestEmail=[], latestCad=[], latestDue=[], latestOntime=[], latestHistory=[], latestSkipped=[], latestBob=[], latestBobDet=[], latestBobAdj=[], latestCalls=[], latestMcChurn=[], latestBcChurn=[], latestChurnAlerts=[];
 
     function loadAll() {
       return Promise.all([
