@@ -2649,8 +2649,10 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
               {[
                 {l:"Completed",    cur:orgTotals.completed,  prior:priorTotals?.completed, col:"#16a34a", isPct:false},
                 {l:"No Shows",     cur:orgTotals.noShow,     prior:priorTotals?.noShow,    col:"#dc2626", isPct:false},
-                {l:"Cancelled",    cur:orgTotals.cancelled,  prior:priorTotals?.cancelled, col:"#d97706", isPct:false},
-                {l:"No Show Rate", cur:orgRate,               prior:priorTotals?.rate,      col:rateColor(orgRate), isPct:true, sub:"Goal: <8%"},
+                {l:"Cancelled",         cur:orgTotals.cancelled,                    prior:priorTotals?.cancelled,                    col:"#d97706", isPct:false},
+                {l:"No Show Rate",       cur:orgRate,                                prior:priorTotals?.rate,                          col:rateColor(orgRate), isPct:true, sub:"Goal: <8%"},
+                {l:"No Show + Cancelled",cur:orgTotals.noShow+(orgTotals.cancelled||0), prior:(priorTotals?.noShow||0)+(priorTotals?.cancelled||0), col:"#7c3aed", isPct:false},
+                {l:"Combined Rate",      cur:orgTotals.total>0?(orgTotals.noShow+(orgTotals.cancelled||0))/orgTotals.total:0, prior:priorTotals&&priorTotals.total>0?(priorTotals.noShow+(priorTotals.cancelled||0))/priorTotals.total:null, col:"#7c3aed", isPct:true, sub:"No show + cancelled / total"},
               ].map(t=>{
                 const d = hasPrior&&t.prior!=null ? (t.isPct?(t.cur-t.prior)*100:(t.cur-t.prior)) : null;
                 return (
@@ -2713,6 +2715,7 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
                   <th style={{padding:"0 8px 8px 0",textAlign:"right",fontSize:10,textTransform:"uppercase",color:"#d97706",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>Cancelled</th>
                   <th style={{padding:"0 8px 8px 0",textAlign:"right",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>Total</th>
                   <th style={{padding:"0 8px 8px 0",textAlign:"right",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>No Show %</th>
+                  <th style={{padding:"0 8px 8px 0",textAlign:"right",fontSize:10,textTransform:"uppercase",color:"#7c3aed",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)",whiteSpace:"nowrap"}}>NS+Cancel</th>
                   {hasPrior
                     ? <th style={{padding:"0 8px 8px 0",textAlign:"right",fontSize:10,textTransform:"uppercase",color:"#5378FC",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>vs Prior</th>
                     : <th style={{padding:"0 8px 8px 0",textAlign:"right",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>vs Prior Wk</th>}
@@ -2757,6 +2760,9 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
                           <span style={{fontSize:11,fontWeight:500,padding:"2px 8px",borderRadius:20,
                             background:t.rate<=0.05?"rgba(22,163,74,.1)":t.rate<=0.10?"rgba(217,119,6,.1)":"rgba(220,38,38,.1)",
                             color:rateColor(t.rate)}}>{(t.rate*100).toFixed(1)}%</span>
+                        </td>
+                        <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right"}}>
+                          {(()=>{const combined=t.noShow+(t.cancelled||0);const rate=t.total>0?combined/t.total:0;return combined>0?<span style={{fontSize:10,fontWeight:600,color:"#7c3aed"}}>{combined} ({(rate*100).toFixed(0)}%)</span>:<span style={{color:"#808080"}}>—</span>;})()}
                         </td>
                         <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",fontSize:11}}>
                           {hasPrior&&deltaRef!=null&&<div style={{fontSize:10,color:"#808080"}}>{deltaRef.total} calls / {(deltaRef.rate*100).toFixed(1)}%</div>}
