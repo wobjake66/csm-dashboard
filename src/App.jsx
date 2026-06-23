@@ -5094,6 +5094,9 @@ My question: ${aiCustom}`,
   if (!unlocked) return <PinLock onUnlock={user=>{
     setUnlocked(true);
     setUserSession(user);
+    // Check for deep link tab param (e.g. ?tab=digest from email)
+    const _urlTab = new URLSearchParams(window.location.search).get("tab");
+    if (_urlTab) setTab(_urlTab);
     // Auto-filter to this CSM if role=csm
     if (user.role==="csm") setFilterCSM(user.name);
     // Auto-filter to coach's team if role=coach
