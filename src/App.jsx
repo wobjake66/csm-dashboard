@@ -3432,20 +3432,69 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
           visibleCSMs.length>0&&(()=>{
             const csm = visibleCSMs[0];
             const sigs = buildSignals(csm);
-            const overall = worstScore(sigs.map(s=>s.score).filter(s=>s!=="gray"));
+            const leg = isLegend(csm);
+            const overall = leg ? "legend" : worstScore(sigs.map(s=>s.score).filter(s=>s!=="gray"));
+            const scoreImg = overall==="legend"?imgLegend:overall==="green"?imgCrushingIt:overall==="yellow"?imgAlmostThere:imgNeedsLove;
+            const scoreMsg = overall==="legend"?"Leave some wins for the rest of us":overall==="green"?"Strong performance this period":overall==="yellow"?"Some areas need attention":"Immediate attention needed";
+
+            // Build coaching notes
+            const goodNotes = [], coachNotes = [];
+            sigs.forEach(s => {
+              if (s.score==="green"||s.score==="legend") {
+                if (s.key==="rev"&&csm.rev>0)     goodNotes.push("Revenue added this period — "+fd(csm.rev)+" MRR");
+                if (s.key==="cad"&&csm.dueCount>0) goodNotes.push("All cadence tasks completed on time");
+                if (s.key==="calls")               goodNotes.push("Call no-show rate on target");
+                if (s.key==="qa")                  goodNotes.push("QA scores above goal — "+s.value);
+                if (s.key==="ret"&&csm.bobRet>=0.95) goodNotes.push("Exceptional retention at "+pp(csm.bobRet));
+              }
+              if (s.score==="red"||s.score==="yellow") {
+                if (s.key==="cad"&&csm.overdueCount>0)    coachNotes.push(csm.overdueCount+" overdue cadence task"+(csm.overdueCount>1?"s":"")+" — review account engagement");
+                if (s.key==="cad"&&(skippedCSMs.find(sk=>sk.name===csm.name)?.skippedCount||0)>0) {
+                  const sk = skippedCSMs.find(s=>s.name===csm.name);
+                  coachNotes.push(sk.skippedCount+" skipped cadence"+(sk.skippedFourthCount>0?" (includes 4th reschedule — escalate)":""));
+                }
+                if (s.key==="ret"&&csm.bobRet<0.91)       coachNotes.push("Retention below 91% goal at "+pp(csm.bobRet)+" — review billing changes");
+                if (s.key==="calls") {
+                  const csmCallKey=Object.keys(callData).find(k=>norm(k)===csm.name||k===csm.name);
+                  if (csmCallKey) {
+                    let ns=0; Object.values(callData[csmCallKey]||{}).forEach(w=>Object.values(w).forEach(d=>ns+=d.noShow));
+                    if (ns>0) coachNotes.push(ns+" no-show call"+(ns>1?"s":"")+" this period — discuss follow-up process");
+                  }
+                }
+                if (s.key==="qa")                          coachNotes.push("QA below goal — focus areas: "+(s.detail||[]).filter(d=>d.score==="red").map(d=>d.name).slice(0,3).join(", "));
+                if (s.key==="rev"&&csm.rev===0)            coachNotes.push("No revenue submitted this period — review pipeline");
+              }
+            });
+            // Cross-ref notes
+            const xref = sigs.find(s=>s.key==="xref");
+            if (xref) (xref.detail||[]).filter(d=>d.score==="red").forEach(d=>coachNotes.push(d.name+": "+d.note));
+
             return (
               <div>
-                <div style={{...S.card,marginBottom:16,borderLeft:"4px solid "+scoreColor(overall)}}>
-                  <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:6}}>
-                    <div style={{fontSize:28}}>{scoreDot(overall)}</div>
-                    <div>
-                      <div style={{fontSize:16,fontWeight:700,color:"#29355D"}}>{dispName(csm.name)}</div>
-                      <div style={{fontSize:11,color:"#808080"}}>
-                        {overall==="green"?"Strong performance this period":overall==="yellow"?"Some areas need attention":"Immediate attention needed"}
-                      </div>
-                    </div>
+                {/* Score image banner */}
+                <div style={{marginBottom:16,borderRadius:12,overflow:"hidden",position:"relative"}}>
+                  <img src={scoreImg} alt={overall}
+                    style={{width:"100%",maxHeight:100,objectFit:"cover",objectPosition:"center",display:"block"}}/>
+                  <div style={{position:"absolute",bottom:0,left:0,right:0,background:"linear-gradient(transparent,rgba(0,0,0,.5))",
+                    padding:"8px 16px",display:"flex",alignItems:"center",gap:10}}>
+                    <div style={{fontSize:14,fontWeight:700,color:"#fff",textShadow:"0 1px 3px rgba(0,0,0,.5)"}}>{dispName(csm.name)}</div>
+                    <div style={{fontSize:11,color:"rgba(255,255,255,.85)",textShadow:"0 1px 3px rgba(0,0,0,.5)"}}>{scoreMsg}</div>
                   </div>
                 </div>
+
+                {/* Coaching notes */}
+                {(goodNotes.length>0||coachNotes.length>0)&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
+                  {goodNotes.length>0&&<div style={{background:"rgba(22,163,74,.06)",borderRadius:10,padding:"12px 14px",
+                    border:"0.5px solid rgba(22,163,74,.2)"}}>
+                    <div style={{fontSize:11,fontWeight:700,color:"#166534",textTransform:"uppercase",marginBottom:8,letterSpacing:".04em"}}>✓ What's Working</div>
+                    {goodNotes.map((n,i)=><div key={i} style={{fontSize:12,color:"#166534",padding:"3px 0",borderBottom:i<goodNotes.length-1?"0.5px solid rgba(22,163,74,.1)":"none"}}>{n}</div>)}
+                  </div>}
+                  {coachNotes.length>0&&<div style={{background:"rgba(220,38,38,.06)",borderRadius:10,padding:"12px 14px",
+                    border:"0.5px solid rgba(220,38,38,.2)"}}>
+                    <div style={{fontSize:11,fontWeight:700,color:"#991b1b",textTransform:"uppercase",marginBottom:8,letterSpacing:".04em"}}>⚡ Coaching Focus</div>
+                    {coachNotes.map((n,i)=><div key={i} style={{fontSize:12,color:"#991b1b",padding:"3px 0",borderBottom:i<coachNotes.length-1?"0.5px solid rgba(220,38,38,.1)":"none"}}>{n}</div>)}
+                  </div>}
+                </div>}
                 {sigs.filter(s=>s.score!=="gray").map(s=>(
                   <div key={s.key} style={{...S.card,marginBottom:12,borderLeft:"3px solid "+scoreColor(s.score)}}>
                     <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:(s.detail&&s.detail.length>0)?10:0}}>
