@@ -4707,6 +4707,9 @@ export default function App() {
   }, [unlocked]);
 
   // Build rich data context scoped to current filter
+  // getDet available at App level for buildContext and DigestView
+  const getDet = n => liveBobDet[n]||liveBobDet[norm(n)]||BOB_DETAIL[n]||BOB_DETAIL[norm(n)]||{};
+
   function buildContext() {
     const lines = [];
     const scope = filterCSM ? "CSM" : filterCoach ? "coach_team" : filterManager ? "manager_org" : "full_team";
