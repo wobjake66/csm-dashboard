@@ -2,8 +2,7 @@ import React, { useState, useEffect } from "react";
 import imgCrushingIt  from "../crushing_it.png";
 import imgAlmostThere from "../almost_there.png";
 import imgNeedsLove   from "../needs_love.png";
-// legend_status.png loaded dynamically
-const imgLegend = "/legend status.png";
+import imgLegend from "../legend_status.png";
 import * as XLSX from "xlsx";
 
 const PIN = "thryv2025";
@@ -3291,7 +3290,7 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
         </div>
       </div>
       {/* Score filters */}
-      {!filterCSM&&<div style={{display:"flex",gap:10,marginBottom:20,flexWrap:"wrap",alignItems:"center"}}>
+      {!filterCSM&&<div style={{display:"flex",gap:8,marginBottom:20,flexWrap:"wrap",alignItems:"center"}}>
         {/* All CSMs pill */}
         <button onClick={()=>setScoreFilter("all")}
           style={{padding:"6px 16px",borderRadius:20,fontSize:12,fontWeight:600,cursor:"pointer",
@@ -3308,20 +3307,14 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
           {k:"red",    img:imgNeedsLove},
         ].map(f=>(
           <button key={f.k} onClick={()=>setScoreFilter(scoreFilter===f.k?"all":f.k)}
-            style={{padding:0,border:"none",background:"transparent",cursor:"pointer",
-              borderRadius:12,overflow:"hidden",
+            style={{padding:0,border:scoreFilter===f.k?"2px solid "+( f.k==="legend"?"#7c3aed":f.k==="green"?"#16a34a":f.k==="yellow"?"#d97706":"#dc2626"):"2px solid transparent",
+              background:"transparent",cursor:"pointer",borderRadius:10,overflow:"hidden",
               opacity:scoreFilter!=="all"&&scoreFilter!==f.k?0.45:1,
-              transform:scoreFilter===f.k?"scale(1.04)":"scale(1)",
-              boxShadow:scoreFilter===f.k?"0 4px 16px rgba(0,0,0,.18)":"0 1px 4px rgba(0,0,0,.08)",
-              transition:"all .2s"}}>
-            {f.img
-              ? <img src={f.img} alt={f.k} onError={e=>{e.target.style.display="none";e.target.nextSibling.style.display="block";}}
-                  style={{display:"block",height:52,width:"auto",maxWidth:220,objectFit:"cover"}}/>
-              : null}
-            <span style={{display:f.img?"none":"block",padding:"8px 16px",fontSize:12,fontWeight:700,
-              color:f.k==="legend"?"#7c3aed":f.k==="green"?"#166534":f.k==="yellow"?"#854d0e":"#991b1b"}}>
-              {f.label||f.k}
-            </span>
+              transform:scoreFilter===f.k?"scale(1.05)":"scale(1)",
+              boxShadow:scoreFilter===f.k?"0 4px 16px rgba(0,0,0,.2)":"0 1px 4px rgba(0,0,0,.08)",
+              transition:"all .2s",flexShrink:0}}>
+            <img src={f.img} alt={f.label||f.k}
+              style={{display:"block",height:48,width:200,objectFit:"cover",objectPosition:"center"}}/>
           </button>
         ))}
         {scoreFilter!=="all"&&<span style={{fontSize:12,fontWeight:600,color:"#808080",marginLeft:4}}>
