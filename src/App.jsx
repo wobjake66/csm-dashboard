@@ -3033,25 +3033,25 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
   const scoreEmoji = s => s==="legend"?"★":s==="green"?"✓":s==="yellow"?"⚠":s==="red"?"✗":"—";
 
   const worstScore = scores => {
-    if (scores.includes("red")) return "red";
-    if (scores.includes("yellow")) return "yellow";
-    if (scores.some(s=>s==="green")) return "green";
+    const reds    = scores.filter(s=>s==="red").length;
+    const yellows = scores.filter(s=>s==="yellow").length;
+    const greens  = scores.filter(s=>s==="green"||s==="legend").length;
+    if (reds >= 2) return "red";                          // 2+ reds = Needs Love
+    if (reds === 1 || yellows > 0) return "yellow";       // 1 red or any yellow = Almost There
+    if (greens > 0 && reds === 0 && yellows === 0) {
+      if (scores.some(s=>s==="legend")) return "legend";  // all good + legend signal = Legend
+      return "green";                                     // all green = Crushing It
+    }
     return "gray";
   };
 
   const isLegend = csm => {
     const sigs = buildSignals(csm);
     const scores = sigs.map(s=>s.score).filter(s=>s!=="gray");
-    if (scores.some(s=>s!=="green")) return false; // must be all green
-    const ret = csm.bobRet;
-    if (ret!=null && ret < 0.95) return false;     // retention >= 95%
-    if (csm.overdueCount > 0) return false;         // no overdue
-    const skipped = skippedCSMs.find(s=>s.name===csm.name);
-    if (skipped && skipped.skippedCount > 0) return false; // no skipped
-    // On-time >= 90% from latest snapshot
-    const snap = (history||[]).filter(h=>h.name===csm.name||norm(h.name)===csm.name).sort((a,b)=>a.date>b.date?1:-1).slice(-1)[0];
-    if (snap?.otPct!=null && snap.otPct < 0.90) return false;
-    return true;
+    // Must have no red or yellow signals
+    if (scores.some(s=>s==="red"||s==="yellow")) return false;
+    // Must have at least one legend signal
+    return scores.some(s=>s==="legend");
   };
 
   // ── Per-CSM signal builder ──────────────────────────────────────────────
@@ -3092,8 +3092,10 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
         hasSkipped  ? skippedForCSM.skippedCount+" skipped yesterday" : null,
       ].filter(Boolean).join(" · ");
     } else {
-      cadScore = "green";
-      cadValue = csm.dueCount+" tasks due, all clear";
+      // Legend: tasks due, all clear AND on-time trending >= 95%
+      const otLegend = latestSnap?.otPct!=null && latestSnap.otPct >= 0.95;
+      cadScore = otLegend ? "legend" : "green";
+      cadValue = csm.dueCount+" tasks due, all clear"+(otLegend?" · "+pp(latestSnap.otPct)+" on-time":"");
     }
 
     const cadDetail = [
@@ -3133,7 +3135,8 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
     });
 
     // ── REVENUE ──
-    const revScore = csm.rev>0?"green":csm.bobNet<0?"red":"yellow";
+    // Legend: MRR added AND positive net billing (actually growing BOB)
+    const revScore = csm.rev>0&&(csm.bobNet||0)>0?"legend":csm.rev>0?"green":csm.bobNet<0?"red":"yellow";
     const revDetail = [];
     if (csm.accts) csm.accts.slice(0,3).forEach(a=>{
       if (a.m>0) revDetail.push({name:a.b, note:"MRR "+fd(a.m), score:"green"});
@@ -3149,7 +3152,7 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
     signals.push({
       key:"rev", label:"Revenue",
       score: revScore,
-      value: csm.rev>0 ? fd(csm.rev)+" MRR added today" : csm.bobBoq>0 ? "No revenue today · QTD: "+fd(csm.bobLcm) : "No revenue data",
+      value: revScore==="legend" ? fd(csm.rev)+" MRR added · BOB growing" : csm.rev>0 ? fd(csm.rev)+" MRR added today" : csm.bobBoq>0 ? "No revenue today · QTD: "+fd(csm.bobLcm) : "No revenue data",
       detail: revDetail,
     });
 
@@ -3166,8 +3169,9 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
       });
       const total=comp+ns+can;
       const nsRate=comp+ns>0?ns/(comp+ns):0;
-      callScore = total===0?"gray":nsRate<=0.08?"green":nsRate<=0.15?"yellow":"red";
-      callValue = total>0 ? comp+" completed · "+ns+" no-show · "+can+" cancelled" : "No calls this period";
+      // Legend: 0 no-shows AND 0 cancelled (perfect period)
+      callScore = total===0?"gray":ns===0&&can===0?"legend":nsRate<=0.08?"green":nsRate<=0.15?"yellow":"red";
+      callValue = callScore==="legend" ? comp+" completed · 0 no-shows · 0 cancelled — perfect!" : total>0 ? comp+" completed · "+ns+" no-show · "+can+" cancelled" : "No calls this period";
       callWeeks.forEach(w=>{
         Object.entries(callData[csmCallKey][w]||{}).forEach(([svc,d])=>{
           if (d.noShow>0) callDetail.push({name:svc, note:d.noShow+" no-show", score:"red"});
@@ -3189,7 +3193,9 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
     if (mcEntry||ssEntry) {
       const scores=[mcEntry?.total,ssEntry?.total].filter(v=>v!=null);
       const avg=scores.length?scores.reduce((s,v)=>s+v,0)/scores.length:null;
-      qaScore=avg==null?"gray":avg>=0.93?"green":avg>=0.80?"yellow":"red";
+      // Legend: both MC and SS >= 95% (if both exist), or single report >= 95%
+      const allAbove95 = scores.length>0 && scores.every(s=>s>=0.95);
+      qaScore=avg==null?"gray":allAbove95?"legend":avg>=0.93?"green":avg>=0.80?"yellow":"red";
       qaValue=[mcEntry?"MC: "+pp(mcEntry.total):null,ssEntry?"S&S: "+pp(ssEntry.total):null].filter(Boolean).join(" · ")||"No QA data";
       if (mcEntry?.criteria) Object.entries(mcEntry.criteria).forEach(([k,v])=>{if(v!=null&&v<0.80)qaDetail.push({name:k.replace(/_/g," "),note:pp(v)+" MC",score:"red"});});
       if (ssEntry?.criteria) Object.entries(ssEntry.criteria).forEach(([k,v])=>{if(v!=null&&v<0.80)qaDetail.push({name:k.replace(/_/g," "),note:pp(v)+" S&S",score:"red"});});
