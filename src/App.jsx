@@ -3495,18 +3495,26 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
                     {coachNotes.map((n,i)=><div key={i} style={{fontSize:12,color:"#991b1b",padding:"3px 0",borderBottom:i<coachNotes.length-1?"0.5px solid rgba(220,38,38,.1)":"none"}}>{n}</div>)}
                   </div>}
                 </div>}
-                {/* BOB Summary Card — apply bobAdj if present */}
-                {csm.bobBoq>0&&(()=>{
+                {/* BOB Summary Card — use bobRaw directly for accuracy */}
+                {(()=>{
+                  // Prefer bobRaw.bob (live sheet) over buildCSMs data (may use stale BOB_CSMS)
+                  const liveKey = bobRaw&&bobRaw.bob ? Object.keys(bobRaw.bob).find(k=>norm(k)===csm.name||k===csm.name) : null;
+                  const liveBob = liveKey ? bobRaw.bob[liveKey] : null;
+                  const rawBoq = liveBob ? liveBob.boq : csm.bobBoq;
+                  const rawLcm = liveBob ? liveBob.lcm : csm.bobLcm;
+                  const rawNet = liveBob ? liveBob.net : csm.bobNet;
+                  if (!rawBoq || rawBoq===0) return null;
                   const adjKey = bobAdj ? Object.keys(bobAdj).find(k=>norm(k)===csm.name||k===csm.name) : null;
                   const lcmDelta = adjKey ? bobAdj[adjKey].lcmDelta : 0;
-                  const adjLcm = (csm.bobLcm||0) + lcmDelta;
-                  const adjNet = (csm.bobNet||0) + lcmDelta;
-                  const adjRet = csm.bobBoq>0 ? adjLcm/csm.bobBoq : csm.bobRet;
-                  return <div style={{...S.card,marginBottom:12,borderLeft:"3px solid "+(adjRet>=0.91?"#16a34a":adjRet>=0.88?"#d97706":"#dc2626")}}>
+                  const adjLcm = (rawLcm||0) + lcmDelta;
+                  const adjNet = (rawNet||0) + lcmDelta;
+                  const adjRet = rawBoq>0 ? adjLcm/rawBoq : null;
+                  const csm_bobBoq = rawBoq;
+                  return <div style={{...S.card,marginBottom:12,borderLeft:"3px solid "+(adjRet!=null?(adjRet>=0.91?"#16a34a":adjRet>=0.88?"#d97706":"#dc2626"):"#808080")}}>
                   <div style={{fontSize:13,fontWeight:600,color:"#29355D",marginBottom:10}}>📊 Book of Business — This Quarter</div>
                   <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:csm.churnedAccts?.length>0?12:0}}>
                     {[
-                      {l:"BOQ",         v:fd(csm.bobBoq), col:"#29355D"},
+                      {l:"BOQ",         v:fd(csm_bobBoq), col:"#29355D"},
                       {l:"Current",     v:fd(adjLcm),     col:"#5378FC"},
                       {l:"Net Change",  v:fd(adjNet),     col:adjNet>=0?"#16a34a":"#dc2626"},
                       {l:"Retention",   v:adjRet!=null?pp(adjRet):"—", col:adjRet>=0.91?"#16a34a":adjRet>=0.88?"#d97706":"#dc2626"},
