@@ -2,7 +2,8 @@ import React, { useState, useEffect } from "react";
 import imgCrushingIt  from "../crushing_it.png";
 import imgAlmostThere from "../almost_there.png";
 import imgNeedsLove   from "../needs_love.png";
-import imgLegend = "/legend_status.png";
+// legend_status.png loaded dynamically
+const imgLegend = "/legend status.png";
 import * as XLSX from "xlsx";
 
 const PIN = "thryv2025";
