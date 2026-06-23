@@ -3164,7 +3164,7 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
     signals.push({
       key:"rev", label:"Revenue",
       score: revScore,
-      value: revScore==="legend" ? fd(csm.rev)+" MRR added · BOB growing" : csm.rev>0 ? fd(csm.rev)+" MRR added today" : csm.bobBoq>0 ? "No revenue today · QTD: "+fd(csm.bobLcm) : "No revenue data",
+      value: revScore==="legend" ? fd(csm.rev)+" MRR added QTD · BOB growing" : csm.rev>0 ? fd(csm.rev)+" MRR added QTD" : liveBoq>0 ? "No revenue QTD · BOB: "+fd(liveLcm) : "No revenue data",
       detail: revDetail,
     });
 
