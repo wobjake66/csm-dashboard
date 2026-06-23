@@ -3153,11 +3153,11 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
     if (csm.accts) csm.accts.slice(0,3).forEach(a=>{
       if (a.m>0) revDetail.push({name:a.b, note:"MRR "+fd(a.m), score:"green"});
     });
-    // QTD BOB context
-    if (csm.bobBoq>0) revDetail.push({
+    // QTD BOB context — use live bobRaw to match BOB card
+    if (liveBoq>0) revDetail.push({
       name:"Quarter BOB",
-      note: fd(csm.bobBoq)+" BOQ → "+fd(csm.bobLcm)+" current"+(csm.bobRet!=null?" ("+pp(csm.bobRet)+" retention)":""),
-      score: csm.bobRet>=0.91?"green":csm.bobRet>=0.88?"yellow":"red",
+      note: fd(liveBoq)+" BOQ → "+fd(liveLcm)+" current"+(liveRet!=null?" ("+pp(liveRet)+" retention)":""),
+      score: liveRet>=0.91?"green":liveRet>=0.85?"yellow":"red",
       isTrend:true,
     });
     (det.d||[]).slice(0,2).forEach(r=>revDetail.push({name:r.a||r.e, note:fd(r.n)+" "+r.l, score:"red"}));
