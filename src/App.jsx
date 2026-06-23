@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
-import imgCrushingIt  from "../crushing_it.png";
-import imgAlmostThere from "../almost_there.png";
-import imgNeedsLove   from "../needs_love.png";
-import imgLegend from "../legend_status.png";
+const imgCrushingIt  = "https://csm-dashboard-gamma.vercel.app/crushing_it.png";
+const imgAlmostThere = "https://csm-dashboard-gamma.vercel.app/almost_there.png";
+const imgNeedsLove   = "https://csm-dashboard-gamma.vercel.app/needs_love.png";
+const imgLegend      = "https://csm-dashboard-gamma.vercel.app/legend_status.png";
 import * as XLSX from "xlsx";
 
 const PIN = "thryv2025";
