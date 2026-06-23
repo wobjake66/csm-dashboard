@@ -3080,22 +3080,34 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
     const hasSkipped  = skippedForCSM && skippedForCSM.skippedCount > 0;
     const has4th      = skippedForCSM && skippedForCSM.skippedFourthCount > 0;
 
+    // On-time % from latest snapshot — always factors in
+    const otPct = latestSnap?.otPct != null ? latestSnap.otPct : null;
+    const otScore = otPct==null ? null : otPct>=0.95?"legend":otPct>=0.85?"green":otPct>=0.70?"yellow":"red";
+
     let cadScore, cadValue;
     if (!hasDueTasks && !hasOverdue && !hasSkipped) {
-      cadScore = "green";
-      cadValue = "No tasks due — neutral";
+      // Nothing due yesterday — but still check on-time trend
+      if (otScore==="red")    { cadScore="red";    cadValue="No tasks due · on-time trending "+pp(otPct)+" — needs attention"; }
+      else if (otScore==="yellow") { cadScore="yellow"; cadValue="No tasks due · on-time trending "+pp(otPct); }
+      else if (otScore==="legend") { cadScore="legend"; cadValue="No tasks due · on-time "+pp(otPct)+" — excellent"; }
+      else                     { cadScore="green";  cadValue="No tasks due — neutral"+(otPct!=null?" · "+pp(otPct)+" on-time":""); }
     } else if (hasOverdue || hasSkipped) {
-      cadScore = (has4th || csm.overdueCount >= 3) ? "red" : "yellow";
+      // Has issues — use the worse of daily flags vs on-time trend
+      const dailyScore = (has4th || csm.overdueCount >= 3) ? "red" : "yellow";
+      const scores = [dailyScore, otScore].filter(Boolean);
+      cadScore = scores.includes("red") ? "red" : "yellow";
       cadValue = [
         hasDueTasks ? csm.dueCount+" tasks due" : null,
         hasOverdue  ? csm.overdueCount+" overdue" : null,
         hasSkipped  ? skippedForCSM.skippedCount+" skipped yesterday" : null,
+        otPct!=null ? pp(otPct)+" on-time" : null,
       ].filter(Boolean).join(" · ");
     } else {
-      // Legend: tasks due, all clear AND on-time trending >= 95%
-      const otLegend = latestSnap?.otPct!=null && latestSnap.otPct >= 0.95;
-      cadScore = otLegend ? "legend" : "green";
-      cadValue = csm.dueCount+" tasks due, all clear"+(otLegend?" · "+pp(latestSnap.otPct)+" on-time":"");
+      // Tasks due, all clear — check on-time trend
+      if (otScore==="legend")       { cadScore="legend"; cadValue=csm.dueCount+" tasks due, all clear · "+pp(otPct)+" on-time"; }
+      else if (otScore==="yellow")  { cadScore="yellow"; cadValue=csm.dueCount+" tasks due, all clear · on-time "+pp(otPct)+" — needs improvement"; }
+      else if (otScore==="red")     { cadScore="red";    cadValue=csm.dueCount+" tasks due, all clear · on-time "+pp(otPct)+" — critical"; }
+      else                          { cadScore="green";  cadValue=csm.dueCount+" tasks due, all clear"+(otPct!=null?" · "+pp(otPct)+" on-time":""); }
     }
 
     const cadDetail = [
