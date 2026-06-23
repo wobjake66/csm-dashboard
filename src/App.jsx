@@ -3495,15 +3495,21 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
                     {coachNotes.map((n,i)=><div key={i} style={{fontSize:12,color:"#991b1b",padding:"3px 0",borderBottom:i<coachNotes.length-1?"0.5px solid rgba(220,38,38,.1)":"none"}}>{n}</div>)}
                   </div>}
                 </div>}
-                {/* BOB Summary Card */}
-                {csm.bobBoq>0&&<div style={{...S.card,marginBottom:12,borderLeft:"3px solid "+(csm.bobRet>=0.91?"#16a34a":csm.bobRet>=0.88?"#d97706":"#dc2626")}}>
+                {/* BOB Summary Card — apply bobAdj if present */}
+                {csm.bobBoq>0&&(()=>{
+                  const adjKey = bobAdj ? Object.keys(bobAdj).find(k=>norm(k)===csm.name||k===csm.name) : null;
+                  const lcmDelta = adjKey ? bobAdj[adjKey].lcmDelta : 0;
+                  const adjLcm = (csm.bobLcm||0) + lcmDelta;
+                  const adjNet = (csm.bobNet||0) + lcmDelta;
+                  const adjRet = csm.bobBoq>0 ? adjLcm/csm.bobBoq : csm.bobRet;
+                  return <div style={{...S.card,marginBottom:12,borderLeft:"3px solid "+(adjRet>=0.91?"#16a34a":adjRet>=0.88?"#d97706":"#dc2626")}}>
                   <div style={{fontSize:13,fontWeight:600,color:"#29355D",marginBottom:10}}>📊 Book of Business — This Quarter</div>
                   <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:csm.churnedAccts?.length>0?12:0}}>
                     {[
                       {l:"BOQ",         v:fd(csm.bobBoq), col:"#29355D"},
-                      {l:"Current",     v:fd(csm.bobLcm), col:"#5378FC"},
-                      {l:"Net Change",  v:fd(csm.bobNet), col:csm.bobNet>=0?"#16a34a":"#dc2626"},
-                      {l:"Retention",   v:csm.bobRet!=null?pp(csm.bobRet):"—", col:csm.bobRet>=0.91?"#16a34a":csm.bobRet>=0.88?"#d97706":"#dc2626"},
+                      {l:"Current",     v:fd(adjLcm),     col:"#5378FC"},
+                      {l:"Net Change",  v:fd(adjNet),     col:adjNet>=0?"#16a34a":"#dc2626"},
+                      {l:"Retention",   v:adjRet!=null?pp(adjRet):"—", col:adjRet>=0.91?"#16a34a":adjRet>=0.88?"#d97706":"#dc2626"},
                     ].map(t=>(
                       <div key={t.l} style={{background:"#F4F6FB",borderRadius:8,padding:"10px 12px",textAlign:"center"}}>
                         <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>{t.l}</div>
@@ -3552,7 +3558,8 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
                       ))}
                     </div>;
                   })()}
-                </div>}
+                </div>;
+                })()}
 
                 {sigs.filter(s=>s.score!=="gray").map(s=>(
                   <div key={s.key} style={{...S.card,marginBottom:12,borderLeft:"3px solid "+scoreColor(s.score)}}>
