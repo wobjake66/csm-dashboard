@@ -3115,6 +3115,23 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
     });
     signals.push({key:"cad", label:"Cadence", score:cadScore, value:cadValue, detail:cadDetail});
 
+    // ── BOB RETENTION ──
+    // Use live bobRaw if available for accurate retention
+    const liveKey = bobRaw&&bobRaw.bob ? Object.keys(bobRaw.bob).find(k=>norm(k)===csm.name||k===csm.name) : null;
+    const liveBobEntry = liveKey ? bobRaw.bob[liveKey] : null;
+    const adjK = bobAdj ? Object.keys(bobAdj).find(k=>norm(k)===csm.name||k===csm.name) : null;
+    const lcmD = adjK ? bobAdj[adjK].lcmDelta : 0;
+    const liveBoq = liveBobEntry ? liveBobEntry.boq : csm.bobBoq;
+    const liveLcm = liveBobEntry ? (liveBobEntry.lcm||0)+lcmD : (csm.bobLcm||0)+lcmD;
+    const liveRet = liveBoq>0 ? liveLcm/liveBoq : csm.bobRet;
+    const retScore = liveRet==null?"gray":liveRet>=0.99?"legend":liveRet>=0.91?"green":liveRet>=0.85?"yellow":"red";
+    if (liveBoq>0) signals.push({
+      key:"bob", label:"Retention",
+      score: retScore,
+      value: liveRet!=null ? pp(liveRet)+(retScore==="legend"?" — exceptional":retScore==="green"?" — above 91% goal":retScore==="yellow"?" — near goal":" — below 85%") : "No BOB data",
+      detail: [],
+    });
+
     // ── REVENUE ──
     const revScore = csm.rev>0?"green":csm.bobNet<0?"red":"yellow";
     const revDetail = [];
@@ -3525,47 +3542,10 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
                       </div>
                     ))}
                   </div>
-                  {/* Churned accounts */}
-                  {csm.churnedAccts?.length>0&&<div style={{marginTop:8}}>
-                    <div style={{fontSize:11,fontWeight:600,color:"#991b1b",marginBottom:6,textTransform:"uppercase"}}>Churned accounts ({csm.churnedAccts.length})</div>
-                    {csm.churnedAccts.slice(0,4).map((a,i)=>(
-                      <div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"5px 0",
-                        borderBottom:"0.5px solid rgba(41,53,93,.06)"}}>
-                        <span style={{fontSize:12,color:"#29355D"}}>{a.name}</span>
-                        <div style={{display:"flex",gap:4}}>
-                          {(a.products||[]).map((p,j)=>(
-                            <span key={j} style={{fontSize:10,padding:"1px 7px",borderRadius:20,
-                              background:"rgba(220,38,38,.08)",color:"#991b1b",fontWeight:500}}>{p}</span>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                    {csm.churnedAccts.length>4&&<div style={{fontSize:11,color:"#808080",marginTop:4}}>+{csm.churnedAccts.length-4} more</div>}
+                  {/* Churned count summary only — no account details on digest */}
+                  {csm.churnedAccts?.length>0&&<div style={{marginTop:8,fontSize:12,color:"#991b1b",fontWeight:500}}>
+                    {csm.churnedAccts.length} churned account{csm.churnedAccts.length>1?"s":""} this quarter
                   </div>}
-                  {/* Billing changes */}
-                  {(()=>{
-                    const det = getDetFn(csm.name)||{};
-                    const increases = (det.i||[]).slice(0,3);
-                    const decreases = (det.d||[]).slice(0,3);
-                    if (increases.length===0&&decreases.length===0) return null;
-                    return <div style={{marginTop:8}}>
-                      <div style={{fontSize:11,fontWeight:600,color:"#808080",marginBottom:6,textTransform:"uppercase"}}>Billing changes</div>
-                      {increases.map((r,i)=>(
-                        <div key={"i"+i} style={{display:"flex",justifyContent:"space-between",padding:"4px 0",
-                          borderBottom:"0.5px solid rgba(41,53,93,.06)",fontSize:12}}>
-                          <span style={{color:"#29355D"}}>{r.a||r.e}</span>
-                          <span style={{color:"#16a34a",fontWeight:500}}>+{fd(r.n)} {r.l}</span>
-                        </div>
-                      ))}
-                      {decreases.map((r,i)=>(
-                        <div key={"d"+i} style={{display:"flex",justifyContent:"space-between",padding:"4px 0",
-                          borderBottom:"0.5px solid rgba(41,53,93,.06)",fontSize:12}}>
-                          <span style={{color:"#29355D"}}>{r.a||r.e}</span>
-                          <span style={{color:"#dc2626",fontWeight:500}}>{fd(r.n)} {r.l}</span>
-                        </div>
-                      ))}
-                    </div>;
-                  })()}
                 </div>;
                 })()}
 
