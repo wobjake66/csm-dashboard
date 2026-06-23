@@ -3495,6 +3495,65 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
                     {coachNotes.map((n,i)=><div key={i} style={{fontSize:12,color:"#991b1b",padding:"3px 0",borderBottom:i<coachNotes.length-1?"0.5px solid rgba(220,38,38,.1)":"none"}}>{n}</div>)}
                   </div>}
                 </div>}
+                {/* BOB Summary Card */}
+                {csm.bobBoq>0&&<div style={{...S.card,marginBottom:12,borderLeft:"3px solid "+(csm.bobRet>=0.91?"#16a34a":csm.bobRet>=0.88?"#d97706":"#dc2626")}}>
+                  <div style={{fontSize:13,fontWeight:600,color:"#29355D",marginBottom:10}}>📊 Book of Business — This Quarter</div>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:csm.churnedAccts?.length>0?12:0}}>
+                    {[
+                      {l:"BOQ",         v:fd(csm.bobBoq), col:"#29355D"},
+                      {l:"Current",     v:fd(csm.bobLcm), col:"#5378FC"},
+                      {l:"Net Change",  v:fd(csm.bobNet), col:csm.bobNet>=0?"#16a34a":"#dc2626"},
+                      {l:"Retention",   v:csm.bobRet!=null?pp(csm.bobRet):"—", col:csm.bobRet>=0.91?"#16a34a":csm.bobRet>=0.88?"#d97706":"#dc2626"},
+                    ].map(t=>(
+                      <div key={t.l} style={{background:"#F4F6FB",borderRadius:8,padding:"10px 12px",textAlign:"center"}}>
+                        <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>{t.l}</div>
+                        <div style={{fontSize:16,fontWeight:700,color:t.col}}>{t.v}</div>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Churned accounts */}
+                  {csm.churnedAccts?.length>0&&<div style={{marginTop:8}}>
+                    <div style={{fontSize:11,fontWeight:600,color:"#991b1b",marginBottom:6,textTransform:"uppercase"}}>Churned accounts ({csm.churnedAccts.length})</div>
+                    {csm.churnedAccts.slice(0,4).map((a,i)=>(
+                      <div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"5px 0",
+                        borderBottom:"0.5px solid rgba(41,53,93,.06)"}}>
+                        <span style={{fontSize:12,color:"#29355D"}}>{a.name}</span>
+                        <div style={{display:"flex",gap:4}}>
+                          {(a.products||[]).map((p,j)=>(
+                            <span key={j} style={{fontSize:10,padding:"1px 7px",borderRadius:20,
+                              background:"rgba(220,38,38,.08)",color:"#991b1b",fontWeight:500}}>{p}</span>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                    {csm.churnedAccts.length>4&&<div style={{fontSize:11,color:"#808080",marginTop:4}}>+{csm.churnedAccts.length-4} more</div>}
+                  </div>}
+                  {/* Billing changes */}
+                  {(()=>{
+                    const det = getDetFn(csm.name)||{};
+                    const increases = (det.i||[]).slice(0,3);
+                    const decreases = (det.d||[]).slice(0,3);
+                    if (increases.length===0&&decreases.length===0) return null;
+                    return <div style={{marginTop:8}}>
+                      <div style={{fontSize:11,fontWeight:600,color:"#808080",marginBottom:6,textTransform:"uppercase"}}>Billing changes</div>
+                      {increases.map((r,i)=>(
+                        <div key={"i"+i} style={{display:"flex",justifyContent:"space-between",padding:"4px 0",
+                          borderBottom:"0.5px solid rgba(41,53,93,.06)",fontSize:12}}>
+                          <span style={{color:"#29355D"}}>{r.a||r.e}</span>
+                          <span style={{color:"#16a34a",fontWeight:500}}>+{fd(r.n)} {r.l}</span>
+                        </div>
+                      ))}
+                      {decreases.map((r,i)=>(
+                        <div key={"d"+i} style={{display:"flex",justifyContent:"space-between",padding:"4px 0",
+                          borderBottom:"0.5px solid rgba(41,53,93,.06)",fontSize:12}}>
+                          <span style={{color:"#29355D"}}>{r.a||r.e}</span>
+                          <span style={{color:"#dc2626",fontWeight:500}}>{fd(r.n)} {r.l}</span>
+                        </div>
+                      ))}
+                    </div>;
+                  })()}
+                </div>}
+
                 {sigs.filter(s=>s.score!=="gray").map(s=>(
                   <div key={s.key} style={{...S.card,marginBottom:12,borderLeft:"3px solid "+scoreColor(s.score)}}>
                     <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:(s.detail&&s.detail.length>0)?10:0}}>
