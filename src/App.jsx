@@ -3474,7 +3474,7 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
                 {/* Score image banner */}
                 <div style={{marginBottom:16,borderRadius:12,overflow:"hidden",position:"relative"}}>
                   <img src={scoreImg} alt={overall}
-                    style={{width:"100%",maxHeight:100,objectFit:"cover",objectPosition:"center",display:"block"}}/>
+                    style={{width:"100%",height:"auto",maxHeight:160,objectFit:"contain",objectPosition:"center",display:"block",background:overall==="legend"?"#3b1f6e":overall==="green"?"#d1fae5":overall==="yellow"?"#fef9c3":"#fee2e2"}}/>
                   <div style={{position:"absolute",bottom:0,left:0,right:0,background:"linear-gradient(transparent,rgba(0,0,0,.5))",
                     padding:"8px 16px",display:"flex",alignItems:"center",gap:10}}>
                     <div style={{fontSize:14,fontWeight:700,color:"#fff",textShadow:"0 1px 3px rgba(0,0,0,.5)"}}>{dispName(csm.name)}</div>
