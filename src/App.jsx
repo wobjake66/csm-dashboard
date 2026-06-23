@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import imgCrushingIt  from "../crushing_it.png";
 import imgAlmostThere from "../almost_there.png";
 import imgNeedsLove   from "../needs_love.png";
+import imgLegend      from "../legend_status.png";
 import * as XLSX from "xlsx";
 
 const PIN = "thryv2025";
@@ -3009,7 +3010,7 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
 
 // ── DAILY DIGEST ────────────────────────────────────────────────────────────
 function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, bcChurn,
-  liveBobDet, callData, qamc, qass, skippedCSMs, bobAdj}) {
+  liveBobDet, callData, qamc, qass, skippedCSMs, bobAdj, history=[]}) {
 
   const [period, setPeriod] = React.useState("week");
   const [expanded, setExpanded] = React.useState(null);
@@ -3024,10 +3025,10 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
   ];
 
   // ── Signal scoring ──────────────────────────────────────────────────────
-  const scoreColor = s => s==="green"?"#16a34a":s==="yellow"?"#d97706":"#dc2626";
-  const scoreBg    = s => s==="green"?"rgba(22,163,74,.1)":s==="yellow"?"rgba(217,119,6,.1)":"rgba(220,38,38,.1)";
-  const scoreDot   = s => s==="green"?"🟢":s==="yellow"?"🟡":"🔴";
-  const scoreEmoji = s => s==="green"?"✓":s==="yellow"?"⚠":s==="red"?"✗":"—";
+  const scoreColor = s => s==="legend"?"#7c3aed":s==="green"?"#16a34a":s==="yellow"?"#d97706":s==="red"?"#dc2626":"#808080";
+  const scoreBg    = s => s==="legend"?"rgba(124,58,237,.12)":s==="green"?"rgba(22,163,74,.1)":s==="yellow"?"rgba(217,119,6,.1)":"rgba(220,38,38,.1)";
+  const scoreDot   = s => s==="legend"?"👑":s==="green"?"🟢":s==="yellow"?"🟡":"🔴";
+  const scoreEmoji = s => s==="legend"?"★":s==="green"?"✓":s==="yellow"?"⚠":s==="red"?"✗":"—";
 
   const worstScore = scores => {
     if (scores.includes("red")) return "red";
@@ -3036,77 +3037,120 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
     return "gray";
   };
 
+  const isLegend = csm => {
+    const sigs = buildSignals(csm);
+    const scores = sigs.map(s=>s.score).filter(s=>s!=="gray");
+    if (scores.some(s=>s!=="green")) return false; // must be all green
+    const ret = csm.bobRet;
+    if (ret!=null && ret < 0.95) return false;     // retention >= 95%
+    if (csm.overdueCount > 0) return false;         // no overdue
+    const skipped = skippedCSMs.find(s=>s.name===csm.name);
+    if (skipped && skipped.skippedCount > 0) return false; // no skipped
+    // On-time >= 90% from latest snapshot
+    const snap = (history||[]).filter(h=>h.name===csm.name||norm(h.name)===csm.name).sort((a,b)=>a.date>b.date?1:-1).slice(-1)[0];
+    if (snap?.otPct!=null && snap.otPct < 0.90) return false;
+    return true;
+  };
+
   // ── Per-CSM signal builder ──────────────────────────────────────────────
   const buildSignals = csm => {
     const signals = [];
-    const i = lk(csm.name)||{};
-
-    // ── REVENUE ──
-    const revScore = csm.rev > 0 ? "green" : csm.bobNet < 0 ? "red" : "yellow";
-    signals.push({
-      key:"rev", label:"Revenue",
-      score: revScore,
-      value: csm.rev > 0 ? fd(csm.rev)+" MRR added" : csm.bobNet < 0 ? fd(csm.bobNet)+" net billing" : "No revenue this period",
-      detail: csm.accts&&csm.accts.length>0 ? csm.accts.slice(0,3).map(a=>({
-        name:a.b, note: a.m>0?"MRR "+fd(a.m):a.o>0?"OTR "+fd(a.o):"", score:"green"
-      })) : [],
-    });
-
-    // ── RETENTION ──
-    const ret = csm.bobRet;
-    const retScore = ret==null?"gray":ret>=0.91?"green":ret>=0.88?"yellow":"red";
-    const det = (liveBobDet&&(liveBobDet[csm.name]||liveBobDet[norm(csm.name)]))||{};
-    const decreases = (det.d||[]).slice(0,3).map(r=>({
-      name:r.a||r.e, note:fd(r.n)+" "+r.l, score:"red"
-    }));
-    const increases = (det.i||[]).slice(0,2).map(r=>({
-      name:r.a||r.e, note:"+"+fd(r.n)+" "+r.l, score:"green"
-    }));
-    signals.push({
-      key:"ret", label:"Retention",
-      score: retScore,
-      value: ret!=null ? pp(ret)+(retScore==="green"?" — above 91% goal":retScore==="yellow"?" — near goal":" — below 91% goal") : "No BOB data",
-      detail: [...increases, ...decreases],
-    });
-
-    // ── CADENCE ──
-    const cadScore = csm.cadPct>=0.90?"green":csm.cadPct>=0.80?"yellow":csm.cadCount>0?"red":"gray";
+    const det = getDet(csm.name)||{};
     const skippedForCSM = skippedCSMs.find(s=>s.name===csm.name);
     const liveAccts = Object.entries(csm.liveAccounts||{});
     const overdueAccts = liveAccts.filter(([,tasks])=>tasks.some(t=>t.ov)).map(([n])=>n);
+
+    // Trending data from history snapshots
+    const csmHistory = (history||[]).filter(h=>h.name===csm.name||norm(h.name)===csm.name).sort((a,b)=>a.date>b.date?1:-1);
+    const latestSnap = csmHistory[csmHistory.length-1];
+    const prevSnap   = csmHistory[csmHistory.length-2];
+    const trendArrow = (cur, prev) => {
+      if (cur==null||prev==null) return "";
+      const d = (cur-prev)*100;
+      if (Math.abs(d)<0.5) return " (stable)";
+      return d>0 ? " ↑"+d.toFixed(1)+"pp vs last wk" : " ↓"+Math.abs(d).toFixed(1)+"pp vs last wk";
+    };
+
+    // ── CADENCE ──
+    // "Nothing due" = neutral — don't penalize
+    const hasDueTasks = csm.dueCount > 0;
+    const hasOverdue  = csm.overdueCount > 0;
+    const hasSkipped  = skippedForCSM && skippedForCSM.skippedCount > 0;
+    const has4th      = skippedForCSM && skippedForCSM.skippedFourthCount > 0;
+
+    let cadScore, cadValue;
+    if (!hasDueTasks && !hasOverdue && !hasSkipped) {
+      cadScore = "green";
+      cadValue = "No tasks due — neutral";
+    } else if (hasOverdue || hasSkipped) {
+      cadScore = (has4th || csm.overdueCount >= 3) ? "red" : "yellow";
+      cadValue = [
+        hasDueTasks ? csm.dueCount+" tasks due" : null,
+        hasOverdue  ? csm.overdueCount+" overdue" : null,
+        hasSkipped  ? skippedForCSM.skippedCount+" skipped yesterday" : null,
+      ].filter(Boolean).join(" · ");
+    } else {
+      cadScore = "green";
+      cadValue = csm.dueCount+" tasks due, all clear";
+    }
+
     const cadDetail = [
-      ...overdueAccts.slice(0,3).map(n=>({name:n, note:"Overdue", score:"red"})),
-      ...(skippedForCSM?.skippedAccts||[]).slice(0,2).map(a=>({name:a.n, note:"Skipped"+(a.is4th?" 🚩":""), score:a.is4th?"red":"yellow"})),
+      ...overdueAccts.slice(0,4).map(n=>({name:n, note:"Overdue", score:"red"})),
+      ...(skippedForCSM?.skippedAccts||[]).slice(0,3).map(a=>({
+        name:a.n, note:"Skipped"+(a.is4th?" 🚩 4th reschedule":""), score:a.is4th?"red":"yellow"
+      })),
     ];
+    // Trending context
+    if (latestSnap?.otPct!=null) cadDetail.push({
+      name:"On-time trending",
+      note: pp(latestSnap.otPct)+trendArrow(latestSnap.otPct, prevSnap?.otPct),
+      score:"green", isTrend:true
+    });
+    if (latestSnap?.cadPct!=null) cadDetail.push({
+      name:"Cadence completion trending",
+      note: pp(latestSnap.cadPct)+trendArrow(latestSnap.cadPct, prevSnap?.cadPct),
+      score:"green", isTrend:true
+    });
+    signals.push({key:"cad", label:"Cadence", score:cadScore, value:cadValue, detail:cadDetail});
+
+    // ── REVENUE ──
+    const revScore = csm.rev>0?"green":csm.bobNet<0?"red":"yellow";
+    const revDetail = [];
+    if (csm.accts) csm.accts.slice(0,3).forEach(a=>{
+      if (a.m>0) revDetail.push({name:a.b, note:"MRR "+fd(a.m), score:"green"});
+    });
+    // QTD BOB context
+    if (csm.bobBoq>0) revDetail.push({
+      name:"Quarter BOB",
+      note: fd(csm.bobBoq)+" BOQ → "+fd(csm.bobLcm)+" current"+(csm.bobRet!=null?" ("+pp(csm.bobRet)+" retention)":""),
+      score: csm.bobRet>=0.91?"green":csm.bobRet>=0.88?"yellow":"red",
+      isTrend:true,
+    });
+    (det.d||[]).slice(0,2).forEach(r=>revDetail.push({name:r.a||r.e, note:fd(r.n)+" "+r.l, score:"red"}));
     signals.push({
-      key:"cad", label:"Cadence",
-      score: cadScore,
-      value: csm.cadCount>0 ? pp(csm.cadPct)+" completion"+(csm.overdueCount>0?" · "+csm.overdueCount+" overdue":"")+(skippedForCSM?" · "+skippedForCSM.skippedCount+" skipped":"") : "No cadence data",
-      detail: cadDetail,
+      key:"rev", label:"Revenue",
+      score: revScore,
+      value: csm.rev>0 ? fd(csm.rev)+" MRR added today" : csm.bobBoq>0 ? "No revenue today · QTD: "+fd(csm.bobLcm) : "No revenue data",
+      detail: revDetail,
     });
 
     // ── CALLS ──
-    const callWeeks = Object.keys(callData).length > 0
-      ? [...new Set(Object.values(callData).flatMap(c=>Object.keys(c)))].sort().slice(-4)
-      : [];
+    const callWeeks = Object.keys(callData).length>0
+      ? [...new Set(Object.values(callData).flatMap(c=>Object.keys(c)))].sort().slice(-4) : [];
     const csmCallKey = Object.keys(callData).find(k=>norm(k)===csm.name||k===csm.name);
-    let callScore = "gray", callValue = "No call data";
-    const callDetail = [];
+    let callScore="gray", callValue="No call data";
+    const callDetail=[];
     if (csmCallKey) {
       let comp=0,ns=0,can=0;
       callWeeks.forEach(w=>{
-        const wData = callData[csmCallKey][w]||{};
-        Object.values(wData).forEach(d=>{comp+=d.completed;ns+=d.noShow;can+=d.cancelled||0;});
+        Object.values(callData[csmCallKey][w]||{}).forEach(d=>{comp+=d.completed;ns+=d.noShow;can+=d.cancelled||0;});
       });
       const total=comp+ns+can;
       const nsRate=comp+ns>0?ns/(comp+ns):0;
-      callScore = nsRate<=0.08?"green":nsRate<=0.15?"yellow":"red";
-      if (comp>0&&nsRate<0.08) callScore="green";
-      callValue = total>0 ? comp+" completed, "+ns+" no-show, "+can+" cancelled" : "No calls";
-      // Surface no-shows with account names
+      callScore = total===0?"gray":nsRate<=0.08?"green":nsRate<=0.15?"yellow":"red";
+      callValue = total>0 ? comp+" completed · "+ns+" no-show · "+can+" cancelled" : "No calls this period";
       callWeeks.forEach(w=>{
-        const wData = callData[csmCallKey][w]||{};
-        Object.entries(wData).forEach(([svc,d])=>{
+        Object.entries(callData[csmCallKey][w]||{}).forEach(([svc,d])=>{
           if (d.noShow>0) callDetail.push({name:svc, note:d.noShow+" no-show", score:"red"});
           if ((d.cancelled||0)>0) callDetail.push({name:svc, note:d.cancelled+" cancelled", score:"yellow"});
         });
@@ -3115,55 +3159,40 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
     signals.push({key:"calls", label:"Calls", score:callScore, value:callValue, detail:callDetail});
 
     // ── QA ──
-    const qaMcMonths = Object.keys(qamc).sort();
-    const qaSsMonths = Object.keys(qass).sort();
-    const latestMc = qaMcMonths.length>0 ? qamc[qaMcMonths[qaMcMonths.length-1]] : null;
-    const latestSs = qaSsMonths.length>0 ? qass[qaSsMonths[qaSsMonths.length-1]] : null;
-    const mcEntry = latestMc&&(latestMc[csm.name]||latestMc[norm(csm.name)]);
-    const ssEntry = latestSs&&(latestSs[csm.name]||latestSs[norm(csm.name)]);
-    let qaScore = "gray", qaValue = "No QA data";
-    const qaDetail = [];
+    const qaMcMonths=Object.keys(qamc).sort();
+    const qaSsMonths=Object.keys(qass).sort();
+    const latestMc=qaMcMonths.length>0?qamc[qaMcMonths[qaMcMonths.length-1]]:null;
+    const latestSs=qaSsMonths.length>0?qass[qaSsMonths[qaSsMonths.length-1]]:null;
+    const mcEntry=latestMc&&(latestMc[csm.name]||latestMc[norm(csm.name)]);
+    const ssEntry=latestSs&&(latestSs[csm.name]||latestSs[norm(csm.name)]);
+    let qaScore="gray", qaValue="No QA data";
+    const qaDetail=[];
     if (mcEntry||ssEntry) {
-      const scores = [mcEntry?.total, ssEntry?.total].filter(v=>v!=null);
-      const avg = scores.length ? scores.reduce((s,v)=>s+v,0)/scores.length : null;
-      qaScore = avg==null?"gray":avg>=0.93?"green":avg>=0.80?"yellow":"red";
-      qaValue = [
-        mcEntry?("MC: "+pp(mcEntry.total)):null,
-        ssEntry?("S&S: "+pp(ssEntry.total)):null,
-      ].filter(Boolean).join(" · ")||"No QA data";
-      // Flag below-goal criteria
-      if (mcEntry?.criteria) Object.entries(mcEntry.criteria).forEach(([k,v])=>{
-        if (v!=null&&v<0.80) qaDetail.push({name:k.replace(/_/g," "), note:pp(v)+" MC", score:"red"});
-      });
-      if (ssEntry?.criteria) Object.entries(ssEntry.criteria).forEach(([k,v])=>{
-        if (v!=null&&v<0.80) qaDetail.push({name:k.replace(/_/g," "), note:pp(v)+" S&S", score:"red"});
-      });
+      const scores=[mcEntry?.total,ssEntry?.total].filter(v=>v!=null);
+      const avg=scores.length?scores.reduce((s,v)=>s+v,0)/scores.length:null;
+      qaScore=avg==null?"gray":avg>=0.93?"green":avg>=0.80?"yellow":"red";
+      qaValue=[mcEntry?"MC: "+pp(mcEntry.total):null,ssEntry?"S&S: "+pp(ssEntry.total):null].filter(Boolean).join(" · ")||"No QA data";
+      if (mcEntry?.criteria) Object.entries(mcEntry.criteria).forEach(([k,v])=>{if(v!=null&&v<0.80)qaDetail.push({name:k.replace(/_/g," "),note:pp(v)+" MC",score:"red"});});
+      if (ssEntry?.criteria) Object.entries(ssEntry.criteria).forEach(([k,v])=>{if(v!=null&&v<0.80)qaDetail.push({name:k.replace(/_/g," "),note:pp(v)+" S&S",score:"red"});});
     }
-    signals.push({key:"qa", label:"QA Score", score:qaScore, value:qaValue, detail:qaDetail});
+    signals.push({key:"qa",label:"QA Score",score:qaScore,value:qaValue,detail:qaDetail});
 
-    // ── CROSS-REFERENCE signals ──
-    const crossRefs = [];
-    const churnedAccts = (csm.churnedAccts||[]).map(a=>a.name.toLowerCase());
-    // Skipped + billing decrease
+    // ── CROSS-REFERENCE ──
+    const crossRefs=[];
+    const churnedAccts=(csm.churnedAccts||[]).map(a=>a.name.toLowerCase());
     (skippedForCSM?.skippedAccts||[]).forEach(a=>{
-      const hasDec = (det.d||[]).find(r=>(r.a||"").toLowerCase().includes(a.n.toLowerCase().slice(0,8)));
-      if (hasDec) crossRefs.push({name:a.n, note:"Skipped cadence + billing decrease "+fd(hasDec.n), score:"red"});
-    });
-    // Skipped + churned
-    (skippedForCSM?.skippedAccts||[]).forEach(a=>{
+      const hasDec=(det.d||[]).find(r=>(r.a||"").toLowerCase().includes(a.n.toLowerCase().slice(0,8)));
+      if (hasDec) crossRefs.push({name:a.n, note:"Skipped + billing decrease "+fd(hasDec.n), score:"red"});
       if (churnedAccts.some(c=>c.includes(a.n.toLowerCase().slice(0,6))))
         crossRefs.push({name:a.n, note:"Skipped cadence + account churned", score:"red"});
     });
-    // Overdue + billing decrease
-    overdueAccts.slice(0,3).forEach(acctName=>{
-      const hasDec = (det.d||[]).find(r=>(r.a||"").toLowerCase().includes(acctName.toLowerCase().slice(0,6)));
-      if (hasDec) crossRefs.push({name:acctName, note:"Overdue cadence + billing decrease "+fd(hasDec.n), score:"red"});
+    overdueAccts.slice(0,3).forEach(n=>{
+      const hasDec=(det.d||[]).find(r=>(r.a||"").toLowerCase().includes(n.toLowerCase().slice(0,6)));
+      if (hasDec) crossRefs.push({name:n, note:"Overdue + billing decrease "+fd(hasDec.n), score:"red"});
     });
-    // MRR increase = positive cross-ref
     (det.i||[]).slice(0,2).forEach(r=>{
       if (r.n>200) crossRefs.push({name:r.a||r.e, note:"MRR increase +"+fd(r.n)+" "+r.l, score:"green"});
     });
-
     if (crossRefs.length>0) signals.push({
       key:"xref", label:"Cross-signals",
       score: worstScore(crossRefs.map(c=>c.score)),
@@ -3270,6 +3299,7 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
         </button>
         {/* Image buttons */}
         {[
+          {k:"legend", img:imgLegend},
           {k:"green",  img:imgCrushingIt},
           {k:"yellow", img:imgAlmostThere},
           {k:"red",    img:imgNeedsLove},
@@ -3286,7 +3316,10 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
           </button>
         ))}
         {scoreFilter!=="all"&&<span style={{fontSize:12,fontWeight:600,color:"#808080",marginLeft:4}}>
-          {visibleCSMs.filter(c=>worstScore(buildSignals(c).map(s=>s.score).filter(s=>s!=="gray"))===scoreFilter).length} CSMs
+          {scoreFilter==="legend"
+            ? visibleCSMs.filter(c=>isLegend(c)).length
+            : visibleCSMs.filter(c=>!isLegend(c)&&worstScore(buildSignals(c).map(s=>s.score).filter(s=>s!=="gray"))===scoreFilter).length
+          } CSMs
         </span>}
       </div>}
 
@@ -3307,7 +3340,7 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
               <div style={{fontSize:22}}>{scoreDot(overall)}</div>
               <div>
                 <div style={{fontSize:15,fontWeight:700,color:"#29355D"}}>
-                  {overall==="green"?"Team is winning":"overall"==="yellow"?"Team needs attention":"Team has urgent issues"}
+                  {overall==="legend"?"Team is legendary":overall==="green"?"Team is winning":overall==="yellow"?"Team needs attention":"Team has urgent issues"}
                 </div>
                 <div style={{fontSize:11,color:"#808080"}}>{visibleCSMs.length} CSMs · {PERIODS.find(p=>p.k===period)?.l}</div>
               </div>
@@ -3330,18 +3363,23 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
         ? <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:12}}>
             {visibleCSMs.filter(csm=>{
               if (scoreFilter==="all") return true;
+              if (scoreFilter==="legend") return isLegend(csm);
               const sigs = buildSignals(csm);
-              return worstScore(sigs.map(s=>s.score).filter(s=>s!=="gray"))===scoreFilter;
+              const ov = worstScore(sigs.map(s=>s.score).filter(s=>s!=="gray"));
+              return ov===scoreFilter && !isLegend(csm);
             }).map(csm=>{
               const sigs = buildSignals(csm);
-              const overall = worstScore(sigs.map(s=>s.score).filter(s=>s!=="gray"));
+              const leg = isLegend(csm);
+              const overall = leg ? "legend" : worstScore(sigs.map(s=>s.score).filter(s=>s!=="gray"));
               const isExp = expanded===csm.name;
               const reds   = sigs.filter(s=>s.score==="red").length;
               const yellows= sigs.filter(s=>s.score==="yellow").length;
               return (
                 <div key={csm.name}>
                   <div onClick={()=>setExpanded(isExp?null:csm.name)}
-                    style={{...S.card,cursor:"pointer",borderLeft:"4px solid "+scoreColor(overall),
+                    style={{...S.card,cursor:"pointer",
+                      borderLeft:"4px solid "+scoreColor(overall),
+                      background:overall==="legend"?"rgba(124,58,237,.04)":isExp?"rgba(41,53,93,.03)":"#fff",
                       background:isExp?"rgba(41,53,93,.03)":"#fff",transition:"all .15s"}}>
                     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
                       <div style={{fontWeight:600,fontSize:13,color:"#29355D"}}>{dispName(csm.name)}</div>
@@ -3415,10 +3453,10 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
                     </div>
                     {(s.detail||[]).map((d,i)=>(
                       <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",
-                        borderBottom:"0.5px solid rgba(41,53,93,.06)"}}>
-                        <span style={{fontSize:12,color:scoreColor(d.score),flexShrink:0,width:16}}>{scoreEmoji(d.score)}</span>
-                        <span style={{fontSize:12,fontWeight:500,color:"#29355D",flex:1}}>{d.name}</span>
-                        {d.note&&<span style={{fontSize:11,color:"#808080",textAlign:"right"}}>{d.note}</span>}
+                        borderBottom:"0.5px solid rgba(41,53,93,.06)",opacity:d.isTrend?0.8:1}}>
+                        <span style={{fontSize:12,color:d.isTrend?"#5378FC":scoreColor(d.score),flexShrink:0,width:16}}>{d.isTrend?"📈":scoreEmoji(d.score)}</span>
+                        <span style={{fontSize:12,fontWeight:d.isTrend?400:500,color:d.isTrend?"#5378FC":"#29355D",flex:1,fontStyle:d.isTrend?"italic":"normal"}}>{d.name}</span>
+                        {d.note&&<span style={{fontSize:11,color:d.isTrend?"#5378FC":"#808080",textAlign:"right"}}>{d.note}</span>}
                       </div>
                     ))}
                   </div>
@@ -5048,7 +5086,7 @@ My question: ${aiCustom}`,
           {tab==="coaching"&&<CoachingView csms={filteredCSMs} coach={filterCoach} onSelectCSM={selectCSMFn} onSelectCoach={e=>{setFilterCoach(e);setFilterCSM("");}} onClear={()=>{setFilterCoach("");setFilterCSM("");}} skippedCSMs={skippedCSMs.filter(c=>{const i=lk(c.name);if(managerCoaches&&!(i&&managerCoaches.includes(i.c)))return false;if(filterCoach&&(i&&i.c)!==filterCoach)return false;if(filterCSM&&c.name!==filterCSM)return false;return true;})} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} liveBobDet={liveBobDet} isCsmView={isCsmView} bobAdj={bobAdj}/>}
           {tab==="digest"&&<DigestView csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM}
             isCsmView={isCsmView} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn}
-            liveBobDet={liveBobDet} callData={callData} qamc={qamc} qass={qass}
+            liveBobDet={liveBobDet} callData={callData} qamc={qamc} qass={qass} history={history}
             skippedCSMs={skippedCSMs.filter(c=>{const i=lk(c.name);if(filterCoach&&(i&&i.c)!==filterCoach)return false;if(filterCSM&&c.name!==filterCSM)return false;return true;})}
             bobAdj={bobAdj}/>}
           {tab==="overview"&&<OverviewView csms={filteredCSMs} allCSMs={csms}/>}
