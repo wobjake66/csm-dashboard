@@ -3011,9 +3011,11 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
 
 // ── DAILY DIGEST ────────────────────────────────────────────────────────────
 function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, bcChurn,
-  liveBobDet, callData, qamc, qass, skippedCSMs, bobAdj, history=[]}) {
+  liveBobDet, callData, qamc, qass, skippedCSMs, bobAdj, history=[], getDet}) {
 
   const [period, setPeriod] = React.useState("week");
+  // getDet fallback if not passed as prop
+  const getDetFn = getDet || (n => BOB_DETAIL[n]||BOB_DETAIL[norm(n)]||{});
   const [expanded, setExpanded] = React.useState(null);
   const [aiCopied, setAiCopied] = React.useState(false);
   const [scoreFilter, setScoreFilter] = React.useState("all");
@@ -3056,7 +3058,7 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
   // ── Per-CSM signal builder ──────────────────────────────────────────────
   const buildSignals = csm => {
     const signals = [];
-    const det = getDet(csm.name)||{};
+    const det = getDetFn(csm.name)||{};
     const skippedForCSM = skippedCSMs.find(s=>s.name===csm.name);
     const liveAccts = Object.entries(csm.liveAccounts||{});
     const overdueAccts = liveAccts.filter(([,tasks])=>tasks.some(t=>t.ov)).map(([n])=>n);
@@ -5095,7 +5097,7 @@ My question: ${aiCustom}`,
             isCsmView={isCsmView} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn}
             liveBobDet={liveBobDet} callData={callData} qamc={qamc} qass={qass} history={history}
             skippedCSMs={skippedCSMs.filter(c=>{const i=lk(c.name);if(filterCoach&&(i&&i.c)!==filterCoach)return false;if(filterCSM&&c.name!==filterCSM)return false;return true;})}
-            bobAdj={bobAdj}/>}
+            bobAdj={bobAdj} getDet={getDet}/>}
           {tab==="overview"&&<OverviewView csms={filteredCSMs} allCSMs={csms}/>}
           {tab==="leaderboard"&&<LeaderboardView csms={filteredCSMs} bobRaw={bobRaw}/>}
           {tab==="activity"&&<ActivityView csms={filteredCSMs}/>}
