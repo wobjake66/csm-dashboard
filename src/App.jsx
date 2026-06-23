@@ -3293,10 +3293,10 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
       {!filterCSM&&<div style={{display:"flex",gap:8,marginBottom:20,flexWrap:"wrap",alignItems:"center"}}>
         {/* All CSMs pill */}
         <button onClick={()=>setScoreFilter("all")}
-          style={{padding:"6px 16px",borderRadius:20,fontSize:12,fontWeight:600,cursor:"pointer",
-            border:"1.5px solid "+(scoreFilter==="all"?"#29355D":"rgba(41,53,93,.15)"),
+          style={{padding:"0 20px",height:64,borderRadius:10,fontSize:13,fontWeight:700,cursor:"pointer",
+            border:"2px solid "+(scoreFilter==="all"?"#29355D":"rgba(41,53,93,.15)"),
             background:scoreFilter==="all"?"#29355D":"#fff",
-            color:scoreFilter==="all"?"#fff":"#808080",transition:"all .15s"}}>
+            color:scoreFilter==="all"?"#fff":"#808080",transition:"all .15s",flexShrink:0}}>
           All CSMs
         </button>
         {/* Image buttons */}
@@ -3314,7 +3314,7 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
               boxShadow:scoreFilter===f.k?"0 4px 16px rgba(0,0,0,.2)":"0 1px 4px rgba(0,0,0,.08)",
               transition:"all .2s",flexShrink:0}}>
             <img src={f.img} alt={f.label||f.k}
-              style={{display:"block",height:48,width:200,objectFit:"cover",objectPosition:"center"}}/>
+              style={{display:"block",height:64,width:280,objectFit:"cover",objectPosition:"center"}}/>
           </button>
         ))}
         {scoreFilter!=="all"&&<span style={{fontSize:12,fontWeight:600,color:"#808080",marginLeft:4}}>
