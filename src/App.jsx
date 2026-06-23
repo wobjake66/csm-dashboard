@@ -250,6 +250,12 @@ const ROSTER = {
   "zoltan rudolf":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMII",reg:"ANZ"},
 };
 
+// ── DEACTIVATED CSMs — filter out from all live data feeds ─────────────────
+const DEACTIVATED_CSMS = new Set([
+  "sidharta goris",
+  "sidharta",
+]);
+
 function lk(n) { return n ? ROSTER[n.toLowerCase().trim()] || null : null; }
 function region(n) { const i=lk(n); return i&&i.reg ? i.reg : null; }
 function norm(n) { return NAME_NORM[n.toLowerCase().trim()] || n.trim(); }
@@ -306,6 +312,8 @@ async function fetchCSV(url) {
 // stray data from being treated as CSM names.
 function isValidCSM(name) {
   if (!name || name.length < 4) return false;
+  // Filter out deactivated CSMs
+  if (DEACTIVATED_CSMS.has(name.toLowerCase().trim())) return false;
   // Must resolve to a known ROSTER entry (exact or via NAME_NORM alias)
   if (ROSTER[name.toLowerCase().trim()]) return true;
   // Also allow if norm() mapped it to a canonical name that's in ROSTER
@@ -439,6 +447,7 @@ function mapDue(rows) {
     if (!raw) return;
     const name = norm(raw) || raw;
     if (!name || name.length < 3) return;
+    if (!isValidCSM(raw)) return;
 
     const taskType = (r["Touchpoint: Touchpoint Name"] || r["Touchpoint: Record Type"] || "Task").trim();
     const dueRaw   = (r["Due Date/Time"] || "").trim();
