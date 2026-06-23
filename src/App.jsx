@@ -2,7 +2,8 @@ import React, { useState, useEffect } from "react";
 import imgCrushingIt  from "../crushing_it.png";
 import imgAlmostThere from "../almost_there.png";
 import imgNeedsLove   from "../needs_love.png";
-import imgLegend      from "../legend_status.png";
+// legend_status.png loaded dynamically
+const imgLegend = "/legend status.png";
 import * as XLSX from "xlsx";
 
 const PIN = "thryv2025";
@@ -3299,7 +3300,7 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
         </button>
         {/* Image buttons */}
         {[
-          {k:"legend", img:imgLegend},
+          {k:"legend", img:imgLegend, label:"Legend Status"},
           {k:"green",  img:imgCrushingIt},
           {k:"yellow", img:imgAlmostThere},
           {k:"red",    img:imgNeedsLove},
@@ -3311,8 +3312,14 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
               transform:scoreFilter===f.k?"scale(1.04)":"scale(1)",
               boxShadow:scoreFilter===f.k?"0 4px 16px rgba(0,0,0,.18)":"0 1px 4px rgba(0,0,0,.08)",
               transition:"all .2s"}}>
-            <img src={f.img} alt={f.k}
-              style={{display:"block",height:52,width:"auto",maxWidth:220,objectFit:"cover"}}/>
+            {f.img
+              ? <img src={f.img} alt={f.k} onError={e=>{e.target.style.display="none";e.target.nextSibling.style.display="block";}}
+                  style={{display:"block",height:52,width:"auto",maxWidth:220,objectFit:"cover"}}/>
+              : null}
+            <span style={{display:f.img?"none":"block",padding:"8px 16px",fontSize:12,fontWeight:700,
+              color:f.k==="legend"?"#7c3aed":f.k==="green"?"#166534":f.k==="yellow"?"#854d0e":"#991b1b"}}>
+              {f.label||f.k}
+            </span>
           </button>
         ))}
         {scoreFilter!=="all"&&<span style={{fontSize:12,fontWeight:600,color:"#808080",marginLeft:4}}>
@@ -3380,7 +3387,7 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
                     style={{...S.card,cursor:"pointer",
                       borderLeft:"4px solid "+scoreColor(overall),
                       background:overall==="legend"?"rgba(124,58,237,.04)":isExp?"rgba(41,53,93,.03)":"#fff",
-                      background:isExp?"rgba(41,53,93,.03)":"#fff",transition:"all .15s"}}>
+                      transition:"all .15s"}}>
                     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
                       <div style={{fontWeight:600,fontSize:13,color:"#29355D"}}>{dispName(csm.name)}</div>
                       <div style={{fontSize:18}}>{scoreDot(overall)}</div>
