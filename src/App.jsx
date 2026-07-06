@@ -4443,6 +4443,9 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
           churned, bcc:0, bch:[]};
       });
   const [bobTab, setBobTab]         = useState("overview");
+  const [q3Sort,       setQ3Sort]       = useState({col:"retPct", dir:"asc"});
+  const [tileFilter,   setTileFilter]   = useState(null);
+  const [q3CSMFilter,  setQ3CSMFilter]  = useState(null); // clicked CSM name to drill into
   const [churnModal, setChurnModal] = useState(false);
   const [bobSort, setBobSort]       = useState({col:"ret", dir:"desc"});
   const [expandedBob, setExpandedBob] = useState(null);
