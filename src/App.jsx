@@ -5201,6 +5201,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
       {bobTab==="q3"       && renderQ3()}
     </div>
   );
+}
 
 // ── PIN LOCK ───────────────────────────────────────────────────────────────
 const USER_CREDS = {
@@ -5326,8 +5327,6 @@ function PinLock({onUnlock}) {
       </div>
     </div>
   );
-}
-
 }
 
 // ── MAIN APP ───────────────────────────────────────────────────────────────
