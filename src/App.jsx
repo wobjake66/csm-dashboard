@@ -5246,10 +5246,20 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                         }));
                       }
                       // Sort state is at BobView top level (acctSort/setAcctSort)
+                      const acctSortVal = (r, col) => {
+                        if (col === "acct")         return r.acct;
+                        if (col === "boqMrr")       return r.boqMrr;
+                        if (col === "curMrr")       return r.curMrr;
+                        if (col === "netNew")       return r.status==="net_new"  ? r.curMrr : 0;
+                        if (col === "removedMrr")   return r.status==="removed"  ? r.boqMrr : 0;
+                        if (col === "cancelledMrr") return r.status==="cancelled"? r.boqMrr : 0;
+                        if (col === "increase")     return r.status==="increase" ? r.delta  : 0;
+                        return 0;
+                      };
                       const sortedAccts = [...acctRows].sort((a,b) => {
                         const dir = acctSort.dir==="asc"?1:-1;
                         if (acctSort.col==="acct") return dir*a.acct.localeCompare(b.acct);
-                        return dir*((Number(a[acctSort.col])||0)-(Number(b[acctSort.col])||0));
+                        return dir*((acctSortVal(a,acctSort.col)||0)-(acctSortVal(b,acctSort.col)||0));
                       });
                       const sTh = (col,label,right=false) => (
                         <th key={col} onClick={()=>setAcctSort(s=>({col,dir:s.col===col&&s.dir==="asc"?"desc":"asc"}))}
