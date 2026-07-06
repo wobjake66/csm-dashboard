@@ -5030,6 +5030,14 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
     const fmtPct = p => p!=null ? (p*100).toFixed(1)+"%" : "--";
     const retCol = p => p==null?"#808080":p>=0.91?"#16a34a":p>=0.85?"#d97706":"#dc2626";
 
+    // Account-level log for a CSM filtered by active tile
+    const csmLog = (csmName) => scopedLog.filter(r => {
+      if (norm(r.csm) !== norm(csmName) && r.csm !== csmName) return false;
+      if (!tileFilter) return true;
+      if (tileFilter === "increase") return r.event === "billing_change" && r.mrrDelta > 0;
+      return r.event === tileFilter;
+    }).reverse();
+
     const eventBadge = (evt, delta) => {
       let cfg;
       if (evt === "billing_change") cfg = delta > 0
