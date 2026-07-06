@@ -4984,13 +4984,22 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
       return names;
     };
 
+    // Per-CSM increase totals from log
+    const csmIncreaseMrr = {};
+    increaseLog.forEach(r => {
+      const k = norm(r.csm)||r.csm;
+      csmIncreaseMrr[k] = (csmIncreaseMrr[k]||0) + r.mrrDelta;
+    });
+    const getIncrease = (c) => csmIncreaseMrr[norm(c.name)] || csmIncreaseMrr[c.name] || 0;
+
     // Filter CSM table by active tile — match on name OR norm(name)
     const activeCsmSet = tileFilter ? csmsWithEvent(tileFilter) : null;
     const visibleCSMs  = activeCsmSet
       ? q3CSMs.filter(c => activeCsmSet.has(c.name) || activeCsmSet.has(norm(c.name)))
       : q3CSMs;
     // Sort CSM table
-    const sortedCSMs = [...visibleCSMs].sort((a, b) => {
+    const enrichedCSMs = visibleCSMs.map(c => ({...c, increaseMrr: getIncrease(c)}));
+    const sortedCSMs = [...enrichedCSMs].sort((a, b) => {
       const dir = q3Sort.dir === "asc" ? 1 : -1;
       const col = q3Sort.col;
       const va = a[col] ?? (col === "name" ? "" : 0);
@@ -5086,6 +5095,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
               {sortTh("netNewMrr", "Net New", true)}
               {sortTh("removedMrr", "Removed", true)}
               {sortTh("cancelledMrr", "Cancelled", true)}
+              {sortTh("increaseMrr",  "Increase",  true)}
               {sortTh("retPct", "Retention %", false)}
             </tr></thead>
             <tbody>
@@ -5106,6 +5116,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                       <td style={{padding:"8px 8px 8px 0",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#16a34a"}}>{c.netNewMrr>0?"+"+fmt$(c.netNewMrr):"--"}</td>
                       <td style={{padding:"8px 8px 8px 0",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:c.removedMrr>0?"#dc2626":"#808080"}}>{c.removedMrr>0?"-"+fmt$(c.removedMrr):"--"}</td>
                       <td style={{padding:"8px 8px 8px 0",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:c.cancelledMrr>0?"#d97706":"#808080"}}>{c.cancelledMrr>0?"-"+fmt$(c.cancelledMrr):"--"}</td>
+                      <td style={{padding:"8px 8px 8px 0",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:c.increaseMrr>0?"#16a34a":"#808080"}}>{c.increaseMrr>0?"+"+fmt$(c.increaseMrr):"--"}</td>
                       <td style={{padding:"8px 8px 8px 0",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)"}}>
                         <div style={{display:"flex",alignItems:"center",gap:8}}>
                           <div style={{width:80,height:5,background:"#ECEEF1",borderRadius:3,overflow:"hidden"}}>
