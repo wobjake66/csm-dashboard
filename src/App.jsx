@@ -5071,8 +5071,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
         [r.csm,r.account,r.enterprise_id,r.event,r.boq_mrr,r.current_mrr,r.change,r.date,r.note]
         .map(v=>{ const s=String(v??"").replace(/"/g,'""'); return s.includes(",")||s.includes('"')?'"'+s+'"':s; })
         .join(",")
-      )].join("
-");
+      )].join("\n");
       const a = document.createElement("a");
       a.href = URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
       a.download = "Q3-"+(tileFilter||"all")+"-"+new Date().toISOString().slice(0,10)+".csv";
