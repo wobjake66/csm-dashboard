@@ -4437,6 +4437,8 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
           churned, bcc:0, bch:[]};
       });
   const [bobTab, setBobTab]         = useState("overview");
+  const [q3Sort,     setQ3Sort]     = useState({col:"retPct", dir:"asc"});
+  const [tileFilter, setTileFilter] = useState(null);
   const [churnModal, setChurnModal] = useState(false);
   const [bobSort, setBobSort]       = useState({col:"ret", dir:"desc"});
   const [expandedBob, setExpandedBob] = useState(null);
@@ -4946,9 +4948,6 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
         <div style={{fontSize:12}}>Then run <strong>runQ3BOBUpdate()</strong> to start tracking changes.</div>
       </div>
     );
-
-    const [q3Sort,   setQ3Sort]   = useState({col:"retPct", dir:"asc"});
-    const [tileFilter, setTileFilter] = useState(null); // null | "cancelled" | "removed" | "net_new" | "billing_change" | "increase"
 
     // Filter CSMs by coach/manager
     const q3CSMs = Object.values(q3Current).filter(c => {
