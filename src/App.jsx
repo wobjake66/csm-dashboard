@@ -5195,7 +5195,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
               {sortTh("removedMrr","Removed",true)}
               {sortTh("cancelledMrr","Cancelled",true)}
               {sortTh("increaseMrr","Increase",true)}
-              {sortTh("retPct","Retention %",false)}
+              <th key="retPct" onClick={()=>setQ3Sort(s=>({col:"retPct",dir:s.col==="retPct"&&s.dir==="asc"?"desc":"asc"}))} style={{padding:"0 8px 8px 24px",textAlign:"left",fontSize:10,textTransform:"uppercase",color:q3Sort.col==="retPct"?"#29355D":"#808080",fontWeight:q3Sort.col==="retPct"?700:500,cursor:"pointer",borderBottom:"0.5px solid rgba(41,53,93,.08)",userSelect:"none",whiteSpace:"nowrap"}}>{"Retention %"}{q3Sort.col==="retPct"?(q3Sort.dir==="asc"?" ↑":" ↓"):""}</th>
             </tr></thead>
             <tbody>
               {sortedCSMs.map(c => {
@@ -5216,7 +5216,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                       <td style={{padding:"8px 8px 8px 0",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:c.removedMrr>0?"#dc2626":"#808080"}}>{c.removedMrr>0?"-"+fmt$(c.removedMrr):"--"}</td>
                       <td style={{padding:"8px 8px 8px 0",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:c.cancelledMrr>0?"#d97706":"#808080"}}>{c.cancelledMrr>0?"-"+fmt$(c.cancelledMrr):"--"}</td>
                       <td style={{padding:"8px 8px 8px 0",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:c.increaseMrr>0?"#16a34a":"#808080"}}>{c.increaseMrr>0?"+"+fmt$(c.increaseMrr):"--"}</td>
-                      <td style={{padding:"8px 8px 8px 0",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)"}}>
+                      <td style={{padding:"8px 8px 8px 24px",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)"}}>
                         <div style={{display:"flex",alignItems:"center",gap:8}}>
                           <div style={{width:80,height:5,background:"#ECEEF1",borderRadius:3,overflow:"hidden"}}>
                             <div style={{width:Math.min((c.retPct||0)*100,100).toFixed(1)+"%",height:"100%",background:retCol(c.retPct),borderRadius:3}}/>
@@ -5251,9 +5251,9 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                         if (acctSort.col==="acct") return dir*a.acct.localeCompare(b.acct);
                         return dir*((Number(a[acctSort.col])||0)-(Number(b[acctSort.col])||0));
                       });
-                      const sTh = (col,label) => (
+                      const sTh = (col,label,right=false) => (
                         <th key={col} onClick={()=>setAcctSort(s=>({col,dir:s.col===col&&s.dir==="asc"?"desc":"asc"}))}
-                          style={{padding:"4px 8px 4px 0",textAlign:col==="acct"?"left":"right",fontSize:10,
+                          style={{padding:"4px 8px 4px 0",textAlign:right?"right":"left",fontSize:10,
                             textTransform:"uppercase",color:acctSort.col===col?"#29355D":"#808080",
                             fontWeight:acctSort.col===col?700:500,cursor:"pointer",userSelect:"none",whiteSpace:"nowrap"}}>
                           {label}{acctSort.col===col?(acctSort.dir==="asc"?" ↑":" ↓"):""}
@@ -5284,11 +5284,11 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                             </div>
                             <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
                               <thead><tr>
-                                {sTh("acct","Account")}
-                                {sTh("status","Status")}
-                                {sTh("boqMrr","BOQ MRR")}
-                                {sTh("curMrr","Current")}
-                                {sTh("delta","Change")}
+                                {sTh("acct","Account",false)}
+                                {sTh("status","Status",false)}
+                                {sTh("boqMrr","BOQ MRR",true)}
+                                {sTh("curMrr","Current",true)}
+                                {sTh("delta","Change",true)}
                               </tr></thead>
                               <tbody>
                                 {sortedAccts.map((r,i)=>(
