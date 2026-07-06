@@ -4437,8 +4437,9 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
           churned, bcc:0, bch:[]};
       });
   const [bobTab, setBobTab]         = useState("overview");
-  const [q3Sort,     setQ3Sort]     = useState({col:"retPct", dir:"asc"});
-  const [tileFilter, setTileFilter] = useState(null);
+  const [q3Sort,       setQ3Sort]       = useState({col:"retPct", dir:"asc"});
+  const [tileFilter,   setTileFilter]   = useState(null);
+  const [q3CSMFilter,  setQ3CSMFilter]  = useState(null); // clicked CSM name to drill into
   const [churnModal, setChurnModal] = useState(false);
   const [bobSort, setBobSort]       = useState({col:"ret", dir:"desc"});
   const [expandedBob, setExpandedBob] = useState(null);
@@ -4983,13 +4984,14 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
     const totalIncreaseMrr = scopedLog.filter(r=>r.event==="billing_change"&&r.mrrDelta>0).reduce((s,r)=>s+r.mrrDelta,0);
     const increaseCount    = scopedLog.filter(r=>r.event==="billing_change"&&r.mrrDelta>0).length;
 
-    // Log filtered by tile selection
+    // Log filtered by tile selection + CSM drill-down
     const filteredLog = scopedLog.filter(r => {
+      if (q3CSMFilter && norm(r.csm) !== q3CSMFilter && r.csm !== q3CSMFilter) return false;
       if (!tileFilter) return true;
       if (tileFilter === "increase") return r.event === "billing_change" && r.mrrDelta > 0;
       if (tileFilter === "decrease") return r.event === "billing_change" && r.mrrDelta < 0;
       return r.event === tileFilter;
-    }).reverse().slice(0, 100);
+    }).reverse().slice(0, 200);
 
     const fmt$ = n => "$"+Number(n||0).toLocaleString("en-US",{minimumFractionDigits:0,maximumFractionDigits:0});
     const fmtPct = p => p!=null ? (p*100).toFixed(1)+"%" : "--";
@@ -5051,10 +5053,14 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
         {/* Sortable CSM table */}
         <div style={{...S.card,marginBottom:16}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-            <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500}}>
+            <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
               CSM Q3 Retention
-              {tileFilter && <span style={{marginLeft:8,padding:"2px 8px",borderRadius:20,background:"#EEF2FF",color:"#4338CA",fontSize:10}}>
-                filtered: {tileFilter.replace("_"," ")}
+              {q3CSMFilter && <span style={{padding:"2px 8px",borderRadius:20,background:"#EEF2FF",color:"#4338CA",fontSize:10,textTransform:"none",fontWeight:500,cursor:"pointer"}}
+                onClick={()=>setQ3CSMFilter(null)}>
+                {dispName(q3CSMFilter)} ✕
+              </span>}
+              {tileFilter && <span style={{padding:"2px 8px",borderRadius:20,background:"#F3F4F6",color:"#374151",fontSize:10,textTransform:"none",fontWeight:400}}>
+                {tileFilter.replace(/_/g," ")}
               </span>}
             </div>
             {runDate&&<div style={{fontSize:11,color:"#808080"}}>Last updated: {runDate}</div>}
@@ -5073,9 +5079,16 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
               <SortTh col="cancelledCount" label="Cancel #"    right={true}/>
             </tr></thead>
             <tbody>
-              {sortedCSMs.map(c=>(
-                <tr key={c.name}>
-                  <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",fontWeight:500}}>{dispName(c.name)}</td>
+              {sortedCSMs.map(c=>{
+                const isSelected = q3CSMFilter === c.name || q3CSMFilter === norm(c.name);
+                return (
+                <tr key={c.name} onClick={()=>setQ3CSMFilter(isSelected?null:c.name)}
+                  style={{cursor:"pointer",background:isSelected?"rgba(41,53,93,.04)":"transparent"}}>
+                  <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",fontWeight:500,
+                    color:isSelected?"#29355D":"inherit"}}>
+                    {isSelected && <span style={{marginRight:6,color:"#29355D"}}>▶</span>}
+                    {dispName(c.name)}
+                  </td>
                   <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#808080"}}>{fmt$(c.boqAdjusted)}</td>
                   <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right"}}>{fmt$(c.currentMrr)}</td>
                   <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#16a34a"}}>{c.netNewMrr>0?"+"+fmt$(c.netNewMrr):"--"}</td>
@@ -5093,7 +5106,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                   <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:c.removedCount>0?"#dc2626":"#808080"}}>{c.removedCount||"--"}</td>
                   <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:c.cancelledCount>0?"#d97706":"#808080"}}>{c.cancelledCount||"--"}</td>
                 </tr>
-              ))}
+              );})}
             </tbody>
           </table>
         </div>
@@ -5101,10 +5114,14 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
         {/* BOQ Adjustment Log — filtered by tile */}
         {filteredLog.length > 0 && <div style={S.card}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-            <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500}}>
+            <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
               BOQ Adjustment Log — {filteredLog.length} events
-              {tileFilter && <span style={{marginLeft:8,fontSize:10,color:"#808080",textTransform:"none",fontWeight:400}}>
-                · click tile again to clear filter
+              {q3CSMFilter && <span style={{padding:"2px 8px",borderRadius:20,background:"#EEF2FF",color:"#4338CA",fontSize:10,textTransform:"none",fontWeight:500,cursor:"pointer"}}
+                onClick={()=>setQ3CSMFilter(null)}>
+                {dispName(q3CSMFilter)} ✕
+              </span>}
+              {tileFilter && <span style={{padding:"2px 8px",borderRadius:20,background:"#F3F4F6",color:"#374151",fontSize:10,textTransform:"none",fontWeight:400}}>
+                {tileFilter.replace(/_/g," ")} · click tile to clear
               </span>}
             </div>
           </div>
