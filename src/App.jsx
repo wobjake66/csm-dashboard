@@ -4950,7 +4950,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
       </div>
     );
 
-    // Filter CSMs by coach/manager
+    // All CSMs in scope (coach/manager filter from top dropdowns)
     const q3CSMs = Object.values(q3Current).filter(c => {
       const i = lk(norm(c.name)) || lk(c.name);
       if (managerCoaches && !(i && managerCoaches.includes(i.c))) return false;
@@ -4959,41 +4959,51 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
       return true;
     });
 
-    // Sort CSMs
-    const sortedCSMs = [...q3CSMs].sort((a, b) => {
+    const scopedNames = new Set(q3CSMs.map(c => norm(c.name)));
+    const scopedLog   = [...q3Log].filter(r => scopedNames.has(norm(r.csm)) || scopedNames.has(r.csm));
+
+    const totalBoqAdj    = q3CSMs.reduce((s,c)=>s+c.boqAdjusted, 0);
+    const totalCurrent   = q3CSMs.reduce((s,c)=>s+c.currentMrr, 0);
+    const totalNetNew    = q3CSMs.reduce((s,c)=>s+c.netNewMrr, 0);
+    const totalRemoved   = q3CSMs.reduce((s,c)=>s+c.removedMrr, 0);
+    const totalCancelled = q3CSMs.reduce((s,c)=>s+c.cancelledMrr, 0);
+    const overallRet     = totalBoqAdj > 0 ? (totalCurrent - totalNetNew) / totalBoqAdj : null;
+    const runDate        = q3CSMs[0]?.runDate || "";
+
+    const increaseLog   = scopedLog.filter(r => r.event==="billing_change" && r.mrrDelta>0);
+    const totalIncrease = increaseLog.reduce((s,r)=>s+r.mrrDelta, 0);
+
+    // Which CSMs have events for each tile type
+    const csmsWithEvent = (type) => {
+      if (type === "increase") return new Set(increaseLog.map(r => r.csm));
+      return new Set(scopedLog.filter(r => r.event === type).map(r => r.csm));
+    };
+
+    // Filter CSM table by active tile
+    const activeCsmSet = tileFilter ? csmsWithEvent(tileFilter) : null;
+    const visibleCSMs  = activeCsmSet
+      ? q3CSMs.filter(c => activeCsmSet.has(c.name) || activeCsmSet.has(norm(c.name)))
+      : q3CSMs;
+
+    // Sort
+    const sortedCSMs = [...visibleCSMs].sort((a, b) => {
       const dir = q3Sort.dir === "asc" ? 1 : -1;
       const col = q3Sort.col;
       const va = a[col] ?? (col === "name" ? "" : 0);
       const vb = b[col] ?? (col === "name" ? "" : 0);
-      if (col === "name") return dir * va.localeCompare(vb);
+      if (col === "name") return dir * String(va).localeCompare(String(vb));
       return dir * (va - vb);
     });
 
-    // Totals
-    const totalBoqAdj     = q3CSMs.reduce((s,c)=>s+c.boqAdjusted, 0);
-    const totalCurrent    = q3CSMs.reduce((s,c)=>s+c.currentMrr, 0);
-    const totalNetNew     = q3CSMs.reduce((s,c)=>s+c.netNewMrr, 0);
-    const totalRemoved    = q3CSMs.reduce((s,c)=>s+c.removedMrr, 0);
-    const totalCancelled  = q3CSMs.reduce((s,c)=>s+c.cancelledMrr, 0);
-    const overallRet      = totalBoqAdj > 0 ? (totalCurrent - totalNetNew) / totalBoqAdj : null;
-    const runDate         = q3CSMs[0]?.runDate || "";
-
-    // Increases = billing_change where delta > 0
-    const scopedNames = new Set(q3CSMs.map(c=>norm(c.name)));
-    const scopedLog   = [...q3Log].filter(r => scopedNames.has(norm(r.csm)) || scopedNames.has(r.csm));
-    const totalIncreaseMrr = scopedLog.filter(r=>r.event==="billing_change"&&r.mrrDelta>0).reduce((s,r)=>s+r.mrrDelta,0);
-    const increaseCount    = scopedLog.filter(r=>r.event==="billing_change"&&r.mrrDelta>0).length;
-
-    // Log filtered by tile selection + CSM drill-down
-    const filteredLog = scopedLog.filter(r => {
-      if (q3CSMFilter && norm(r.csm) !== q3CSMFilter && r.csm !== q3CSMFilter) return false;
+    // Get account-level log for a CSM, filtered by active tile
+    const csmLog = (csmName) => scopedLog.filter(r => {
+      if (norm(r.csm) !== norm(csmName) && r.csm !== csmName) return false;
       if (!tileFilter) return true;
       if (tileFilter === "increase") return r.event === "billing_change" && r.mrrDelta > 0;
-      if (tileFilter === "decrease") return r.event === "billing_change" && r.mrrDelta < 0;
       return r.event === tileFilter;
-    }).reverse().slice(0, 200);
+    }).reverse();
 
-    const fmt$ = n => "$"+Number(n||0).toLocaleString("en-US",{minimumFractionDigits:0,maximumFractionDigits:0});
+    const fmt$   = n => "$"+Number(n||0).toLocaleString("en-US",{minimumFractionDigits:0,maximumFractionDigits:0});
     const fmtPct = p => p!=null ? (p*100).toFixed(1)+"%" : "--";
     const retCol = p => p==null?"#808080":p>=0.91?"#16a34a":p>=0.85?"#d97706":"#dc2626";
 
@@ -5012,7 +5022,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
     const Tile = ({label, value, sub, color, filterKey}) => {
       const active = tileFilter === filterKey;
       return (
-        <div onClick={()=>setTileFilter(active ? null : filterKey)}
+        <div onClick={()=>{ setTileFilter(active?null:filterKey); setQ3CSMFilter(null); }}
           style={{background:active?"#29355D":"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",
             borderTop:"3px solid "+color,cursor:"pointer",transition:"all .15s",
             boxShadow:active?"0 2px 8px rgba(41,53,93,.15)":"none"}}>
@@ -5023,140 +5033,128 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
       );
     };
 
-    const eventBadge = (evt) => {
-      const cfg = {
-        net_new:       {bg:"#dcfce7",fg:"#166534",label:"Net New"},
-        removed:       {bg:"#fee2e2",fg:"#991b1b",label:"Removed"},
-        cancelled:     {bg:"#fef9c3",fg:"#854d0e",label:"Cancelled"},
-        billing_change:{bg:"#eff6ff",fg:"#1e40af",label:"Billing Δ"},
+    const eventBadge = (evt, delta) => {
+      let cfg;
+      if (evt === "billing_change") cfg = delta > 0
+        ? {bg:"#dcfce7",fg:"#166534",label:"Increase"}
+        : {bg:"#fef9c3",fg:"#854d0e",label:"Decrease"};
+      else cfg = {
+        net_new:  {bg:"#dcfce7",fg:"#166534",label:"Net New"},
+        removed:  {bg:"#fee2e2",fg:"#991b1b",label:"Removed"},
+        cancelled:{bg:"#fef9c3",fg:"#854d0e",label:"Cancelled"},
       }[evt] || {bg:"#f3f4f6",fg:"#374151",label:evt};
       return <span style={{fontSize:10,fontWeight:500,padding:"2px 8px",borderRadius:20,background:cfg.bg,color:cfg.fg}}>{cfg.label}</span>;
     };
 
     return (
       <div>
-        {/* 5 clickable summary tiles */}
+        {/* 5 clickable tiles */}
         <div style={{display:"grid",gridTemplateColumns:"repeat(5,minmax(0,1fr))",gap:10,marginBottom:16}}>
-          <div style={{background:tileFilter===null?"#29355D":"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",
-            borderTop:"3px solid #29355D",cursor:"pointer",transition:"all .15s"}}
-            onClick={()=>setTileFilter(null)}>
-            <div style={{fontSize:10,textTransform:"uppercase",color:tileFilter===null?"rgba(255,255,255,.7)":"#808080",fontWeight:500,marginBottom:4}}>Q3 Retention</div>
-            <div style={{fontSize:22,fontWeight:600,color:tileFilter===null?"#fff":retCol(overallRet),lineHeight:1,marginBottom:4}}>{fmtPct(overallRet)}</div>
-            <div style={{fontSize:10,color:tileFilter===null?"rgba(255,255,255,.6)":"#808080"}}>goal 91% · adj BOQ {fmt$(totalBoqAdj)}</div>
+          <div onClick={()=>{ setTileFilter(null); setQ3CSMFilter(null); }}
+            style={{background:!tileFilter?"#29355D":"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",
+              borderTop:"3px solid #29355D",cursor:"pointer",transition:"all .15s"}}>
+            <div style={{fontSize:10,textTransform:"uppercase",color:!tileFilter?"rgba(255,255,255,.7)":"#808080",fontWeight:500,marginBottom:4}}>Q3 Retention</div>
+            <div style={{fontSize:22,fontWeight:600,color:!tileFilter?"#fff":retCol(overallRet),lineHeight:1,marginBottom:4}}>{fmtPct(overallRet)}</div>
+            <div style={{fontSize:10,color:!tileFilter?"rgba(255,255,255,.6)":"#808080"}}>goal 91% · adj BOQ {fmt$(totalBoqAdj)}</div>
           </div>
-          <Tile label="Increases" value={fmt$(totalIncreaseMrr)} sub={increaseCount+" accounts"} color="#16a34a" filterKey="increase"/>
+          <Tile label="Increases" value={fmt$(totalIncrease)} sub={increaseLog.length+" accounts"} color="#16a34a" filterKey="increase"/>
           <Tile label="Cancelled ($0)" value={fmt$(totalCancelled)} sub={q3CSMs.reduce((s,c)=>s+c.cancelledCount,0)+" accounts"} color="#d97706" filterKey="cancelled"/>
           <Tile label="Removed from BOQ" value={fmt$(totalRemoved)} sub={q3CSMs.reduce((s,c)=>s+c.removedCount,0)+" accounts"} color="#dc2626" filterKey="removed"/>
           <Tile label="Net New" value={fmt$(totalNetNew)} sub={q3CSMs.reduce((s,c)=>s+c.netNewCount,0)+" accounts"} color="#FF5000" filterKey="net_new"/>
         </div>
 
-        {/* Sortable CSM table */}
-        <div style={{...S.card,marginBottom:16}}>
+        {/* CSM table filtered by tile, expandable by clicking CSM name */}
+        <div style={{...S.card}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-            <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-              CSM Q3 Retention
-              {q3CSMFilter && <span style={{padding:"2px 8px",borderRadius:20,background:"#EEF2FF",color:"#4338CA",fontSize:10,textTransform:"none",fontWeight:500,cursor:"pointer"}}
-                onClick={()=>setQ3CSMFilter(null)}>
-                {dispName(q3CSMFilter)} ✕
-              </span>}
-              {tileFilter && <span style={{padding:"2px 8px",borderRadius:20,background:"#F3F4F6",color:"#374151",fontSize:10,textTransform:"none",fontWeight:400}}>
-                {tileFilter.replace(/_/g," ")}
-              </span>}
+            <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500}}>
+              {tileFilter
+                ? sortedCSMs.length+" CSMs with "+tileFilter.replace(/_/g," ")+" — click name to expand"
+                : "CSM Q3 Retention — click name to expand"}
             </div>
             {runDate&&<div style={{fontSize:11,color:"#808080"}}>Last updated: {runDate}</div>}
           </div>
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
             <thead><tr>
-              <SortTh col="name"          label="CSM"          right={false}/>
-              <SortTh col="boqAdjusted"   label="BOQ (adj)"    right={true}/>
-              <SortTh col="currentMrr"    label="Current MRR"  right={true}/>
-              <SortTh col="netNewMrr"     label="Net New"      right={true}/>
-              <SortTh col="removedMrr"    label="Removed"      right={true}/>
-              <SortTh col="cancelledMrr"  label="Cancelled"    right={true}/>
-              <SortTh col="retPct"        label="Retention %"  right={false}/>
-              <SortTh col="netNewCount"   label="New #"        right={true}/>
-              <SortTh col="removedCount"  label="Removed #"    right={true}/>
-              <SortTh col="cancelledCount" label="Cancel #"    right={true}/>
+              <SortTh col="name"         label="CSM"         right={false}/>
+              <SortTh col="boqAdjusted"  label="BOQ (adj)"   right={true}/>
+              <SortTh col="currentMrr"   label="Current MRR" right={true}/>
+              <SortTh col="netNewMrr"    label="Net New"     right={true}/>
+              <SortTh col="removedMrr"   label="Removed"     right={true}/>
+              <SortTh col="cancelledMrr" label="Cancelled"   right={true}/>
+              <SortTh col="retPct"       label="Retention %"  right={false}/>
             </tr></thead>
             <tbody>
-              {sortedCSMs.map(c=>{
-                const isSelected = q3CSMFilter === c.name || q3CSMFilter === norm(c.name);
+              {sortedCSMs.map(c => {
+                const isOpen = q3CSMFilter === c.name || q3CSMFilter === norm(c.name);
+                const drillLog = csmLog(c.name);
                 return (
-                <tr key={c.name} onClick={()=>setQ3CSMFilter(isSelected?null:c.name)}
-                  style={{cursor:"pointer",background:isSelected?"rgba(41,53,93,.04)":"transparent"}}>
-                  <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",fontWeight:500,
-                    color:isSelected?"#29355D":"inherit"}}>
-                    {isSelected && <span style={{marginRight:6,color:"#29355D"}}>▶</span>}
-                    {dispName(c.name)}
-                  </td>
-                  <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#808080"}}>{fmt$(c.boqAdjusted)}</td>
-                  <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right"}}>{fmt$(c.currentMrr)}</td>
-                  <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#16a34a"}}>{c.netNewMrr>0?"+"+fmt$(c.netNewMrr):"--"}</td>
-                  <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:c.removedMrr>0?"#dc2626":"#808080"}}>{c.removedMrr>0?"-"+fmt$(c.removedMrr):"--"}</td>
-                  <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:c.cancelledMrr>0?"#d97706":"#808080"}}>{c.cancelledMrr>0?"-"+fmt$(c.cancelledMrr):"--"}</td>
-                  <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)"}}>
-                    <div style={{display:"flex",alignItems:"center",gap:8}}>
-                      <div style={{width:80,height:5,background:"#ECEEF1",borderRadius:3,overflow:"hidden"}}>
-                        <div style={{width:Math.min((c.retPct||0)*100,100).toFixed(1)+"%",height:"100%",background:retCol(c.retPct),borderRadius:3}}/>
-                      </div>
-                      <span style={{fontWeight:600,color:retCol(c.retPct)}}>{fmtPct(c.retPct)}</span>
-                    </div>
-                  </td>
-                  <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#16a34a"}}>{c.netNewCount||"--"}</td>
-                  <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:c.removedCount>0?"#dc2626":"#808080"}}>{c.removedCount||"--"}</td>
-                  <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:c.cancelledCount>0?"#d97706":"#808080"}}>{c.cancelledCount||"--"}</td>
-                </tr>
-              );})}
+                  <React.Fragment key={c.name}>
+                    <tr onClick={()=>setQ3CSMFilter(isOpen?null:c.name)}
+                      style={{cursor:"pointer",background:isOpen?"rgba(41,53,93,.04)":"transparent"}}>
+                      <td style={{padding:"8px 8px 8px 0",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)",fontWeight:500,color:"#29355D"}}>
+                        <span style={{marginRight:6,fontSize:9,display:"inline-block",transition:"transform .15s",
+                          transform:isOpen?"rotate(90deg)":"none",color:"#808080"}}>▶</span>
+                        {dispName(c.name)}
+                      </td>
+                      <td style={{padding:"8px 8px 8px 0",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#808080"}}>{fmt$(c.boqAdjusted)}</td>
+                      <td style={{padding:"8px 8px 8px 0",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)",textAlign:"right"}}>{fmt$(c.currentMrr)}</td>
+                      <td style={{padding:"8px 8px 8px 0",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#16a34a"}}>{c.netNewMrr>0?"+"+fmt$(c.netNewMrr):"--"}</td>
+                      <td style={{padding:"8px 8px 8px 0",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:c.removedMrr>0?"#dc2626":"#808080"}}>{c.removedMrr>0?"-"+fmt$(c.removedMrr):"--"}</td>
+                      <td style={{padding:"8px 8px 8px 0",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:c.cancelledMrr>0?"#d97706":"#808080"}}>{c.cancelledMrr>0?"-"+fmt$(c.cancelledMrr):"--"}</td>
+                      <td style={{padding:"8px 8px 8px 0",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)"}}>
+                        <div style={{display:"flex",alignItems:"center",gap:8}}>
+                          <div style={{width:80,height:5,background:"#ECEEF1",borderRadius:3,overflow:"hidden"}}>
+                            <div style={{width:Math.min((c.retPct||0)*100,100).toFixed(1)+"%",height:"100%",background:retCol(c.retPct),borderRadius:3}}/>
+                          </div>
+                          <span style={{fontWeight:600,color:retCol(c.retPct)}}>{fmtPct(c.retPct)}</span>
+                        </div>
+                      </td>
+                    </tr>
+                    {isOpen && drillLog.length > 0 && (
+                      <tr>
+                        <td colSpan={7} style={{padding:"0 0 12px 24px",borderBottom:"0.5px solid rgba(41,53,93,.08)",background:"rgba(41,53,93,.02)"}}>
+                          <table style={{width:"100%",borderCollapse:"collapse",fontSize:11,marginTop:4}}>
+                            <thead><tr>
+                              {["Account","Event","BOQ MRR","Current","Change","Note"].map(h=>(
+                                <th key={h} style={{padding:"4px 8px 4px 0",textAlign:"left",fontSize:10,
+                                  textTransform:"uppercase",color:"#808080",fontWeight:500}}>{h}</th>
+                              ))}
+                            </tr></thead>
+                            <tbody>
+                              {drillLog.map((r,i)=>(
+                                <tr key={i} style={{borderTop:"0.5px solid rgba(41,53,93,.05)"}}>
+                                  <td style={{padding:"5px 8px 5px 0",maxWidth:220,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.acct}</td>
+                                  <td style={{padding:"5px 8px 5px 0"}}>{eventBadge(r.event, r.mrrDelta)}</td>
+                                  <td style={{padding:"5px 8px 5px 0",color:"#808080"}}>{r.mrrBefore>0?fmt$(r.mrrBefore):"--"}</td>
+                                  <td style={{padding:"5px 8px 5px 0"}}>{r.mrrAfter>0?fmt$(r.mrrAfter):"--"}</td>
+                                  <td style={{padding:"5px 8px 5px 0",fontWeight:500,color:r.mrrDelta>0?"#16a34a":r.mrrDelta<0?"#dc2626":"#808080"}}>
+                                    {r.mrrDelta!==0?(r.mrrDelta>0?"+":"")+fmt$(r.mrrDelta):"--"}
+                                  </td>
+                                  <td style={{padding:"5px 8px 5px 0",color:"#808080",fontSize:10}}>{r.note}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </td>
+                      </tr>
+                    )}
+                    {isOpen && drillLog.length === 0 && (
+                      <tr><td colSpan={7} style={{padding:"8px 0 8px 24px",borderBottom:"0.5px solid rgba(41,53,93,.08)",
+                        color:"#808080",fontSize:11,fontStyle:"italic"}}>
+                        No {tileFilter ? tileFilter.replace(/_/g," ") : "events"} logged for {dispName(c.name)}
+                      </td></tr>
+                    )}
+                  </React.Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>
-
-        {/* BOQ Adjustment Log — filtered by tile */}
-        {filteredLog.length > 0 && <div style={S.card}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-            <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-              BOQ Adjustment Log — {filteredLog.length} events
-              {q3CSMFilter && <span style={{padding:"2px 8px",borderRadius:20,background:"#EEF2FF",color:"#4338CA",fontSize:10,textTransform:"none",fontWeight:500,cursor:"pointer"}}
-                onClick={()=>setQ3CSMFilter(null)}>
-                {dispName(q3CSMFilter)} ✕
-              </span>}
-              {tileFilter && <span style={{padding:"2px 8px",borderRadius:20,background:"#F3F4F6",color:"#374151",fontSize:10,textTransform:"none",fontWeight:400}}>
-                {tileFilter.replace(/_/g," ")} · click tile to clear
-              </span>}
-            </div>
-          </div>
-          <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
-            <thead><tr>
-              {["Date","CSM","Account","Event","Before","After","Δ","Note"].map(h=>(
-                <th key={h} style={{padding:"0 8px 8px 0",textAlign:"left",fontSize:10,textTransform:"uppercase",
-                  color:"#808080",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>{h}</th>
-              ))}
-            </tr></thead>
-            <tbody>
-              {filteredLog.map((r,i)=>(
-                <tr key={i}>
-                  <td style={{padding:"7px 8px 7px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",color:"#808080",whiteSpace:"nowrap"}}>{r.date}</td>
-                  <td style={{padding:"7px 8px 7px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",whiteSpace:"nowrap"}}>{dispName(r.csm)}</td>
-                  <td style={{padding:"7px 8px 7px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",maxWidth:180,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.acct}</td>
-                  <td style={{padding:"7px 8px 7px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)"}}>{eventBadge(r.event)}</td>
-                  <td style={{padding:"7px 8px 7px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",color:"#808080"}}>{r.mrrBefore>0?fmt$(r.mrrBefore):"--"}</td>
-                  <td style={{padding:"7px 8px 7px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)"}}>{r.mrrAfter>0?fmt$(r.mrrAfter):"--"}</td>
-                  <td style={{padding:"7px 8px 7px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",fontWeight:500,
-                    color:r.mrrDelta>0?"#16a34a":r.mrrDelta<0?"#dc2626":"#808080"}}>
-                    {r.mrrDelta!==0?(r.mrrDelta>0?"+":"")+fmt$(r.mrrDelta):"--"}
-                  </td>
-                  <td style={{padding:"7px 8px 7px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",color:"#808080",fontSize:11}}>{r.note}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>}
       </div>
     );
   };
 
-
-  const visibleAlerts = (churnAlerts||[]).filter(a => {
+    const visibleAlerts = (churnAlerts||[]).filter(a => {
     if (managerCoaches) { const i=lk(a.csm); if(!(i&&managerCoaches.includes(i.c))) return false; }
     if (filterCoach) { const i=lk(a.csm); if(!(i&&i.c===filterCoach)) return false; }
     if (filterCSM && a.csm!==filterCSM) return false;
@@ -5210,7 +5208,6 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
       {bobTab==="q3"       && renderQ3()}
     </div>
   );
-}
 
 // ── PIN LOCK ───────────────────────────────────────────────────────────────
 const USER_CREDS = {
@@ -5336,6 +5333,8 @@ function PinLock({onUnlock}) {
       </div>
     </div>
   );
+}
+
 }
 
 // ── MAIN APP ───────────────────────────────────────────────────────────────
