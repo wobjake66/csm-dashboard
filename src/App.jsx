@@ -4999,10 +4999,11 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
       return dir * ((Number(va)||0) - (Number(vb)||0));
     });
 
-    const SortTh = ({col, label, right}) => {
+    // Plain render helpers (not React components — avoids hooks-in-nested-function crash)
+    const sortTh = (col, label, right) => {
       const active = q3Sort.col === col;
       return (
-        <th onClick={()=>setQ3Sort(s=>({col, dir: s.col===col&&s.dir==="asc"?"desc":"asc"}))}
+        <th key={col} onClick={()=>setQ3Sort(s=>({col, dir: s.col===col&&s.dir==="asc"?"desc":"asc"}))}
           style={{padding:"0 8px 8px 0",textAlign:right?"right":"left",fontSize:10,textTransform:"uppercase",
             color:active?"#29355D":"#808080",fontWeight:active?700:500,cursor:"pointer",
             borderBottom:"0.5px solid rgba(41,53,93,.08)",userSelect:"none",whiteSpace:"nowrap"}}>
@@ -5011,10 +5012,10 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
       );
     };
 
-    const Tile = ({label, value, sub, color, filterKey}) => {
+    const tile = (label, value, sub, color, filterKey) => {
       const active = tileFilter === filterKey;
       return (
-        <div onClick={()=>{ setTileFilter(active?null:filterKey); setQ3CSMFilter(null); }}
+        <div key={filterKey} onClick={()=>{ setTileFilter(active?null:filterKey); setQ3CSMFilter(null); }}
           style={{background:active?"#29355D":"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",
             borderTop:"3px solid "+color,cursor:"pointer",transition:"all .15s",
             boxShadow:active?"0 2px 8px rgba(41,53,93,.15)":"none"}}>
@@ -5049,10 +5050,10 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
             <div style={{fontSize:22,fontWeight:600,color:!tileFilter?"#fff":retCol(overallRet),lineHeight:1,marginBottom:4}}>{fmtPct(overallRet)}</div>
             <div style={{fontSize:10,color:!tileFilter?"rgba(255,255,255,.6)":"#808080"}}>goal 91% · adj BOQ {fmt$(totalBoqAdj)}</div>
           </div>
-          <Tile label="Increases" value={fmt$(totalIncrease)} sub={increaseLog.length+" accounts"} color="#16a34a" filterKey="increase"/>
-          <Tile label="Cancelled ($0)" value={fmt$(totalCancelled)} sub={q3CSMs.reduce((s,c)=>s+c.cancelledCount,0)+" accounts"} color="#d97706" filterKey="cancelled"/>
-          <Tile label="Removed from BOQ" value={fmt$(totalRemoved)} sub={q3CSMs.reduce((s,c)=>s+c.removedCount,0)+" accounts"} color="#dc2626" filterKey="removed"/>
-          <Tile label="Net New" value={fmt$(totalNetNew)} sub={q3CSMs.reduce((s,c)=>s+c.netNewCount,0)+" accounts"} color="#FF5000" filterKey="net_new"/>
+          {tile("Increases", fmt$(totalIncrease), increaseLog.length+" accounts", "#16a34a", "increase")}
+          {tile("Cancelled ($0)", fmt$(totalCancelled), q3CSMs.reduce((s,c)=>s+c.cancelledCount,0)+" accounts", "#d97706", "cancelled")}
+          {tile("Removed from BOQ", fmt$(totalRemoved), q3CSMs.reduce((s,c)=>s+c.removedCount,0)+" accounts", "#dc2626", "removed")}
+          {tile("Net New", fmt$(totalNetNew), q3CSMs.reduce((s,c)=>s+c.netNewCount,0)+" accounts", "#FF5000", "net_new")}
         </div>
 
         {/* CSM table filtered by tile, expandable by clicking CSM name */}
@@ -5067,13 +5068,13 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
           </div>
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
             <thead><tr>
-              <SortTh col="name"         label="CSM"         right={false}/>
-              <SortTh col="boqAdjusted"  label="BOQ (adj)"   right={true}/>
-              <SortTh col="currentMrr"   label="Current MRR" right={true}/>
-              <SortTh col="netNewMrr"    label="Net New"     right={true}/>
-              <SortTh col="removedMrr"   label="Removed"     right={true}/>
-              <SortTh col="cancelledMrr" label="Cancelled"   right={true}/>
-              <SortTh col="retPct"       label="Retention %"  right={false}/>
+              {sortTh("name", "CSM", false)}
+              {sortTh("boqAdjusted", "BOQ (adj)", true)}
+              {sortTh("currentMrr", "Current MRR", true)}
+              {sortTh("netNewMrr", "Net New", true)}
+              {sortTh("removedMrr", "Removed", true)}
+              {sortTh("cancelledMrr", "Cancelled", true)}
+              {sortTh("retPct", "Retention %", false)}
             </tr></thead>
             <tbody>
               {sortedCSMs.map(c => {
