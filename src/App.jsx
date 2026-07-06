@@ -5282,27 +5282,47 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                             <div style={{fontSize:10,color:"#808080",padding:"6px 0 4px",fontStyle:"italic"}}>
                               {sortedAccts.length} accounts{tileFilter?" · filtered: "+tileFilter.replace(/_/g," "):""}
                             </div>
-                            <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
-                              <thead><tr>
+                            {/* Header row matching parent columns exactly */}
+                            <table style={{width:"100%",borderCollapse:"collapse",fontSize:11,tableLayout:"fixed"}}>
+                              <colgroup>
+                                <col style={{width:"38%"}}/>
+                                <col style={{width:"9%"}}/>
+                                <col style={{width:"10%"}}/>
+                                <col style={{width:"8%"}}/>
+                                <col style={{width:"8%"}}/>
+                                <col style={{width:"8%"}}/>
+                                <col style={{width:"8%"}}/>
+                                <col style={{width:"11%"}}/>
+                              </colgroup>
+                              <thead><tr style={{borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>
                                 {sTh("acct","Account",false)}
-                                {sTh("status","Status",false)}
                                 {sTh("boqMrr","BOQ MRR",true)}
-                                {sTh("curMrr","Current",true)}
-                                {sTh("delta","Change",true)}
+                                {sTh("curMrr","Current MRR",true)}
+                                {sTh("netNew","Net New",true)}
+                                {sTh("removedMrr","Removed",true)}
+                                {sTh("cancelledMrr","Cancelled",true)}
+                                {sTh("increase","Increase",true)}
+                                <th style={{padding:"4px 0 4px 24px",textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500}}>Status</th>
                               </tr></thead>
                               <tbody>
-                                {sortedAccts.map((r,i)=>(
+                                {sortedAccts.map((r,i)=>{
+                                  const isIncrease = r.status==="increase";
+                                  const isDecrease = r.status==="decrease";
+                                  const isNetNew   = r.status==="net_new";
+                                  const isCancelled= r.status==="cancelled";
+                                  const isRemoved  = r.status==="removed";
+                                  return (
                                   <tr key={i} style={{borderTop:"0.5px solid rgba(41,53,93,.05)"}}>
-                                    <td style={{padding:"5px 8px 5px 0",maxWidth:240,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.acct}</td>
-                                    <td style={{padding:"5px 8px 5px 0"}}>{statusBadge(r.status)}</td>
+                                    <td style={{padding:"5px 8px 5px 0",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.acct}</td>
                                     <td style={{padding:"5px 8px 5px 0",textAlign:"right",color:"#808080"}}>{r.boqMrr>0?fmt$(r.boqMrr):"--"}</td>
                                     <td style={{padding:"5px 8px 5px 0",textAlign:"right"}}>{r.curMrr>0?fmt$(r.curMrr):"--"}</td>
-                                    <td style={{padding:"5px 8px 5px 0",textAlign:"right",fontWeight:500,
-                                      color:r.delta>0?"#16a34a":r.delta<0?"#dc2626":"#808080"}}>
-                                      {r.delta!==0?(r.delta>0?"+":"")+fmt$(r.delta):"--"}
-                                    </td>
+                                    <td style={{padding:"5px 8px 5px 0",textAlign:"right",color:"#16a34a"}}>{isNetNew?"+"+fmt$(r.curMrr):"--"}</td>
+                                    <td style={{padding:"5px 8px 5px 0",textAlign:"right",color:"#dc2626"}}>{isRemoved?"-"+fmt$(r.boqMrr):"--"}</td>
+                                    <td style={{padding:"5px 8px 5px 0",textAlign:"right",color:"#d97706"}}>{isCancelled?"-"+fmt$(r.boqMrr):"--"}</td>
+                                    <td style={{padding:"5px 8px 5px 0",textAlign:"right",color:"#16a34a"}}>{isIncrease?"+"+fmt$(r.delta):"--"}</td>
+                                    <td style={{padding:"5px 0 5px 24px"}}>{statusBadge(r.status)}</td>
                                   </tr>
-                                ))}
+                                );})}
                               </tbody>
                             </table>
                           </td>
