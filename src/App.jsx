@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
-const imgCrushingIt  = "https://csm-dashboard-gamma.vercel.app/crushing_it.png";
-const imgAlmostThere = "https://csm-dashboard-gamma.vercel.app/almost_there.png";
-const imgNeedsLove   = "https://csm-dashboard-gamma.vercel.app/needs_love.png";
-const imgLegend      = "https://csm-dashboard-gamma.vercel.app/legend_status.png";
+const imgCrushingIt  = "https://raw.githubusercontent.com/wobjake66/csm-dashboard/main/crushing_it.jpg";
+const imgAlmostThere = "https://raw.githubusercontent.com/wobjake66/csm-dashboard/main/almost_there.jpg";
+const imgNeedsLove   = "https://raw.githubusercontent.com/wobjake66/csm-dashboard/main/needs_love.jpg";
+const imgLegend      = "https://raw.githubusercontent.com/wobjake66/csm-dashboard/main/legend_status.jpg";
 import * as XLSX from "xlsx";
 
 const PIN = "thryv2025";
@@ -19,6 +19,12 @@ const CSV_HISTORY = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGw
 const CSV_BOB     = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=729347262&single=true&output=csv"; // book of business billing
 const CSV_BOB_DET = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=873304103&single=true&output=csv"; // book of business detail
 const CSV_BOB_ADJ = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=132587094&single=true&output=csv"; // bob adjustments
+// Q3 BOB tracking tabs
+// bob_q3_current = where you paste the fresh BOB report (input, not read by dashboard)
+// bob_q3_results = CSM-level rollup written by Apps Script (read by dashboard)
+// bob_q3_log     = append-only change log (read by dashboard)
+const CSV_Q3_RESULTS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=766144759&single=true&output=csv"; // bob_q3_results
+const CSV_Q3_LOG     = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=1341900683&single=true&output=csv"; // bob_q3_log
 const CSV_CALLS   = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=466716688&single=true&output=csv"; // calls history (raw bookings export)
 const CSV_QA_MC   = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=1435312575&single=true&output=csv"; // MC Activation QA
 const CSV_QA_SS   = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=2091285368&single=true&output=csv"; // Setup & Strategy QA
@@ -77,12 +83,11 @@ const NAME_NORM = {
   "barbara larrosa":"Barbara Larrosa Presinal","barbara presinal":"Barbara Larrosa Presinal","barbara larrosa presinal":"Barbara Larrosa Presinal",
   "deivis pe\u00f1a":"Deivis Pena","deivis pena":"Deivis Pena","deivis peña":"Deivis Pena","deivis pẽa":"Deivis Pena",
   "eric johnson":"Eric Johnson","kyle dye":"Kyle Dye","sarah swanson":"Sarah Swanson",
-  "tyler moeggenberg":"Tyler Moeggenberg","tyler popplewell":"Tyler Popplewell",
   "luis aguasvivas":"Luis Aguasvivas Peralta","luis peralta":"Luis Aguasvivas Peralta","luis aguasvivas peralta":"Luis Aguasvivas Peralta",
   "juan liberato paula":"Juan Liberato","juan liberato":"Juan Liberato",
   "elianny antigua":"Elianny Tena Antigua","elianny tena":"Elianny Tena Antigua","elianny tena antigua":"Elianny Tena Antigua",
   "damita hill":"Damita Hill","anthony yen":"Anthony Yen","april hall":"April Hall",
-  "katelyn ankrom":"Katelyn Ankrom","kennedy sanchez":"Kennedy Sanchez","matt sword":"Matt Sword","michael furlong":"Michael Furlong",
+  "katelyn ankrom":"Katelyn Ankrom","kennedy sanchez":"Kennedy Sanchez","michael furlong":"Michael Furlong",
   "yolanda ramirez-drake":"Yolanda Ramirez","yolanda ramirez":"Yolanda Ramirez",
   "florence francois":"Florence Francois Nova","florence nova":"Florence Francois Nova","francois nova":"Florence Francois Nova","florence francois":"Florence Francois Nova","florence francois nova":"Florence Francois Nova",
   "rossi tejeda":"Rossi Valerio Tejeda","rossi valerio":"Rossi Valerio Tejeda","rossi valerio tejeda":"Rossi Valerio Tejeda",
@@ -164,8 +169,6 @@ const ROSTER = {
   "eric johnson":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMII",reg:"US"},
   "kyle dye":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMIII",reg:"US"},
   "sarah swanson":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMI",reg:"US"},
-  "tyler moeggenberg":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMI",reg:"US"},
-  "tyler popplewell":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMI",reg:"US"},
   "luis aguasvivas":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMI"},
   "luis peralta":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMI"},
   "luis aguasvivas peralta":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMI",reg:"DR"},
@@ -180,16 +183,15 @@ const ROSTER = {
   "april hall":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII",reg:"US"},
   "katelyn ankrom":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII",reg:"US"},
   "kennedy sanchez":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII",reg:"US"},
-  "matt sword":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMI",reg:"US"},
   "michael furlong":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII",reg:"US"},
-  "yolanda ramirez-drake":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII"},
+  "yolanda ramirez-drake":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII",reg:"US"},
   "yolanda ramirez":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII",reg:"US"},
-  "florence francois":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMI"},
-  "florence nova":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMI"},
-  "francois nova":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMI"},
+  "florence francois":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMI",reg:"DR"},
+  "florence nova":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMI",reg:"DR"},
+  "francois nova":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMI",reg:"DR"},
   "florence francois nova":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMI",reg:"DR"},
-  "rossi tejeda":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMI"},
-  "rossi valerio":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMI"},
+  "rossi tejeda":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMI",reg:"DR"},
+  "rossi valerio":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMI",reg:"DR"},
   "rossi valerio tejeda":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMI",reg:"DR"},
   // ── Kendra Morelli — Team Thryv-More(lli) ────────────────────────────
   "alejandro rodriguez medina":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"SSMII"},
@@ -233,7 +235,7 @@ const ROSTER = {
   "felix jimenez":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMI"},
   "felix caba jimenez":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMI",reg:"DR"},
   // ── Aaron Taylor — Team Aurorians ─────────────────────────────────────
-  "dave crisler":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMII"},
+  "dave crisler":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMII",reg:"ANZ"},
   "david crisler":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMII",reg:"ANZ"},
   "ellise payne":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMI",reg:"ANZ"},
   "indu vijay":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMI",reg:"ANZ"},
@@ -254,10 +256,23 @@ const ROSTER = {
 const DEACTIVATED_CSMS = new Set([
   "sidharta goris",
   "sidharta",
+  "matt sword",
+  "tyler popplewell",
+  "tyler moeggenberg",
 ]);
 
 function lk(n) { return n ? ROSTER[n.toLowerCase().trim()] || null : null; }
-function region(n) { const i=lk(n); return i&&i.reg ? i.reg : null; }
+function region(n) {
+  const i = lk(n);
+  if (i && i.reg) return i.reg;
+  // alias entry may lack reg — try canonical name
+  const canonical = norm(n);
+  if (canonical !== n) {
+    const i2 = lk(canonical);
+    if (i2 && i2.reg) return i2.reg;
+  }
+  return null;
+}
 function norm(n) { return NAME_NORM[n.toLowerCase().trim()] || n.trim(); }
 function dispName(n) {
   if (!n) return n;
@@ -336,11 +351,13 @@ function mapRev(rows) {
     const biz  = (r["Business Name"]||r["business_name"]||"").trim();
     const intType = r["Type of Integration"]||r["type_of_integration"]||"";
     const mrrInt  = r["MRR Integration"]||r["mrr_integration"]||"";
-    if (!by[name]) by[name] = {name, team, mrr:0, otr:0, total:0, nonrev:0, accts:[]};
+    const quarter = (r["Quarter for Consideration"]||r["Quarter"]||"").trim();
+    if (!by[name]) by[name] = {name, team, mrr:0, otr:0, total:0, nonrev:0, accts:[], quarters:new Set()};
     by[name].mrr   += mrr;
     by[name].otr   += otr;
     by[name].total += total;
     if (nr) by[name].nonrev++;
+    if (quarter) by[name].quarters.add(quarter);
     if (biz) by[name].accts.push({
       b: biz,
       t: intType,
@@ -348,6 +365,7 @@ function mapRev(rows) {
       o: otr,
       n: nr,
       mi: mrrInt,
+      q: quarter,
     });
   });
   return Object.values(by);
@@ -684,13 +702,73 @@ function normalizeService(raw) {
 }
 
 function weekStart(dateStr) {
-  // Returns Monday of the week as YYYY-MM-DD
+  // Returns Monday of the week as YYYY-MM-DD (local time, not UTC)
   const d = new Date(dateStr);
   if (isNaN(d)) return null;
-  const day = d.getDay(); // 0=Sun
+  const day = d.getDay(); // 0=Sun, local time
   const diff = (day === 0) ? -6 : 1 - day; // back to Monday
   d.setDate(d.getDate() + diff);
-  return d.toISOString().slice(0,10);
+  // Use local date parts — avoids UTC offset shifting the day
+  const yyyy = d.getFullYear();
+  const mm   = String(d.getMonth() + 1).padStart(2, "0");
+  const dd   = String(d.getDate()).padStart(2, "0");
+  return yyyy + "-" + mm + "-" + dd;
+}
+
+// ── SHARED DATE FILTER UTILITIES (used by Calls tab + Overview tab) ────────
+// Parse a YYYY-MM-DD string as local midnight, not UTC, so date-picker
+// values line up exactly with stored day keys regardless of timezone.
+function parseLocalDate(d) {
+  if (!d) return new Date(NaN);
+  const parts = String(d).split("-");
+  if (parts.length === 3) return new Date(+parts[0], +parts[1]-1, +parts[2]);
+  return new Date(d);
+}
+
+// Returns {from: Date|null, to: Date|null} for a named range relative to
+// the latest known date in the data (so "yesterday" means relative to the
+// most recent snapshot/call date, not the browser's real-world today).
+function getDateRange(filterKey, latestDate, customFrom, customTo) {
+  const latest = latestDate instanceof Date ? latestDate : parseLocalDate(latestDate);
+  const endOfDay = d => { const x = new Date(d); x.setHours(23,59,59,999); return x; };
+  if (filterKey === "yesterday") {
+    const y = new Date(latest); y.setDate(y.getDate()-1);
+    return { from: y, to: endOfDay(y) };
+  }
+  if (filterKey === "this_week") {
+    const ws = parseLocalDate(weekStart(latest.toISOString ? latest : latest));
+    return { from: ws, to: endOfDay(latest) };
+  }
+  if (filterKey === "last_week") {
+    const wkAgo = new Date(latest); wkAgo.setDate(wkAgo.getDate()-7);
+    return { from: wkAgo, to: endOfDay(latest) };
+  }
+  if (filterKey === "last_month") {
+    const moAgo = new Date(latest); moAgo.setMonth(moAgo.getMonth()-1);
+    return { from: moAgo, to: endOfDay(latest) };
+  }
+  if (filterKey === "last_quarter") {
+    const qAgo = new Date(latest); qAgo.setMonth(qAgo.getMonth()-3);
+    return { from: qAgo, to: endOfDay(latest) };
+  }
+  // Calendar quarters — Q1=Jan-Mar, Q2=Apr-Jun, Q3=Jul-Sep, Q4=Oct-Dec
+  const qMatch = filterKey.match(/^(Q[1-4])(?:\s+(\d{4}))?$/i);
+  if (qMatch) {
+    const qMap = {Q1:[0,2], Q2:[3,5], Q3:[6,8], Q4:[9,11]};
+    const [startMo, endMo] = qMap[qMatch[1].toUpperCase()] || [0,2];
+    const yr = qMatch[2] ? parseInt(qMatch[2]) : latest.getFullYear();
+    const from = new Date(yr, startMo, 1);
+    const to   = new Date(yr, endMo + 1, 0, 23, 59, 59, 999); // last day of quarter
+    return { from, to };
+  }
+  if (filterKey === "ytd") {
+    const from = new Date(latest.getFullYear(), 0, 1);
+    return { from, to: endOfDay(latest) };
+  }
+  if (filterKey === "custom" && customFrom && customTo) {
+    return { from: parseLocalDate(customFrom), to: endOfDay(parseLocalDate(customTo)) };
+  }
+  return { from: null, to: null }; // "all" / unrecognized = no filtering
 }
 
 function mapCalls(rows) {
@@ -721,7 +799,12 @@ function mapCalls(rows) {
     if (!staffRaw || !apptTime) return;
 
     const csm  = norm(staffRaw) || staffRaw;
-    const week = weekStart(apptTime) || apptTime.slice(0,10); // fallback if already a date
+    // Store by exact day (YYYY-MM-DD) so custom date filters work per-day
+    const apptDate = new Date(apptTime);
+    const dayKey = !isNaN(apptDate)
+      ? apptDate.getFullYear() + "-" + String(apptDate.getMonth()+1).padStart(2,"0") + "-" + String(apptDate.getDate()).padStart(2,"0")
+      : apptTime.slice(0,10);
+    const week = dayKey;
     const svc  = normalizeService(svcRaw) || svcRaw || "Other";
 
     // Scan all fields for the appointment status — could be in various columns
@@ -761,6 +844,7 @@ function mapCalls(rows) {
 }
 
 function getCallWeeks(callData) {
+  // Returns sorted unique day keys (YYYY-MM-DD)
   const weeks = new Set();
   Object.values(callData).forEach(csmData =>
     Object.keys(csmData).forEach(w => weeks.add(w))
@@ -937,7 +1021,7 @@ function mapSkipped(rows) {
 }
 
 // ── BUILD UNIFIED CSM LIST ─────────────────────────────────────────────────
-function buildCSMs(rev, email, cad, due, ontime, skipped, bobRaw, mcChurn, bcChurn, liveBobDetArg={}) {
+function buildCSMs(rev, email, cad, due, ontime, skipped, bobRaw, mcChurn, bcChurn, liveBobDetArg={}, bobAdjArg={}) {
   const m = {};
   const get = name => {
     if (!m[name]) {
@@ -953,6 +1037,13 @@ function buildCSMs(rev, email, cad, due, ontime, skipped, bobRaw, mcChurn, bcChu
     }
     return m[name];
   };
+  // Seed with every active ROSTER member so CSMs with no live data still appear
+  Object.entries(ROSTER).forEach(([key, info]) => {
+    if (info && info.c && info.t && isValidCSM(key)) {
+      const canonical = norm(key) || key;
+      if (canonical && !m[canonical]) get(canonical);
+    }
+  });
   (rev||[]).forEach(d => {
     const c = get(d.name);
     if (!c.team && d.team) c.team = d.team.trim();
@@ -989,7 +1080,14 @@ function buildCSMs(rev, email, cad, due, ontime, skipped, bobRaw, mcChurn, bcChu
       const name = norm(rawName)||rawName;
       // Try exact match first, then normed name
       const c = m[name] || m[rawName];
-      if (c) { c.bobBoq=d.boq||0; c.bobLcm=d.lcm||0; c.bobNet=d.net||0; c.bobRet=(d.boq>0&&d.lcm!=null)?d.lcm/d.boq:(d.ret||null); }
+      if (c) {
+        // Apply bobAdj (same adjustment the BOB tab uses) so retention matches
+        const adjKey = bobAdjArg ? Object.keys(bobAdjArg).find(k=>norm(k)===name||k===name) : null;
+        const lcmDelta = adjKey ? (bobAdjArg[adjKey].lcmDelta||0) : 0;
+        const adjLcm = (d.lcm||0) + lcmDelta;
+        c.bobBoq=d.boq||0; c.bobLcm=adjLcm; c.bobNet=(d.net||0)+lcmDelta;
+        c.bobRet=(d.boq>0&&adjLcm!=null)?adjLcm/d.boq:(d.ret||null);
+      }
     });
   }
   // Merge MC churn
@@ -1052,7 +1150,7 @@ function mapHistory(rows) {
     k === "snapshot_date" || k === "csm_name" || k === "week_label"
   );
 
-  // Exact column mapping from Apps Script (20 cols):
+  // Exact column mapping from Apps Script (23 cols as of v3):
   // 0:snapshot_date 1:week_label 2:csm_name 3:coach 4:team
   // 5:revenue 6:mrr 7:otr 8:non_rev_ints
   // 9:emails_sent 10:open_rate 11:reply_rate
@@ -1060,6 +1158,7 @@ function mapHistory(rows) {
   // 14:overdue_count 15:due_count
   // 16:ontime_pct 17:ontime_total 18:ontime_count
   // 19:skipped_count
+  // 20:bob_boq 21:bob_lcm 22:bob_ret  (NEW in v3 — may be blank in older rows)
   const parseRow = (r, byName) => {
     const date = String(byName ? r["snapshot_date"] : r[0] || "").trim();
     const name = String(byName ? r["csm_name"]      : r[2] || "").trim();
@@ -1086,6 +1185,9 @@ function mapHistory(rows) {
       otTotal:      pf0(g("ontime_total",   17)),
       otOnTime:     pf0(g("ontime_count",   18)),
       skipped:      pf0(g("skipped_count",  19)),
+      bobBoq:       pf(g("bob_boq",          20)),
+      bobLcm:       pf(g("bob_lcm",          21)),
+      bobRet:       pf(g("bob_ret",          22)),
     };
   };
 
@@ -1095,6 +1197,60 @@ function mapHistory(rows) {
 
   // Positional fallback (no header row)
   return rows.map(r => parseRow(Object.values(r), false)).filter(Boolean);
+}
+
+
+// ── Q3 BOB current rollup mapper ────────────────────────────────────────────
+function mapQ3Current(rows) {
+  if (!rows || rows.length === 0) return {};
+  const headers = rows[0] ? Object.keys(rows[0]) : [];
+  const g = (row, h) => { const k = Object.keys(row).find(x=>x.toLowerCase().replace(/ /g,"_")===h.toLowerCase()); return k ? row[k] : ""; };
+  const pf = v => parseFloat(String(v||"").replace(/[$,%]/g,""))||0;
+  return Object.fromEntries(
+    rows.filter(r=>{
+      const n = g(r,"csm_name");
+      if (!n) return false;
+      if (n.toUpperCase().includes(" TOTAL")) return false; // skip subtotal rows
+      return true;
+    }).map(r => {
+      const rawName = g(r,"csm_name");
+      // Use the name as-is from the results tab (already canonical from Apps Script)
+      // norm() lowercases which breaks map lookups — store under original casing
+      const name = rawName;
+      return [name, {
+        name,
+        boqOriginal:  pf(g(r,"boq_original")),
+        boqAdjusted:  pf(g(r,"boq_adjusted")),
+        currentMrr:   pf(g(r,"current_mrr")),
+        netNewMrr:    pf(g(r,"net_new_mrr")),
+        removedMrr:   pf(g(r,"removed_mrr")),
+        cancelledMrr: pf(g(r,"cancelled_mrr")),
+        retPct:       pf(g(r,"retention_pct")),
+        netNewCount:  parseInt(g(r,"net_new_count"))||0,
+        removedCount: parseInt(g(r,"removed_count"))||0,
+        cancelledCount: parseInt(g(r,"cancelled_count"))||0,
+        runDate:      g(r,"run_date"),
+      }];
+    })
+  );
+}
+
+// ── Q3 BOB log mapper ────────────────────────────────────────────────────────
+function mapQ3Log(rows) {
+  if (!rows || rows.length === 0) return [];
+  const g = (row, h) => { const k = Object.keys(row).find(x=>x.toLowerCase().replace(/ /g,"_")===h.toLowerCase()); return k ? row[k] : ""; };
+  const pf = v => parseFloat(String(v||"").replace(/[$,%]/g,""))||0;
+  return rows.filter(r=>g(r,"csm_name")).map(r => ({
+    date:       g(r,"log_date"),
+    csm:        norm(g(r,"csm_name")) || g(r,"csm_name"),
+    acct:       g(r,"account_name"),
+    eid:        g(r,"enterprise_id"),
+    event:      g(r,"event_type"),
+    mrrBefore:  pf(g(r,"mrr_before")),
+    mrrAfter:   pf(g(r,"mrr_after")),
+    mrrDelta:   pf(g(r,"mrr_delta")),
+    note:       g(r,"note"),
+  }));
 }
 
 // Build per-CSM weekly trend: {csmName: [{week, date, rev, openRate, cadPct, otPct, overdue}]}
@@ -1785,101 +1941,277 @@ function CoachingView({csms, coach, onSelectCSM, onSelectCoach, onClear, skipped
 }
 
 // ── OVERVIEW TAB ───────────────────────────────────────────────────────────
-function OverviewView({csms, allCSMs}) {
-  const totalRev = csms.reduce((s,c)=>s+c.rev,0);
-  const totalMRR = csms.reduce((s,c)=>s+c.mrr,0);
-  const totalSent = csms.reduce((s,c)=>s+c.sent,0);
-  const emC = csms.filter(c=>c.sent>0);
-  const avgOpen = emC.length ? emC.reduce((s,c)=>s+c.openRate,0)/emC.length : 0;
-  const totalOD = csms.reduce((s,c)=>s+c.overdueCount,0);
-  const otC = csms.filter(c=>c.otTotal>=3);
-  const avgOT = otC.length ? otC.reduce((s,c)=>s+c.otPct,0)/otC.length : 0;
+function OverviewView({csms, allCSMs, bobRaw, bobAdj, history, callData, filterCoach, filterCSM, managerCoaches}) {
+  const [dateFilter, setDateFilter] = useState("last_week");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo,   setCustomTo]   = useState("");
+
+  // ── Names in scope after coach/CSM filter (mirrors how csms is already filtered upstream) ──
+  const inScopeNames = new Set(csms.map(c=>c.name));
+
+  // ── Resolve a name into callData's keys (handles alias mismatches) ──
+  const resolveCallCSM = n => callData[n] ? n : (Object.keys(callData).find(k=>norm(k)===n) || n);
+
+  // ── Figure out the latest known date across history + calls, so "yesterday" etc. are relative to real data, not the browser clock ──
+  const allHistoryDates = (history||[]).map(r=>r.date).filter(Boolean).sort();
+  const allCallDays = Object.values(callData||{}).flatMap(d=>Object.keys(d)).sort();
+  const latestKnown = [allHistoryDates[allHistoryDates.length-1], allCallDays[allCallDays.length-1]]
+    .filter(Boolean).sort().pop();
+  const latestDate = latestKnown ? parseLocalDate(latestKnown) : new Date();
+
+  const range = getDateRange(dateFilter, latestDate, customFrom, customTo);
+  const inRange = dateStr => {
+    if (!range.from || !range.to) return true; // "all" = no filtering
+    const d = parseLocalDate(dateStr);
+    return d >= range.from && d <= range.to;
+  };
+
+  // ── Filter history rows to the selected date range + in-scope CSMs ──
+  const histInRange = (history||[]).filter(r => inScopeNames.has(r.name) && inRange(r.date));
+
+  // ── Sum revenue / cadence / email across the range (these are activity counts) ──
+  const sumBy = (arr, key) => arr.reduce((s,r)=>s+(r[key]||0), 0);
+  const totalRev   = sumBy(histInRange, "rev");
+  const totalMRR   = sumBy(histInRange, "mrr");
+  const totalSent  = sumBy(histInRange, "sent");
+  const totalOD    = csms.reduce((s,c)=>s+c.overdueCount, 0); // always live, per earlier decision
+  const odCsmCount = csms.filter(c=>c.overdueCount>0).length;
+
+  // Email open rate — weighted average using sent as weight (can't simply average rates)
+  const emRows = histInRange.filter(r=>r.sent>0 && r.openRate!=null);
+  const avgOpen = emRows.length ? sumBy(emRows.map(r=>({v:r.sent*r.openRate})), "v") / sumBy(emRows,"sent") : 0;
+
+  // Cadence on-time — weighted by ontime_total
+  const otRows = histInRange.filter(r=>r.otTotal>=1 && r.otPct!=null);
+  const avgOT = otRows.length ? sumBy(otRows.map(r=>({v:r.otTotal*r.otPct})), "v") / sumBy(otRows,"otTotal") : 0;
+
+  // ── Retention — latest snapshot IN RANGE per CSM (point-in-time, not summed); falls back to live BOB if no history yet ──
+  const getBobRet = (csm) => {
+    // Prefer latest history snapshot within the selected range
+    const csmHist = histInRange.filter(r=>r.name===csm.name && r.bobRet!=null).sort((a,b)=>a.date.localeCompare(b.date));
+    if (csmHist.length > 0) return csmHist[csmHist.length-1].bobRet;
+    // Fall back to live BOB sheet (current state) — only meaningful for "all"/current-ish views
+    if (bobRaw && bobRaw.bob) {
+      const key = Object.keys(bobRaw.bob).find(k => norm(k)===csm.name || k===csm.name);
+      if (key) {
+        const d = bobRaw.bob[key];
+        const adjKey = bobAdj ? Object.keys(bobAdj).find(k=>norm(k)===csm.name||k===csm.name) : null;
+        const lcmDelta = adjKey ? (bobAdj[adjKey].lcmDelta||0) : 0;
+        const adjLcm = (d.lcm||0) + lcmDelta;
+        return d.boq > 0 ? adjLcm / d.boq : null;
+      }
+    }
+    return csm.bobRet;
+  };
+  const bobC2 = csms.filter(c=>getBobRet(c)!=null);
+  const avgRet = bobC2.length ? bobC2.reduce((s,c)=>s+getBobRet(c),0)/bobC2.length : null;
+  const aboveGoal = bobC2.filter(c=>getBobRet(c)>=0.91).length;
+  const hasRetentionHistory = histInRange.some(r=>r.bobRet!=null);
+
+  // ── Call data aggregation over the same date range ──
+  const callDaysInRange = allCallDays.filter(inRange);
+  const aggCalls = (names) => {
+    const acc = {completed:0, noShow:0, cancelled:0, total:0, byCsm:{}};
+    names.forEach(n=>{
+      const key = resolveCallCSM(n);
+      callDaysInRange.forEach(day=>{
+        const dData = (callData[key]||{})[day] || {};
+        Object.values(dData).forEach(d=>{
+          if (!acc.byCsm[n]) acc.byCsm[n] = {completed:0,noShow:0,cancelled:0,total:0};
+          acc.byCsm[n].completed += d.completed||0;
+          acc.byCsm[n].noShow    += d.noShow||0;
+          acc.byCsm[n].cancelled += d.cancelled||0;
+          acc.byCsm[n].total      = acc.byCsm[n].completed + acc.byCsm[n].noShow + acc.byCsm[n].cancelled;
+          acc.completed += d.completed||0;
+          acc.noShow    += d.noShow||0;
+          acc.cancelled += d.cancelled||0;
+        });
+      });
+    });
+    acc.total = acc.completed + acc.noShow + acc.cancelled;
+    acc.compRate = acc.total>0 ? acc.completed/acc.total : 0;
+    return acc;
+  };
+  const callTotals = aggCalls(csms.map(c=>c.name));
+  const compColor = r => r>=0.85?"#16a34a":r>=0.70?"#d97706":"#dc2626";
+
+  // ── Revenue + retention by team (revenue summed from history, retention from getBobRet) ──
   const teamRev={};
-  csms.forEach(c=>{const t=c.team||(lk(c.name)&&lk(c.name).t)||"";if(t)(teamRev[t]=(teamRev[t]||0)+c.rev);});
-  const trs=Object.entries(teamRev).sort((a,b)=>b[1]-a[1]);
-  const maxR=trs[0]&&trs[0][1]||1;
-  const topRev=[...csms].filter(c=>c.rev>0).sort((a,b)=>b.rev-a.rev).slice(0,8);
-  const maxRI=topRev[0]&&topRev[0].rev||1;
-  const topOT=[...csms].filter(c=>c.otTotal>=3).sort((a,b)=>b.otPct-a.otPct).slice(0,8);
-  const bobC2 = csms.filter(c=>c.bobRet!=null);
-  const avgRet = bobC2.length ? bobC2.reduce((s,c)=>s+c.bobRet,0)/bobC2.length : null;
-  const aboveGoal = bobC2.filter(c=>c.bobRet>=0.91).length;
-  const metrics=[
-    {l:"Total revenue",v:fd(totalRev),s:"MRR "+fk(totalMRR),col:"#FF5000"},
-    {l:"Emails sent",v:totalSent,s:emC.length+" senders",col:"#5378FC"},
-    {l:"Avg open rate",v:pp(avgOpen),s:"Target 70%+",col:avgOpen>=0.7?"#16a34a":"#d97706"},
-    {l:"Avg on-time %",v:otC.length?pp(avgOT):"--",s:otC.length+" CSMs tracked",col:avgOT>=0.8?"#16a34a":avgOT>=0.6?"#d97706":"#dc2626"},
-    {l:"Avg retention",v:avgRet!=null?pp(avgRet):"--",s:aboveGoal+" of "+bobC2.length+" at goal",col:avgRet!=null?(avgRet>=0.91?"#16a34a":avgRet>=0.88?"#d97706":"#dc2626"):"#808080"},
-    {l:"Overdue tasks",v:totalOD,s:csms.filter(c=>c.overdueCount>0).length+" CSMs",col:"#dc2626"},
-  ];
-  const hbar=(name,pct,val,max,col,onClick)=>(
-    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8,fontSize:12,cursor:"pointer"}} onClick={onClick}>
+  histInRange.forEach(r=>{
+    const t = r.team || (lk(r.name)&&lk(r.name).t) || "";
+    if (t) teamRev[t] = (teamRev[t]||0) + (r.rev||0);
+  });
+  const trs = Object.entries(teamRev).sort((a,b)=>b[1]-a[1]);
+  const maxR = trs[0]&&trs[0][1] || 1;
+
+  const teamRetMap = {};
+  csms.forEach(c=>{
+    const t = c.team || (lk(c.name)&&lk(c.name).t) || "";
+    const ret = getBobRet(c);
+    if (t && ret!=null) { if(!teamRetMap[t]) teamRetMap[t]=[]; teamRetMap[t].push(ret); }
+  });
+  const teamRetList = Object.entries(teamRetMap).map(([t,arr])=>[t, arr.reduce((s,v)=>s+v,0)/arr.length]).sort((a,b)=>b[1]-a[1]);
+
+  // ── Top revenue earners (from history sum, falls back to live csm.rev if no history) ──
+  const revByName = {};
+  histInRange.forEach(r=>{ revByName[r.name] = (revByName[r.name]||0) + (r.rev||0); });
+  const hasRevHistory = Object.keys(revByName).length > 0;
+  const topRev = hasRevHistory
+    ? csms.map(c=>({name:c.name, rev:revByName[c.name]||0})).filter(c=>c.rev>0).sort((a,b)=>b.rev-a.rev).slice(0,8)
+    : [...csms].filter(c=>c.rev>0).sort((a,b)=>b.rev-a.rev).slice(0,8).map(c=>({name:c.name, rev:c.rev}));
+  const maxRI = topRev[0]&&topRev[0].rev || 1;
+
+  // ── Call attendance by CSM — worst-first so problem areas surface ──
+  const callRows = csms.map(c=>{
+    const t = callTotals.byCsm[c.name];
+    if (!t || t.total===0) return null;
+    return {name:c.name, ...t, rate: t.completed/t.total};
+  }).filter(Boolean).sort((a,b)=>a.rate-b.rate);
+
+  const hbar=(name,pct,val,col)=>(
+    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8,fontSize:12}}>
       <span style={{width:140,flexShrink:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{name}</span>
       <div style={{flex:1,height:4,background:"#ECEEF1",borderRadius:2,overflow:"hidden"}}>
-        <div style={{width:((pct||0)*100).toFixed(1)+"%",height:"100%",background:col,opacity:.85,borderRadius:2}}/>
+        <div style={{width:Math.min((pct||0)*100,100).toFixed(1)+"%",height:"100%",background:col,opacity:.85,borderRadius:2}}/>
       </div>
       <span style={{width:50,textAlign:"right",fontSize:11,color:"#808080",flexShrink:0}}>{val}</span>
     </div>
   );
+
+  const rangeLabel = dateFilter==="all" ? "All time"
+    : range.from && range.to ? range.from.toLocaleDateString("en-US",{month:"short",day:"numeric"})+" – "+range.to.toLocaleDateString("en-US",{month:"short",day:"numeric"})
+    : "";
+
   return (
     <div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(6,minmax(0,1fr))",gap:12,marginBottom:20}}>
-        {metrics.map(m=>(
-          <div key={m.l} style={{background:"#ECEEF1",borderRadius:8,padding:14,position:"relative",overflow:"hidden"}}>
-            <div style={{position:"absolute",top:0,left:0,right:0,height:2,background:m.col,borderRadius:"8px 8px 0 0"}}/>
-            <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:6}}>{m.l}</div>
-            <div style={{fontSize:22,fontWeight:500,color:"#29355D",lineHeight:1,marginBottom:3}}>{m.v}</div>
-            <div style={{fontSize:11,color:"#808080"}}>{m.s}</div>
-          </div>
-        ))}
+      {/* Date filter pills */}
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16,flexWrap:"wrap",gap:8}}>
+        <div>
+          <div style={{fontSize:13,fontWeight:600,color:"#29355D"}}>Team overview</div>
+          {rangeLabel&&<div style={{fontSize:11,color:"#808080"}}>{rangeLabel}</div>}
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+          {[["all","All"],["ytd","YTD"],["Q2 2026","Q2 2026"],["Q3 2026","Q3 2026"],["yesterday","Yesterday"],["this_week","This week"],["last_week","Last week"],["last_month","Last month"],["custom","Custom"]].map(([v,l])=>(
+            <button key={v} onClick={()=>setDateFilter(v)}
+              style={{padding:"4px 10px",borderRadius:20,border:"0.5px solid "+(dateFilter===v?"#29355D":"rgba(41,53,93,.15)"),
+                background:dateFilter===v?"#29355D":"#fff",color:dateFilter===v?"#fff":"#808080",
+                fontSize:11,fontWeight:500,cursor:"pointer"}}>
+              {l}
+            </button>
+          ))}
+          {dateFilter==="custom"&&<>
+            <input type="date" value={customFrom} onChange={e=>setCustomFrom(e.target.value)}
+              style={{padding:"4px 8px",borderRadius:8,border:"0.5px solid rgba(41,53,93,.2)",fontSize:11}}/>
+            <span style={{fontSize:11,color:"#808080"}}>to</span>
+            <input type="date" value={customTo} onChange={e=>setCustomTo(e.target.value)}
+              style={{padding:"4px 8px",borderRadius:8,border:"0.5px solid rgba(41,53,93,.2)",fontSize:11}}/>
+          </>}
+        </div>
       </div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}}>
-        <div style={S.card}>
-          <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>Revenue by team</div>
-          {trs.map(([t,v])=>{
-            const coach=COACHES.find(c=>c.t===t);
-            return hbar(st(t),v/maxR,fk(v),maxR,TEAM_COLS[t]||"#888",()=>{});
-          })}
+
+      {/* Headline stat cards */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(4,minmax(0,1fr))",gap:12,marginBottom:14}}>
+        <div style={{background:"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",borderTop:"3px solid #FF5000"}}>
+          <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Revenue</div>
+          <div style={{fontSize:24,fontWeight:600,color:"#FF5000",lineHeight:1,marginBottom:4}}>{fd(totalRev)}</div>
+          <div style={{fontSize:10,color:"#808080"}}>MRR {fk(totalMRR)}{!hasRevHistory&&" · current"}</div>
         </div>
-        <div style={S.card}>
-          <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>Top CSM revenue</div>
-          {topRev.map(c=>hbar(c.name.split(" ").slice(0,2).join(" "),c.rev/maxRI,fk(c.rev),maxRI,"#FF5000",()=>{}))}
+        <div style={{background:"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",borderTop:"3px solid #29355D"}}>
+          <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Retention</div>
+          <div style={{fontSize:24,fontWeight:600,color:avgRet!=null?bc(avgRet,0.91,0.85):"#808080",lineHeight:1,marginBottom:4}}>{avgRet!=null?pp(avgRet):"--"}</div>
+          <div style={{fontSize:10,color:"#808080"}}>{aboveGoal} of {bobC2.length} at goal{!hasRetentionHistory&&" · current"}</div>
+        </div>
+        <div style={{background:"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",borderTop:"3px solid #16a34a"}}>
+          <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Call completion</div>
+          <div style={{fontSize:24,fontWeight:600,color:compColor(callTotals.compRate),lineHeight:1,marginBottom:4}}>{callTotals.total>0?pp(callTotals.compRate):"--"}</div>
+          {callTotals.total>0&&<div style={{height:5,background:"rgba(0,0,0,.08)",borderRadius:3,marginBottom:4,overflow:"hidden"}}>
+            <div style={{width:(callTotals.compRate*100).toFixed(1)+"%",height:"100%",background:compColor(callTotals.compRate),borderRadius:3}}/>
+          </div>}
+          <div style={{fontSize:10,color:"#808080"}}>{callTotals.completed} of {callTotals.total} booked</div>
+        </div>
+        <div style={{background:"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",borderTop:"3px solid #dc2626"}}>
+          <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Overdue tasks</div>
+          <div style={{fontSize:24,fontWeight:600,color:"#dc2626",lineHeight:1,marginBottom:4}}>{totalOD}</div>
+          <div style={{fontSize:10,color:"#808080"}}>across {odCsmCount} CSMs · current</div>
         </div>
       </div>
-      {bobC2.length>0&&<div style={{...S.card,marginBottom:16}}>
-        <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>
-          Book of business retention — top CSMs &nbsp;
-          <span style={{fontWeight:400,color:"#808080"}}>goal line at 91%</span>
+
+      {/* Secondary stat row */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
+        <div style={S.card}>
+          <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Cadence on-time</div>
+          <div style={{fontSize:20,fontWeight:600,color:otRows.length?bc(avgOT,0.8,0.6):"#808080"}}>{otRows.length?pp(avgOT):"--"}</div>
+          <div style={{fontSize:10,color:"#808080"}}>goal 85%+ · {otRows.length} CSM-days tracked</div>
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-          {[...bobC2].sort((a,b)=>b.bobRet-a.bobRet).slice(0,12).map(c=>(
-            <div key={c.name} style={{display:"flex",alignItems:"center",gap:8,fontSize:12}}>
-              <span style={{width:130,flexShrink:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name.split(" ").slice(0,2).join(" ")}</span>
-              <div style={{flex:1,height:5,background:"#ECEEF1",borderRadius:3,overflow:"visible",position:"relative"}}>
-                <div style={{width:Math.min(c.bobRet*100,105).toFixed(1)+"%",height:"100%",borderRadius:3,background:bc(c.bobRet,0.91,0.85)}}/>
-                <div style={{position:"absolute",top:-2,bottom:-2,width:"1.5px",background:"rgba(41,53,93,.2)",left:"91%"}}/>
+        <div style={S.card}>
+          <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Email open rate</div>
+          <div style={{fontSize:20,fontWeight:600,color:emRows.length?(avgOpen>=0.7?"#16a34a":"#d97706"):"#808080"}}>{emRows.length?pp(avgOpen):"--"}</div>
+          <div style={{fontSize:10,color:"#808080"}}>target 70%+ · {totalSent} emails sent</div>
+        </div>
+      </div>
+
+      {/* Call attendance by CSM — worst first */}
+      {callRows.length>0&&<div style={{...S.card,marginBottom:16}}>
+        <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:14}}>Call attendance by CSM — needs attention first</div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:"8px 24px"}}>
+          {callRows.slice(0,10).map(r=>(
+            <div key={r.name} style={{display:"flex",alignItems:"center",gap:10,fontSize:12}}>
+              <span style={{width:130,flexShrink:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontWeight:500}}>{dispName(r.name)}</span>
+              <div style={{flex:1,height:5,background:"#ECEEF1",borderRadius:3,overflow:"hidden"}}>
+                <div style={{width:Math.min(r.rate*100,100).toFixed(1)+"%",height:"100%",background:compColor(r.rate),borderRadius:3}}/>
               </div>
-              <span style={{width:40,textAlign:"right",fontSize:11,fontWeight:500,color:bc(c.bobRet,0.91,0.85),flexShrink:0}}>{pp(c.bobRet)}</span>
+              <span style={{width:36,textAlign:"right",fontSize:11,fontWeight:600,color:compColor(r.rate),flexShrink:0}}>{(r.rate*100).toFixed(0)}%</span>
             </div>
           ))}
         </div>
       </div>}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+
+      {/* Revenue + Retention by team */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}}>
         <div style={S.card}>
-          <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>On-time cadence % — top 8</div>
-          {topOT.length===0
-            ? <div style={{color:"#808080"}}>No on-time data available</div>
-            : topOT.map(c=>hbar(c.name.split(" ").slice(0,2).join(" "),c.otPct,pp(c.otPct),1,bc(c.otPct,0.8,0.6),()=>{}))}
+          <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>Revenue by team</div>
+          {trs.length===0
+            ? <div style={{color:"#808080",fontSize:12}}>No revenue in this period</div>
+            : trs.map(([t,v])=>hbar(st(t),v/maxR,fk(v),TEAM_COLS[t]||"#888"))}
         </div>
         <div style={S.card}>
-          <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>Overdue cadence</div>
-          {csms.filter(c=>c.overdueCount>0).sort((a,b)=>b.overdueCount-a.overdueCount).map(c=>(
-            <div key={c.name} style={{display:"flex",alignItems:"center",gap:8,padding:"4px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)"}}>
-              <span style={{flex:1,fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{dispName(c.name)}</span>
-              <span style={{fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:20,background:"rgba(220,38,38,.1)",color:"#991b1b"}}>{c.overdueCount}</span>
-              {c.newToday>0&&<span style={{fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:20,background:"rgba(83,120,252,.1)",color:"#1e3a8a"}}>{c.newToday} new</span>}
-            </div>
-          ))}
+          <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>Retention by team — goal 91%</div>
+          {teamRetList.length===0
+            ? <div style={{color:"#808080",fontSize:12}}>No retention data available</div>
+            : teamRetList.map(([t,v])=>hbar(st(t),v,pp(v),bc(v,0.91,0.85)))}
+        </div>
+      </div>
+
+      {/* Top revenue earners */}
+      {topRev.length>0&&<div style={{...S.card,marginBottom:16}}>
+        <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>Top CSM revenue</div>
+        {topRev.map(c=>hbar(dispName(c.name).split(" ").slice(0,2).join(" "),c.rev/maxRI,fk(c.rev),"#FF5000"))}
+      </div>}
+
+      {/* Overdue + Skipped cadence */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+        <div style={S.card}>
+          <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>Overdue cadence · current</div>
+          {csms.filter(c=>c.overdueCount>0).length===0
+            ? <div style={{color:"#808080",fontSize:12}}>No overdue tasks</div>
+            : csms.filter(c=>c.overdueCount>0).sort((a,b)=>b.overdueCount-a.overdueCount).map(c=>(
+              <div key={c.name} style={{display:"flex",alignItems:"center",gap:8,padding:"4px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)"}}>
+                <span style={{flex:1,fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{dispName(c.name)}</span>
+                <span style={{fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:20,background:"rgba(220,38,38,.1)",color:"#991b1b"}}>{c.overdueCount}</span>
+                {c.newToday>0&&<span style={{fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:20,background:"rgba(83,120,252,.1)",color:"#1e3a8a"}}>{c.newToday} new</span>}
+              </div>
+            ))}
+        </div>
+        <div style={S.card}>
+          <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>Skipped cadences — prior day · current</div>
+          {csms.filter(c=>(c.skippedCount||0)>0).length===0
+            ? <div style={{color:"#808080",fontSize:12}}>No skipped cadences</div>
+            : csms.filter(c=>(c.skippedCount||0)>0).sort((a,b)=>b.skippedCount-a.skippedCount).map(c=>(
+              <div key={c.name} style={{display:"flex",alignItems:"center",gap:8,padding:"4px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)"}}>
+                <span style={{flex:1,fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{dispName(c.name)}</span>
+                <span style={{fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:20,background:"rgba(217,119,6,.1)",color:"#854d0e"}}>{c.skippedCount} skipped</span>
+              </div>
+            ))}
         </div>
       </div>
     </div>
@@ -2489,7 +2821,13 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
         );
 
         // Date filter logic — relative to latest data, not today
-        const toDate = d => new Date(d);
+        // Parse YYYY-MM-DD as local midnight to avoid UTC offset issues
+        const toDate = d => {
+          if (!d) return new Date(NaN);
+          const parts = String(d).split("-");
+          if (parts.length === 3) return new Date(+parts[0], +parts[1]-1, +parts[2]);
+          return new Date(d);
+        };
         const latestDate = allCallWeeks.length > 0 ? toDate(allCallWeeks[allCallWeeks.length-1]) : new Date();
         const filterWeek = w => {
           const wd = toDate(w);
@@ -2610,7 +2948,7 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
                   {callSelectedCSM&&<span style={{marginLeft:8,fontSize:12,color:"#FF5000"}}> — {dispName(callSelectedCSM)}</span>}
                   {callSelectedSvc&&<span style={{marginLeft:8,fontSize:12,color:"#FF5000"}}> — {callSelectedSvc}</span>}
                 </div>
-                <div style={{fontSize:11,color:"#808080"}}>{callWeeks.length} weeks · Latest: {lastCW}</div>
+                <div style={{fontSize:11,color:"#808080"}}>{callWeeks.length} day{callWeeks.length!==1?"s":""} · Latest: {lastCW}</div>
               </div>
               <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
                 {/* Date filter pills */}
@@ -2657,56 +2995,77 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
               <span>⬜ <strong>Prior:</strong> {priorLabel}</span>
             </div>}
 
-            {/* Org summary tiles */}
-            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:20}}>
-              {[
-                {l:"Completed",    cur:orgTotals.completed,  prior:priorTotals?.completed, col:"#16a34a", isPct:false},
-                {l:"No Shows",     cur:orgTotals.noShow,     prior:priorTotals?.noShow,    col:"#dc2626", isPct:false},
-                {l:"Cancelled",         cur:orgTotals.cancelled,                    prior:priorTotals?.cancelled,                    col:"#d97706", isPct:false},
-                {l:"No Show Rate",       cur:orgRate,                                prior:priorTotals?.rate,                          col:rateColor(orgRate), isPct:true, sub:"Goal: <8%"},
-                {l:"No Show + Cancelled",cur:orgTotals.noShow+(orgTotals.cancelled||0), prior:(priorTotals?.noShow||0)+(priorTotals?.cancelled||0), col:"#7c3aed", isPct:false},
-                {l:"Combined Rate",      cur:orgTotals.total>0?(orgTotals.noShow+(orgTotals.cancelled||0))/orgTotals.total:0, prior:priorTotals&&priorTotals.total>0?(priorTotals.noShow+(priorTotals.cancelled||0))/priorTotals.total:null, col:"#7c3aed", isPct:true, sub:"No show + cancelled / total"},
-              ].map(t=>{
-                const d = hasPrior&&t.prior!=null ? (t.isPct?(t.cur-t.prior)*100:(t.cur-t.prior)) : null;
-                return (
-                  <div key={t.l} style={{background:"#ECEEF1",borderRadius:8,padding:"12px 14px",borderTop:"2px solid "+t.col}}>
-                    <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>{t.l}</div>
-                    <div style={{fontSize:22,fontWeight:600,color:t.col,lineHeight:1}}>
-                      {t.isPct?(t.cur*100).toFixed(1)+"%":t.cur}
-                    </div>
-                    {hasPrior&&<div style={{fontSize:11,color:"#808080",marginTop:3}}>
-                      Prior: {t.isPct?(t.prior*100).toFixed(1)+"%":t.prior}
-                      {d!=null&&<span style={{marginLeft:6,fontWeight:600,color:t.l==="No Shows"||t.l==="No Show Rate"?(d<0?"#16a34a":d>0?"#dc2626":"#808080"):(d>0?"#16a34a":d<0?"#dc2626":"#808080")}}>
-                        {d>0?"+":""}{d.toFixed(t.isPct?1:0)}{t.isPct?"pp":""}
-                      </span>}
-                    </div>}
-                    {!hasPrior&&t.sub&&<div style={{fontSize:10,color:"#808080",marginTop:3}}>{t.sub}</div>}
-                  </div>
-                );
-              })}
-            </div>
+            {/* Org summary tiles — completion-rate focused */}
+            {(()=>{
+              const compRate = orgTotals.total>0 ? orgTotals.completed/orgTotals.total : 0;
+              const cancelRate = orgTotals.total>0 ? (orgTotals.cancelled||0)/orgTotals.total : 0;
+              const compColor = compRate>=0.85?"#16a34a":compRate>=0.70?"#d97706":"#dc2626";
+              const priorCompRate = priorTotals&&priorTotals.total>0 ? priorTotals.completed/priorTotals.total : null;
+              const tiles = [
+                {l:"Completed", val:orgTotals.completed, sub:(compRate*100).toFixed(1)+"% completion rate", col:compColor, bar:compRate, priorVal:priorTotals?.completed},
+                {l:"Cancelled",  val:orgTotals.cancelled||0, sub:(cancelRate*100).toFixed(1)+"% of total booked", col:"#d97706", bar:cancelRate, priorVal:priorTotals?.cancelled},
+                {l:"No shows",  val:orgTotals.noShow, sub:(orgRate*100).toFixed(1)+"% — goal <8%", col:rateColor(orgRate), bar:orgRate, priorVal:priorTotals?.noShow},
+                {l:"Total booked", val:orgTotals.total, col:"#29355D", priorVal:priorTotals?.total,
+                  pills:[
+                    {label:(compRate*100).toFixed(0)+"% kept",   bg:"#dcfce7", fg:"#166534"},
+                    {label:(cancelRate*100).toFixed(0)+"% cancelled", bg:"#fef9c3", fg:"#854d0e"},
+                    {label:((orgRate)*100).toFixed(0)+"% no-show", bg:"#fee2e2", fg:"#991b1b"},
+                  ]},
+              ];
+              return (
+                <div style={{display:"grid",gridTemplateColumns:"repeat(4,minmax(0,1fr))",gap:10,marginBottom:18}}>
+                  {tiles.map(t=>{
+                    const dVal = hasPrior&&t.priorVal!=null ? t.val - t.priorVal : null;
+                    return (
+                      <div key={t.l} style={{background:"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",borderTop:"3px solid "+t.col}}>
+                        <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>{t.l}</div>
+                        <div style={{fontSize:24,fontWeight:600,color:t.col,lineHeight:1,marginBottom:4}}>{t.val}</div>
+                        {t.bar!=null&&<div style={{height:5,background:"rgba(0,0,0,.08)",borderRadius:3,marginBottom:5,overflow:"hidden"}}>
+                          <div style={{width:Math.min(t.bar*100,100).toFixed(1)+"%",height:"100%",background:t.col,borderRadius:3}}/>
+                        </div>}
+                        {t.pills&&<div style={{display:"flex",flexWrap:"wrap",gap:4,marginTop:4}}>
+                          {t.pills.map(p=><span key={p.label} style={{fontSize:10,fontWeight:500,padding:"2px 6px",borderRadius:20,background:p.bg,color:p.fg}}>{p.label}</span>)}
+                        </div>}
+                        {!t.pills&&<div style={{fontSize:10,color:"#808080"}}>{t.sub}</div>}
+                        {hasPrior&&dVal!=null&&<div style={{fontSize:10,marginTop:3,color:t.l==="No shows"?(dVal<0?"#16a34a":dVal>0?"#dc2626":"#808080"):(dVal>0?"#16a34a":dVal<0?"#dc2626":"#808080"),fontWeight:500}}>
+                          {dVal>0?"+":""}{dVal} vs prior
+                        </div>}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
 
-            {/* Service breakdown */}
+            {/* Service breakdown — completion rate bars */}
             {Object.keys(svcTotals).length>0&&(
               <div style={{...S.card,marginBottom:16}}>
-                <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>By service type — {lastCW}</div>
-                <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
-                  {Object.entries(svcTotals).sort((a,b)=>(b[1].completed+b[1].noShow)-(a[1].completed+a[1].noShow)).map(([svc,d])=>{
-                    const tot=d.completed+d.noShow;
-                    const rate=tot>0?d.noShow/tot:0;
-                    const isSelected = callSelectedSvc===svc;
+                <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:14}}>Completion rate by service type — {curLabel||lastCW}</div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:12}}>
+                  {Object.entries(svcTotals).sort((a,b)=>{
+                    const ta=a[1].completed+a[1].noShow+(a[1].cancelled||0);
+                    const tb=b[1].completed+b[1].noShow+(b[1].cancelled||0);
+                    return tb-ta;
+                  }).map(([svc,d])=>{
+                    const tot=d.completed+(d.noShow||0)+(d.cancelled||0);
+                    const compRate=tot>0?d.completed/tot:0;
+                    const compCol=compRate>=0.85?"#16a34a":compRate>=0.70?"#d97706":"#dc2626";
+                    const isSelected=callSelectedSvc===svc;
                     return (
                       <div key={svc} onClick={()=>setCallSelectedSvc(isSelected?null:svc)}
-                        style={{flex:"1 1 160px",padding:"10px 14px",borderRadius:8,cursor:"pointer",
-                          background:isSelected?"#29355D":"rgba(41,53,93,.04)",
+                        style={{padding:"10px 12px",borderRadius:8,cursor:"pointer",
+                          background:isSelected?"rgba(41,53,93,.06)":"transparent",
                           border:"0.5px solid "+(isSelected?"#29355D":"rgba(41,53,93,.1)"),
                           transition:"all .15s"}}>
-                        <div style={{fontSize:11,fontWeight:600,color:isSelected?"#fff":"#29355D",marginBottom:6}}>{svc}</div>
-                        <div style={{display:"flex",justifyContent:"space-between",fontSize:12}}>
-                          <span style={{color:isSelected?"#86efac":"#16a34a"}}>✓ {d.completed}</span>
-                          <span style={{color:isSelected?"#fca5a5":"#dc2626"}}>✗ {d.noShow}</span>
-                          {(d.cancelled||0)>0&&<span style={{color:isSelected?"#fcd34d":"#d97706"}}>⊘ {d.cancelled}</span>}
-                          <span style={{fontWeight:600,color:isSelected?"#fff":rateColor(rate)}}>{(rate*100).toFixed(0)}%</span>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}}>
+                          <span style={{fontSize:12,fontWeight:500,color:"#29355D"}}>{svc}</span>
+                          <span style={{fontSize:12,fontWeight:600,color:compCol}}>{(compRate*100).toFixed(0)}%</span>
+                        </div>
+                        <div style={{height:5,background:"rgba(0,0,0,.08)",borderRadius:3,marginBottom:5,overflow:"hidden"}}>
+                          <div style={{width:(compRate*100).toFixed(1)+"%",height:"100%",background:compCol,borderRadius:3}}/>
+                        </div>
+                        <div style={{fontSize:11,color:"#808080"}}>
+                          {d.completed} completed · {d.noShow||0} no-show · {d.cancelled||0} cancelled
                         </div>
                       </div>
                     );
@@ -2723,21 +3082,22 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
               <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
                 <thead><tr>
                   <th style={{padding:"0 8px 8px 0",textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>CSM</th>
-                  <th style={{padding:"0 8px 8px 0",textAlign:"right",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>Completed</th>
-                  <th style={{padding:"0 8px 8px 0",textAlign:"right",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>No Shows</th>
+                  <th style={{padding:"0 8px 8px 0",textAlign:"right",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>Booked</th>
+                  <th style={{padding:"0 8px 8px 0",textAlign:"right",fontSize:10,textTransform:"uppercase",color:"#16a34a",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>Completed</th>
+                  <th style={{padding:"0 8px 8px 0",textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)",minWidth:140}}>Completion rate</th>
+                  <th style={{padding:"0 8px 8px 0",textAlign:"right",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>No shows</th>
                   <th style={{padding:"0 8px 8px 0",textAlign:"right",fontSize:10,textTransform:"uppercase",color:"#d97706",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>Cancelled</th>
-                  <th style={{padding:"0 8px 8px 0",textAlign:"right",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>Total</th>
-                  <th style={{padding:"0 8px 8px 0",textAlign:"right",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>No Show %</th>
-                  <th style={{padding:"0 8px 8px 0",textAlign:"right",fontSize:10,textTransform:"uppercase",color:"#7c3aed",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)",whiteSpace:"nowrap"}}>NS+Cancel</th>
                   {hasPrior
                     ? <th style={{padding:"0 8px 8px 0",textAlign:"right",fontSize:10,textTransform:"uppercase",color:"#5378FC",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>vs Prior</th>
-                    : <th style={{padding:"0 8px 8px 0",textAlign:"right",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>vs Prior Wk</th>}
+                    : <th style={{padding:"0 8px 8px 0",textAlign:"right",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>vs Prior wk</th>}
                 </tr></thead>
                 <tbody>
                   {callCSMs.sort((a,b)=>{
                     const ta=aggTotals([a],callSelectedSvc);
                     const tb=aggTotals([b],callSelectedSvc);
-                    return tb.rate-ta.rate;
+                    const compA=ta.total>0?ta.completed/ta.total:0;
+                    const compB=tb.total>0?tb.completed/tb.total:0;
+                    return compB-compA;
                   }).map(n=>{
                     const t    = aggTotals([n], callSelectedSvc);
                     // Week-over-week delta using last two weeks
@@ -2765,23 +3125,29 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
                       <tr key={n} onClick={()=>setCallSelectedCSM(isSelected?null:n)}
                         style={{cursor:"pointer",background:isSelected?"rgba(41,53,93,.04)":"transparent"}}>
                         <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",fontWeight:isSelected?700:500,color:isSelected?"#29355D":"inherit"}}>{dispName(n)}</td>
-                        <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#16a34a"}}>{t.completed}</td>
+                        <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#808080"}}>{t.total}</td>
+                        <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#16a34a",fontWeight:500}}>{t.completed}</td>
+                        <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)"}}>
+                          {(()=>{
+                            const compRate=t.total>0?t.completed/t.total:0;
+                            const compCol=compRate>=0.85?"#16a34a":compRate>=0.70?"#d97706":"#dc2626";
+                            return (
+                              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                                <div style={{flex:1,height:5,background:"rgba(0,0,0,.08)",borderRadius:3,overflow:"hidden",minWidth:60}}>
+                                  <div style={{width:(compRate*100).toFixed(1)+"%",height:"100%",background:compCol,borderRadius:3}}/>
+                                </div>
+                                <span style={{fontSize:11,fontWeight:600,color:compCol,minWidth:36,textAlign:"right"}}>{(compRate*100).toFixed(0)}%</span>
+                              </div>
+                            );
+                          })()}
+                        </td>
                         <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:t.noShow>0?"#dc2626":"#808080"}}>{t.noShow}</td>
                         <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:(t.cancelled||0)>0?"#d97706":"#808080"}}>{t.cancelled||0}</td>
-                        <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#808080"}}>{t.total}</td>
-                        <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right"}}>
-                          <span style={{fontSize:11,fontWeight:500,padding:"2px 8px",borderRadius:20,
-                            background:t.rate<=0.05?"rgba(22,163,74,.1)":t.rate<=0.10?"rgba(217,119,6,.1)":"rgba(220,38,38,.1)",
-                            color:rateColor(t.rate)}}>{(t.rate*100).toFixed(1)}%</span>
-                        </td>
-                        <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right"}}>
-                          {(()=>{const combined=t.noShow+(t.cancelled||0);const rate=t.total>0?combined/t.total:0;return combined>0?<span style={{fontSize:10,fontWeight:600,color:"#7c3aed"}}>{combined} ({(rate*100).toFixed(0)}%)</span>:<span style={{color:"#808080"}}>—</span>;})()}
-                        </td>
                         <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",fontSize:11}}>
-                          {hasPrior&&deltaRef!=null&&<div style={{fontSize:10,color:"#808080"}}>{deltaRef.total} calls / {(deltaRef.rate*100).toFixed(1)}%</div>}
+                          {hasPrior&&deltaRef!=null&&<div style={{fontSize:10,color:"#808080"}}>{deltaRef.total} calls / {(deltaRef.completed/Math.max(deltaRef.total,1)*100).toFixed(0)}%</div>}
                           {delta!=null
-                            ? <span style={{color:delta<=0?"#16a34a":"#dc2626",fontWeight:500}}>
-                                {delta<=0?"↓":"↑"}{Math.abs(delta*100).toFixed(1)}pp
+                            ? <span style={{color:delta>=0?"#16a34a":"#dc2626",fontWeight:500}}>
+                                {delta>=0?"↑":"↓"}{Math.abs(delta*100).toFixed(1)}pp
                               </span>
                             : <span style={{color:"#808080"}}>--</span>}
                         </td>
@@ -3604,7 +3970,15 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
 // ── REVENUE VIEW ────────────────────────────────────────────────────────────
 function RevenueView({rawRev, csms, filterCoach, filterCSM, managerCoaches}) {
   const [lbSort, setLbSort] = useState({col:"total", dir:"desc"});
-  const [regionFilter, setRegionFilter] = useState("all"); // "all" | "DR" | "US" | "ANZ"
+  const [regionFilter, setRegionFilter] = useState("all");
+  const [quarterFilter, setQuarterFilter] = useState("all");
+  const availableQuarters = [...new Set((rawRev||[]).map(r=>(r["Quarter for Consideration"]||r["Quarter"]||"").trim()).filter(Boolean))].sort();
+  const currentYear = new Date().getFullYear();
+  const inQuarterFilter = (qtr) => {
+    if (quarterFilter === "all") return true;
+    if (quarterFilter === "ytd") return qtr.includes(String(currentYear));
+    return qtr === quarterFilter;
+  };
 
 
   // Parse raw rows into enriched objects
@@ -3619,12 +3993,14 @@ function RevenueView({rawRev, csms, filterCoach, filterCSM, managerCoaches}) {
     const mrrInt = (r["MRR Integration"]||"").trim();
     const biz  = (r["Business Name"]||"").trim();
     const type = (r["Type of Integration"]||"").trim();
+    const qtr  = (r["Quarter for Consideration"]||r["Quarter"]||"").trim();
     const i    = lk(csm);
-    return {csm, team: (i&&i.t)||team, tier:(i&&i.r)||tier, region:(i&&i.reg)||"", mrr, otr, tot, nr, mrrInt, biz, type};
+    return {csm, team: (i&&i.t)||team, tier:(i&&i.r)||tier, region:region(csm)||"", mrr, otr, tot, nr, mrrInt, biz, type, qtr};
   }).filter(r=>r.csm && isValidCSM(r.csm));
 
-  // Apply manager + coach + CSM + region filter
+  // Apply manager + coach + CSM + region + quarter filter
   const filtered = rows.filter(r=>{
+    if (!inQuarterFilter(r.qtr)) return false;
     const i = lk(r.csm);
     if (managerCoaches && !managerCoaches.includes(i&&i.c)) return false;
     if (filterCoach && !(i&&i.c===filterCoach)) return false;
@@ -3742,6 +4118,22 @@ function RevenueView({rawRev, csms, filterCoach, filterCSM, managerCoaches}) {
 
   return (
     <div>
+      {/* ── Quarter filter bar ── */}
+      <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:16,flexWrap:"wrap"}}>
+        <span style={{fontSize:11,fontWeight:600,color:"#808080",textTransform:"uppercase",letterSpacing:".05em",marginRight:4}}>Quarter:</span>
+        {[["all","All time"], ["ytd","YTD "+new Date().getFullYear()], ...availableQuarters.map(q=>[q,q])].map(([v,l])=>(
+          <button key={v} onClick={()=>setQuarterFilter(v)}
+            style={{padding:"4px 12px",borderRadius:20,border:"0.5px solid "+(quarterFilter===v?"#29355D":"rgba(41,53,93,.15)"),
+              background:quarterFilter===v?"#29355D":"#fff",color:quarterFilter===v?"#fff":"#808080",
+              fontSize:11,fontWeight:500,cursor:"pointer",transition:"all .15s"}}>
+            {l}
+          </button>
+        ))}
+        {quarterFilter!=="all"&&<span style={{fontSize:11,color:"#808080",marginLeft:4}}>
+          · filtering revenue rows by "Quarter for Consideration"
+        </span>}
+      </div>
+
       {/* ── Top metric tiles ── */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(5,minmax(0,1fr))",gap:12,marginBottom:20}}>
         {[
@@ -4000,11 +4392,13 @@ const BOB_COACH_TOTALS = {
   "Aaron Taylor":{boq:543976.0,lcm:497031.91,net:-46944.09,pct:0.9137},
   "Chase Boyd":{boq:157577.9,lcm:149283.9,net:-8294.0,pct:0.94736},
 };
-const BOB_CSMS = [{"n":"Chelsea Dingus","c":"Kendra Morelli","boq":21073,"lcm":18316,"net":-2757,"ret":0.8692,"mca":59,"mcc":2,"mch":["Chicago HouseMasters LLC","Stepwise Health Platinum LLC."],"bca":1,"bcc":0,"bch":[]},{"n":"Joseph Guillermo Carmona Garcia","c":"Mia O\u2019Dirling","boq":25700.2,"lcm":21370.2,"net":-4330,"ret":0.8315,"mca":70,"mcc":2,"mch":["Distance Movers","Do It All Mobile Auto Spa"],"bca":1,"bcc":0,"bch":[]},{"n":"Tracy-Ann Gaudencio","c":"Aaron Taylor","boq":28181.32,"lcm":28798.32,"net":617,"ret":1.0219,"mca":73,"mcc":1,"mch":["Account Elite Spray Pave"],"bca":1,"bcc":1,"bch":["AC Gutter Guard"]},{"n":"Dave Crisler","c":"Aaron Taylor","boq":57248.68,"lcm":51738.68,"net":-5510,"ret":0.9037,"mca":158,"mcc":3,"mch":["Shop N Go Car Wash & Care","Top Mix Construction","Yardner"],"bca":2,"bcc":1,"bch":["Tony Hollands Funerals"]},{"n":"Sylvia Appla","c":"Aaron Taylor","boq":54619.5,"lcm":47443.5,"net":-7176,"ret":0.8686,"mca":152,"mcc":9,"mch":["Chisham Express Pharmacy","AAAA Brick Broom Cleaning","Jims Mowing Glen Waverley 1","Jims Mowing Croydon Hills","Viva Voce Choir"],"bca":0,"bcc":0,"bch":[]},{"n":"Ellise Payne","c":"Aaron Taylor","boq":46979.16,"lcm":44413.16,"net":-2566,"ret":0.9454,"mca":125,"mcc":7,"mch":["HAIR @ THE HUB","Easy Excavators","Saferoads Holdings","Erina Auto Parts","HBW Manufacturing"],"bca":0,"bcc":0,"bch":[]},{"n":"Nikita Siepen-Bowers","c":"Aaron Taylor","boq":46777.68,"lcm":42309.68,"net":-4468,"ret":0.9045,"mca":135,"mcc":5,"mch":["Wizard Motors Pty Ltd","Mr Hook Towing and Metal","Sai Thai Restaurant","Manawatu Engineering","Trenchless Technology"],"bca":0,"bcc":0,"bch":[]},{"n":"Warda Gul","c":"Aaron Taylor","boq":55478.96,"lcm":50242.96,"net":-5236,"ret":0.9056,"mca":152,"mcc":3,"mch":["JRs Mower & Motorcycle","Earth 2 Ocean Communications","Otagro Fertilizers Ltd"],"bca":0,"bcc":0,"bch":[]},{"n":"Indu Vijay","c":"Aaron Taylor","boq":52888.08,"lcm":48468.08,"net":-4420,"ret":0.9164,"mca":128,"mcc":5,"mch":["Complete Pool Services","Fresh Concept Foodservice","Pure Fresh Cleaning Services","Pacific Funerals Group","The Trustee"],"bca":0,"bcc":0,"bch":[]},{"n":"Matt Daly","c":"Aaron Taylor","boq":47918.72,"lcm":43990.72,"net":-3928,"ret":0.918,"mca":113,"mcc":4,"mch":["Better Service Solutions","Aotearoa Kiwi Tours","The Garden Guru","Christchurch Building Inspections"],"bca":0,"bcc":0,"bch":[]},{"n":"Peter Manalac","c":"Aaron Taylor","boq":53736.48,"lcm":49224.48,"net":-4512,"ret":0.9161,"mca":143,"mcc":3,"mch":["Rapid Electrical","The Blind Spot Blinds","SADDLERS WELDING"],"bca":0,"bcc":0,"bch":[]},{"n":"Zoltan Rudolf","c":"Aaron Taylor","boq":41388.16,"lcm":36966.16,"net":-4422,"ret":0.8932,"mca":103,"mcc":4,"mch":["Horowhenua Tractor Parts","Taikura Rudolf Steiner","Havelock Village","Masterton Joinery"],"bca":0,"bcc":0,"bch":[]},{"n":"Sakshi Mahalwal","c":"Aaron Taylor","boq":58759.24,"lcm":54437.24,"net":-4322,"ret":0.9265,"mca":142,"mcc":5,"mch":["Cooma Hospital","Pacific Coast Crane Hire","Tasman Insulation NZ Ltd","Taumarunui Car Sales","Mana Vehicle Testing Station"],"bca":0,"bcc":0,"bch":[]},{"n":"Alejandro Rodriguez-Medina","c":"Kendra Morelli","boq":24003.2,"lcm":21219.2,"net":-2784,"ret":0.884,"mca":65,"mcc":5,"mch":["Kountry Korner Hair Salon","Lonestar Lube N Tune","A & H Cates Carpentry","J & K Transport","Hue & Stitches"],"bca":1,"bcc":0,"bch":[]},{"n":"Karmita Turner","c":"Kendra Morelli","boq":23827.8,"lcm":20975.8,"net":-2852,"ret":0.8803,"mca":56,"mcc":3,"mch":["Salon Obsession","Salon On The Blvd","Prestige Motorsports"],"bca":0,"bcc":0,"bch":[]},{"n":"Lauren Carter","c":"Kendra Morelli","boq":23085.2,"lcm":21469.2,"net":-1616,"ret":0.9301,"mca":69,"mcc":4,"mch":["Right Choice Travel","Sperling Mortuary","Sohna Interior","Gentry Moving & Storage"],"bca":0,"bcc":0,"bch":[]},{"n":"Libby Booher","c":"Kendra Morelli","boq":22660.4,"lcm":22260.4,"net":-400,"ret":0.9823,"mca":62,"mcc":2,"mch":["Lonestar Ag Credit","Lonestar"],"bca":0,"bcc":0,"bch":[]},{"n":"Misti Dixon","c":"Kendra Morelli","boq":26034.8,"lcm":23178.8,"net":-2856,"ret":0.8903,"mca":71,"mcc":4,"mch":["Scentsy - Heather Blanton","GoodGear","Stacy's Tiny Tails","Beaus Glass"],"bca":0,"bcc":0,"bch":[]},{"n":"Misty Decatur","c":"Kendra Morelli","boq":19820.4,"lcm":17912.4,"net":-1908,"ret":0.9037,"mca":56,"mcc":2,"mch":["Estes Interiors","Ledbetter Pool Service"],"bca":0,"bcc":0,"bch":[]},{"n":"Saira Julian Guzman","c":"Kendra Morelli","boq":14219.8,"lcm":12875.8,"net":-1344,"ret":0.9055,"mca":38,"mcc":1,"mch":["Hernandez Architecture"],"bca":0,"bcc":0,"bch":[]},{"n":"Scott Mather","c":"Kendra Morelli","boq":19891.8,"lcm":18659.8,"net":-1232,"ret":0.938,"mca":54,"mcc":2,"mch":["Spectrum Pest Control","Woodlands Funeral"],"bca":0,"bcc":0,"bch":[]},{"n":"Steven Saunders","c":"Kendra Morelli","boq":19879.4,"lcm":17983.4,"net":-1896,"ret":0.9046,"mca":56,"mcc":3,"mch":["Paul Schier Plumbing","Homestead Floral","Westside Collision"],"bca":0,"bcc":0,"bch":[]},{"n":"Dorka Frias Lantigua","c":"Kendra Morelli","boq":9547.6,"lcm":8497.6,"net":-1050,"ret":0.89,"mca":25,"mcc":1,"mch":["Luxury Pool Management"],"bca":0,"bcc":0,"bch":[]},{"n":"Kellie Lester","c":"Trisha Stalnaker","boq":35383.6,"lcm":33894.6,"net":-1489,"ret":0.9579,"mca":91,"mcc":5,"mch":["Patriot Properties","Bees by Amos","Russ Dunmire","B2B Network Promotions","Daves Auto & Tires"],"bca":0,"bcc":0,"bch":[]},{"n":"Karissa Hernandez","c":"Trisha Stalnaker","boq":37153.75,"lcm":30192,"net":-6961.75,"ret":0.8126,"mca":91,"mcc":9,"mch":["Parable Christian Store","4 Seasons Property","Advantage Electric","Elites Dance Academy","Hillside Homecare"],"bca":0,"bcc":0,"bch":[]},{"n":"Ashley Vasquez Mena","c":"Trisha Stalnaker","boq":38476.1,"lcm":33200.1,"net":-5276,"ret":0.8629,"mca":97,"mcc":7,"mch":["M & M Industrial","L & S Mechanical","Luxe Dental","Key-Way Lock","City Of Life"],"bca":0,"bcc":0,"bch":[]},{"n":"Karen Capellan Tavarez","c":"Trisha Stalnaker","boq":19914.6,"lcm":18261.6,"net":-1653,"ret":0.917,"mca":54,"mcc":3,"mch":["Always Green Lawn","Accion Chicago","Greenwood Pharmacy"],"bca":0,"bcc":0,"bch":[]},{"n":"Ashley Shaffer","c":"Trisha Stalnaker","boq":34368.4,"lcm":28136.4,"net":-6232,"ret":0.8187,"mca":87,"mcc":11,"mch":["Kiddie Kandids","One Source Comm","Happy Hearts Child","Bingo Night Events","Canary Wharf Grill"],"bca":0,"bcc":0,"bch":[]},{"n":"Merve (MJ) Brielmann","c":"Trisha Stalnaker","boq":24891,"lcm":24507,"net":-384,"ret":0.9846,"mca":62,"mcc":2,"mch":["Bella Vista Pools","Armuchee"],"bca":0,"bcc":0,"bch":[]},{"n":"Taylor Kidd","c":"Trisha Stalnaker","boq":24930.2,"lcm":22369.2,"net":-2561,"ret":0.8973,"mca":58,"mcc":4,"mch":["Twin Cities Comfort","Fitness Zone","Perimeter Pest Control","Camelot Party Supplies"],"bca":0,"bcc":0,"bch":[]},{"n":"Mark Velazquez","c":"Trisha Stalnaker","boq":15438,"lcm":13621,"net":-1817,"ret":0.8823,"mca":37,"mcc":3,"mch":["Trident Plumbing","Saddleback Pest","Mid States Petroleum"],"bca":0,"bcc":0,"bch":[]},{"n":"Felix Caba Jimenez","c":"Trisha Stalnaker","boq":1920,"lcm":1920,"net":0,"ret":1.0,"mca":5,"mcc":0,"mch":[],"bca":0,"bcc":0,"bch":[]},{"n":"Stacy Roers","c":"Trisha Stalnaker","boq":19615.2,"lcm":18590.2,"net":-1025,"ret":0.9477,"mca":51,"mcc":2,"mch":["Glacier Hills","Northwood Auto"],"bca":0,"bcc":0,"bch":[]},{"n":"Rafael Sencion Sencion","c":"Trisha Stalnaker","boq":32490.4,"lcm":28376.4,"net":-4114,"ret":0.8734,"mca":84,"mcc":7,"mch":["Charis Music","Sano Wellness","Magnolia Dental","Blue Sky Realty","Woodmont Hills"],"bca":0,"bcc":0,"bch":[]},{"n":"Victor Abner Moscoso Fernandez","c":"Mia O\u2019Dirling","boq":38942.2,"lcm":36674.2,"net":-2268,"ret":0.9418,"mca":100,"mcc":4,"mch":["Central Florida Towing","Top Notch Beauty","Elite Car Wash","Pines Florist"],"bca":0,"bcc":0,"bch":[]},{"n":"Heidi Torres Uribe","c":"Mia O\u2019Dirling","boq":19764.4,"lcm":18436.4,"net":-1328,"ret":0.9328,"mca":54,"mcc":2,"mch":["Golden Touch Cleaning","Altagracia Beauty"],"bca":0,"bcc":0,"bch":[]},{"n":"Darling Danais Santos Taveras","c":"Mia O\u2019Dirling","boq":19197.6,"lcm":17373.6,"net":-1824,"ret":0.9049,"mca":52,"mcc":3,"mch":["Guzman Landscaping","Rosy Nails","Express Auto Repair"],"bca":0,"bcc":0,"bch":[]},{"n":"Irina Larianni Molina Molina","c":"Mia O\u2019Dirling","boq":10993.2,"lcm":10217.2,"net":-776,"ret":0.9294,"mca":30,"mcc":1,"mch":["Larios Convenience Store"],"bca":0,"bcc":0,"bch":[]},{"n":"Wilson Mercedes","c":"Mia O\u2019Dirling","boq":30065.8,"lcm":26945.8,"net":-3120,"ret":0.8963,"mca":80,"mcc":5,"mch":["Garcia Auto Shop","Queens Bridal","Cali Flowers","Pro Image Sports","Midwest Hauling"],"bca":0,"bcc":0,"bch":[]},{"n":"Jathzelyn Elizabeth Fortuna Paulino","c":"Mia O\u2019Dirling","boq":20671,"lcm":19043,"net":-1628,"ret":0.9213,"mca":53,"mcc":2,"mch":["Bella Nails","Style Zone"],"bca":0,"bcc":0,"bch":[]},{"n":"Yessica Montero Urena","c":"Mia O\u2019Dirling","boq":18399.6,"lcm":16523.6,"net":-1876,"ret":0.8981,"mca":50,"mcc":3,"mch":["Corazon BBQ","Mariana Flowers","Star Nails"],"bca":0,"bcc":0,"bch":[]},{"n":"Johnny Cornielle","c":"Mia O\u2019Dirling","boq":29088.4,"lcm":25356.4,"net":-3732,"ret":0.8717,"mca":78,"mcc":6,"mch":["Blessed Hands Barbershop","City Lights Diner","Prestige Auto","Diamond Cuts","New Wave"],"bca":0,"bcc":0,"bch":[]},{"n":"Sati Ananda Pimentel Malespin","c":"Mia O\u2019Dirling","boq":27040.6,"lcm":24220.6,"net":-2820,"ret":0.8957,"mca":71,"mcc":4,"mch":["Primera Iglesia","Tropical Nails","Elegant Touch","Star Bright"],"bca":0,"bcc":0,"bch":[]},{"n":"Samuel Frias De Paula","c":"Mia O\u2019Dirling","boq":35963.4,"lcm":31866.4,"net":-4097,"ret":0.8861,"mca":94,"mcc":5,"mch":["Santos Beauty","Lux Auto","Island Cuts","Paradise Nails","Glamour Touch"],"bca":0,"bcc":0,"bch":[]},{"n":"Barbara Larrosa Presinal","c":"Chase Boyd","boq":23019.6,"lcm":22379.6,"net":-640,"ret":0.9722,"mca":63,"mcc":2,"mch":["Prestige Cleaning","All Star Sports"],"bca":6,"bcc":1,"bch":["Texas Outdoor Projects"]},{"n":"Deivis Pena","c":"Chase Boyd","boq":19290.4,"lcm":17986.4,"net":-1304,"ret":0.9324,"mca":54,"mcc":3,"mch":["Elite Fence","Gold Star Auto","Diamond Nails"],"bca":0,"bcc":0,"bch":[]},{"n":"Kyle Dye","c":"Chase Boyd","boq":22069.4,"lcm":20661.4,"net":-1408,"ret":0.9362,"mca":58,"mcc":4,"mch":["Cornerstone Realty","Main Street Diner","Heritage Flooring","Summit Pest"],"bca":0,"bcc":0,"bch":[]},{"n":"Sarah Swanson","c":"Chase Boyd","boq":20193.6,"lcm":19869.6,"net":-324,"ret":0.984,"mca":58,"mcc":1,"mch":["Sundown Ranch"],"bca":0,"bcc":0,"bch":[]},{"n":"Tyler Moeggenberg","c":"Chase Boyd","boq":17994.8,"lcm":16758.8,"net":-1236,"ret":0.9313,"mca":48,"mcc":2,"mch":["Premier Auto Glass","Summit Cleaning"],"bca":0,"bcc":0,"bch":[]},{"n":"Tyler Popplewell","c":"Chase Boyd","boq":15017.4,"lcm":13695.4,"net":-1322,"ret":0.912,"mca":41,"mcc":2,"mch":["Parkway Dental","Canyon Creek HVAC"],"bca":0,"bcc":0,"bch":[]},{"n":"Luis Aguasvivas Peralta","c":"Chase Boyd","boq":8272.4,"lcm":7812.4,"net":-460,"ret":0.9444,"mca":22,"mcc":1,"mch":["Santos Landscaping"],"bca":0,"bcc":0,"bch":[]},{"n":"Juan Liberato","c":"Chase Boyd","boq":13063.4,"lcm":12191.4,"net":-872,"ret":0.9333,"mca":36,"mcc":2,"mch":["Tropical Cuts","Island Fresh"],"bca":0,"bcc":0,"bch":[]},{"n":"Elianny Tena Antigua","c":"Chase Boyd","boq":9226.8,"lcm":8468.8,"net":-758,"ret":0.9179,"mca":25,"mcc":1,"mch":["Nails By Design"],"bca":0,"bcc":0,"bch":[]},{"n":"Damita Hill","c":"Elizabeth White","boq":28434.25,"lcm":24734.25,"net":-3700,"ret":0.8699,"mca":72,"mcc":6,"mch":["Park Place Cleaners","Sunshine Academy","Royal Cuts","Elite Image","Pro Nails","Blossom Day Spa"],"bca":0,"bcc":0,"bch":[]},{"n":"Anthony Yen","c":"Elizabeth White","boq":19093.2,"lcm":18005.2,"net":-1088,"ret":0.943,"mca":53,"mcc":3,"mch":["Pacific Rim","Harbor View","Coastal Cuts"],"bca":0,"bcc":0,"bch":[]},{"n":"April Hall","c":"Elizabeth White","boq":22714.8,"lcm":20578.8,"net":-2136,"ret":0.9059,"mca":59,"mcc":4,"mch":["Summit Auto","Valley Dental","Mountain Fresh","Peak Performance"],"bca":0,"bcc":0,"bch":[]},{"n":"Katelyn Ankrom","c":"Elizabeth White","boq":27124.8,"lcm":24412.8,"net":-2712,"ret":0.9001,"mca":72,"mcc":4,"mch":["Bloom Floral","Green Thumb Nursery","Petal Perfect","Garden Gate"],"bca":0,"bcc":0,"bch":[]},{"n":"Kennedy Sanchez","c":"Elizabeth White","boq":16530.6,"lcm":14994.6,"net":-1536,"ret":0.9071,"mca":44,"mcc":2,"mch":["Sunrise Bakery","Golden Key Realty"],"bca":0,"bcc":0,"bch":[]},{"n":"Matt Sword","c":"Elizabeth White","boq":21907.8,"lcm":20635.8,"net":-1272,"ret":0.9419,"mca":58,"mcc":2,"mch":["Lighthouse Moving","Anchor Bay"],"bca":0,"bcc":0,"bch":[]},{"n":"Michael Furlong","c":"Elizabeth White","boq":28540.4,"lcm":25224.4,"net":-3316,"ret":0.8838,"mca":74,"mcc":6,"mch":["Riverside Clinic","Lakeside Auto","Forest Glen","Brook Valley","Clear Water","Sunset Pools"],"bca":0,"bcc":0,"bch":[]},{"n":"Yolanda Ramirez","c":"Elizabeth White","boq":29175,"lcm":26827,"net":-2348,"ret":0.9195,"mca":75,"mcc":4,"mch":["Desert Rose","Oasis Pools","Palm Tree Realty","Cactus Auto"],"bca":0,"bcc":0,"bch":[]},{"n":"Florence Francois Nova","c":"Elizabeth White","boq":22961.4,"lcm":21265.4,"net":-1696,"ret":0.9261,"mca":60,"mcc":3,"mch":["Belle Epoque","Riviera Nails","Paris Dreams"],"bca":0,"bcc":0,"bch":[]},{"n":"Rossi Valerio Tejeda","c":"Elizabeth White","boq":24220,"lcm":21513,"net":-2707,"ret":0.8882,"mca":63,"mcc":5,"mch":["Tropical Breeze","Island Dreams","Caribbean Cuts","Palm Bay","Sunset Nails"],"bca":0,"bcc":0,"bch":[]}];
+const BOB_CSMS = [{"n":"Chelsea Dingus","c":"Kendra Morelli","boq":21073,"lcm":18316,"net":-2757,"ret":0.8692,"mca":59,"mcc":2,"mch":["Chicago HouseMasters LLC","Stepwise Health Platinum LLC."],"bca":1,"bcc":0,"bch":[]},{"n":"Joseph Guillermo Carmona Garcia","c":"Mia O\u2019Dirling","boq":25700.2,"lcm":21370.2,"net":-4330,"ret":0.8315,"mca":70,"mcc":2,"mch":["Distance Movers","Do It All Mobile Auto Spa"],"bca":1,"bcc":0,"bch":[]},{"n":"Tracy-Ann Gaudencio","c":"Aaron Taylor","boq":28181.32,"lcm":28798.32,"net":617,"ret":1.0219,"mca":73,"mcc":1,"mch":["Account Elite Spray Pave"],"bca":1,"bcc":1,"bch":["AC Gutter Guard"]},{"n":"Dave Crisler","c":"Aaron Taylor","boq":57248.68,"lcm":51738.68,"net":-5510,"ret":0.9037,"mca":158,"mcc":3,"mch":["Shop N Go Car Wash & Care","Top Mix Construction","Yardner"],"bca":2,"bcc":1,"bch":["Tony Hollands Funerals"]},{"n":"Sylvia Appla","c":"Aaron Taylor","boq":54619.5,"lcm":47443.5,"net":-7176,"ret":0.8686,"mca":152,"mcc":9,"mch":["Chisham Express Pharmacy","AAAA Brick Broom Cleaning","Jims Mowing Glen Waverley 1","Jims Mowing Croydon Hills","Viva Voce Choir"],"bca":0,"bcc":0,"bch":[]},{"n":"Ellise Payne","c":"Aaron Taylor","boq":46979.16,"lcm":44413.16,"net":-2566,"ret":0.9454,"mca":125,"mcc":7,"mch":["HAIR @ THE HUB","Easy Excavators","Saferoads Holdings","Erina Auto Parts","HBW Manufacturing"],"bca":0,"bcc":0,"bch":[]},{"n":"Nikita Siepen-Bowers","c":"Aaron Taylor","boq":46777.68,"lcm":42309.68,"net":-4468,"ret":0.9045,"mca":135,"mcc":5,"mch":["Wizard Motors Pty Ltd","Mr Hook Towing and Metal","Sai Thai Restaurant","Manawatu Engineering","Trenchless Technology"],"bca":0,"bcc":0,"bch":[]},{"n":"Warda Gul","c":"Aaron Taylor","boq":55478.96,"lcm":50242.96,"net":-5236,"ret":0.9056,"mca":152,"mcc":3,"mch":["JRs Mower & Motorcycle","Earth 2 Ocean Communications","Otagro Fertilizers Ltd"],"bca":0,"bcc":0,"bch":[]},{"n":"Indu Vijay","c":"Aaron Taylor","boq":52888.08,"lcm":48468.08,"net":-4420,"ret":0.9164,"mca":128,"mcc":5,"mch":["Complete Pool Services","Fresh Concept Foodservice","Pure Fresh Cleaning Services","Pacific Funerals Group","The Trustee"],"bca":0,"bcc":0,"bch":[]},{"n":"Matt Daly","c":"Aaron Taylor","boq":47918.72,"lcm":43990.72,"net":-3928,"ret":0.918,"mca":113,"mcc":4,"mch":["Better Service Solutions","Aotearoa Kiwi Tours","The Garden Guru","Christchurch Building Inspections"],"bca":0,"bcc":0,"bch":[]},{"n":"Peter Manalac","c":"Aaron Taylor","boq":53736.48,"lcm":49224.48,"net":-4512,"ret":0.9161,"mca":143,"mcc":3,"mch":["Rapid Electrical","The Blind Spot Blinds","SADDLERS WELDING"],"bca":0,"bcc":0,"bch":[]},{"n":"Zoltan Rudolf","c":"Aaron Taylor","boq":41388.16,"lcm":36966.16,"net":-4422,"ret":0.8932,"mca":103,"mcc":4,"mch":["Horowhenua Tractor Parts","Taikura Rudolf Steiner","Havelock Village","Masterton Joinery"],"bca":0,"bcc":0,"bch":[]},{"n":"Sakshi Mahalwal","c":"Aaron Taylor","boq":58759.24,"lcm":54437.24,"net":-4322,"ret":0.9265,"mca":142,"mcc":5,"mch":["Cooma Hospital","Pacific Coast Crane Hire","Tasman Insulation NZ Ltd","Taumarunui Car Sales","Mana Vehicle Testing Station"],"bca":0,"bcc":0,"bch":[]},{"n":"Alejandro Rodriguez-Medina","c":"Kendra Morelli","boq":24003.2,"lcm":21219.2,"net":-2784,"ret":0.884,"mca":65,"mcc":5,"mch":["Kountry Korner Hair Salon","Lonestar Lube N Tune","A & H Cates Carpentry","J & K Transport","Hue & Stitches"],"bca":1,"bcc":0,"bch":[]},{"n":"Karmita Turner","c":"Kendra Morelli","boq":23827.8,"lcm":20975.8,"net":-2852,"ret":0.8803,"mca":56,"mcc":3,"mch":["Salon Obsession","Salon On The Blvd","Prestige Motorsports"],"bca":0,"bcc":0,"bch":[]},{"n":"Lauren Carter","c":"Kendra Morelli","boq":23085.2,"lcm":21469.2,"net":-1616,"ret":0.9301,"mca":69,"mcc":4,"mch":["Right Choice Travel","Sperling Mortuary","Sohna Interior","Gentry Moving & Storage"],"bca":0,"bcc":0,"bch":[]},{"n":"Libby Booher","c":"Kendra Morelli","boq":22660.4,"lcm":22260.4,"net":-400,"ret":0.9823,"mca":62,"mcc":2,"mch":["Lonestar Ag Credit","Lonestar"],"bca":0,"bcc":0,"bch":[]},{"n":"Misti Dixon","c":"Kendra Morelli","boq":26034.8,"lcm":23178.8,"net":-2856,"ret":0.8903,"mca":71,"mcc":4,"mch":["Scentsy - Heather Blanton","GoodGear","Stacy's Tiny Tails","Beaus Glass"],"bca":0,"bcc":0,"bch":[]},{"n":"Misty Decatur","c":"Kendra Morelli","boq":19820.4,"lcm":17912.4,"net":-1908,"ret":0.9037,"mca":56,"mcc":2,"mch":["Estes Interiors","Ledbetter Pool Service"],"bca":0,"bcc":0,"bch":[]},{"n":"Saira Julian Guzman","c":"Kendra Morelli","boq":14219.8,"lcm":12875.8,"net":-1344,"ret":0.9055,"mca":38,"mcc":1,"mch":["Hernandez Architecture"],"bca":0,"bcc":0,"bch":[]},{"n":"Scott Mather","c":"Kendra Morelli","boq":19891.8,"lcm":18659.8,"net":-1232,"ret":0.938,"mca":54,"mcc":2,"mch":["Spectrum Pest Control","Woodlands Funeral"],"bca":0,"bcc":0,"bch":[]},{"n":"Steven Saunders","c":"Kendra Morelli","boq":19879.4,"lcm":17983.4,"net":-1896,"ret":0.9046,"mca":56,"mcc":3,"mch":["Paul Schier Plumbing","Homestead Floral","Westside Collision"],"bca":0,"bcc":0,"bch":[]},{"n":"Dorka Frias Lantigua","c":"Kendra Morelli","boq":9547.6,"lcm":8497.6,"net":-1050,"ret":0.89,"mca":25,"mcc":1,"mch":["Luxury Pool Management"],"bca":0,"bcc":0,"bch":[]},{"n":"Kellie Lester","c":"Trisha Stalnaker","boq":35383.6,"lcm":33894.6,"net":-1489,"ret":0.9579,"mca":91,"mcc":5,"mch":["Patriot Properties","Bees by Amos","Russ Dunmire","B2B Network Promotions","Daves Auto & Tires"],"bca":0,"bcc":0,"bch":[]},{"n":"Karissa Hernandez","c":"Trisha Stalnaker","boq":37153.75,"lcm":30192,"net":-6961.75,"ret":0.8126,"mca":91,"mcc":9,"mch":["Parable Christian Store","4 Seasons Property","Advantage Electric","Elites Dance Academy","Hillside Homecare"],"bca":0,"bcc":0,"bch":[]},{"n":"Ashley Vasquez Mena","c":"Trisha Stalnaker","boq":38476.1,"lcm":33200.1,"net":-5276,"ret":0.8629,"mca":97,"mcc":7,"mch":["M & M Industrial","L & S Mechanical","Luxe Dental","Key-Way Lock","City Of Life"],"bca":0,"bcc":0,"bch":[]},{"n":"Karen Capellan Tavarez","c":"Trisha Stalnaker","boq":19914.6,"lcm":18261.6,"net":-1653,"ret":0.917,"mca":54,"mcc":3,"mch":["Always Green Lawn","Accion Chicago","Greenwood Pharmacy"],"bca":0,"bcc":0,"bch":[]},{"n":"Ashley Shaffer","c":"Trisha Stalnaker","boq":34368.4,"lcm":28136.4,"net":-6232,"ret":0.8187,"mca":87,"mcc":11,"mch":["Kiddie Kandids","One Source Comm","Happy Hearts Child","Bingo Night Events","Canary Wharf Grill"],"bca":0,"bcc":0,"bch":[]},{"n":"Merve (MJ) Brielmann","c":"Trisha Stalnaker","boq":24891,"lcm":24507,"net":-384,"ret":0.9846,"mca":62,"mcc":2,"mch":["Bella Vista Pools","Armuchee"],"bca":0,"bcc":0,"bch":[]},{"n":"Taylor Kidd","c":"Trisha Stalnaker","boq":24930.2,"lcm":22369.2,"net":-2561,"ret":0.8973,"mca":58,"mcc":4,"mch":["Twin Cities Comfort","Fitness Zone","Perimeter Pest Control","Camelot Party Supplies"],"bca":0,"bcc":0,"bch":[]},{"n":"Mark Velazquez","c":"Trisha Stalnaker","boq":15438,"lcm":13621,"net":-1817,"ret":0.8823,"mca":37,"mcc":3,"mch":["Trident Plumbing","Saddleback Pest","Mid States Petroleum"],"bca":0,"bcc":0,"bch":[]},{"n":"Felix Caba Jimenez","c":"Trisha Stalnaker","boq":1920,"lcm":1920,"net":0,"ret":1.0,"mca":5,"mcc":0,"mch":[],"bca":0,"bcc":0,"bch":[]},{"n":"Stacy Roers","c":"Trisha Stalnaker","boq":19615.2,"lcm":18590.2,"net":-1025,"ret":0.9477,"mca":51,"mcc":2,"mch":["Glacier Hills","Northwood Auto"],"bca":0,"bcc":0,"bch":[]},{"n":"Rafael Sencion Sencion","c":"Trisha Stalnaker","boq":32490.4,"lcm":28376.4,"net":-4114,"ret":0.8734,"mca":84,"mcc":7,"mch":["Charis Music","Sano Wellness","Magnolia Dental","Blue Sky Realty","Woodmont Hills"],"bca":0,"bcc":0,"bch":[]},{"n":"Victor Abner Moscoso Fernandez","c":"Mia O\u2019Dirling","boq":38942.2,"lcm":36674.2,"net":-2268,"ret":0.9418,"mca":100,"mcc":4,"mch":["Central Florida Towing","Top Notch Beauty","Elite Car Wash","Pines Florist"],"bca":0,"bcc":0,"bch":[]},{"n":"Heidi Torres Uribe","c":"Mia O\u2019Dirling","boq":19764.4,"lcm":18436.4,"net":-1328,"ret":0.9328,"mca":54,"mcc":2,"mch":["Golden Touch Cleaning","Altagracia Beauty"],"bca":0,"bcc":0,"bch":[]},{"n":"Darling Danais Santos Taveras","c":"Mia O\u2019Dirling","boq":19197.6,"lcm":17373.6,"net":-1824,"ret":0.9049,"mca":52,"mcc":3,"mch":["Guzman Landscaping","Rosy Nails","Express Auto Repair"],"bca":0,"bcc":0,"bch":[]},{"n":"Irina Larianni Molina Molina","c":"Mia O\u2019Dirling","boq":10993.2,"lcm":10217.2,"net":-776,"ret":0.9294,"mca":30,"mcc":1,"mch":["Larios Convenience Store"],"bca":0,"bcc":0,"bch":[]},{"n":"Wilson Mercedes","c":"Mia O\u2019Dirling","boq":30065.8,"lcm":26945.8,"net":-3120,"ret":0.8963,"mca":80,"mcc":5,"mch":["Garcia Auto Shop","Queens Bridal","Cali Flowers","Pro Image Sports","Midwest Hauling"],"bca":0,"bcc":0,"bch":[]},{"n":"Jathzelyn Elizabeth Fortuna Paulino","c":"Mia O\u2019Dirling","boq":20671,"lcm":19043,"net":-1628,"ret":0.9213,"mca":53,"mcc":2,"mch":["Bella Nails","Style Zone"],"bca":0,"bcc":0,"bch":[]},{"n":"Yessica Montero Urena","c":"Mia O\u2019Dirling","boq":18399.6,"lcm":16523.6,"net":-1876,"ret":0.8981,"mca":50,"mcc":3,"mch":["Corazon BBQ","Mariana Flowers","Star Nails"],"bca":0,"bcc":0,"bch":[]},{"n":"Johnny Cornielle","c":"Mia O\u2019Dirling","boq":29088.4,"lcm":25356.4,"net":-3732,"ret":0.8717,"mca":78,"mcc":6,"mch":["Blessed Hands Barbershop","City Lights Diner","Prestige Auto","Diamond Cuts","New Wave"],"bca":0,"bcc":0,"bch":[]},{"n":"Sati Ananda Pimentel Malespin","c":"Mia O\u2019Dirling","boq":27040.6,"lcm":24220.6,"net":-2820,"ret":0.8957,"mca":71,"mcc":4,"mch":["Primera Iglesia","Tropical Nails","Elegant Touch","Star Bright"],"bca":0,"bcc":0,"bch":[]},{"n":"Samuel Frias De Paula","c":"Mia O\u2019Dirling","boq":35963.4,"lcm":31866.4,"net":-4097,"ret":0.8861,"mca":94,"mcc":5,"mch":["Santos Beauty","Lux Auto","Island Cuts","Paradise Nails","Glamour Touch"],"bca":0,"bcc":0,"bch":[]},{"n":"Barbara Larrosa Presinal","c":"Chase Boyd","boq":23019.6,"lcm":22379.6,"net":-640,"ret":0.9722,"mca":63,"mcc":2,"mch":["Prestige Cleaning","All Star Sports"],"bca":6,"bcc":1,"bch":["Texas Outdoor Projects"]},{"n":"Deivis Pena","c":"Chase Boyd","boq":19290.4,"lcm":17986.4,"net":-1304,"ret":0.9324,"mca":54,"mcc":3,"mch":["Elite Fence","Gold Star Auto","Diamond Nails"],"bca":0,"bcc":0,"bch":[]},{"n":"Kyle Dye","c":"Chase Boyd","boq":22069.4,"lcm":20661.4,"net":-1408,"ret":0.9362,"mca":58,"mcc":4,"mch":["Cornerstone Realty","Main Street Diner","Heritage Flooring","Summit Pest"],"bca":0,"bcc":0,"bch":[]},{"n":"Sarah Swanson","c":"Chase Boyd","boq":20193.6,"lcm":19869.6,"net":-324,"ret":0.984,"mca":58,"mcc":1,"mch":["Sundown Ranch"],"bca":0,"bcc":0,"bch":[]},{"n":"Luis Aguasvivas Peralta","c":"Chase Boyd","boq":8272.4,"lcm":7812.4,"net":-460,"ret":0.9444,"mca":22,"mcc":1,"mch":["Santos Landscaping"],"bca":0,"bcc":0,"bch":[]},{"n":"Juan Liberato","c":"Chase Boyd","boq":13063.4,"lcm":12191.4,"net":-872,"ret":0.9333,"mca":36,"mcc":2,"mch":["Tropical Cuts","Island Fresh"],"bca":0,"bcc":0,"bch":[]},{"n":"Elianny Tena Antigua","c":"Chase Boyd","boq":9226.8,"lcm":8468.8,"net":-758,"ret":0.9179,"mca":25,"mcc":1,"mch":["Nails By Design"],"bca":0,"bcc":0,"bch":[]},{"n":"Damita Hill","c":"Elizabeth White","boq":28434.25,"lcm":24734.25,"net":-3700,"ret":0.8699,"mca":72,"mcc":6,"mch":["Park Place Cleaners","Sunshine Academy","Royal Cuts","Elite Image","Pro Nails","Blossom Day Spa"],"bca":0,"bcc":0,"bch":[]},{"n":"Anthony Yen","c":"Elizabeth White","boq":19093.2,"lcm":18005.2,"net":-1088,"ret":0.943,"mca":53,"mcc":3,"mch":["Pacific Rim","Harbor View","Coastal Cuts"],"bca":0,"bcc":0,"bch":[]},{"n":"April Hall","c":"Elizabeth White","boq":22714.8,"lcm":20578.8,"net":-2136,"ret":0.9059,"mca":59,"mcc":4,"mch":["Summit Auto","Valley Dental","Mountain Fresh","Peak Performance"],"bca":0,"bcc":0,"bch":[]},{"n":"Katelyn Ankrom","c":"Elizabeth White","boq":27124.8,"lcm":24412.8,"net":-2712,"ret":0.9001,"mca":72,"mcc":4,"mch":["Bloom Floral","Green Thumb Nursery","Petal Perfect","Garden Gate"],"bca":0,"bcc":0,"bch":[]},{"n":"Kennedy Sanchez","c":"Elizabeth White","boq":16530.6,"lcm":14994.6,"net":-1536,"ret":0.9071,"mca":44,"mcc":2,"mch":["Sunrise Bakery","Golden Key Realty"],"bca":0,"bcc":0,"bch":[]},{"n":"Michael Furlong","c":"Elizabeth White","boq":28540.4,"lcm":25224.4,"net":-3316,"ret":0.8838,"mca":74,"mcc":6,"mch":["Riverside Clinic","Lakeside Auto","Forest Glen","Brook Valley","Clear Water","Sunset Pools"],"bca":0,"bcc":0,"bch":[]},{"n":"Yolanda Ramirez","c":"Elizabeth White","boq":29175,"lcm":26827,"net":-2348,"ret":0.9195,"mca":75,"mcc":4,"mch":["Desert Rose","Oasis Pools","Palm Tree Realty","Cactus Auto"],"bca":0,"bcc":0,"bch":[]},{"n":"Florence Francois Nova","c":"Elizabeth White","boq":22961.4,"lcm":21265.4,"net":-1696,"ret":0.9261,"mca":60,"mcc":3,"mch":["Belle Epoque","Riviera Nails","Paris Dreams"],"bca":0,"bcc":0,"bch":[]},{"n":"Rossi Valerio Tejeda","c":"Elizabeth White","boq":24220,"lcm":21513,"net":-2707,"ret":0.8882,"mca":63,"mcc":5,"mch":["Tropical Breeze","Island Dreams","Caribbean Cuts","Palm Bay","Sunset Nails"],"bca":0,"bcc":0,"bch":[]}];
 
 const BOB_DETAIL = {"Katelyn Ankrom":{"i":[],"d":[{"e":"BSFD0842","a":"Coconut Health","l":"Websites","b":117.0,"m":0.0,"n":-117.0},{"e":"BSFV9004","a":"Our World ID","l":"Social","b":750.0,"m":0.0,"n":-750.0},{"e":"BSFV9004","a":"Our World ID","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0}]},"Sylvia Appla":{"i":[{"e":"BSDZ5782","a":"Rawlins Neville","l":"Marketing Ctr","b":499.09,"m":509.09,"n":10.0}],"d":[{"e":"BSFC6415","a":"TotallyOT","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSFD6635","a":"Stix and Tonez","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSFV5882","a":"Keep Healthy Massage","l":"Marketing Ctr","b":358.19,"m":351.82,"n":-6.37},{"e":"BSFD6638","a":"C & T Earthworks","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSDK7610","a":"Chisham Express Pharmacy","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSDK7610","a":"Chisham Express Pharmacy","l":"Websites","b":131.82,"m":0.0,"n":-131.82},{"e":"BSFP7559","a":"Dale's Tree Services","l":"Marketing Ctr","b":570.91,"m":0.0,"n":-570.91},{"e":"BSFD8439","a":"Frostbite Auto Air","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0}]},"Libby Booher":{"i":[{"e":"BSCZ0276","a":"Whisked Away","l":"Platform Other","b":91.0,"m":126.0,"n":35.0}],"d":[{"e":"BSFR1218","a":"Varsity Flooring LLC","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFP2668","a":"Zebra Stripes Child Care & Preschool","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFP2668","a":"Zebra Stripes Child Care & Preschool","l":"Business Ctr","b":179.0,"m":0.0,"n":-179.0},{"e":"BSFX4774","a":"Faith Window Cleaning","l":"Growth Pkgs","b":300.0,"m":0.0,"n":-300.0},{"e":"BSFP7298","a":"CAMPBELL REMODELING AND MAINTENANCE LLC","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFP7298","a":"CAMPBELL REMODELING AND MAINTENANCE LLC","l":"Business Ctr","b":179.0,"m":0.0,"n":-179.0}]},"Merve (MJ) Brielmann":{"i":[],"d":[{"e":"BSFD7986","a":"OTU+","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0}]},"Karen Capellan Tavarez":{"i":[],"d":[{"e":"BSFF1595","a":"Gutter Customs LLC","l":"Websites","b":117.0,"m":0.0,"n":-117.0},{"e":"BRXB6268","a":"Tapia Demolition","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFF5427","a":"PM Landscaping","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFF2698","a":"EZ Garage Solutions","l":"Marketing Ctr","b":293.0,"m":0.0,"n":-293.0},{"e":"BSFF2698","a":"EZ Garage Solutions","l":"Social","b":500.0,"m":0.0,"n":-500.0},{"e":"BSDV3762","a":"Conecta Inc Chicago","l":"Business Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFZ2268","a":"Rescore America","l":"Marketing Ctr","b":304.0,"m":293.0,"n":-11.0}]},"Joseph Guillermo Carmona Garcia":{"i":[],"d":[{"e":"BSFC0370","a":"Radiant Energy","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFC0370","a":"Radiant Energy","l":"Websites","b":117.0,"m":0.0,"n":-117.0},{"e":"BSFX9079","a":"Moreland Exteriors","l":"Marketing Ctr","b":400.0,"m":384.0,"n":-16.0},{"e":"BSFP7403","a":"Reyes Roofing","l":"Marketing Ctr","b":433.0,"m":0.0,"n":-433.0},{"e":"BSFF2291","a":"Better Ways Home Services","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFC3268","a":"Distance Movers","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFD0406","a":"Eagle Hardwood Flooring, Inc.","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFC4086","a":"PMV Limousine INC","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFC2925","a":"guHome Remodeling Roofing & Gutters Plus","l":"Growth Pkgs","b":300.0,"m":0.0,"n":-300.0},{"e":"BSFF4071","a":"Persic Heating & Air, LLC","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFG0022","a":"Precision European Auto Repair","l":"Thryv Leads","b":2000.0,"m":0.0,"n":-2000.0}]},"Lauren Carter":{"i":[],"d":[{"e":"BSCQ8015","a":"Shea's Health and Nutrition","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFG0266","a":"SparrowHawk Mobile Detailing","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFG0266","a":"SparrowHawk Mobile Detailing","l":"SEO","b":900.0,"m":0.0,"n":-900.0},{"e":"BSFG0266","a":"SparrowHawk Mobile Detailing","l":"Social","b":500.0,"m":0.0,"n":-500.0},{"e":"BSFD2805","a":"Freeway Graphics & Design","l":"Marketing Ctr","b":433.0,"m":0.0,"n":-433.0},{"e":"BSFD2805","a":"Freeway Graphics & Design","l":"Thryv Leads","b":1500.0,"m":0.0,"n":-1500.0},{"e":"BRWZ3696","a":"Campbell's Sewer & Drain Cleaning","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFM0705","a":"Equipment Guardians LLC","l":"Marketing Ctr","b":433.0,"m":384.0,"n":-49.0},{"e":"BSDZ9243","a":"JD3 Mobile DNA Services LLC","l":"Business Ctr","b":254.0,"m":0.0,"n":-254.0},{"e":"BSDZ9243","a":"JD3 Mobile DNA Services LLC","l":"Websites","b":117.0,"m":0.0,"n":-117.0},{"e":"BSFD0438","a":"Andy's Pro Tire & Auto","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFP7420","a":"Marketside Chiropractic","l":"SEO","b":400.0,"m":0.0,"n":-400.0}]},"Johnny Cornielle":{"i":[],"d":[{"e":"BSFM3039","a":"Cool Concepts Inc.","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFM3039","a":"Cool Concepts Inc.","l":"Recurring Labor","b":125.0,"m":0.0,"n":-125.0},{"e":"BSFC7378","a":"Safe Resolutions LLC","l":"Business Ctr","b":571.0,"m":0.0,"n":-571.0},{"e":"BSFC7323","a":"ALL THINGS PINKABOO","l":"Business Ctr","b":244.0,"m":0.0,"n":-244.0}]},"Dave Crisler":{"i":[],"d":[{"e":"BSDM8338","a":"Logan West Laundromat","l":"Marketing Ctr","b":286.37,"m":280.0,"n":-6.37},{"e":"BSFP6650","a":"M1 business system","l":"Thryv Leads","b":545.0,"m":0.0,"n":-545.0},{"e":"BSFP6650","a":"M1 business system","l":"Marketing Ctr","b":499.09,"m":0.0,"n":-499.09},{"e":"BSDM0105","a":"Manuka Dental Care","l":"Websites","b":131.82,"m":0.0,"n":-131.82},{"e":"BSDM0105","a":"Manuka Dental Care","l":"SEO","b":600.0,"m":0.0,"n":-600.0},{"e":"BSDL2104","a":"Kirbside Clean A Bin","l":"Thryv Leads","b":953.0,"m":0.0,"n":-953.0},{"e":"BSCZ1564","a":"MEP PLUMBING LIMITED","l":"Marketing Ctr","b":330.0,"m":318.0,"n":-12.0},{"e":"BSFF8532","a":"Shop N Go Car Wash & Care","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSFM2341","a":"Imperial Detail Co.","l":"Marketing Ctr","b":318.0,"m":0.0,"n":-318.0},{"e":"BSFP3560","a":"Top Mix Construction","l":"Marketing Ctr","b":570.91,"m":0.0,"n":-570.91},{"e":"BSFP3560","a":"Top Mix Construction","l":"Growth Pkgs","b":454.55,"m":0.0,"n":-454.55},{"e":"BSFB1708","a":"Sabetian Natural Appearance Clinic","l":"Marketing Ctr","b":318.0,"m":0.0,"n":-318.0},{"e":"BSFB1708","a":"Sabetian Natural Appearance Clinic","l":"SEO","b":2100.0,"m":0.0,"n":-2100.0}]},"Matt Daly":{"i":[],"d":[{"e":"BSFM0691","a":"Bright & White Teeth Whitening","l":"Social","b":750.0,"m":0.0,"n":-750.0},{"e":"BSFP3574","a":"Perth Taxi Booking","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSFD6682","a":"SPEEDLINE Tree Surgery Pty Ltd","l":"Thryv Leads","b":909.0,"m":0.0,"n":-909.0}]},"Misty Decatur":{"i":[{"e":"BFQC0918","a":"Dubois County Garage Doors","l":"Platform Other","b":7.2,"m":43.2,"n":36.0},{"e":"BRPJ7139","a":"Manwill Plumbing & Heating","l":"Thryv Leads","b":10000.0,"m":12000.0,"n":2000.0}],"d":[{"e":"BSFB9303","a":"Dollar Bill's Heating and Air","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFC8129","a":"Lakeshore Custom Masonry","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFR5072","a":"SERVPRO of Lenoir, Duplin & Jones Counties","l":"Thryv Leads","b":2400.0,"m":0.0,"n":-2400.0},{"e":"BSFR5072","a":"SERVPRO of Lenoir, Duplin & Jones Counties","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0}]},"Chelsea Dingus":{"i":[],"d":[{"e":"BSFV6235","a":"Bullet Hole Annex","l":"SEO","b":700.0,"m":0.0,"n":-700.0},{"e":"BSFC0344","a":"Jerry's Paint & Body Shop","l":"Social","b":750.0,"m":0.0,"n":-750.0},{"e":"BSFC0344","a":"Jerry's Paint & Body Shop","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFR9436","a":"Master Tech Transmission","l":"Growth Pkgs","b":500.0,"m":0.0,"n":-500.0},{"e":"BSFP3006","a":"Beautistry Makeup Academy","l":"Business Ctr","b":179.0,"m":0.0,"n":-179.0},{"e":"BSFP3006","a":"Beautistry Makeup Academy","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0}]},"Misti Dixon":{"i":[],"d":[{"e":"BSFB5643","a":"Main Line Benefits- Barry Schumann","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFD8782","a":"Source Light Wellness Center","l":"Business Ctr","b":179.0,"m":0.0,"n":-179.0},{"e":"BSFD7585","a":"Beyond Roofing LLC","l":"Marketing Ctr","b":433.0,"m":0.0,"n":-433.0}]},"Kyle Dye":{"i":[],"d":[{"e":"BSFC2761","a":"Pickaway Flooring Center","l":"Marketing Ctr","b":433.0,"m":0.0,"n":-433.0},{"e":"BRXM5706","a":"Decorative Concrete Designer","l":"Marketing Ctr","b":433.0,"m":0.0,"n":-433.0},{"e":"BSDZ8620","a":"Springtown Electric","l":"SEO","b":800.0,"m":0.0,"n":-800.0}]},"Jathzelyn Elizabeth Fortuna Paulino":{"i":[],"d":[{"e":"BSFD0151","a":"Ollies Electric, LLC","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFD9975","a":"An Apple A Day Nutrition Counseling","l":"Marketing Ctr","b":628.0,"m":244.0,"n":-384.0},{"e":"BSFM0571","a":"OaksMark","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFQ9159","a":"Mark's Electric LLC","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFZ2626","a":"Faithful Turf","l":"Marketing Ctr","b":400.0,"m":384.0,"n":-16.0},{"e":"BSFD8028","a":"Precision Injury Law","l":"Marketing Ctr","b":293.0,"m":0.0,"n":-293.0},{"e":"BSFD8028","a":"Precision Injury Law","l":"Social","b":750.0,"m":0.0,"n":-750.0},{"e":"BRQB2178","a":"Uebe Insured","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFQ2873","a":"Fleming-moving llc","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFF2428","a":"Jarred Pierce Real Estate","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BRXK9889","a":"Big & Little Storage","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFG0515","a":"Cowboy Roadside Services","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFF0131","a":"Urgent Dental Care/Smile Centers of America","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFD9863","a":"ABS The Clean Machine","l":"Social","b":750.0,"m":0.0,"n":-750.0},{"e":"BSFD0870","a":"Pure Power CPAs","l":"Social","b":750.0,"m":0.0,"n":-750.0}]},"Florence Francois Nova":{"i":[],"d":[{"e":"BRXD8965","a":"Allen & Hoshall","l":"Marketing Ctr","b":141.17,"m":0.0,"n":-141.17},{"e":"BRXD8965","a":"Allen & Hoshall","l":"Growth Pkgs","b":183.33,"m":0.0,"n":-183.33}]},"Samuel Frias De Paula":{"i":[],"d":[{"e":"BRXR4376","a":"Buell & Olivieri Insurance","l":"Marketing Ctr","b":293.0,"m":0.0,"n":-293.0},{"e":"BSCN3394","a":"A Lonestar Service Blinds and Shutters","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFF1866","a":"Johnson's Roofing","l":"Marketing Ctr","b":433.0,"m":0.0,"n":-433.0},{"e":"BSFP7451","a":"Tanaechi","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0}]},"Dorka Frias Lantigua":{"i":[],"d":[{"e":"BSFD2732","a":"Dovinh Group","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSCW0716","a":"Nebraska 7v7 Football","l":"Platform Other","b":7.2,"m":0.0,"n":-7.2},{"e":"BSCW0716","a":"Nebraska 7v7 Football","l":"Business Ctr","b":179.0,"m":0.0,"n":-179.0},{"e":"BSCW0716","a":"Nebraska 7v7 Football","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BJVF3798","a":"Flower Shoppe Inc","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSDQ2902","a":"Vaughn Overhead Door","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFF5876","a":"Paramount Elevator Services","l":"Platform Other","b":21.6,"m":0.0,"n":-21.6},{"e":"BSFG3622","a":"Modern Man Studio","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFQ3508","a":"Guildcraft Exteriors","l":"Growth Pkgs","b":500.0,"m":0.0,"n":-500.0},{"e":"BSFQ3508","a":"Guildcraft Exteriors","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0}]},"Michael Furlong":{"i":[],"d":[{"e":"BSFP7811","a":"Jeune Aesthetics","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BKGK5247","a":"Aloota Farley Co L.P>A","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFR1756","a":"Xpress One Plumber","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFR1756","a":"Xpress One Plumber","l":"Thryv Leads","b":2600.0,"m":0.0,"n":-2600.0},{"e":"BSFF7993","a":"Gustavo Chavez Realtor","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFM2827","a":"Cedar Dental Clinic","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFP4508","a":"Terminatus Pest Control","l":"Growth Pkgs","b":500.0,"m":0.0,"n":-500.0}]},"Tracy-Ann Gaudencio":{"i":[{"e":"BSFF9092","a":"Heatherton Dental","l":"Thryv Leads","b":1818.0,"m":2727.0,"n":909.0}],"d":[{"e":"BSFF7479","a":"Account Elite Spray Pave","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSCZ4215","a":"Kokich Electrical Limited","l":"Marketing Ctr","b":330.0,"m":318.0,"n":-12.0}]},"Warda Gul":{"i":[{"e":"BSFC6690","a":"BrightR Financial","l":"Marketing Ctr","b":499.09,"m":509.09,"n":10.0}],"d":[{"e":"BSFC6809","a":"Affordable Flooring Solutions","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSFC6809","a":"Affordable Flooring Solutions","l":"Business Ctr","b":320.0,"m":0.0,"n":-320.0},{"e":"BSFF6463","a":"Decorug Carpet Cleaning","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSFD7053","a":"ABC Test Tag & Fire Australia","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSFG3134","a":"The Daylesford Meat Co","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSFC6760","a":"Synergy Beauty Supplies","l":"Marketing Ctr","b":499.09,"m":0.0,"n":-499.09},{"e":"BSFF1002","a":"Shangri-La Decors","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSFF1002","a":"Shangri-La Decors","l":"Social","b":1150.0,"m":0.0,"n":-1150.0},{"e":"BSFG0509","a":"KINGSTON AUTOMOTIVE ELECTRICS PTY. LTD.","l":"Websites","b":131.82,"m":0.0,"n":-131.82},{"e":"BSFG0509","a":"KINGSTON AUTOMOTIVE ELECTRICS PTY. LTD.","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSFC6545","a":"Davern & Co","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSDK8933","a":"JRs Mower & Motorcycle","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSDK8933","a":"JRs Mower & Motorcycle","l":"Websites","b":131.82,"m":0.0,"n":-131.82},{"e":"BSDL7066","a":"R G Electrical Pty Ltd","l":"Marketing Ctr","b":286.37,"m":280.0,"n":-6.37}]},"April Hall":{"i":[],"d":[{"e":"BSBS1494","a":"SCL4 LLC","l":"Platform Other","b":7.2,"m":0.0,"n":-7.2},{"e":"BSBS1494","a":"SCL4 LLC","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFF5886","a":"Stronger Built Construction","l":"Marketing Ctr","b":433.0,"m":0.0,"n":-433.0},{"e":"BRZR7821","a":"Harrell Mobile Auto Repair","l":"Marketing Ctr","b":293.0,"m":244.0,"n":-49.0},{"e":"BSFC9928","a":"Goals4Sports","l":"Marketing Ctr","b":293.0,"m":244.0,"n":-49.0},{"e":"BSFF2916","a":"Screen Mobile of Lubbock","l":"Marketing Ctr","b":293.0,"m":0.0,"n":-293.0},{"e":"BSFF2916","a":"Screen Mobile of Lubbock","l":"Social","b":1000.0,"m":0.0,"n":-1000.0}]},"Karissa Hernandez":{"i":[],"d":[{"e":"BSFC0179","a":"Zero Spore Restoration","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFC5052","a":"GBD Concrete","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFS0459","a":"Vital Blooms Wellness","l":"Business Ctr","b":179.0,"m":0.0,"n":-179.0},{"e":"BKQN3456","a":"FLB Insurance Agency","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BRXM4163","a":"Magnolia Mobile Veterinary","l":"Marketing Ctr","b":277.75,"m":0.0,"n":-277.75},{"e":"BSFF6632","a":"Hope Restored Missions","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFF9284","a":"AutoVisor 360","l":"Marketing Ctr","b":293.0,"m":0.0,"n":-293.0},{"e":"BSFQ2920","a":"Vantage Pest Control","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFF4034","a":"East Texas Flames LLC","l":"Social","b":750.0,"m":0.0,"n":-750.0},{"e":"BSFF4034","a":"East Texas Flames LLC","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFP4568","a":"Acme Roofing & Siding LLC","l":"Thryv Leads","b":2200.0,"m":0.0,"n":-2200.0},{"e":"BSFP4568","a":"Acme Roofing & Siding LLC","l":"Marketing Ctr","b":628.0,"m":384.0,"n":-244.0},{"e":"BSFC4104","a":"Heaven Storm Roofing","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0}]},"Damita Hill":{"i":[],"d":[{"e":"BSFD9778","a":"Woodard Assurance","l":"Platform Other","b":7.2,"m":0.0,"n":-7.2},{"e":"BSFD9778","a":"Woodard Assurance","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFZ1492","a":"Flash Fence","l":"Social","b":500.0,"m":0.0,"n":-500.0},{"e":"BSFZ1492","a":"Flash Fence","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFZ3386","a":"Feelin Drippy Mobile IV Therapy","l":"Marketing Ctr","b":433.0,"m":0.0,"n":-433.0},{"e":"BSFQ9230","a":"L&R Excavation","l":"Social","b":500.0,"m":0.0,"n":-500.0},{"e":"BSFQ9230","a":"L&R Excavation","l":"Marketing Ctr","b":433.0,"m":384.0,"n":-49.0}]},"Saira Julian Guzman":{"i":[],"d":[{"e":"BSFM0874","a":"Snowfall Towing LLC","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFG4148","a":"Consolidated Insurance Group of South Carolina","l":"Marketing Ctr","b":293.0,"m":0.0,"n":-293.0},{"e":"BSFG4148","a":"Consolidated Insurance Group of South Carolina","l":"Websites","b":117.0,"m":0.0,"n":-117.0},{"e":"BSFG3800","a":"MINT Nutrition","l":"Marketing Ctr","b":293.0,"m":0.0,"n":-293.0},{"e":"BSFQ8706","a":"Sea Pro Home Renovation","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BHCM4169","a":"North Valley Veterinary Clinic","l":"Marketing Ctr","b":192.4,"m":0.0,"n":-192.4}]},"Taylor Kidd":{"i":[],"d":[{"e":"BSFD0246","a":"Its A Beautiful World Travel","l":"SEO","b":800.0,"m":0.0,"n":-800.0},{"e":"BSFD0246","a":"Its A Beautiful World Travel","l":"Marketing Ctr","b":433.0,"m":0.0,"n":-433.0},{"e":"BSFP6023","a":"Mindsense Serenity","l":"Marketing Ctr","b":293.0,"m":49.0,"n":-244.0},{"e":"BDST1459","a":"Coweta Smiles","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BDST1459","a":"Coweta Smiles","l":"SEO","b":700.0,"m":0.0,"n":-700.0}]},"Barbara Larrosa Presinal":{"i":[],"d":[{"e":"BRXV1840","a":"Phillip Brown Construction LLC","l":"Growth Pkgs","b":150.0,"m":0.0,"n":-150.0},{"e":"BSFF6276","a":"Adams Plumbing","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFD7034","a":"Bossert Bookkeeping LLC","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFG1609","a":"Noah Auto Sales","l":"Social","b":750.0,"m":0.0,"n":-750.0},{"e":"BRXG6596","a":"Budget HVAC","l":"SEO","b":700.0,"m":0.0,"n":-700.0}]},"Kellie Lester":{"i":[],"d":[{"e":"BRXJ0339","a":"Able Roofing Company","l":"Marketing Ctr","b":433.0,"m":0.0,"n":-433.0},{"e":"BRXJ0339","a":"Able Roofing Company","l":"Growth Pkgs","b":300.0,"m":0.0,"n":-300.0},{"e":"BSFM3683","a":"Shine Effect Cleaning Services","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFM3683","a":"Shine Effect Cleaning Services","l":"Growth Pkgs","b":500.0,"m":0.0,"n":-500.0},{"e":"BSDZ8739","a":"Rc Home Renovations","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSDZ8739","a":"Rc Home Renovations","l":"Websites","b":117.0,"m":0.0,"n":-117.0},{"e":"BSFF4291","a":"Brighter Light Media","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFD5506","a":"WaterWise Plumbing","l":"Websites","b":117.0,"m":0.0,"n":-117.0},{"e":"BRXC8972","a":"Mary El Coiffures","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0}]},"Juan Liberato":{"i":[],"d":[{"e":"BSFF2981","a":"Redding Salon","l":"Social","b":750.0,"m":0.0,"n":-750.0}]},"Sakshi Mahalwal":{"i":[{"e":"BSDL5682","a":"Plain Pallets Pty Ltd","l":"Marketing Ctr","b":499.09,"m":509.09,"n":10.0}],"d":[{"e":"BSDZ6167","a":"Millers Civil Contractors","l":"Thryv Leads","b":454.0,"m":0.0,"n":-454.0},{"e":"BSFF9155","a":"Bristols Automotive Specialists","l":"Marketing Ctr","b":407.0,"m":0.0,"n":-407.0},{"e":"BSFG0909","a":"P & D Homes","l":"Marketing Ctr","b":351.82,"m":0.0,"n":-351.82},{"e":"BSCZ1631","a":"CARPETWEST LIMITED","l":"Marketing Ctr","b":318.0,"m":0.0,"n":-318.0},{"e":"BSCZ6848","a":"ASL Industries Ltd","l":"Marketing Ctr","b":330.0,"m":318.0,"n":-12.0},{"e":"BSFF2333","a":"Grant Financial Consulting","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSDX0816","a":"Bell Lawyers","l":"Social","b":1500.0,"m":0.0,"n":-1500.0},{"e":"BSFM0696","a":"Agape Sanitation","l":"Websites","b":131.82,"m":0.0,"n":-131.82},{"e":"BSFM0696","a":"Agape Sanitation","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0}]},"Peter Manalac":{"i":[],"d":[{"e":"BSFC6308","a":"My Antenna Tech","l":"Websites","b":131.82,"m":0.0,"n":-131.82},{"e":"BSFC6308","a":"My Antenna Tech","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSDK5917","a":"Beaufort Newsagent","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSDP9748","a":"Oceania Engineering Services","l":"Websites","b":131.82,"m":0.0,"n":-131.82},{"e":"BSDP9748","a":"Oceania Engineering Services","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSFS8025","a":"Smartline Electrical","l":"Websites","b":131.82,"m":0.0,"n":-131.82},{"e":"BSFG0578","a":"Jerry's Paintless Dent Repair","l":"Thryv Leads","b":454.0,"m":0.0,"n":-454.0},{"e":"BSFG0578","a":"Jerry's Paintless Dent Repair","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSDP7478","a":"DTS Electrical","l":"Marketing Ctr","b":318.0,"m":0.0,"n":-318.0}]},"Scott Mather":{"i":[],"d":[{"e":"BSFP7146","a":"Forever Glam Scrubs and More Murrieta","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSDL2334","a":"Local Exterior Services","l":"Websites","b":117.0,"m":0.0,"n":-117.0}]},"Wilson Mercedes":{"i":[],"d":[{"e":"BSCM8875","a":"Dry Line LLC","l":"Marketing Ctr","b":293.0,"m":0.0,"n":-293.0},{"e":"BSFF5372","a":"Camera Creations Photography","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFD8980","a":"Azteca Taxi Cab","l":"Social","b":500.0,"m":0.0,"n":-500.0},{"e":"BSFF8453","a":"1 and Done Legal Document Assistance","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFD0345","a":"Boat Stuf","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFZ1197","a":"Joannie\u2019s Florals and Events","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFZ1197","a":"Joannie\u2019s Florals and Events","l":"Growth Pkgs","b":300.0,"m":0.0,"n":-300.0},{"e":"BSFF8709","a":"Andrew's Violin and Viola Music Lessons By Appointment","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSBX9512","a":"Blackwell Agency Inc","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFP3203","a":"Fairfield house cleaning","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSDZ8288","a":"S.P.E.C Training Program LLC","l":"Platform Other","b":21.6,"m":0.0,"n":-21.6},{"e":"BSDZ8288","a":"S.P.E.C Training Program LLC","l":"Business Ctr","b":410.0,"m":0.0,"n":-410.0}]},"Tyler Moeggenberg":{"i":[],"d":[{"e":"BSFM3106","a":"Kevin Yul Wright, JD - Business Loan Success Academy Inc","l":"Websites","b":117.0,"m":0.0,"n":-117.0},{"e":"BSFM3106","a":"Kevin Yul Wright, JD - Business Loan Success Academy Inc","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSCS3567","a":"Healthier you counseling center","l":"Social","b":500.0,"m":0.0,"n":-500.0},{"e":"BSFP6950","a":"Property Management Remote Staffing","l":"Marketing Ctr","b":433.0,"m":0.0,"n":-433.0},{"e":"BSFP6950","a":"Property Management Remote Staffing","l":"Social","b":1000.0,"m":0.0,"n":-1000.0},{"e":"BSFP6950","a":"Get Staffing","l":"Marketing Ctr","b":293.0,"m":0.0,"n":-293.0},{"e":"BSFP6950","a":"Get Staffing","l":"Social","b":1000.0,"m":0.0,"n":-1000.0},{"e":"BSFP6950","a":"HYPR Staffing","l":"Marketing Ctr","b":433.0,"m":0.0,"n":-433.0},{"e":"BSFP6950","a":"HYPR Callers","l":"Marketing Ctr","b":293.0,"m":0.0,"n":-293.0},{"e":"BSFM3540","a":"JD's One Stop Auto Shop","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFB0193","a":"Christine Simper","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFF4901","a":"Howard County ALF","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFF4901","a":"Howard County ALF","l":"Social","b":750.0,"m":0.0,"n":-750.0},{"e":"BBCH4580","a":"Granite State Home Improvements","l":"Marketing Ctr","b":628.0,"m":384.0,"n":-244.0}]},"Irina Larianni Molina Molina":{"i":[],"d":[{"e":"BSFD1222","a":"The Ranch Garage Doors NC","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFC0954","a":"Locksmith Citrus Florida","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFF6588","a":"Genesis Landworks LLC","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFC8762","a":"Joint Sealant & Waterproofing LLC","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFC4055","a":"Brewhaus America, Inc.","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFD0442","a":"Jack's Plumbing","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFG1730","a":"DAB Digital Enterprises, LLC","l":"Marketing Ctr","b":293.0,"m":244.0,"n":-49.0},{"e":"BSFG1730","a":"DAB Digital Enterprises, LLC","l":"Social","b":500.0,"m":0.0,"n":-500.0}]},"Yessica Montero Urena":{"i":[{"e":"BBJS3449","a":"Wood Well Drilling LLC","l":"Websites","b":117.0,"m":125.0,"n":8.0}],"d":[{"e":"BBXQ7972","a":"PICK OF THE LITTER PAINTING","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFF9513","a":"Healthy Home Enterprises LLC","l":"Marketing Ctr","b":293.0,"m":0.0,"n":-293.0},{"e":"BSFF9513","a":"Healthy Home Enterprises LLC","l":"Platform Other","b":7.2,"m":0.0,"n":-7.2},{"e":"BSFX7950","a":"Elizbiz Limited Liability Company","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BJWQ7551","a":"Kirch Edward Property Management Inc","l":"Websites","b":117.0,"m":0.0,"n":-117.0},{"e":"BSFP7368","a":"Tropical Sunbeds Tanning Salon","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0}]},"Victor Abner Moscoso Fernandez":{"i":[],"d":[{"e":"BHBX0819","a":"North Bay Painting","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFF7006","a":"JACKSON & SON CONSTRUCTION LLC","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFF4377","a":"Sheltons Janitorial","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFG1957","a":"Marz landscaping","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFX4887","a":"A Reed Consulting Inc.","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSDF5952","a":"Elquin Tree Service Inc.","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSDD7006","a":"Perfectly Placed Home Organizing","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0}]},"Ellise Payne":{"i":[{"e":"BSFD7073","a":"Bay City Demolition","l":"Websites","b":131.82,"m":136.36,"n":4.54}],"d":[{"e":"BSFC6433","a":"Carpet One Lithgow Pty Ltd.","l":"Growth Pkgs","b":272.73,"m":0.0,"n":-272.73},{"e":"BSDM5923","a":"The Battery Terminal","l":"Social","b":1525.0,"m":0.0,"n":-1525.0},{"e":"BSFF7767","a":"DocSmart Solutions Limited","l":"Marketing Ctr","b":318.0,"m":0.0,"n":-318.0},{"e":"BSFD6631","a":"HAIR @ THE HUB","l":"Marketing Ctr","b":499.09,"m":0.0,"n":-499.09},{"e":"BSFF2320","a":"BeltUp Leather Co.","l":"Thryv Leads","b":3636.0,"m":0.0,"n":-3636.0},{"e":"BSFF9360","a":"Easy Excavators","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSDZ5486","a":"AOF Space Design","l":"Social","b":750.0,"m":0.0,"n":-750.0}]},"Sati Ananda Pimentel Malespin":{"i":[],"d":[{"e":"BSFC7529","a":"Acclaim Homecare Svc, LLC","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFF3087","a":"John P. Burgess, DDS","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFV5376","a":"Georgia Studs Construction","l":"Business Ctr","b":179.0,"m":0.0,"n":-179.0},{"e":"BSFV5376","a":"Georgia Studs Construction","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFC8834","a":"Vision Home Improvement LLC","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFC8834","a":"Vision Home Improvement LLC","l":"Business Ctr","b":179.0,"m":0.0,"n":-179.0},{"e":"BFMP0738","a":"Quality Garage Doors","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0}]},"Tyler Popplewell":{"i":[],"d":[{"e":"BSFQ9150","a":"Four Girls and a Dream","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFQ9150","a":"Four Girls and a Dream","l":"Business Ctr","b":179.0,"m":0.0,"n":-179.0}]},"Yolanda Ramirez":{"i":[{"e":"BSFX4907","a":"Gulf Wind Cigars","l":"Websites","b":117.0,"m":125.0,"n":8.0}],"d":[{"e":"BSFB8524","a":"national awnings Miami","l":"Thryv Leads","b":1500.0,"m":0.0,"n":-1500.0},{"e":"BSFB8524","a":"national awnings Miami","l":"Social","b":750.0,"m":0.0,"n":-750.0},{"e":"BSFD2514","a":"D.I. Ready Cleaning Service Inc.","l":"Thryv Leads","b":1800.0,"m":0.0,"n":-1800.0},{"e":"BJQR3935","a":"Star Landscaping","l":"Thryv Leads","b":1500.0,"m":1000.0,"n":-500.0},{"e":"BRRZ3102","a":"Mr. Plumber","l":"Thryv Leads","b":3600.0,"m":2100.0,"n":-1500.0}]},"Alejandro Rodriguez-Medina":{"i":[{"e":"BSFD2501","a":"Plumbing Kingz LLC","l":"Business Ctr","b":208.0,"m":237.0,"n":29.0}],"d":[{"e":"BSFC8877","a":"Johnson Asphalt Paving","l":"Social","b":500.0,"m":0.0,"n":-500.0},{"e":"BSFF2943","a":"Jesus Knows My Name","l":"Websites","b":117.0,"m":0.0,"n":-117.0},{"e":"BSFF2943","a":"Jesus Knows My Name","l":"Business Ctr","b":179.0,"m":0.0,"n":-179.0},{"e":"BSFZ3549","a":"Trees Plus Inc","l":"SEO","b":500.0,"m":0.0,"n":-500.0},{"e":"BDTV2624","a":"Portage Auto Mall Complete Auto Repair Center","l":"Growth Pkgs","b":500.0,"m":0.0,"n":-500.0},{"e":"BDTV2624","a":"Portage Auto Mall Complete Auto Repair Center","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFC3508","a":"Clean It All","l":"Websites","b":117.0,"m":0.0,"n":-117.0},{"e":"BSFC3508","a":"Clean It All","l":"Business Ctr","b":244.0,"m":0.0,"n":-244.0}]},"Stacy Roers":{"i":[],"d":[{"e":"BSFZ1687","a":"Hypnosis at Kentic Healing Connection","l":"Marketing Ctr","b":293.0,"m":0.0,"n":-293.0},{"e":"BSFB5606","a":"Colonial Loan","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFB5611","a":"Colonial Loan","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BRXT2163","a":"Screens Only","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0}]},"Zoltan Rudolf":{"i":[],"d":[{"e":"BSFF2764","a":"Kerbing By Design","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSCZ2971","a":"Daveron Scaffolding Ltd","l":"Marketing Ctr","b":318.0,"m":0.0,"n":-318.0},{"e":"BSFD9058","a":"Eza Plumbing and Drainage","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSFD8834","a":"Mowbray Newsagency","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSFD7043","a":"Smile More Dental","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSDM9422","a":"Productive Plastics","l":"Thryv Leads","b":4545.0,"m":0.0,"n":-4545.0},{"e":"BSDW3326","a":"CBI Blinds","l":"Thryv Leads","b":909.0,"m":0.0,"n":-909.0},{"e":"BSDW3326","a":"CBI Blinds","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0}]},"Kennedy Sanchez":{"i":[{"e":"BRXD6298","a":"A-1 Driveway Replacement","l":"Thryv Leads","b":3000.0,"m":4000.0,"n":1000.0}],"d":[{"e":"BRXH7873","a":"Gaddis Nursery Inc.","l":"Growth Pkgs","b":100.0,"m":0.0,"n":-100.0},{"e":"BRXH7873","a":"Gaddis Nursery Inc.","l":"Marketing Ctr","b":69.4,"m":0.0,"n":-69.4},{"e":"BSFF6990","a":"Romano's Painting LLC","l":"Websites","b":117.0,"m":0.0,"n":-117.0},{"e":"BSFF6990","a":"Romano's Painting LLC","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFF6990","a":"Romano's Painting LLC","l":"Social","b":500.0,"m":0.0,"n":-500.0},{"e":"BRWS6514","a":"4 C's Construction","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BRWS6514","a":"4 C's Construction","l":"Growth Pkgs","b":300.0,"m":0.0,"n":-300.0},{"e":"BSFR0035","a":"Bloomhouse Landscape and Irrigation","l":"Thryv Leads","b":2100.0,"m":0.0,"n":-2100.0},{"e":"BSFP2855","a":"TB Roadside Assistance","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFF2724","a":"Florida Luxury Home and Condo","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFF2724","a":"Florida Luxury Home and Condo","l":"Platform Other","b":7.2,"m":0.0,"n":-7.2}]},"Darling Danais Santos Taveras":{"i":[],"d":[{"e":"BSFB2359","a":"Stor It Here Storage","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFF6200","a":"Botail by Jeffrey","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFB3954","a":"Davinci Valentin Brand","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFF0871","a":"New England Auctions","l":"Marketing Ctr","b":293.0,"m":244.0,"n":-49.0}]},"Steven Saunders":{"i":[],"d":[{"e":"BSFM1190","a":"D & M Asphalt Services, Inc","l":"Social","b":750.0,"m":0.0,"n":-750.0},{"e":"BSFP3972","a":"LM Bodywork Institute","l":"Websites","b":117.0,"m":0.0,"n":-117.0},{"e":"BSFP3972","a":"LM Bodywork Institute","l":"Business Ctr","b":179.0,"m":0.0,"n":-179.0},{"e":"BSFC4006","a":"Floridas First Coast Of Golf","l":"Business Ctr","b":244.0,"m":0.0,"n":-244.0}]},"Rafael Sencion Sencion":{"i":[],"d":[{"e":"BSFP8938","a":"Toro Birria","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFP8938","a":"Toro Birria","l":"Growth Pkgs","b":300.0,"m":0.0,"n":-300.0},{"e":"BSFF7702","a":"Quantum Sports Center","l":"Social","b":750.0,"m":0.0,"n":-750.0},{"e":"BSFF7702","a":"Quantum Sports Center","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSCL3353","a":"REPAIR APPLIANCE TECH","l":"Growth Pkgs","b":300.0,"m":0.0,"n":-300.0},{"e":"BSCL3353","a":"REPAIR APPLIANCE TECH","l":"Marketing Ctr","b":433.0,"m":0.0,"n":-433.0},{"e":"BSFF5647","a":"JJ Cillis Group LLC","l":"Marketing Ctr","b":293.0,"m":0.0,"n":-293.0},{"e":"BSFF5647","a":"JJ Cillis Group LLC","l":"Websites","b":117.0,"m":0.0,"n":-117.0},{"e":"BSFP4560","a":"Technology Networks","l":"Marketing Ctr","b":293.0,"m":244.0,"n":-49.0},{"e":"BSFP4560","a":"Technology Networks","l":"Social","b":500.0,"m":0.0,"n":-500.0},{"e":"BSBN3109","a":"Tolberts Heating & Cooling LLC","l":"Social","b":500.0,"m":0.0,"n":-500.0},{"e":"BSFD2419","a":"Sunterjee LLC","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0}]},"Ashley Shaffer":{"i":[],"d":[{"e":"BSFF5411","a":"Stretch-abilitation","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFF5411","a":"Stretch-abilitation","l":"SEO","b":1300.0,"m":0.0,"n":-1300.0},{"e":"BSFF5411","a":"Stretch-abilitation","l":"Social","b":500.0,"m":0.0,"n":-500.0},{"e":"BRXF3371","a":"Care Medical Center","l":"Social","b":1500.0,"m":0.0,"n":-1500.0},{"e":"BSCW6209","a":"Douglas Water Depot","l":"Thryv Leads","b":1000.0,"m":0.0,"n":-1000.0},{"e":"BRWN8733","a":"West Oaks Animal Hospital LLC","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BRXV6313","a":"Mauldin Trash Service","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BRXV6313","a":"Mauldin Trash Service","l":"SEO","b":1200.0,"m":0.0,"n":-1200.0}]},"Nikita Siepen-Bowers":{"i":[{"e":"BSFD8077","a":"Action - Priority","l":"Websites","b":131.82,"m":136.36,"n":4.54},{"e":"BSDV1069","a":"Hawkesbury City Plumbing Pty Ltd","l":"Marketing Ctr","b":111.53,"m":114.88,"n":3.35}],"d":[{"e":"BSFD8077","a":"Action - Priority","l":"Thryv Leads","b":909.0,"m":0.0,"n":-909.0},{"e":"BSFX6219","a":"Leakend Leak Finding Services","l":"Marketing Ctr","b":286.37,"m":280.0,"n":-6.37},{"e":"BSDW7306","a":"Giraffe Removals","l":"Marketing Ctr","b":351.82,"m":0.0,"n":-351.82},{"e":"BSDW7306","a":"Giraffe Removals","l":"Thryv Leads","b":1818.0,"m":0.0,"n":-1818.0},{"e":"BSDW7306","a":"Giraffe Removals","l":"SEO","b":1200.0,"m":0.0,"n":-1200.0},{"e":"BSFD7064","a":"Total Vision Pool Fencing","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSDM0061","a":"The Squeegees Window Cleaning","l":"Business Ctr","b":320.0,"m":0.0,"n":-320.0},{"e":"BSFB5778","a":"NZ Natural Formulas","l":"Websites","b":29.0,"m":0.0,"n":-29.0},{"e":"BSFB5778","a":"NZ Natural Formulas","l":"SEO","b":1750.0,"m":0.0,"n":-1750.0},{"e":"BSFB5778","a":"NZ Natural Formulas","l":"Marketing Ctr","b":318.0,"m":0.0,"n":-318.0},{"e":"BSFB5778","a":"NZ Natural Formulas","l":"Social","b":1650.0,"m":0.0,"n":-1650.0},{"e":"BSDB3382","a":"G&M NODDING LIMITED","l":"Marketing Ctr","b":318.0,"m":0.0,"n":-318.0},{"e":"BSDM1772","a":"Wizard Motors Pty Ltd","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSFC6732","a":"Mr Hook Towing and Metal","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSDL0232","a":"Williams Premium Wholesale","l":"Marketing Ctr","b":509.1,"m":499.09,"n":-10.01},{"e":"BSFQ6729","a":"BRP Construction limited","l":"Social","b":825.0,"m":0.0,"n":-825.0},{"e":"BSFQ6729","a":"BRP Construction limited","l":"Marketing Ctr","b":407.0,"m":0.0,"n":-407.0}]},"Sarah Swanson":{"i":[{"e":"BSFV8753","a":"24/7 Events","l":"Thryv Leads","b":2000.0,"m":4800.0,"n":2800.0}],"d":[{"e":"BSCT7730","a":"Elemental Landscaping Inc","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFB9274","a":"masterwealthbuildersllc","l":"Business Ctr","b":254.0,"m":0.0,"n":-254.0},{"e":"BSFB9274","a":"masterwealthbuildersllc","l":"Websites","b":117.0,"m":0.0,"n":-117.0},{"e":"BRDX7750","a":"Paradise Landscaping and Tree Service","l":"Social","b":750.0,"m":0.0,"n":-750.0},{"e":"BRDX7750","a":"Paradise Landscaping and Tree Service","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0}]},"Matt Sword":{"i":[],"d":[{"e":"BSFQ2287","a":"Levels Ahead Painting","l":"Social","b":750.0,"m":0.0,"n":-750.0},{"e":"BSFQ2287","a":"Levels Ahead Painting","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFM3452","a":"AllTime Lock Out Service","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFM3452","a":"AllTime Lock Out Service","l":"SEO","b":400.0,"m":0.0,"n":-400.0},{"e":"BSFF2470","a":"Bella Roma pasta and pizza","l":"Growth Pkgs","b":500.0,"m":0.0,"n":-500.0},{"e":"BSFF6379","a":"A Family for Every Child","l":"Marketing Ctr","b":293.0,"m":0.0,"n":-293.0},{"e":"BSDZ9849","a":"Makeup by Jaundalyn","l":"Business Ctr","b":410.0,"m":0.0,"n":-410.0},{"e":"BSFP3264","a":"Shine Bright Cleaning Solutions","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFP3264","a":"Shine Bright Cleaning Solutions","l":"Platform Other","b":7.2,"m":0.0,"n":-7.2}]},"Elianny Tena Antigua":{"i":[],"d":[{"e":"BSFR6524","a":"Financial Grafix LLP","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFR6524","a":"Financial Grafix LLP","l":"Growth Pkgs","b":300.0,"m":0.0,"n":-300.0}]},"Heidi Torres Uribe":{"i":[{"e":"BSDR4708","a":"Triple Clean","l":"Platform Other","b":36.0,"m":50.4,"n":14.4}],"d":[{"e":"BSFF4402","a":"Green Year Landscaping","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BRWV6069","a":"Custom Decks Plus","l":"Websites","b":64.9,"m":0.0,"n":-64.9},{"e":"BSFF4269","a":"Airport Towing","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFF3693","a":"Cold Spring School","l":"Social","b":750.0,"m":0.0,"n":-750.0},{"e":"BSFF3693","a":"Cold Spring School","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFF9591","a":"Helping Hands Estate Sales","l":"Social","b":500.0,"m":0.0,"n":-500.0},{"e":"BSFF9591","a":"Helping Hands Estate Sales","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFF9591","a":"Helping Hands Estate Sales","l":"Platform Other","b":7.2,"m":0.0,"n":-7.2},{"e":"BSDR4708","a":"Triple Clean","l":"Business Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFV9017","a":"Premier Patio & Deck","l":"SEO","b":1900.0,"m":0.0,"n":-1900.0},{"e":"BSFD9971","a":"MBI International, LLC","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0}]},"Karmita Turner":{"i":[],"d":[{"e":"BFPM2056","a":"ARTchitectural","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BQLC8330","a":"Oakridge Roofing Solutions LLC","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFP8430","a":"K & K Solutions Inc","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0}]},"Rossi Valerio Tejeda":{"i":[],"d":[{"e":"BSFZ2573","a":"Empire Works GA","l":"Marketing Ctr","b":400.0,"m":384.0,"n":-16.0}]},"Ashley Vasquez Mena":{"i":[],"d":[{"e":"BNNC5836","a":"Palm Family Eyecare","l":"Marketing Ctr","b":135.9,"m":86.9,"n":-49.0},{"e":"BNNC5836","a":"Palm Family Eyecare","l":"Growth Pkgs","b":300.0,"m":0.0,"n":-300.0},{"e":"BBCL3929","a":"Highland Farm","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFD8550","a":"Vanguard Fence & Deck LLC","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFF9026","a":"I-ONE CONSTRUCTION","l":"Marketing Ctr","b":433.0,"m":0.0,"n":-433.0},{"e":"BSFF9026","a":"I-ONE CONSTRUCTION","l":"Social","b":750.0,"m":0.0,"n":-750.0},{"e":"BSFP7091","a":"AZA Drywall and Remodeling","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFD1240","a":"Truflo Plumbing Solutions LLC","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFF5601","a":"Ready Golf 4K","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFF5601","a":"Ready Golf 4K","l":"Social","b":500.0,"m":0.0,"n":-500.0},{"e":"BRXB5124","a":"Carrie's Cash 4 Your Car","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BRXB5124","a":"Carrie's Cash 4 Your Car","l":"Thryv Leads","b":1500.0,"m":0.0,"n":-1500.0}]},"Mark Velazquez":{"i":[],"d":[{"e":"BSFQ3467","a":"CJ Construction","l":"Marketing Ctr","b":433.0,"m":0.0,"n":-433.0},{"e":"BSFP7148","a":"Loving My Pregnancy","l":"Social","b":500.0,"m":0.0,"n":-500.0},{"e":"BSFP7148","a":"Loving My Pregnancy","l":"Growth Pkgs","b":500.0,"m":0.0,"n":-500.0},{"e":"BSFF9272","a":"Guirian Bookkeeping Services","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0}]},"Indu Vijay":{"i":[{"e":"BSDD3552","a":"Hodge motors","l":"Websites","b":155.0,"m":160.0,"n":5.0}],"d":[{"e":"BSFD8658","a":"Safeguard Tree Services","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSFF3589","a":"JP Air Conditioning - Heating & Cooling","l":"Marketing Ctr","b":499.09,"m":0.0,"n":-499.09}]},"Anthony Yen":{"i":[{"e":"BSFR8712","a":"Inexpensive Tree Care","l":"Thryv Leads","b":2500.0,"m":3000.0,"n":500.0},{"e":"BSBQ1871","a":"AG Builders LLC","l":"Websites","b":117.0,"m":125.0,"n":8.0},{"e":"BSDL7961","a":"Luxury Bubbles","l":"Thryv Leads","b":4000.0,"m":6000.0,"n":2000.0}],"d":[{"e":"BSFR4557","a":"Total Pest Control","l":"Thryv Leads","b":1300.0,"m":0.0,"n":-1300.0},{"e":"BSFX8681","a":"Angels of Mercy Private Homecare Services","l":"Marketing Ctr","b":400.0,"m":384.0,"n":-16.0},{"e":"BSGB1783","a":"Email Marketing Group Inc","l":"Social","b":750.0,"m":0.0,"n":-750.0},{"e":"BSGB1783","a":"Email Marketing Group Inc","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFF4619","a":"Maxine Lawson- USA Benefits Group","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BRXS2753","a":"HL Holmes Asphalt Paving","l":"Platform Other","b":7.2,"m":0.0,"n":-7.2},{"e":"BSFF5680","a":"C&J Drain Cleaning","l":"Websites","b":117.0,"m":0.0,"n":-117.0},{"e":"BRXP5453","a":"American West Services","l":"Marketing Ctr","b":244.0,"m":228.0,"n":-16.0},{"e":"BSDD8734","a":"The Event Gallery","l":"Business Ctr","b":179.0,"m":0.0,"n":-179.0}]}};
 
-function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChurn, churnAlerts, onSelectCSM, liveBobDet={}, bobAdj={}}) {
+function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChurn, churnAlerts, onSelectCSM, liveBobDet={}, bobAdj={}, q3Current={}, q3Log=[]}) {
+  const [bobSubTab, setBobSubTab] = useState("current"); // "current" | "q3"
+  const hasQ3 = Object.keys(q3Current).length > 0;
   const getDet = n => {
     const base = liveBobDet[n]||liveBobDet[norm(n)]||BOB_DETAIL[n]||BOB_DETAIL[norm(n)]||{};
     // Inject any adjustments as extra increase entries
@@ -4542,6 +4936,210 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
     );
   };
 
+
+  const renderQ3 = () => {
+    if (!hasQ3) return (
+      <div style={{...S.card,textAlign:"center",padding:"40px 20px",color:"#808080"}}>
+        <div style={{fontSize:32,marginBottom:12}}>📊</div>
+        <div style={{fontSize:14,fontWeight:500,color:"#29355D",marginBottom:8}}>Q3 Tracking not yet active</div>
+        <div style={{fontSize:12,marginBottom:4}}>Run <strong>lockQ3BOQ()</strong> in Apps Script to lock the BOQ baseline.</div>
+        <div style={{fontSize:12}}>Then run <strong>runQ3BOBUpdate()</strong> to start tracking changes.</div>
+      </div>
+    );
+
+    const [q3Sort,   setQ3Sort]   = useState({col:"retPct", dir:"asc"});
+    const [tileFilter, setTileFilter] = useState(null); // null | "cancelled" | "removed" | "net_new" | "billing_change" | "increase"
+
+    // Filter CSMs by coach/manager
+    const q3CSMs = Object.values(q3Current).filter(c => {
+      const i = lk(norm(c.name)) || lk(c.name);
+      if (managerCoaches && !(i && managerCoaches.includes(i.c))) return false;
+      if (filterCoach && (i && i.c) !== filterCoach) return false;
+      if (filterCSM && norm(c.name) !== filterCSM && c.name !== filterCSM) return false;
+      return true;
+    });
+
+    // Sort CSMs
+    const sortedCSMs = [...q3CSMs].sort((a, b) => {
+      const dir = q3Sort.dir === "asc" ? 1 : -1;
+      const col = q3Sort.col;
+      const va = a[col] ?? (col === "name" ? "" : 0);
+      const vb = b[col] ?? (col === "name" ? "" : 0);
+      if (col === "name") return dir * va.localeCompare(vb);
+      return dir * (va - vb);
+    });
+
+    // Totals
+    const totalBoqAdj     = q3CSMs.reduce((s,c)=>s+c.boqAdjusted, 0);
+    const totalCurrent    = q3CSMs.reduce((s,c)=>s+c.currentMrr, 0);
+    const totalNetNew     = q3CSMs.reduce((s,c)=>s+c.netNewMrr, 0);
+    const totalRemoved    = q3CSMs.reduce((s,c)=>s+c.removedMrr, 0);
+    const totalCancelled  = q3CSMs.reduce((s,c)=>s+c.cancelledMrr, 0);
+    const overallRet      = totalBoqAdj > 0 ? (totalCurrent - totalNetNew) / totalBoqAdj : null;
+    const runDate         = q3CSMs[0]?.runDate || "";
+
+    // Increases = billing_change where delta > 0
+    const scopedNames = new Set(q3CSMs.map(c=>norm(c.name)));
+    const scopedLog   = [...q3Log].filter(r => scopedNames.has(norm(r.csm)) || scopedNames.has(r.csm));
+    const totalIncreaseMrr = scopedLog.filter(r=>r.event==="billing_change"&&r.mrrDelta>0).reduce((s,r)=>s+r.mrrDelta,0);
+    const increaseCount    = scopedLog.filter(r=>r.event==="billing_change"&&r.mrrDelta>0).length;
+
+    // Log filtered by tile selection
+    const filteredLog = scopedLog.filter(r => {
+      if (!tileFilter) return true;
+      if (tileFilter === "increase") return r.event === "billing_change" && r.mrrDelta > 0;
+      if (tileFilter === "decrease") return r.event === "billing_change" && r.mrrDelta < 0;
+      return r.event === tileFilter;
+    }).reverse().slice(0, 100);
+
+    const fmt$ = n => "$"+Number(n||0).toLocaleString("en-US",{minimumFractionDigits:0,maximumFractionDigits:0});
+    const fmtPct = p => p!=null ? (p*100).toFixed(1)+"%" : "--";
+    const retCol = p => p==null?"#808080":p>=0.91?"#16a34a":p>=0.85?"#d97706":"#dc2626";
+
+    const SortTh = ({col, label, right}) => {
+      const active = q3Sort.col === col;
+      return (
+        <th onClick={()=>setQ3Sort(s=>({col, dir: s.col===col&&s.dir==="asc"?"desc":"asc"}))}
+          style={{padding:"0 8px 8px 0",textAlign:right?"right":"left",fontSize:10,textTransform:"uppercase",
+            color:active?"#29355D":"#808080",fontWeight:active?700:500,cursor:"pointer",
+            borderBottom:"0.5px solid rgba(41,53,93,.08)",userSelect:"none",whiteSpace:"nowrap"}}>
+          {label}{active?(q3Sort.dir==="asc"?" ↑":" ↓"):""}
+        </th>
+      );
+    };
+
+    const Tile = ({label, value, sub, color, filterKey}) => {
+      const active = tileFilter === filterKey;
+      return (
+        <div onClick={()=>setTileFilter(active ? null : filterKey)}
+          style={{background:active?"#29355D":"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",
+            borderTop:"3px solid "+color,cursor:"pointer",transition:"all .15s",
+            boxShadow:active?"0 2px 8px rgba(41,53,93,.15)":"none"}}>
+          <div style={{fontSize:10,textTransform:"uppercase",color:active?"rgba(255,255,255,.7)":"#808080",fontWeight:500,marginBottom:4}}>{label}</div>
+          <div style={{fontSize:22,fontWeight:600,color:active?"#fff":color,lineHeight:1,marginBottom:4}}>{value}</div>
+          <div style={{fontSize:10,color:active?"rgba(255,255,255,.6)":"#808080"}}>{sub}</div>
+        </div>
+      );
+    };
+
+    const eventBadge = (evt) => {
+      const cfg = {
+        net_new:       {bg:"#dcfce7",fg:"#166534",label:"Net New"},
+        removed:       {bg:"#fee2e2",fg:"#991b1b",label:"Removed"},
+        cancelled:     {bg:"#fef9c3",fg:"#854d0e",label:"Cancelled"},
+        billing_change:{bg:"#eff6ff",fg:"#1e40af",label:"Billing Δ"},
+      }[evt] || {bg:"#f3f4f6",fg:"#374151",label:evt};
+      return <span style={{fontSize:10,fontWeight:500,padding:"2px 8px",borderRadius:20,background:cfg.bg,color:cfg.fg}}>{cfg.label}</span>;
+    };
+
+    return (
+      <div>
+        {/* 5 clickable summary tiles */}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(5,minmax(0,1fr))",gap:10,marginBottom:16}}>
+          <div style={{background:tileFilter===null?"#29355D":"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",
+            borderTop:"3px solid #29355D",cursor:"pointer",transition:"all .15s"}}
+            onClick={()=>setTileFilter(null)}>
+            <div style={{fontSize:10,textTransform:"uppercase",color:tileFilter===null?"rgba(255,255,255,.7)":"#808080",fontWeight:500,marginBottom:4}}>Q3 Retention</div>
+            <div style={{fontSize:22,fontWeight:600,color:tileFilter===null?"#fff":retCol(overallRet),lineHeight:1,marginBottom:4}}>{fmtPct(overallRet)}</div>
+            <div style={{fontSize:10,color:tileFilter===null?"rgba(255,255,255,.6)":"#808080"}}>goal 91% · adj BOQ {fmt$(totalBoqAdj)}</div>
+          </div>
+          <Tile label="Increases" value={fmt$(totalIncreaseMrr)} sub={increaseCount+" accounts"} color="#16a34a" filterKey="increase"/>
+          <Tile label="Cancelled ($0)" value={fmt$(totalCancelled)} sub={q3CSMs.reduce((s,c)=>s+c.cancelledCount,0)+" accounts"} color="#d97706" filterKey="cancelled"/>
+          <Tile label="Removed from BOQ" value={fmt$(totalRemoved)} sub={q3CSMs.reduce((s,c)=>s+c.removedCount,0)+" accounts"} color="#dc2626" filterKey="removed"/>
+          <Tile label="Net New" value={fmt$(totalNetNew)} sub={q3CSMs.reduce((s,c)=>s+c.netNewCount,0)+" accounts"} color="#FF5000" filterKey="net_new"/>
+        </div>
+
+        {/* Sortable CSM table */}
+        <div style={{...S.card,marginBottom:16}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+            <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500}}>
+              CSM Q3 Retention
+              {tileFilter && <span style={{marginLeft:8,padding:"2px 8px",borderRadius:20,background:"#EEF2FF",color:"#4338CA",fontSize:10}}>
+                filtered: {tileFilter.replace("_"," ")}
+              </span>}
+            </div>
+            {runDate&&<div style={{fontSize:11,color:"#808080"}}>Last updated: {runDate}</div>}
+          </div>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+            <thead><tr>
+              <SortTh col="name"          label="CSM"          right={false}/>
+              <SortTh col="boqAdjusted"   label="BOQ (adj)"    right={true}/>
+              <SortTh col="currentMrr"    label="Current MRR"  right={true}/>
+              <SortTh col="netNewMrr"     label="Net New"      right={true}/>
+              <SortTh col="removedMrr"    label="Removed"      right={true}/>
+              <SortTh col="cancelledMrr"  label="Cancelled"    right={true}/>
+              <SortTh col="retPct"        label="Retention %"  right={false}/>
+              <SortTh col="netNewCount"   label="New #"        right={true}/>
+              <SortTh col="removedCount"  label="Removed #"    right={true}/>
+              <SortTh col="cancelledCount" label="Cancel #"    right={true}/>
+            </tr></thead>
+            <tbody>
+              {sortedCSMs.map(c=>(
+                <tr key={c.name}>
+                  <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",fontWeight:500}}>{dispName(c.name)}</td>
+                  <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#808080"}}>{fmt$(c.boqAdjusted)}</td>
+                  <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right"}}>{fmt$(c.currentMrr)}</td>
+                  <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#16a34a"}}>{c.netNewMrr>0?"+"+fmt$(c.netNewMrr):"--"}</td>
+                  <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:c.removedMrr>0?"#dc2626":"#808080"}}>{c.removedMrr>0?"-"+fmt$(c.removedMrr):"--"}</td>
+                  <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:c.cancelledMrr>0?"#d97706":"#808080"}}>{c.cancelledMrr>0?"-"+fmt$(c.cancelledMrr):"--"}</td>
+                  <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8}}>
+                      <div style={{width:80,height:5,background:"#ECEEF1",borderRadius:3,overflow:"hidden"}}>
+                        <div style={{width:Math.min((c.retPct||0)*100,100).toFixed(1)+"%",height:"100%",background:retCol(c.retPct),borderRadius:3}}/>
+                      </div>
+                      <span style={{fontWeight:600,color:retCol(c.retPct)}}>{fmtPct(c.retPct)}</span>
+                    </div>
+                  </td>
+                  <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#16a34a"}}>{c.netNewCount||"--"}</td>
+                  <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:c.removedCount>0?"#dc2626":"#808080"}}>{c.removedCount||"--"}</td>
+                  <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:c.cancelledCount>0?"#d97706":"#808080"}}>{c.cancelledCount||"--"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* BOQ Adjustment Log — filtered by tile */}
+        {filteredLog.length > 0 && <div style={S.card}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+            <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500}}>
+              BOQ Adjustment Log — {filteredLog.length} events
+              {tileFilter && <span style={{marginLeft:8,fontSize:10,color:"#808080",textTransform:"none",fontWeight:400}}>
+                · click tile again to clear filter
+              </span>}
+            </div>
+          </div>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+            <thead><tr>
+              {["Date","CSM","Account","Event","Before","After","Δ","Note"].map(h=>(
+                <th key={h} style={{padding:"0 8px 8px 0",textAlign:"left",fontSize:10,textTransform:"uppercase",
+                  color:"#808080",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>{h}</th>
+              ))}
+            </tr></thead>
+            <tbody>
+              {filteredLog.map((r,i)=>(
+                <tr key={i}>
+                  <td style={{padding:"7px 8px 7px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",color:"#808080",whiteSpace:"nowrap"}}>{r.date}</td>
+                  <td style={{padding:"7px 8px 7px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",whiteSpace:"nowrap"}}>{dispName(r.csm)}</td>
+                  <td style={{padding:"7px 8px 7px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",maxWidth:180,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.acct}</td>
+                  <td style={{padding:"7px 8px 7px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)"}}>{eventBadge(r.event)}</td>
+                  <td style={{padding:"7px 8px 7px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",color:"#808080"}}>{r.mrrBefore>0?fmt$(r.mrrBefore):"--"}</td>
+                  <td style={{padding:"7px 8px 7px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)"}}>{r.mrrAfter>0?fmt$(r.mrrAfter):"--"}</td>
+                  <td style={{padding:"7px 8px 7px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",fontWeight:500,
+                    color:r.mrrDelta>0?"#16a34a":r.mrrDelta<0?"#dc2626":"#808080"}}>
+                    {r.mrrDelta!==0?(r.mrrDelta>0?"+":"")+fmt$(r.mrrDelta):"--"}
+                  </td>
+                  <td style={{padding:"7px 8px 7px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",color:"#808080",fontSize:11}}>{r.note}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>}
+      </div>
+    );
+  };
+
+
   const visibleAlerts = (churnAlerts||[]).filter(a => {
     if (managerCoaches) { const i=lk(a.csm); if(!(i&&managerCoaches.includes(i.c))) return false; }
     if (filterCoach) { const i=lk(a.csm); if(!(i&&i.c===filterCoach)) return false; }
@@ -4574,12 +5172,13 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
           })}
         </div>
       </div>}
+
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
         <div style={{display:"flex",gap:2,background:"#ECEEF1",borderRadius:8,padding:3}}>
-          {[["overview","Overview"],["table","CSM table"],["churn","Churn detail"]].map(([t,l])=>(
+          {[["overview","Overview"],["table","CSM table"],["churn","Churn detail"],["q3","Q3 Tracking"+( hasQ3?" ✓":"")]].map(([t,l])=>(
             <button key={t} onClick={()=>setBobTab(t)}
               style={{padding:"5px 14px",fontSize:12,fontWeight:500,border:"none",borderRadius:6,cursor:"pointer",
-                background:bobTab===t?"#fff":"transparent",color:bobTab===t?"#29355D":"#808080",
+                background:bobTab===t?"#fff":"transparent",color:bobTab===t?"#29355D":t==="q3"&&hasQ3?"#16a34a":"#808080",
                 boxShadow:bobTab===t?"0 1px 3px rgba(0,0,0,.08)":"none"}}>
               {l}
             </button>
@@ -4592,6 +5191,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
       {bobTab==="overview" && renderOverview()}
       {bobTab==="table"    && renderTable()}
       {bobTab==="churn"    && renderChurn()}
+      {bobTab==="q3"       && renderQ3()}
     </div>
   );
 }
@@ -4741,6 +5341,8 @@ export default function App() {
   const [status, setStatus] = useState("loading");
   const [updatedAt, setUpdatedAt] = useState(null);
   const [history, setHistory] = useState([]);
+  const [q3Current, setQ3Current] = useState({});
+  const [q3Log, setQ3Log]         = useState([]);
   const [skippedCSMs, setSkippedCSMs] = useState([]);
   const [rawRev, setRawRev] = useState([]);
   const [bobData, setBobData] = useState(null);
@@ -4806,7 +5408,9 @@ export default function App() {
         fetchCSV(CSV_MC_CHURN).catch(()=>[]),
         fetchCSV(CSV_BC_CHURN).catch(()=>[]),
         fetchCSV(CSV_CHURN_ALERTS).catch(()=>[]),
-      ]).then(([revRows, emailRows, cadRows, dueRows, ontimeRows, historyRows, skippedRows, bobRows, bobDetRows, bobAdjRows, callRows, qaMcRows, qaSSRows, mcRows, bcRows, churnAlertRows]) => {
+        CSV_Q3_RESULTS ? fetchCSV(CSV_Q3_RESULTS).catch(()=>[]) : Promise.resolve([]),
+        CSV_Q3_LOG     ? fetchCSV(CSV_Q3_LOG).catch(()=>[])     : Promise.resolve([]),
+      ]).then(([revRows, emailRows, cadRows, dueRows, ontimeRows, historyRows, skippedRows, bobRows, bobDetRows, bobAdjRows, callRows, qaMcRows, qaSSRows, mcRows, bcRows, churnAlertRows, q3CurrentRows, q3LogRows]) => {
         latestEmail   = emailRows;
         latestCad     = cadRows;
         latestDue     = dueRows;
@@ -4823,13 +5427,15 @@ export default function App() {
         latestBcChurn     = bcRows;
         latestChurnAlerts = churnAlertRows;
         setRawRev(revRows);
-        const rev     = mapRev(revRows);
-        const email   = mapEmail(emailRows);
-        const cad     = mapCadence(cadRows);
-        const due     = mapDue(dueRows);
-        const ontime  = mapOnTime(ontimeRows);
-        const skipped = mapSkipped(skippedRows);
-        const built   = buildCSMs(rev, email, cad, due, ontime, skipped, bobRaw, mapChurn(mcRows), mapChurn(bcRows), mapBobDet(bobDetRows||[]));
+        let rev, email, cad, due, ontime, skipped, built;
+        try { rev     = mapRev(revRows); }     catch(e) { console.error("mapRev failed:", e); rev = {}; }
+        try { email   = mapEmail(emailRows); } catch(e) { console.error("mapEmail failed:", e); email = {}; }
+        try { cad     = mapCadence(cadRows); } catch(e) { console.error("mapCadence failed:", e); cad = []; }
+        try { due     = mapDue(dueRows); }     catch(e) { console.error("mapDue failed:", e); due = []; }
+        try { ontime  = mapOnTime(ontimeRows); } catch(e) { console.error("mapOnTime failed:", e); ontime = {}; }
+        try { skipped = mapSkipped(skippedRows); } catch(e) { console.error("mapSkipped failed:", e); skipped = {}; }
+        try { built   = buildCSMs(rev, email, cad, due, ontime, skipped, bobRaw, mapChurn(mcRows), mapChurn(bcRows), mapBobDet(bobDetRows||[]), mapBobAdj(bobAdjRows||[])); }
+        catch(e) { console.error("buildCSMs failed:", e); built = []; }
         setCSMs(built);
         setSkippedCSMs(built.filter(c=>c.skippedCount>0).sort((a,b)=>b.skippedCount-a.skippedCount));
         setBobRaw(mapBob(bobRows));
@@ -4842,6 +5448,8 @@ export default function App() {
         setBcChurn(mapChurn(bcRows));
         setChurnAlerts(mapChurnAlerts(churnAlertRows));
         setHistory(mapHistory(historyRows));
+        if (q3CurrentRows&&q3CurrentRows.length>0) setQ3Current(mapQ3Current(q3CurrentRows));
+        if (q3LogRows&&q3LogRows.length>0) setQ3Log(mapQ3Log(q3LogRows));
         setUpdatedAt(new Date().toLocaleTimeString());
         setStatus("ok");
         console.log("Full load complete");
@@ -4858,7 +5466,7 @@ export default function App() {
         const due     = mapDue(latestDue);
         const ontime  = mapOnTime(latestOntime);
         const skipped = mapSkipped(latestSkipped);
-        const built   = buildCSMs(rev, email, cad, due, ontime, skipped, bobRaw, mapChurn(latestMcChurn), mapChurn(latestBcChurn), latestBobDet||{});
+        const built   = buildCSMs(rev, email, cad, due, ontime, skipped, bobRaw, mapChurn(latestMcChurn), mapChurn(latestBcChurn), latestBobDet||{}, latestBobAdj||{});
         setCSMs(built);
         setSkippedCSMs(built.filter(c=>c.skippedCount>0).sort((a,b)=>b.skippedCount-a.skippedCount));
         setUpdatedAt(new Date().toLocaleTimeString());
@@ -5224,11 +5832,11 @@ My question: ${aiCustom}`,
             liveBobDet={liveBobDet} callData={callData} qamc={qamc} qass={qass} history={history}
             skippedCSMs={skippedCSMs.filter(c=>{const i=lk(c.name);if(filterCoach&&(i&&i.c)!==filterCoach)return false;if(filterCSM&&c.name!==filterCSM)return false;return true;})}
             bobAdj={bobAdj} getDet={getDet}/>}
-          {tab==="overview"&&<OverviewView csms={filteredCSMs} allCSMs={csms}/>}
+          {tab==="overview"&&<OverviewView csms={filteredCSMs} allCSMs={csms} bobRaw={bobRaw} bobAdj={bobAdj} history={history} callData={callData} filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches}/>}
           {tab==="leaderboard"&&<LeaderboardView csms={filteredCSMs} bobRaw={bobRaw}/>}
           {tab==="activity"&&<ActivityView csms={filteredCSMs}/>}
           {tab==="revenue"&&<RevenueView rawRev={rawRev} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches}/>}
-          {tab==="bob"&&<BobView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} churnAlerts={churnAlerts} onSelectCSM={selectCSMFn} liveBobDet={liveBobDet} bobAdj={bobAdj}/>}
+          {tab==="bob"&&<BobView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} churnAlerts={churnAlerts} onSelectCSM={selectCSMFn} liveBobDet={liveBobDet} bobAdj={bobAdj} q3Current={q3Current} q3Log={q3Log}/>}
           {tab==="trends"&&<TrendsView history={history} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} qamc={qamc} qass={qass}/>}
         </div>
       )}
