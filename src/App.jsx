@@ -4989,49 +4989,24 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
     const visibleCSMs  = activeCsmSet
       ? q3CSMs.filter(c => activeCsmSet.has(c.name) || activeCsmSet.has(norm(c.name)))
       : q3CSMs;
-
-    // Default sort column based on active tile
-    const defaultSortCol = {
-      increase:  "cancelledMrr", // will be overridden below
-      cancelled: "cancelledMrr",
-      removed:   "removedMrr",
-      net_new:   "netNewMrr",
-    }[tileFilter] || "retPct";
-
-    // Sort — use tile-appropriate column if user hasn't manually sorted
-    const effectiveSort = q3Sort.col === "retPct" && tileFilter && tileFilter !== null
-      ? {col: defaultSortCol, dir: "desc"}
-      : q3Sort;
-
+    // Sort CSM table
     const sortedCSMs = [...visibleCSMs].sort((a, b) => {
-      const dir = effectiveSort.dir === "asc" ? 1 : -1;
-      const col = effectiveSort.col;
+      const dir = q3Sort.dir === "asc" ? 1 : -1;
+      const col = q3Sort.col;
       const va = a[col] ?? (col === "name" ? "" : 0);
       const vb = b[col] ?? (col === "name" ? "" : 0);
       if (col === "name") return dir * String(va).localeCompare(String(vb));
-      return dir * (va - vb);
+      return dir * ((Number(va)||0) - (Number(vb)||0));
     });
 
-    // Get account-level log for a CSM, filtered by active tile
-    const csmLog = (csmName) => scopedLog.filter(r => {
-      if (norm(r.csm) !== norm(csmName) && r.csm !== csmName) return false;
-      if (!tileFilter) return true;
-      if (tileFilter === "increase") return r.event === "billing_change" && r.mrrDelta > 0;
-      return r.event === tileFilter;
-    }).reverse();
-
-    const fmt$   = n => "$"+Number(n||0).toLocaleString("en-US",{minimumFractionDigits:0,maximumFractionDigits:0});
-    const fmtPct = p => p!=null ? (p*100).toFixed(1)+"%" : "--";
-    const retCol = p => p==null?"#808080":p>=0.91?"#16a34a":p>=0.85?"#d97706":"#dc2626";
-
     const SortTh = ({col, label, right}) => {
-      const active = effectiveSort.col === col;
+      const active = q3Sort.col === col;
       return (
-        <th onClick={()=>setQ3Sort({col, dir: effectiveSort.col===col&&effectiveSort.dir==="asc"?"desc":"asc"})}
+        <th onClick={()=>setQ3Sort(s=>({col, dir: s.col===col&&s.dir==="asc"?"desc":"asc"}))}
           style={{padding:"0 8px 8px 0",textAlign:right?"right":"left",fontSize:10,textTransform:"uppercase",
             color:active?"#29355D":"#808080",fontWeight:active?700:500,cursor:"pointer",
             borderBottom:"0.5px solid rgba(41,53,93,.08)",userSelect:"none",whiteSpace:"nowrap"}}>
-          {label}{active?(effectiveSort.dir==="asc"?" ↑":" ↓"):""}
+          {label}{active?(q3Sort.dir==="asc"?" ↑":" ↓"):""}
         </th>
       );
     };
