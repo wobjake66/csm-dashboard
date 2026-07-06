@@ -4951,142 +4951,250 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
       <div style={{...S.card,textAlign:"center",padding:"40px 20px",color:"#808080"}}>
         <div style={{fontSize:32,marginBottom:12}}>📊</div>
         <div style={{fontSize:14,fontWeight:500,color:"#29355D",marginBottom:8}}>Q3 Tracking not yet active</div>
-        <div style={{fontSize:12,marginBottom:4}}>Run <strong>lockQ3BOQ()</strong> in the Apps Script to lock the beginning-of-quarter baseline.</div>
+        <div style={{fontSize:12,marginBottom:4}}>Run <strong>lockQ3BOQ()</strong> in Apps Script to lock the BOQ baseline.</div>
         <div style={{fontSize:12}}>Then run <strong>runQ3BOBUpdate()</strong> to start tracking changes.</div>
       </div>
     );
 
-    // Filter to in-scope CSMs based on coach/manager filter
     const q3CSMs = Object.values(q3Current).filter(c => {
       const i = lk(norm(c.name)) || lk(c.name);
       if (managerCoaches && !(i && managerCoaches.includes(i.c))) return false;
       if (filterCoach && (i && i.c) !== filterCoach) return false;
       if (filterCSM && norm(c.name) !== filterCSM && c.name !== filterCSM) return false;
       return true;
-    }).sort((a,b) => (a.retPct||0) - (b.retPct||0)); // worst first
+    });
 
-    const totalBoqAdj   = q3CSMs.reduce((s,c)=>s+c.boqAdjusted, 0);
-    const totalCurrent  = q3CSMs.reduce((s,c)=>s+c.currentMrr, 0);
-    const totalNetNew   = q3CSMs.reduce((s,c)=>s+c.netNewMrr, 0);
-    const totalRemoved  = q3CSMs.reduce((s,c)=>s+c.removedMrr, 0);
-    const overallRet    = totalBoqAdj > 0 ? (totalCurrent - totalNetNew) / totalBoqAdj : null;
-    const runDate       = q3CSMs[0]?.runDate || "";
+    const scopedNames = new Set(q3CSMs.map(c => norm(c.name)));
+    const scopedLog   = [...q3Log].filter(r => scopedNames.has(norm(r.csm)) || scopedNames.has(r.csm));
 
-    // Recent log entries scoped to visible CSMs
-    const scopedNames   = new Set(q3CSMs.map(c=>norm(c.name)));
-    const recentLog     = [...q3Log].filter(r=>scopedNames.has(norm(r.csm))||scopedNames.has(r.csm)).reverse().slice(0, 50);
+    const totalBoqAdj    = q3CSMs.reduce((s,c)=>s+c.boqAdjusted, 0);
+    const totalCurrent   = q3CSMs.reduce((s,c)=>s+c.currentMrr, 0);
+    const totalNetNew    = q3CSMs.reduce((s,c)=>s+c.netNewMrr, 0);
+    const totalRemoved   = q3CSMs.reduce((s,c)=>s+c.removedMrr, 0);
+    const totalCancelled = q3CSMs.reduce((s,c)=>s+c.cancelledMrr, 0);
+    const overallRet     = totalBoqAdj > 0 ? (totalCurrent - totalNetNew) / totalBoqAdj : null;
+    const runDate        = q3CSMs[0]?.runDate || "";
 
-    const fmt$  = n => "$"+Number(n||0).toLocaleString("en-US",{minimumFractionDigits:0,maximumFractionDigits:0});
-    const fmtPct= p => p!=null ? (p*100).toFixed(1)+"%" : "--";
-    const retCol= p => p==null?"#808080":p>=0.91?"#16a34a":p>=0.85?"#d97706":"#dc2626";
+    const increaseLog   = scopedLog.filter(r => r.event==="billing_change" && r.mrrDelta>0);
+    const totalIncrease = increaseLog.reduce((s,r)=>s+r.mrrDelta, 0);
 
-    const eventBadge = (evt) => {
-      const cfg = {
-        net_new:       {bg:"#dcfce7",fg:"#166534",label:"Net New"},
-        removed:       {bg:"#fee2e2",fg:"#991b1b",label:"Removed"},
-        cancelled:     {bg:"#fef9c3",fg:"#854d0e",label:"Cancelled"},
-        billing_change:{bg:"#eff6ff",fg:"#1e40af",label:"Billing Δ"},
+    // Per-CSM increase totals from log
+    const csmIncreaseMrr = {};
+    increaseLog.forEach(r => {
+      const k = norm(r.csm)||r.csm;
+      csmIncreaseMrr[k] = (csmIncreaseMrr[k]||0) + r.mrrDelta;
+    });
+    const getIncrease = (c) => csmIncreaseMrr[norm(c.name)] || csmIncreaseMrr[c.name] || 0;
+
+    // Filter CSM table by active tile
+    const csmsWithEvent = (type) => {
+      const logs = type === "increase" ? increaseLog : scopedLog.filter(r => r.event === type);
+      const names = new Set();
+      logs.forEach(r => { names.add(r.csm); names.add(norm(r.csm)); });
+      return names;
+    };
+    const activeCsmSet = tileFilter ? csmsWithEvent(tileFilter) : null;
+    const visibleCSMs  = activeCsmSet
+      ? q3CSMs.filter(c => activeCsmSet.has(c.name) || activeCsmSet.has(norm(c.name)))
+      : q3CSMs;
+
+    const enrichedCSMs = visibleCSMs.map(c => ({...c, increaseMrr: getIncrease(c)}));
+    const sortedCSMs = [...enrichedCSMs].sort((a, b) => {
+      const dir = q3Sort.dir === "asc" ? 1 : -1;
+      const col = q3Sort.col;
+      const va = a[col] ?? (col === "name" ? "" : 0);
+      const vb = b[col] ?? (col === "name" ? "" : 0);
+      if (col === "name") return dir * String(va).localeCompare(String(vb));
+      return dir * ((Number(va)||0) - (Number(vb)||0));
+    });
+
+    const csmLog = (csmName) => scopedLog.filter(r => {
+      if (norm(r.csm) !== norm(csmName) && r.csm !== csmName) return false;
+      if (!tileFilter) return true;
+      if (tileFilter === "increase") return r.event === "billing_change" && r.mrrDelta > 0;
+      return r.event === tileFilter;
+    }).reverse();
+
+    const fmt$   = n => "$"+Number(n||0).toLocaleString("en-US",{minimumFractionDigits:0,maximumFractionDigits:0});
+    const fmtPct = p => p!=null ? (p*100).toFixed(1)+"%" : "--";
+    const retCol = p => p==null?"#808080":p>=0.91?"#16a34a":p>=0.85?"#d97706":"#dc2626";
+
+    const sortTh = (col, label, right) => {
+      const active = q3Sort.col === col;
+      return (
+        <th key={col} onClick={()=>setQ3Sort(s=>({col, dir: s.col===col&&s.dir==="asc"?"desc":"asc"}))}
+          style={{padding:"0 8px 8px 0",textAlign:right?"right":"left",fontSize:10,textTransform:"uppercase",
+            color:active?"#29355D":"#808080",fontWeight:active?700:500,cursor:"pointer",
+            borderBottom:"0.5px solid rgba(41,53,93,.08)",userSelect:"none",whiteSpace:"nowrap"}}>
+          {label}{active?(q3Sort.dir==="asc"?" ↑":" ↓"):""}
+        </th>
+      );
+    };
+
+    const tileBtn = (label, value, sub, color, filterKey) => {
+      const active = tileFilter === filterKey;
+      return (
+        <div key={filterKey} onClick={()=>{ setTileFilter(active?null:filterKey); setQ3CSMFilter(null); }}
+          style={{background:active?"#29355D":"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",
+            borderTop:"3px solid "+color,cursor:"pointer",transition:"all .15s",
+            boxShadow:active?"0 2px 8px rgba(41,53,93,.15)":"none"}}>
+          <div style={{fontSize:10,textTransform:"uppercase",color:active?"rgba(255,255,255,.7)":"#808080",fontWeight:500,marginBottom:4}}>{label}</div>
+          <div style={{fontSize:22,fontWeight:600,color:active?"#fff":color,lineHeight:1,marginBottom:4}}>{value}</div>
+          <div style={{fontSize:10,color:active?"rgba(255,255,255,.6)":"#808080"}}>{sub}</div>
+        </div>
+      );
+    };
+
+    const eventBadge = (evt, delta) => {
+      let cfg;
+      if (evt === "billing_change") cfg = delta > 0
+        ? {bg:"#dcfce7",fg:"#166534",label:"Increase"}
+        : {bg:"#fef9c3",fg:"#854d0e",label:"Decrease"};
+      else cfg = {
+        net_new:  {bg:"#dcfce7",fg:"#166534",label:"Net New"},
+        removed:  {bg:"#fee2e2",fg:"#991b1b",label:"Removed"},
+        cancelled:{bg:"#fef9c3",fg:"#854d0e",label:"Cancelled"},
       }[evt] || {bg:"#f3f4f6",fg:"#374151",label:evt};
       return <span style={{fontSize:10,fontWeight:500,padding:"2px 8px",borderRadius:20,background:cfg.bg,color:cfg.fg}}>{cfg.label}</span>;
     };
 
+    const exportCSV = () => {
+      const rows = sortedCSMs.flatMap(c => csmLog(c.name).map(r => ({
+        csm: c.name, account: r.acct, enterprise_id: r.eid||"",
+        event: r.event==="billing_change"?(r.mrrDelta>0?"Increase":"Decrease"):r.event,
+        boq_mrr: r.mrrBefore||0, current_mrr: r.mrrAfter||0, change: r.mrrDelta||0,
+        date: r.date, note: r.note||"",
+      })));
+      if (!rows.length) return;
+      const headers = ["CSM","Account","Enterprise ID","Event","BOQ MRR","Current MRR","Change","Date","Note"];
+      const csv = [headers.join(","), ...rows.map(r =>
+        [r.csm,r.account,r.enterprise_id,r.event,r.boq_mrr,r.current_mrr,r.change,r.date,r.note]
+        .map(v=>{ const s=String(v??"").replace(/"/g,'""'); return s.includes(",")||s.includes('"')?'"'+s+'"':s; })
+        .join(",")
+      )].join("
+");
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
+      a.download = "Q3-"+(tileFilter||"all")+"-"+new Date().toISOString().slice(0,10)+".csv";
+      a.click();
+    };
+
     return (
       <div>
-        {/* Summary tiles */}
-        <div style={{display:"grid",gridTemplateColumns:"repeat(4,minmax(0,1fr))",gap:12,marginBottom:16}}>
-          <div style={{background:"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",borderTop:"3px solid #29355D"}}>
-            <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Q3 Retention</div>
-            <div style={{fontSize:24,fontWeight:600,color:retCol(overallRet)}}>{fmtPct(overallRet)}</div>
-            <div style={{fontSize:10,color:"#808080"}}>goal 91% · adj BOQ {fmt$(totalBoqAdj)}</div>
+        {/* 5 clickable tiles */}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(5,minmax(0,1fr))",gap:10,marginBottom:16}}>
+          <div onClick={()=>{ setTileFilter(null); setQ3CSMFilter(null); }}
+            style={{background:!tileFilter?"#29355D":"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",
+              borderTop:"3px solid #29355D",cursor:"pointer",transition:"all .15s"}}>
+            <div style={{fontSize:10,textTransform:"uppercase",color:!tileFilter?"rgba(255,255,255,.7)":"#808080",fontWeight:500,marginBottom:4}}>Q3 Retention</div>
+            <div style={{fontSize:22,fontWeight:600,color:!tileFilter?"#fff":retCol(overallRet),lineHeight:1,marginBottom:4}}>{fmtPct(overallRet)}</div>
+            <div style={{fontSize:10,color:!tileFilter?"rgba(255,255,255,.6)":"#808080"}}>goal 91% · adj BOQ {fmt$(totalBoqAdj)}</div>
           </div>
-          <div style={{background:"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",borderTop:"3px solid #16a34a"}}>
-            <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Current MRR</div>
-            <div style={{fontSize:24,fontWeight:600,color:"#16a34a"}}>{fmt$(totalCurrent)}</div>
-            <div style={{fontSize:10,color:"#808080"}}>incl. {fmt$(totalNetNew)} net new</div>
-          </div>
-          <div style={{background:"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",borderTop:"3px solid #dc2626"}}>
-            <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Removed from BOQ</div>
-            <div style={{fontSize:24,fontWeight:600,color:"#dc2626"}}>{fmt$(totalRemoved)}</div>
-            <div style={{fontSize:10,color:"#808080"}}>{q3CSMs.reduce((s,c)=>s+c.removedCount,0)} accounts removed</div>
-          </div>
-          <div style={{background:"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",borderTop:"3px solid #FF5000"}}>
-            <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Net New</div>
-            <div style={{fontSize:24,fontWeight:600,color:"#FF5000"}}>{fmt$(totalNetNew)}</div>
-            <div style={{fontSize:10,color:"#808080"}}>{q3CSMs.reduce((s,c)=>s+c.netNewCount,0)} new accounts</div>
-          </div>
+          {tileBtn("Increases",fmt$(totalIncrease),increaseLog.length+" accounts","#16a34a","increase")}
+          {tileBtn("Cancelled ($0)",fmt$(totalCancelled),q3CSMs.reduce((s,c)=>s+c.cancelledCount,0)+" accounts","#d97706","cancelled")}
+          {tileBtn("Removed from BOQ",fmt$(totalRemoved),q3CSMs.reduce((s,c)=>s+c.removedCount,0)+" accounts","#dc2626","removed")}
+          {tileBtn("Net New",fmt$(totalNetNew),q3CSMs.reduce((s,c)=>s+c.netNewCount,0)+" accounts","#FF5000","net_new")}
         </div>
 
-        {/* CSM table */}
-        <div style={{...S.card,marginBottom:16}}>
+        {/* Sortable CSM table with inline expand */}
+        <div style={{...S.card}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-            <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500}}>CSM Q3 Retention — worst first</div>
-            {runDate&&<div style={{fontSize:11,color:"#808080"}}>Last updated: {runDate}</div>}
+            <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500}}>
+              {tileFilter ? sortedCSMs.length+" CSMs with "+tileFilter.replace(/_/g," ")+" — click name to expand" : "CSM Q3 Retention — click name to expand"}
+            </div>
+            <div style={{display:"flex",alignItems:"center",gap:10}}>
+              {runDate&&<div style={{fontSize:11,color:"#808080"}}>Last updated: {runDate}</div>}
+              <button onClick={exportCSV}
+                style={{padding:"4px 12px",borderRadius:20,border:"0.5px solid rgba(41,53,93,.2)",
+                  background:"#fff",color:"#29355D",fontSize:11,fontWeight:500,cursor:"pointer"}}>
+                ⬇ Export CSV
+              </button>
+            </div>
           </div>
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
             <thead><tr>
-              {["CSM","BOQ (adj)","Current MRR","Net New","Removed","Retention %","Net New #","Removed #"].map(h=>(
-                <th key={h} style={{padding:"0 8px 8px 0",textAlign:h.includes("MRR")||h.includes("BOQ")||h.includes("New")||h.includes("Rem")?"right":"left",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>{h}</th>
-              ))}
+              {sortTh("name","CSM",false)}
+              {sortTh("boqAdjusted","BOQ (adj)",true)}
+              {sortTh("currentMrr","Current MRR",true)}
+              {sortTh("netNewMrr","Net New",true)}
+              {sortTh("removedMrr","Removed",true)}
+              {sortTh("cancelledMrr","Cancelled",true)}
+              {sortTh("increaseMrr","Increase",true)}
+              {sortTh("retPct","Retention %",false)}
             </tr></thead>
             <tbody>
-              {q3CSMs.map(c=>(
-                <tr key={c.name}>
-                  <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",fontWeight:500}}>{dispName(c.name)}</td>
-                  <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#808080"}}>{fmt$(c.boqAdjusted)}</td>
-                  <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right"}}>{fmt$(c.currentMrr)}</td>
-                  <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#16a34a"}}>{c.netNewMrr>0?"+"+fmt$(c.netNewMrr):"--"}</td>
-                  <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:c.removedMrr>0?"#dc2626":"#808080"}}>{c.removedMrr>0?"-"+fmt$(c.removedMrr):"--"}</td>
-                  <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"left"}}>
-                    <div style={{display:"flex",alignItems:"center",gap:8}}>
-                      <div style={{width:80,height:5,background:"#ECEEF1",borderRadius:3,overflow:"hidden"}}>
-                        <div style={{width:Math.min((c.retPct||0)*100,100).toFixed(1)+"%",height:"100%",background:retCol(c.retPct),borderRadius:3}}/>
-                      </div>
-                      <span style={{fontWeight:600,color:retCol(c.retPct)}}>{fmtPct(c.retPct)}</span>
-                    </div>
-                  </td>
-                  <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#16a34a"}}>{c.netNewCount||"--"}</td>
-                  <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:c.removedCount>0?"#dc2626":"#808080"}}>{c.removedCount||"--"}</td>
-                </tr>
-              ))}
+              {sortedCSMs.map(c => {
+                const isOpen = q3CSMFilter === c.name || q3CSMFilter === norm(c.name);
+                const drillLog = csmLog(c.name);
+                return (
+                  <React.Fragment key={c.name}>
+                    <tr onClick={()=>setQ3CSMFilter(isOpen?null:c.name)}
+                      style={{cursor:"pointer",background:isOpen?"rgba(41,53,93,.04)":"transparent"}}>
+                      <td style={{padding:"8px 8px 8px 0",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)",fontWeight:500,color:"#29355D"}}>
+                        <span style={{marginRight:6,fontSize:9,display:"inline-block",transition:"transform .15s",
+                          transform:isOpen?"rotate(90deg)":"none",color:"#808080"}}>▶</span>
+                        {dispName(c.name)}
+                      </td>
+                      <td style={{padding:"8px 8px 8px 0",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#808080"}}>{fmt$(c.boqAdjusted)}</td>
+                      <td style={{padding:"8px 8px 8px 0",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)",textAlign:"right"}}>{fmt$(c.currentMrr)}</td>
+                      <td style={{padding:"8px 8px 8px 0",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#16a34a"}}>{c.netNewMrr>0?"+"+fmt$(c.netNewMrr):"--"}</td>
+                      <td style={{padding:"8px 8px 8px 0",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:c.removedMrr>0?"#dc2626":"#808080"}}>{c.removedMrr>0?"-"+fmt$(c.removedMrr):"--"}</td>
+                      <td style={{padding:"8px 8px 8px 0",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:c.cancelledMrr>0?"#d97706":"#808080"}}>{c.cancelledMrr>0?"-"+fmt$(c.cancelledMrr):"--"}</td>
+                      <td style={{padding:"8px 8px 8px 0",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:c.increaseMrr>0?"#16a34a":"#808080"}}>{c.increaseMrr>0?"+"+fmt$(c.increaseMrr):"--"}</td>
+                      <td style={{padding:"8px 8px 8px 0",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)"}}>
+                        <div style={{display:"flex",alignItems:"center",gap:8}}>
+                          <div style={{width:80,height:5,background:"#ECEEF1",borderRadius:3,overflow:"hidden"}}>
+                            <div style={{width:Math.min((c.retPct||0)*100,100).toFixed(1)+"%",height:"100%",background:retCol(c.retPct),borderRadius:3}}/>
+                          </div>
+                          <span style={{fontWeight:600,color:retCol(c.retPct)}}>{fmtPct(c.retPct)}</span>
+                        </div>
+                      </td>
+                    </tr>
+                    {isOpen && drillLog.length > 0 && (
+                      <tr>
+                        <td colSpan={8} style={{padding:"0 0 12px 24px",borderBottom:"0.5px solid rgba(41,53,93,.08)",background:"rgba(41,53,93,.02)"}}>
+                          <table style={{width:"100%",borderCollapse:"collapse",fontSize:11,marginTop:4}}>
+                            <thead><tr>
+                              {["Account","Event","BOQ MRR","Current","Change","Note"].map(h=>(
+                                <th key={h} style={{padding:"4px 8px 4px 0",textAlign:"left",fontSize:10,
+                                  textTransform:"uppercase",color:"#808080",fontWeight:500}}>{h}</th>
+                              ))}
+                            </tr></thead>
+                            <tbody>
+                              {drillLog.map((r,i)=>(
+                                <tr key={i} style={{borderTop:"0.5px solid rgba(41,53,93,.05)"}}>
+                                  <td style={{padding:"5px 8px 5px 0",maxWidth:220,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.acct}</td>
+                                  <td style={{padding:"5px 8px 5px 0"}}>{eventBadge(r.event,r.mrrDelta)}</td>
+                                  <td style={{padding:"5px 8px 5px 0",color:"#808080"}}>{r.mrrBefore>0?fmt$(r.mrrBefore):"--"}</td>
+                                  <td style={{padding:"5px 8px 5px 0"}}>{r.mrrAfter>0?fmt$(r.mrrAfter):"--"}</td>
+                                  <td style={{padding:"5px 8px 5px 0",fontWeight:500,color:r.mrrDelta>0?"#16a34a":r.mrrDelta<0?"#dc2626":"#808080"}}>
+                                    {r.mrrDelta!==0?(r.mrrDelta>0?"+":"")+fmt$(r.mrrDelta):"--"}
+                                  </td>
+                                  <td style={{padding:"5px 8px 5px 0",color:"#808080",fontSize:10}}>{r.note}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </td>
+                      </tr>
+                    )}
+                    {isOpen && drillLog.length === 0 && (
+                      <tr><td colSpan={8} style={{padding:"8px 0 8px 24px",borderBottom:"0.5px solid rgba(41,53,93,.08)",
+                        color:"#808080",fontSize:11,fontStyle:"italic"}}>
+                        No {tileFilter?tileFilter.replace(/_/g," "):"events"} logged for {dispName(c.name)}
+                      </td></tr>
+                    )}
+                  </React.Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>
-
-        {/* BOQ Adjustment Log */}
-        {recentLog.length > 0 && <div style={S.card}>
-          <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>
-            BOQ Adjustment Log — {recentLog.length} recent events
-          </div>
-          <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
-            <thead><tr>
-              {["Date","CSM","Account","Event","Before","After","Δ","Note"].map(h=>(
-                <th key={h} style={{padding:"0 8px 8px 0",textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>{h}</th>
-              ))}
-            </tr></thead>
-            <tbody>
-              {recentLog.map((r,i)=>(
-                <tr key={i}>
-                  <td style={{padding:"7px 8px 7px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",color:"#808080",whiteSpace:"nowrap"}}>{r.date}</td>
-                  <td style={{padding:"7px 8px 7px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",whiteSpace:"nowrap"}}>{dispName(r.csm)}</td>
-                  <td style={{padding:"7px 8px 7px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",maxWidth:180,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.acct}</td>
-                  <td style={{padding:"7px 8px 7px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)"}}>{eventBadge(r.event)}</td>
-                  <td style={{padding:"7px 8px 7px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",color:"#808080"}}>{r.mrrBefore>0?fmt$(r.mrrBefore):"--"}</td>
-                  <td style={{padding:"7px 8px 7px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)"}}>{r.mrrAfter>0?fmt$(r.mrrAfter):"--"}</td>
-                  <td style={{padding:"7px 8px 7px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",fontWeight:500,color:r.mrrDelta>0?"#16a34a":r.mrrDelta<0?"#dc2626":"#808080"}}>
-                    {r.mrrDelta!==0?(r.mrrDelta>0?"+":"")+fmt$(r.mrrDelta):"--"}
-                  </td>
-                  <td style={{padding:"7px 8px 7px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",color:"#808080",fontSize:11}}>{r.note}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>}
       </div>
     );
   };
 
-
-  const visibleAlerts = (churnAlerts||[]).filter(a => {
+    const visibleAlerts = (churnAlerts||[]).filter(a => {
     if (managerCoaches) { const i=lk(a.csm); if(!(i&&managerCoaches.includes(i.c))) return false; }
     if (filterCoach) { const i=lk(a.csm); if(!(i&&i.c===filterCoach)) return false; }
     if (filterCSM && a.csm!==filterCSM) return false;
