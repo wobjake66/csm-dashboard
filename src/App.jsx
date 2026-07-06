@@ -4975,20 +4975,37 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
 
     // Which CSMs have events for each tile type
     const csmsWithEvent = (type) => {
-      if (type === "increase") return new Set(increaseLog.map(r => r.csm));
-      return new Set(scopedLog.filter(r => r.event === type).map(r => r.csm));
+      const logs = type === "increase"
+        ? increaseLog
+        : scopedLog.filter(r => r.event === type);
+      // Build set of both raw and norm'd names for flexible matching
+      const names = new Set();
+      logs.forEach(r => { names.add(r.csm); names.add(norm(r.csm)); });
+      return names;
     };
 
-    // Filter CSM table by active tile
+    // Filter CSM table by active tile — match on name OR norm(name)
     const activeCsmSet = tileFilter ? csmsWithEvent(tileFilter) : null;
     const visibleCSMs  = activeCsmSet
       ? q3CSMs.filter(c => activeCsmSet.has(c.name) || activeCsmSet.has(norm(c.name)))
       : q3CSMs;
 
-    // Sort
+    // Default sort column based on active tile
+    const defaultSortCol = {
+      increase:  "cancelledMrr", // will be overridden below
+      cancelled: "cancelledMrr",
+      removed:   "removedMrr",
+      net_new:   "netNewMrr",
+    }[tileFilter] || "retPct";
+
+    // Sort — use tile-appropriate column if user hasn't manually sorted
+    const effectiveSort = q3Sort.col === "retPct" && tileFilter && tileFilter !== null
+      ? {col: defaultSortCol, dir: "desc"}
+      : q3Sort;
+
     const sortedCSMs = [...visibleCSMs].sort((a, b) => {
-      const dir = q3Sort.dir === "asc" ? 1 : -1;
-      const col = q3Sort.col;
+      const dir = effectiveSort.dir === "asc" ? 1 : -1;
+      const col = effectiveSort.col;
       const va = a[col] ?? (col === "name" ? "" : 0);
       const vb = b[col] ?? (col === "name" ? "" : 0);
       if (col === "name") return dir * String(va).localeCompare(String(vb));
@@ -5008,13 +5025,13 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
     const retCol = p => p==null?"#808080":p>=0.91?"#16a34a":p>=0.85?"#d97706":"#dc2626";
 
     const SortTh = ({col, label, right}) => {
-      const active = q3Sort.col === col;
+      const active = effectiveSort.col === col;
       return (
-        <th onClick={()=>setQ3Sort(s=>({col, dir: s.col===col&&s.dir==="asc"?"desc":"asc"}))}
+        <th onClick={()=>setQ3Sort({col, dir: effectiveSort.col===col&&effectiveSort.dir==="asc"?"desc":"asc"})}
           style={{padding:"0 8px 8px 0",textAlign:right?"right":"left",fontSize:10,textTransform:"uppercase",
             color:active?"#29355D":"#808080",fontWeight:active?700:500,cursor:"pointer",
             borderBottom:"0.5px solid rgba(41,53,93,.08)",userSelect:"none",whiteSpace:"nowrap"}}>
-          {label}{active?(q3Sort.dir==="asc"?" ↑":" ↓"):""}
+          {label}{active?(effectiveSort.dir==="asc"?" ↑":" ↓"):""}
         </th>
       );
     };
