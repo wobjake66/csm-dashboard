@@ -5060,6 +5060,41 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
       return <span style={{fontSize:10,fontWeight:500,padding:"2px 8px",borderRadius:20,background:cfg.bg,color:cfg.fg}}>{cfg.label}</span>;
     };
 
+    // Export visible log entries as CSV
+    const exportCSV = () => {
+      // Build export data: all account-level events for visible CSMs, filtered by active tile
+      const rows = sortedCSMs.flatMap(c => csmLog(c.name).map(r => ({
+        csm: c.name,
+        account: r.acct,
+        enterprise_id: r.eid || "",
+        event: r.event === "billing_change" ? (r.mrrDelta > 0 ? "Increase" : "Decrease") : r.event,
+        boq_mrr: r.mrrBefore || 0,
+        current_mrr: r.mrrAfter || 0,
+        change: r.mrrDelta || 0,
+        date: r.date,
+        note: r.note || "",
+      })));
+      if (rows.length === 0) return;
+      const headers = ["CSM","Account","Enterprise ID","Event","BOQ MRR","Current MRR","Change","Date","Note"];
+      const csvContent = [
+        headers.join(","),
+        ...rows.map(r => headers.map((_,i) => {
+          const vals = [r.csm, r.account, r.enterprise_id, r.event, r.boq_mrr, r.current_mrr, r.change, r.date, r.note];
+          const v = String(vals[i] ?? "").replace(/"/g, '""');
+          return v.includes(",") || v.includes('"') ? '"'+v+'"' : v;
+        }).join(","))
+      ].join("\n");
+      const blob = new Blob([csvContent], {type:"text/csv"});
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      const label = tileFilter ? tileFilter.replace(/_/g,"-") : "all";
+      const csm   = q3CSMFilter ? "-"+q3CSMFilter.split(" ")[0] : "";
+      a.href = url;
+      a.download = "Q3-BOB-"+label+csm+"-"+new Date().toISOString().slice(0,10)+".csv";
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+
     return (
       <div>
         {/* 5 clickable tiles */}
@@ -5085,7 +5120,15 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                 ? sortedCSMs.length+" CSMs with "+tileFilter.replace(/_/g," ")+" — click name to expand"
                 : "CSM Q3 Retention — click name to expand"}
             </div>
-            {runDate&&<div style={{fontSize:11,color:"#808080"}}>Last updated: {runDate}</div>}
+            <div style={{display:"flex",alignItems:"center",gap:10}}>
+              {runDate&&<div style={{fontSize:11,color:"#808080"}}>Last updated: {runDate}</div>}
+              <button onClick={exportCSV}
+                style={{padding:"4px 12px",borderRadius:20,border:"0.5px solid rgba(41,53,93,.2)",
+                  background:"#fff",color:"#29355D",fontSize:11,fontWeight:500,cursor:"pointer",
+                  display:"flex",alignItems:"center",gap:4}}>
+                ⬇ Export CSV
+              </button>
+            </div>
           </div>
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
             <thead><tr>
