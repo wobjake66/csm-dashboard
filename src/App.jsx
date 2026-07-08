@@ -4432,53 +4432,20 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
   const hasQ3 = Object.keys(q3Current).length > 0;
   const getDet = n => {
     const base = liveBobDet[n]||liveBobDet[norm(n)]||BOB_DETAIL[n]||BOB_DETAIL[norm(n)]||{};
-    // Inject any manual adjustments as extra increase/decrease entries
     const adjKey = Object.keys(bobAdj).find(k=>norm(k)===n||k===n);
     if (!adjKey) return base;
     const adj = bobAdj[adjKey];
     const extraInc = adj.entries.filter(e=>e.n>0).map(e=>({...e, b:0, m:e.n, _adj:true}));
     const extraDec = adj.entries.filter(e=>e.n<0).map(e=>({...e, b:0, m:e.n, _adj:true}));
-    // Also apply adjustments to the full account list (.all) used by Q2 Tracking's expand view.
-    // An adjustment is a correction to the BOQ attributed to this CSM (e.g. "this account/product
-    // belongs to a different CSM and shouldn't count against my book"), NOT a separate event
-    // stacked on top of whatever already happened to that account this quarter. So: match the
-    // adjustment to the existing account row by Enterprise ID (preferring a matching product/asset
-    // name if there are multiple lines for that ID), reduce that row's BOQ by the adjustment amount,
-    // and recompute its status/delta from the corrected BOQ. Only fall back to a standalone new row
-    // if no matching account exists in the book at all.
-    const baseAll = [...(base.all || [])];
-    adj.entries.forEach(a => {
-      const eid = (a.e||"").trim();
-      let matchIdx = -1;
-      if (eid) {
-        const candidates = baseAll.map((row,idx)=>({row,idx})).filter(({row})=>(row.e||"").trim()===eid);
-        if (candidates.length === 1) {
-          matchIdx = candidates[0].idx;
-        } else if (candidates.length > 1) {
-          // Prefer a row whose product/asset name matches the adjustment's "Which assets?" field
-          const assetMatch = candidates.find(({row})=> a.l && row.l && row.l.toLowerCase()===a.l.toLowerCase());
-          matchIdx = assetMatch ? assetMatch.idx : candidates.sort((x,y)=>y.row.b-x.row.b)[0].idx;
-        }
-      }
-      if (matchIdx >= 0) {
-        const row = baseAll[matchIdx];
-        const newB = Math.max(0, row.b + a.n); // a.n is signed: negative = remove from BOQ, positive = add
-        let status;
-        if (newB === 0 && row.m > 0) status = "net_new";
-        else if (newB > 0 && row.m === 0) status = "cancelled";
-        else if (newB === row.m) status = "unchanged";
-        else status = row.m > newB ? "increase" : "decrease";
-        baseAll[matchIdx] = {...row, b:newB, n:row.m-newB, status, _adjusted:true, _adjAmount:a.n};
-      } else {
-        // No existing account row to net against — show as its own increase/decrease entry
-        baseAll.push({...a, b:0, m:a.n, status: a.n>0?"increase":"decrease", _adj:true});
-      }
-    });
+    // Adjustments are tracked separately and DON'T modify BOQ, current, or any retention math —
+    // they show up as their own "Adjustment" row for visibility only, always displayed as a
+    // positive tracked amount regardless of the sign entered on the submission form.
+    const adjRows = adj.entries.map(a => ({...a, b:0, m:0, n:0, status:"adjustment", adjAmount: Math.abs(a.n)}));
     return {
       ...base,
       i: [...(base.i||[]), ...extraInc],
       d: [...(base.d||[]), ...extraDec],
-      all: baseAll,
+      all: [...(base.all||[]), ...adjRows],
     };
   };
   // Live sheet data when available, hardcoded fallback otherwise
@@ -4654,7 +4621,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
         removedCount: 0,
         retPct: c.ret,
         // Full account/product-line book — includes unchanged accounts, not just changed ones
-        acctRows: all.map(r => ({acct:r.a||"—",eid:r.e,boqMrr:r.b,curMrr:r.m,status:r.status,delta:r.n})),
+        acctRows: all.map(r => ({acct:r.a||"—",eid:r.e,boqMrr:r.b,curMrr:r.m,status:r.status,delta:r.n,adjAmount:r.adjAmount||0})),
       };
     });
 
@@ -4726,6 +4693,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
         cancelled:{bg:"#fef9c3",fg:"#854d0e",label:"Cancelled"},
         removed:  {bg:"#fee2e2",fg:"#991b1b",label:"Removed"},
         unchanged:{bg:"#f3f4f6",fg:"#6b7280",label:"No Change"},
+        adjustment:{bg:"#eff6ff",fg:"#1e40af",label:"Adjustment"},
       }[s]||{bg:"#f3f4f6",fg:"#374151",label:s};
       return <span style={{fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:20,background:cfg.bg,color:cfg.fg}}>{cfg.label}</span>;
     };
@@ -4841,13 +4809,14 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                         cancelledVal:r.status==="cancelled" ? r.boqMrr : 0,
                         increaseVal: r.status==="increase"  ? r.delta  : 0,
                         decreaseVal: r.status==="decrease"  ? Math.abs(r.delta) : 0,
+                        adjVal:      r.status==="adjustment"? r.adjAmount : 0,
                       }));
                       const sortedAcctRows = [...rowsWithVals].sort((a,b) => {
                         const dir = q2AcctSort.dir==="asc" ? 1 : -1;
                         const col = q2AcctSort.col;
                         if (col==="acct") return dir*a.acct.localeCompare(b.acct);
-                        const va = col==="boqMrr"?a.boqMrr:col==="curMrr"?a.curMrr:col==="netNewVal"?a.netNewVal:col==="cancelledVal"?a.cancelledVal:col==="increaseVal"?a.increaseVal:col==="decreaseVal"?a.decreaseVal:0;
-                        const vb = col==="boqMrr"?b.boqMrr:col==="curMrr"?b.curMrr:col==="netNewVal"?b.netNewVal:col==="cancelledVal"?b.cancelledVal:col==="increaseVal"?b.increaseVal:col==="decreaseVal"?b.decreaseVal:0;
+                        const va = col==="boqMrr"?a.boqMrr:col==="curMrr"?a.curMrr:col==="netNewVal"?a.netNewVal:col==="cancelledVal"?a.cancelledVal:col==="increaseVal"?a.increaseVal:col==="decreaseVal"?a.decreaseVal:col==="adjVal"?a.adjVal:0;
+                        const vb = col==="boqMrr"?b.boqMrr:col==="curMrr"?b.curMrr:col==="netNewVal"?b.netNewVal:col==="cancelledVal"?b.cancelledVal:col==="increaseVal"?b.increaseVal:col==="decreaseVal"?b.decreaseVal:col==="adjVal"?b.adjVal:0;
                         return dir*(va-vb);
                       });
                       const aTh = (col,label,right=true) => {
@@ -4863,15 +4832,15 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                       };
                       return (
                       <tr>
-                        <td colSpan={9} style={{padding:"0 0 12px 24px",borderBottom:"0.5px solid rgba(41,53,93,.08)",background:"rgba(41,53,93,.02)"}}>
+                        <td colSpan={10} style={{padding:"0 0 12px 24px",borderBottom:"0.5px solid rgba(41,53,93,.08)",background:"rgba(41,53,93,.02)"}}>
                           <div style={{fontSize:10,color:"#808080",padding:"6px 0 4px",fontStyle:"italic"}}>
                             {sortedAcctRows.length} accounts{q2TileFilter?" · filtered: "+q2TileFilter.replace(/_/g," "):""}
                           </div>
                           <table style={{width:"100%",borderCollapse:"collapse",fontSize:11,tableLayout:"fixed"}}>
                             <colgroup>
-                              <col style={{width:"32%"}}/><col style={{width:"9%"}}/><col style={{width:"9%"}}/>
-                              <col style={{width:"8%"}}/><col style={{width:"8%"}}/><col style={{width:"8%"}}/>
-                              <col style={{width:"8%"}}/><col style={{width:"8%"}}/><col style={{width:"10%"}}/>
+                              <col style={{width:"28%"}}/><col style={{width:"8%"}}/><col style={{width:"8%"}}/>
+                              <col style={{width:"7%"}}/><col style={{width:"7%"}}/><col style={{width:"7%"}}/>
+                              <col style={{width:"7%"}}/><col style={{width:"7%"}}/><col style={{width:"9%"}}/><col style={{width:"10%"}}/>
                             </colgroup>
                             <thead><tr style={{borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>
                               {aTh("acct","Account",false)}
@@ -4882,6 +4851,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                               {aTh("cancelledVal","Cancelled")}
                               {aTh("increaseVal","Increase")}
                               {aTh("decreaseVal","Decrease")}
+                              {aTh("adjVal","Adjustment")}
                               <th style={{padding:"4px 0 4px 24px",textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500}}>Status</th>
                             </tr></thead>
                             <tbody>
@@ -4890,6 +4860,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                                 const isDecrease = r.status==="decrease";
                                 const isNetNew   = r.status==="net_new";
                                 const isCancelled= r.status==="cancelled";
+                                const isAdj      = r.status==="adjustment";
                                 return (
                                   <tr key={i} style={{borderTop:"0.5px solid rgba(41,53,93,.05)"}}>
                                     <td style={{padding:"5px 8px 5px 0",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.acct}</td>
@@ -4900,6 +4871,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                                     <td style={{padding:"5px 8px 5px 0",textAlign:"right",color:"#d97706"}}>{isCancelled?"-"+fmt$(r.boqMrr):"--"}</td>
                                     <td style={{padding:"5px 8px 5px 0",textAlign:"right",color:"#16a34a"}}>{isIncrease?"+"+fmt$(r.delta):"--"}</td>
                                     <td style={{padding:"5px 8px 5px 0",textAlign:"right",color:"#dc2626"}}>{isDecrease?"-"+fmt$(Math.abs(r.delta)):"--"}</td>
+                                    <td style={{padding:"5px 8px 5px 0",textAlign:"right",color:"#1e40af"}}>{isAdj?"+"+fmt$(r.adjAmount):"--"}</td>
                                     <td style={{padding:"5px 0 5px 24px"}}>{statusBadge2(r.status)}</td>
                                   </tr>
                                 );
