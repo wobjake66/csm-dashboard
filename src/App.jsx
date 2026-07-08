@@ -4620,6 +4620,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
       const adjustmentMrr= adjustmentEntries.reduce((s,e)=>s+(e.adjAmount||0), 0);
       return {
         name: c.n,
+        coach: c.c || "",
         boqAdjusted: c.boq,
         currentMrr:  c.lcm,
         netNewMrr, increaseMrr, cancelledMrr, decreaseMrr, adjustmentMrr,
@@ -4713,12 +4714,12 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
     const exportQ2CSV = () => {
       const rows = sortedCSMs.flatMap(c => c.acctRows
         .filter(r => !q2TileFilter || r.status === q2TileFilter)
-        .map(r => ({ csm: c.name, ...r }))
+        .map(r => ({ csm: c.name, coach: c.coach, ...r }))
       );
       if (!rows.length) return;
-      const headers = ["CSM","Account","Enterprise ID","Event","BOQ MRR","Current MRR","Change","Adjustment Amount"];
+      const headers = ["CSM","Coach","Account","Enterprise ID","Event","BOQ MRR","Current MRR","Change","Adjustment Amount"];
       const csv = [headers.join(","), ...rows.map(r =>
-        [r.csm,r.acct,r.eid||"",r.status,r.boqMrr,r.curMrr,r.delta,r.status==="adjustment"?r.adjAmount:""]
+        [r.csm,r.coach,r.acct,r.eid||"",r.status,r.boqMrr,r.curMrr,r.delta,r.status==="adjustment"?r.adjAmount:""]
         .map(v=>{ const s=String(v??"").replace(/"/g,'""'); return s.includes(",")||s.includes('"')?'"'+s+'"':s; })
         .join(",")
       )].join("\n");
