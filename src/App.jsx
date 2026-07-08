@@ -4712,9 +4712,9 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
         .map(r => ({ csm: c.name, ...r }))
       );
       if (!rows.length) return;
-      const headers = ["CSM","Account","Enterprise ID","Event","BOQ MRR","Current MRR","Change"];
+      const headers = ["CSM","Account","Enterprise ID","Event","BOQ MRR","Current MRR","Change","Adjustment Amount"];
       const csv = [headers.join(","), ...rows.map(r =>
-        [r.csm,r.acct,r.eid||"",r.status,r.boqMrr,r.curMrr,r.delta]
+        [r.csm,r.acct,r.eid||"",r.status,r.boqMrr,r.curMrr,r.delta,r.status==="adjustment"?r.adjAmount:""]
         .map(v=>{ const s=String(v??"").replace(/"/g,'""'); return s.includes(",")||s.includes('"')?'"'+s+'"':s; })
         .join(",")
       )].join("\n");
