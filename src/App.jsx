@@ -4426,13 +4426,23 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
   const hasQ3 = Object.keys(q3Current).length > 0;
   const getDet = n => {
     const base = liveBobDet[n]||liveBobDet[norm(n)]||BOB_DETAIL[n]||BOB_DETAIL[norm(n)]||{};
-    // Inject any adjustments as extra increase entries
+    // Inject any manual adjustments as extra increase/decrease entries
     const adjKey = Object.keys(bobAdj).find(k=>norm(k)===n||k===n);
     if (!adjKey) return base;
     const adj = bobAdj[adjKey];
     const extraInc = adj.entries.filter(e=>e.n>0).map(e=>({...e, b:0, m:e.n, _adj:true}));
     const extraDec = adj.entries.filter(e=>e.n<0).map(e=>({...e, b:0, m:e.n, _adj:true}));
-    return {...base, i:[...(base.i||[]),...extraInc], d:[...(base.d||[]),...extraDec]};
+    // Also inject into the full account list (.all) used by Q2 Tracking's expand view,
+    // tagged explicitly as increase/decrease (these are manual corrections, not brand-new accounts)
+    const extraAllInc = extraInc.map(e=>({...e, status:"increase"}));
+    const extraAllDec = extraDec.map(e=>({...e, status:"decrease"}));
+    const baseAll = base.all || [];
+    return {
+      ...base,
+      i: [...(base.i||[]), ...extraInc],
+      d: [...(base.d||[]), ...extraDec],
+      all: [...baseAll, ...extraAllInc, ...extraAllDec],
+    };
   };
   // Live sheet data when available, hardcoded fallback otherwise
   const liveCoachTotals = (bobRaw && Object.keys(bobRaw.coachTotals||{}).length > 0) ? bobRaw.coachTotals : BOB_COACH_TOTALS;
