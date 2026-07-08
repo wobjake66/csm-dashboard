@@ -4449,6 +4449,9 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
   const [tileFilter,   setTileFilter]   = useState(null);
   const [q3CSMFilter,  setQ3CSMFilter]  = useState(null);
   const [acctSort,     setAcctSort]     = useState({col:"acct", dir:"asc"});
+  const [q2Sort,       setQ2Sort]       = useState({col:"retPct", dir:"asc"});
+  const [q2TileFilter, setQ2TileFilter] = useState(null);
+  const [q2CSMFilter,  setQ2CSMFilter]  = useState(null);
   const [churnModal, setChurnModal] = useState(false);
   const [bobSort, setBobSort]       = useState({col:"ret", dir:"desc"});
   const [expandedBob, setExpandedBob] = useState(null);
@@ -4552,285 +4555,153 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
     a.click();
   };
 
-  const renderOverview = () => (
-    <div>
-      {/* Metric tiles — Churned accounts tile is clickable, opens full churn list */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(5,minmax(0,1fr))",gap:12,marginBottom:20}}>
-        {[
-          {l:"Beginning of quarter", v:fmt$(totBoq),       s:csms.length+" CSMs",           col:"#29355D", click:null},
-          {l:"Last completed month", v:fmt$(totLcm),       s:"Current billing",              col:"#5378FC", click:null},
-          {l:"Net billing change",   v:(totNet<0?"-":"+")+fmt$(Math.abs(totNet)), s:"vs start of quarter", col:totNet<0?"#dc2626":"#16a34a", click:null},
-          {l:"Retention rate",       v:fmtP(avgRet),       s:"Goal: "+fmtP(GOAL),            col:rCol(avgRet), click:null},
-          {l:"Churned accounts",     v:String(totChurned), s:"click to view full list",       col:"#d97706", click:()=>setChurnModal(true)},
-        ].map(m=>(
-          <div key={m.l} onClick={m.click||undefined}
-            style={{background:"#ECEEF1",borderRadius:8,padding:14,position:"relative",overflow:"hidden",
-              cursor:m.click?"pointer":"default",transition:"box-shadow .15s"}}
-            onMouseEnter={e=>{if(m.click)e.currentTarget.style.boxShadow="0 2px 12px rgba(217,119,6,.18)";}}
-            onMouseLeave={e=>{e.currentTarget.style.boxShadow="none";}}>
-            <div style={{position:"absolute",top:0,left:0,right:0,height:2,background:m.col,borderRadius:"8px 8px 0 0"}}/>
-            <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:6}}>{m.l}</div>
-            <div style={{fontSize:22,fontWeight:500,color:m.col,lineHeight:1,marginBottom:3}}>{m.v}</div>
-            <div style={{fontSize:11,color:m.click?"#d97706":"#808080",fontWeight:m.click?500:400}}>{m.s}</div>
-            {m.click&&<div style={{position:"absolute",top:10,right:12,fontSize:11,color:"#d97706",opacity:.6}}>↗</div>}
-          </div>
-        ))}
-      </div>
+  // ── Q2 TRACKING — mirrors Q3 Tracking's tiles/table/expand design exactly,
+  //    sourced from the Q2 Beginning/Ending Revenue book of business + change detail ──
+  const renderQ2 = () => {
+    const q2CSMs = csms; // already filtered by coach/manager/CSM via filtCSMs()
 
-      {/* Coach scorecards — hidden when viewing a single CSM */}
-      {!filterCSM&&<div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>Retention by coach — goal line at 91%</div>}
-      {!filterCSM&&<div style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:12,marginBottom:20}}>
-        {coachesVisible.map(ce=>{
-          const coach = COACHES.find(c=>c.e===ce);
-          const cn = coach?.n||ce;
-          const col = TEAM_COLS[coach?.t||""]||"#808080";
-          // Calculate from individual CSMs (more accurate than sheet TOTAL rows)
-          const teamCSMs = liveCsms.filter(c=>{
-            const i=lk(c.n);
-            if (i&&i.c) return i.c===ce;
-            const normalize=s=>(s||"").toLowerCase().trim().replace(/[\u2018\u2019']/g,"'");
-            const found=COACHES.find(ch=>normalize(ch.n)===normalize(c.c));
-            return found&&found.e===ce;
-          });
-          if (!teamCSMs.length) return null;
-          const tBoq = teamCSMs.reduce((s,c)=>s+c.boq,0);
-          const tLcm = teamCSMs.reduce((s,c)=>s+(c.lcm||0),0);
-          const pct  = tBoq>0 ? tLcm/tBoq : 0;
-          const diff = (pct-GOAL)*100;
-          return (
-            <div key={ce} style={{...S.card,position:"relative",overflow:"hidden",borderTop:`3px solid ${col}`}}>
-              <div style={{fontSize:12,fontWeight:500,marginBottom:2}}>{cn}</div>
-              <div style={{fontSize:26,fontWeight:500,color:rCol(pct),margin:"6px 0"}}>{fmtP(pct)}</div>
-              {barRow(pct, col)}
-              <div style={{display:"flex",justifyContent:"space-between",marginTop:6,fontSize:11,color:"#808080"}}>
-                <span>BOQ {fmt$(tBoq)}</span>
-                <span style={{color:diff>=0?"#16a34a":"#dc2626",fontWeight:500}}>{diff>=0?"+":""}{diff.toFixed(1)}pp vs goal</span>
-              </div>
-            </div>
-          );
-        })}
-      </div>}
+    // Classify each CSM's account-level changes into Q3-style buckets using getDet()
+    const q2Data = q2CSMs.map(c => {
+      const det = getDet(c.n) || {};
+      const inc = det.i || [];
+      const dec = det.d || [];
+      const netNewEntries   = inc.filter(e => e.b === 0);
+      const increaseEntries = inc.filter(e => e.b > 0);
+      const cancelledEntries= dec.filter(e => e.m === 0);
+      const decreaseEntries = dec.filter(e => e.m > 0);
+      const netNewMrr    = netNewEntries.reduce((s,e)=>s+e.m, 0);
+      const increaseMrr  = increaseEntries.reduce((s,e)=>s+e.n, 0);
+      const cancelledMrr = cancelledEntries.reduce((s,e)=>s+e.b, 0);
+      return {
+        name: c.n,
+        boqAdjusted: c.boq,
+        currentMrr:  c.lcm,
+        netNewMrr, increaseMrr, cancelledMrr,
+        removedMrr: 0, // Q2 book of business has no separate "removed from report" tracking
+        netNewCount: netNewEntries.length,
+        cancelledCount: cancelledEntries.length,
+        removedCount: 0,
+        retPct: c.ret,
+        acctRows: [
+          ...netNewEntries.map(e=>({acct:e.a||"—",eid:e.e,boqMrr:e.b,curMrr:e.m,status:"net_new",delta:e.n})),
+          ...increaseEntries.map(e=>({acct:e.a||"—",eid:e.e,boqMrr:e.b,curMrr:e.m,status:"increase",delta:e.n})),
+          ...cancelledEntries.map(e=>({acct:e.a||"—",eid:e.e,boqMrr:e.b,curMrr:e.m,status:"cancelled",delta:e.n})),
+          ...decreaseEntries.map(e=>({acct:e.a||"—",eid:e.e,boqMrr:e.b,curMrr:e.m,status:"decrease",delta:e.n})),
+        ],
+      };
+    });
 
-      {/* Above / below goal split */}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
-        <div style={S.card}>
-          <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>
-            Above goal ≥91% — {csms.filter(c=>c.ret>=GOAL).length} CSMs
-          </div>
-          {csms.filter(c=>c.ret>=GOAL).sort((a,b)=>b.ret-a.ret).map(c=>(
-            <div key={c.n} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)"}}>
-              <span style={{flex:1,fontSize:12,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{dispName(c.n)}</span>
-              <span style={{fontSize:11,color:"#808080"}}>{fmt$(c.boq)}</span>
-              {pill(c.ret)}
-            </div>
-          ))}
+    const totalBoqAdj    = q2Data.reduce((s,c)=>s+c.boqAdjusted, 0);
+    const totalCurrent   = q2Data.reduce((s,c)=>s+c.currentMrr, 0);
+    const totalNetNew    = q2Data.reduce((s,c)=>s+c.netNewMrr, 0);
+    const totalIncrease  = q2Data.reduce((s,c)=>s+c.increaseMrr, 0);
+    const totalCancelled = q2Data.reduce((s,c)=>s+c.cancelledMrr, 0);
+    const totalRemoved   = 0;
+    const overallRet     = totalBoqAdj > 0 ? totalCurrent / totalBoqAdj : null;
+
+    // Filter CSM table by active tile
+    const csmsWithEvent = (type) => {
+      if (type === "increase")  return new Set(q2Data.filter(c=>c.increaseMrr>0).map(c=>c.name));
+      if (type === "cancelled") return new Set(q2Data.filter(c=>c.cancelledMrr>0).map(c=>c.name));
+      if (type === "net_new")   return new Set(q2Data.filter(c=>c.netNewMrr>0).map(c=>c.name));
+      if (type === "removed")   return new Set(); // never populated — Q2 model has no removed-account tracking
+      return null;
+    };
+    const activeCsmSet = q2TileFilter ? csmsWithEvent(q2TileFilter) : null;
+    const visibleCSMs  = activeCsmSet ? q2Data.filter(c => activeCsmSet.has(c.name)) : q2Data;
+
+    const sortedCSMs = [...visibleCSMs].sort((a, b) => {
+      const dir = q2Sort.dir === "asc" ? 1 : -1;
+      const col = q2Sort.col;
+      const va = a[col] ?? (col === "name" ? "" : 0);
+      const vb = b[col] ?? (col === "name" ? "" : 0);
+      if (col === "name") return dir * String(va).localeCompare(String(vb));
+      return dir * ((Number(va)||0) - (Number(vb)||0));
+    });
+
+    const fmt$   = n => "$"+Number(n||0).toLocaleString("en-US",{minimumFractionDigits:0,maximumFractionDigits:0});
+    const fmtPct = p => p!=null ? (p*100).toFixed(1)+"%" : "--";
+    const retCol = p => p==null?"#808080":p>=0.91?"#16a34a":p>=0.85?"#d97706":"#dc2626";
+
+    const sortTh2 = (col, label, right) => {
+      const active = q2Sort.col === col;
+      return (
+        <th key={col} onClick={()=>setQ2Sort(s=>({col, dir: s.col===col&&s.dir==="asc"?"desc":"asc"}))}
+          style={{padding:"0 8px 8px 0",textAlign:right?"right":"left",fontSize:10,textTransform:"uppercase",
+            color:active?"#29355D":"#808080",fontWeight:active?700:500,cursor:"pointer",
+            borderBottom:"0.5px solid rgba(41,53,93,.08)",userSelect:"none",whiteSpace:"nowrap"}}>
+          {label}{active?(q2Sort.dir==="asc"?" ↑":" ↓"):""}
+        </th>
+      );
+    };
+
+    const tileBtn2 = (label, value, sub, color, filterKey) => {
+      const active = q2TileFilter === filterKey;
+      return (
+        <div key={filterKey} onClick={()=>{ setQ2TileFilter(active?null:filterKey); setQ2CSMFilter(null); }}
+          style={{background:active?"#29355D":"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",
+            borderTop:"3px solid "+color,cursor:"pointer",transition:"all .15s",
+            boxShadow:active?"0 2px 8px rgba(41,53,93,.15)":"none"}}>
+          <div style={{fontSize:10,textTransform:"uppercase",color:active?"rgba(255,255,255,.7)":"#808080",fontWeight:500,marginBottom:4}}>{label}</div>
+          <div style={{fontSize:22,fontWeight:600,color:active?"#fff":color,lineHeight:1,marginBottom:4}}>{value}</div>
+          <div style={{fontSize:10,color:active?"rgba(255,255,255,.6)":"#808080"}}>{sub}</div>
         </div>
-        <div style={S.card}>
-          <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>
-            Below goal &lt;91% — {csms.filter(c=>c.ret<GOAL).length} CSMs
-          </div>
-          {csms.filter(c=>c.ret<GOAL).sort((a,b)=>a.ret-b.ret).map(c=>(
-            <div key={c.n} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)"}}>
-              <span style={{flex:1,fontSize:12,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{dispName(c.n)}</span>
-              <span style={{fontSize:11,color:"#808080"}}>{fmt$(c.boq)}</span>
-              {pill(c.ret)}
-            </div>
-          ))}
-        </div>
-      </div>
-      {/* Billing changes detail — only when a single CSM is selected */}
-      {filterCSM&&(()=>{
-        const det = getDet(filterCSM)||{};
-        const inc = det.i||[], dec = det.d||[];
-        if (inc.length===0 && dec.length===0) return null;
-        const thS={fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,padding:"0 8px 8px 0",textAlign:"left",borderBottom:"0.5px solid rgba(41,53,93,.08)"};
-        const tdS={padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",fontSize:12,verticalAlign:"top"};
-        return <div style={{...S.card,marginTop:16}}>
-          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
-            <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500}}>Billing changes this quarter — {dispName(filterCSM)}</div>
-            {inc.length>0&&<span style={{fontSize:10,fontWeight:500,padding:"2px 8px",borderRadius:20,background:"rgba(22,163,74,.1)",color:"#166534"}}>↑ {inc.length} increase{inc.length!==1?"s":""}</span>}
-            {dec.length>0&&<span style={{fontSize:10,fontWeight:500,padding:"2px 8px",borderRadius:20,background:"rgba(220,38,38,.1)",color:"#991b1b"}}>↓ {dec.length} decrease{dec.length!==1?"s":""}</span>}
-          </div>
-          <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
-            <thead><tr>
-              <th style={thS}>Enterprise ID</th>
-              <th style={thS}>Account</th>
-              <th style={thS}>Product</th>
-              <th style={{...thS,textAlign:"right"}}>BOQ</th>
-              <th style={{...thS,textAlign:"right"}}>Current</th>
-              <th style={{...thS,textAlign:"right"}}>Change</th>
-              <th style={thS}>Type</th>
-            </tr></thead>
-            <tbody>
-              {[...inc.map(r=>({...r,_t:"increase"})),...dec.map(r=>({...r,_t:"decrease"}))].sort((a,b)=>b.n-a.n).map((r,i)=>{
-                const isInc = r._t==="increase";
-                return <tr key={i}>
-                  <td style={{...tdS,fontFamily:"monospace",fontSize:11,color:"#808080"}}>{r.e}</td>
-                  <td style={{...tdS,maxWidth:130,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.a||"—"}</td>
-                  <td style={tdS}>{r.l}</td>
-                  <td style={{...tdS,textAlign:"right",color:"#808080"}}>${r.b.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
-                  <td style={{...tdS,textAlign:"right"}}>${r.m.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
-                  <td style={{...tdS,textAlign:"right",fontWeight:600,color:isInc?"#16a34a":"#dc2626"}}>
-                    {isInc?"+":""}{r.n.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}
-                  </td>
-                  <td style={tdS}>
-                    <span style={{fontSize:10,fontWeight:500,padding:"2px 8px",borderRadius:20,
-                      background:isInc?"rgba(22,163,74,.1)":"rgba(220,38,38,.1)",
-                      color:isInc?"#166534":"#991b1b"}}>
-                      {isInc?"↑ Increase":"↓ Decrease"}
-                    </span>
-                  </td>
-                </tr>;
-              })}
-            </tbody>
-          </table>
-        </div>;
-      })()}
-    </div>
-  );
+      );
+    };
 
-  const renderTable = () => (
-    <div style={S.card}>
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
-        <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500}}>CSM retention — {csms.length} CSMs</div>
-        <div style={{display:"flex",alignItems:"center",gap:10}}>
-          <span style={{fontSize:11,color:"#808080"}}>Click row to expand churn detail</span>
-          <button onClick={()=>{
-              const header = ["CSM","Coach","BOQ","Current","Net","Retention","Churned Accounts"];
-              const rows = csms.map(c=>[dispName(c.n),c.c,c.boq,c.lcm,c.net,(c.ret*100).toFixed(1)+"%",c.mcc]);
-              const csv = [header,...rows].map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n");
-              const a = document.createElement("a");
-              a.href = "data:text/csv;charset=utf-8,"+encodeURIComponent(csv);
-              a.download = "csm_retention_"+new Date().toISOString().slice(0,10)+".csv";
-              a.click();
-            }}
-            style={{padding:"4px 12px",borderRadius:20,border:"0.5px solid rgba(41,53,93,.2)",
-              background:"#fff",color:"#29355D",fontSize:11,fontWeight:500,cursor:"pointer"}}>
-            ⬇ Export CSV
-          </button>
-        </div>
-      </div>
-      <div style={{overflowX:"auto"}}>
-        <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
-          <thead><tr>
-            <th style={thS}>CSM</th>
-            <th style={thS}>Coach</th>
-            {thSort("boq","BOQ $")}
-            {thSort("lcm","Current $")}
-            {thSort("net","Net")}
-            {thSort("ret","Retention")}
-            {thSort("mcc","Churned")}
-            <th style={thS}>Churned accounts</th>
-          </tr></thead>
-          <tbody>
-            {csms.map(c=>{
-              const isExp = expandedBob===c.n;
-              const col = TEAM_COLS[COACHES.find(x=>x.n===c.c)?.t||""]||"#808080";
-              return (
-                <React.Fragment key={c.n}>
-                  <tr style={{cursor:"pointer"}} onClick={()=>setExpandedBob(n=>n===c.n?null:c.n)}>
-                    <td style={{...tdS,fontWeight:500}}>{dispName(c.n)}{isExp&&<span style={{fontSize:10,color:"#808080",marginLeft:4}}>▲</span>}</td>
-                    <td style={tdS}><span style={{display:"inline-block",width:7,height:7,borderRadius:"50%",background:col,marginRight:4,verticalAlign:"middle"}}/><span style={{color:"#808080"}}>{c.c.split(" ").pop()}</span></td>
-                    <td style={tdRS}>{fmt$(c.boq)}</td>
-                    <td style={tdRS}>{fmt$(c.lcm)}</td>
-                    <td style={{...tdRS,color:c.net<0?"#dc2626":"#16a34a",fontWeight:500}}>{c.net<0?"-":"+"}{fmt$(Math.abs(c.net))}</td>
-                    <td style={tdRS}>{pill(c.ret)}</td>
-                    <td style={tdRS}>{c.mcc>0?<span style={{fontSize:11,fontWeight:500,color:"#dc2626"}}>{c.mcc}</span>:"—"}</td>
-                    <td style={tdRS}>{c.bcc>0?<span style={{fontSize:11,fontWeight:500,color:"#dc2626"}}>{c.bcc}</span>:"—"}</td>
-                    <td style={tdS}>
-                      {c.mch.slice(0,2).map((a,i)=><span key={i} style={{display:"inline-block",fontSize:10,padding:"1px 6px",borderRadius:10,background:"#F4F6FB",color:"#808080",border:"0.5px solid rgba(41,53,93,.1)",margin:"1px 2px 1px 0"}}>MC: {a}</span>)}
-                      {c.bch.slice(0,1).map((a,i)=><span key={i} style={{display:"inline-block",fontSize:10,padding:"1px 6px",borderRadius:10,background:"rgba(220,38,38,.06)",color:"#991b1b",border:"0.5px solid rgba(220,38,38,.2)",margin:"1px 2px 1px 0"}}>BC: {a}</span>)}
-                    </td>
-                  </tr>
-                  {isExp&&(
-                    <tr>
-                      <td colSpan={9} style={{padding:"10px 12px",background:"#F4F6FB",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>
-                        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,fontSize:12,marginBottom:12}}>
-                          <div>
-                            <div style={{fontWeight:500,marginBottom:8,fontSize:11,textTransform:"uppercase",color:"#808080"}}>Churned accounts ({c.mcc})</div>
-                            {(c.churned&&c.churned.length>0) ? c.churned.map((a,i)=>(
-                              <div key={i} style={{padding:"5px 0",borderBottom:"0.5px solid rgba(41,53,93,.06)",display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
-                                <span style={{fontSize:12}}>{a.name}</span>
-                                <span style={{display:"flex",gap:4,flexWrap:"wrap",justifyContent:"flex-end"}}>
-                                  {(a.products||[]).map((p,j)=><span key={j} style={{fontSize:10,padding:"1px 7px",borderRadius:20,background:"rgba(220,38,38,.08)",color:"#991b1b",fontWeight:500}}>{p}</span>)}
-                                </span>
-                              </div>
-                            )) : c.mch.length ? c.mch.map((a,i)=><div key={i} style={{padding:"4px 0",borderBottom:"0.5px solid rgba(41,53,93,.06)"}}>{a}</div>) : <span style={{color:"#808080"}}>None this quarter</span>}
-                          </div>
-                          <div>
-                            <div style={{fontWeight:500,marginBottom:8,fontSize:11,textTransform:"uppercase",color:"#808080"}}></div>
-                          </div>
-                        </div>
-                        {(()=>{
-                          const det=getDet(c.n)||{};
-                          const inc=det.i||[], dec=det.d||[];
-                          if(!inc.length&&!dec.length) return null;
-                          const all=[...inc.map(r=>({...r,_t:"i"})),...dec.map(r=>({...r,_t:"d"}))].sort((a,b)=>b.n-a.n);
-                          return <div style={{borderTop:"0.5px solid rgba(41,53,93,.08)",paddingTop:10}}>
-                            <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:8}}>
-                              Billing changes
-                              {inc.length>0&&<span style={{marginLeft:6,padding:"1px 7px",borderRadius:20,background:"rgba(22,163,74,.1)",color:"#166534",fontWeight:500}}>↑ {inc.length}</span>}
-                              {dec.length>0&&<span style={{marginLeft:4,padding:"1px 7px",borderRadius:20,background:"rgba(220,38,38,.1)",color:"#991b1b",fontWeight:500}}>↓ {dec.length}</span>}
-                            </div>
-                            <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
-                              <thead><tr>
-                                {["Enterprise ID","Account","Product","BOQ","Current","Net Change"].map(h=><th key={h} style={{textAlign:h==="Enterprise ID"||h==="Account"||h==="Product"?"left":"right",color:"#808080",fontWeight:500,padding:"0 8px 6px 0",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>{h}</th>)}
-                              </tr></thead>
-                              <tbody>
-                                {all.map((r,i)=><tr key={i}>
-                                  <td style={{padding:"5px 8px 5px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",fontFamily:"monospace",color:"#808080"}}>{r.e}</td>
-                                  <td style={{padding:"5px 8px 5px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)"}}>{r.l}</td>
-                                  <td style={{padding:"5px 8px 5px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#808080"}}>${r.b.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
-                                  <td style={{padding:"5px 8px 5px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right"}}>${r.m.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
-                                  <td style={{padding:"5px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",fontWeight:600,color:r._t==="i"?"#16a34a":"#dc2626"}}>
-                                    {r._t==="i"?"+":""}{r.n.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}
-                                  </td>
-                                </tr>)}
-                              </tbody>
-                            </table>
-                          </div>;
-                        })()}
-                      </td>
-                    </tr>
-                  )}
-                </React.Fragment>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
+    const statusBadge2 = (s) => {
+      const cfg = {
+        increase: {bg:"#dcfce7",fg:"#166534",label:"Increase"},
+        decrease: {bg:"#fef9c3",fg:"#854d0e",label:"Decrease"},
+        net_new:  {bg:"#dcfce7",fg:"#166534",label:"Net New"},
+        cancelled:{bg:"#fef9c3",fg:"#854d0e",label:"Cancelled"},
+        removed:  {bg:"#fee2e2",fg:"#991b1b",label:"Removed"},
+      }[s]||{bg:"#f3f4f6",fg:"#374151",label:s};
+      return <span style={{fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:20,background:cfg.bg,color:cfg.fg}}>{cfg.label}</span>;
+    };
 
-  const renderChurn = () => {
+    const exportQ2CSV = () => {
+      const rows = sortedCSMs.flatMap(c => c.acctRows
+        .filter(r => !q2TileFilter || r.status === q2TileFilter)
+        .map(r => ({ csm: c.name, ...r }))
+      );
+      if (!rows.length) return;
+      const headers = ["CSM","Account","Enterprise ID","Event","BOQ MRR","Current MRR","Change"];
+      const csv = [headers.join(","), ...rows.map(r =>
+        [r.csm,r.acct,r.eid||"",r.status,r.boqMrr,r.curMrr,r.delta]
+        .map(v=>{ const s=String(v??"").replace(/"/g,'""'); return s.includes(",")||s.includes('"')?'"'+s+'"':s; })
+        .join(",")
+      )].join("\n");
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
+      a.download = "Q2-"+(q2TileFilter||"all")+"-"+new Date().toISOString().slice(0,10)+".csv";
+      a.click();
+    };
+
     return (
       <div>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:12,marginBottom:20}}>
-          {[
-            {l:"Churned accounts",v:allChurned,s:"click to view full list",col:"#dc2626",click:()=>setChurnModal(true)},
-            {l:"Products affected",v:allProducts.length,s:allProducts.slice(0,3).join(", ")+(allProducts.length>3?" + more":""),col:"#d97706",click:null},
-            {l:"CSMs with churn",v:churnCSMs.length,s:`of ${csms.length} total`,col:"#d97706",click:null},
-          ].map(m=>(
-            <div key={m.l} onClick={m.click||undefined}
-              style={{background:"#ECEEF1",borderRadius:8,padding:14,position:"relative",overflow:"hidden",
-                cursor:m.click?"pointer":"default",
-                outline:m.click?"none":"none",
-                transition:"box-shadow .15s",
-              }}
-              onMouseEnter={e=>{if(m.click)e.currentTarget.style.boxShadow="0 2px 12px rgba(220,38,38,.18)";}}
-              onMouseLeave={e=>{e.currentTarget.style.boxShadow="none";}}>
-              <div style={{position:"absolute",top:0,left:0,right:0,height:2,background:m.col,borderRadius:"8px 8px 0 0"}}/>
-              <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:6}}>{m.l}</div>
-              <div style={{fontSize:22,fontWeight:500,color:m.col,lineHeight:1,marginBottom:3}}>{m.v}</div>
-              <div style={{fontSize:11,color:m.click?"#dc2626":"#808080",fontWeight:m.click?500:400}}>{m.s}</div>
-              {m.click&&<div style={{position:"absolute",top:10,right:12,fontSize:11,color:"#dc2626",opacity:.6}}>↗</div>}
-            </div>
-          ))}
+        {/* 5 clickable tiles */}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(5,minmax(0,1fr))",gap:10,marginBottom:16}}>
+          <div onClick={()=>{ setQ2TileFilter(null); setQ2CSMFilter(null); }}
+            style={{background:!q2TileFilter?"#29355D":"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",
+              borderTop:"3px solid #29355D",cursor:"pointer",transition:"all .15s"}}>
+            <div style={{fontSize:10,textTransform:"uppercase",color:!q2TileFilter?"rgba(255,255,255,.7)":"#808080",fontWeight:500,marginBottom:4}}>Q2 Retention</div>
+            <div style={{fontSize:22,fontWeight:600,color:!q2TileFilter?"#fff":retCol(overallRet),lineHeight:1,marginBottom:4}}>{fmtPct(overallRet)}</div>
+            <div style={{fontSize:10,color:!q2TileFilter?"rgba(255,255,255,.6)":"#808080"}}>goal 91% · adj BOQ {fmt$(totalBoqAdj)}</div>
+          </div>
+          {tileBtn2("Increases",fmt$(totalIncrease),q2Data.reduce((s,c)=>s+c.acctRows.filter(r=>r.status==="increase").length,0)+" accounts","#16a34a","increase")}
+          {tileBtn2("Cancelled ($0)",fmt$(totalCancelled),q2Data.reduce((s,c)=>s+c.cancelledCount,0)+" accounts","#d97706","cancelled")}
+          {tileBtn2("Removed from BOQ",fmt$(totalRemoved),"0 accounts","#dc2626","removed")}
+          {tileBtn2("Net New",fmt$(totalNetNew),q2Data.reduce((s,c)=>s+c.netNewCount,0)+" accounts","#FF5000","net_new")}
         </div>
-        <div style={S.card}>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
-            <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500}}>Churned accounts by CSM — click row to expand</div>
-            <button onClick={exportChurnCSV}
+
+        {/* Sortable CSM table with inline expand */}
+        <div style={{...S.card}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+            <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500}}>
+              {q2TileFilter ? sortedCSMs.length+" CSMs with "+q2TileFilter.replace(/_/g," ")+" — click name to expand" : "CSM Q2 Retention — click name to expand"}
+            </div>
+            <button onClick={exportQ2CSV}
               style={{padding:"4px 12px",borderRadius:20,border:"0.5px solid rgba(41,53,93,.2)",
                 background:"#fff",color:"#29355D",fontSize:11,fontWeight:500,cursor:"pointer"}}>
               ⬇ Export CSV
@@ -4838,76 +4709,88 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
           </div>
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
             <thead><tr>
-              <th style={thS}>CSM</th><th style={thS}>Coach</th>
-              <th style={thRS}>Churned</th>
-              <th style={thS}>Accounts</th>
+              {sortTh2("name","CSM",false)}
+              {sortTh2("boqAdjusted","BOQ (adj)",true)}
+              {sortTh2("currentMrr","Current MRR",true)}
+              {sortTh2("netNewMrr","Net New",true)}
+              {sortTh2("removedMrr","Removed",true)}
+              {sortTh2("cancelledMrr","Cancelled",true)}
+              {sortTh2("increaseMrr","Increase",true)}
+              <th key="retPct" onClick={()=>setQ2Sort(s=>({col:"retPct",dir:s.col==="retPct"&&s.dir==="asc"?"desc":"asc"}))} style={{padding:"0 8px 8px 24px",textAlign:"left",fontSize:10,textTransform:"uppercase",color:q2Sort.col==="retPct"?"#29355D":"#808080",fontWeight:q2Sort.col==="retPct"?700:500,cursor:"pointer",borderBottom:"0.5px solid rgba(41,53,93,.08)",userSelect:"none",whiteSpace:"nowrap"}}>{"Retention %"}{q2Sort.col==="retPct"?(q2Sort.dir==="asc"?" ↑":" ↓"):""}</th>
             </tr></thead>
             <tbody>
-              {churnCSMs.map(c=>{
-                const isExp=expandedBob===c.n+"_ch";
-                const col=TEAM_COLS[COACHES.find(x=>x.n===c.c)?.t||""]||"#808080";
-                const churned = c.churned||c.mch.map(n=>({name:n,products:[]}));
+              {sortedCSMs.map(c => {
+                const isOpen = q2CSMFilter === c.name;
+                const acctRows = c.acctRows.filter(r => !q2TileFilter || r.status === q2TileFilter);
                 return (
-                  <React.Fragment key={c.n}>
-                    <tr style={{cursor:"pointer"}} onClick={()=>setExpandedBob(n=>n===c.n+"_ch"?null:c.n+"_ch")}>
-                      <td style={{...tdS,fontWeight:500}}>{dispName(c.n)}</td>
-                      <td style={tdS}><span style={{display:"inline-block",width:7,height:7,borderRadius:"50%",background:col,marginRight:4,verticalAlign:"middle"}}/><span style={{color:"#808080"}}>{c.c.split(" ").pop()}</span></td>
-                      <td style={tdRS}><span style={{fontWeight:500,color:"#dc2626"}}>{c.mcc}</span></td>
-                      <td style={tdS}>
-                        {churned.slice(0,2).map((a,i)=>{
-                          const nm = typeof a==="string"?a:a.name;
-                          const prods = typeof a==="string"?[]:(a.products||[]);
-                          return <span key={i} style={{display:"inline-block",fontSize:10,padding:"1px 6px",borderRadius:10,background:"rgba(220,38,38,.06)",color:"#991b1b",border:"0.5px solid rgba(220,38,38,.2)",margin:"1px 2px 1px 0"}}>{nm}{prods.length>0?" · "+prods.join(", "):""}</span>;
-                        })}
-                        {churned.length>2&&<span style={{fontSize:10,color:"#808080"}}>+{churned.length-2} more</span>}
+                  <React.Fragment key={c.name}>
+                    <tr onClick={()=>setQ2CSMFilter(isOpen?null:c.name)}
+                      style={{cursor:"pointer",background:isOpen?"rgba(41,53,93,.04)":"transparent"}}>
+                      <td style={{padding:"8px 8px 8px 0",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)",fontWeight:500,color:"#29355D"}}>
+                        <span style={{marginRight:6,fontSize:9,display:"inline-block",transition:"transform .15s",
+                          transform:isOpen?"rotate(90deg)":"none",color:"#808080"}}>▶</span>
+                        {dispName(c.name)}
+                      </td>
+                      <td style={{padding:"8px 8px 8px 0",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#808080"}}>{fmt$(c.boqAdjusted)}</td>
+                      <td style={{padding:"8px 8px 8px 0",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)",textAlign:"right"}}>{fmt$(c.currentMrr)}</td>
+                      <td style={{padding:"8px 8px 8px 0",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#16a34a"}}>{c.netNewMrr>0?"+"+fmt$(c.netNewMrr):"--"}</td>
+                      <td style={{padding:"8px 8px 8px 0",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#808080"}}>--</td>
+                      <td style={{padding:"8px 8px 8px 0",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:c.cancelledMrr>0?"#d97706":"#808080"}}>{c.cancelledMrr>0?"-"+fmt$(c.cancelledMrr):"--"}</td>
+                      <td style={{padding:"8px 8px 8px 0",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:c.increaseMrr>0?"#16a34a":"#808080"}}>{c.increaseMrr>0?"+"+fmt$(c.increaseMrr):"--"}</td>
+                      <td style={{padding:"8px 8px 8px 24px",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)"}}>
+                        <div style={{display:"flex",alignItems:"center",gap:8}}>
+                          <div style={{width:80,height:5,background:"#ECEEF1",borderRadius:3,overflow:"hidden"}}>
+                            <div style={{width:Math.min((c.retPct||0)*100,100).toFixed(1)+"%",height:"100%",background:retCol(c.retPct),borderRadius:3}}/>
+                          </div>
+                          <span style={{fontWeight:600,color:retCol(c.retPct)}}>{fmtPct(c.retPct)}</span>
+                        </div>
                       </td>
                     </tr>
-                    {isExp&&(
+                    {isOpen && acctRows.length === 0 && (
+                      <tr><td colSpan={8} style={{padding:"8px 0 8px 24px",borderBottom:"0.5px solid rgba(41,53,93,.08)",
+                        color:"#808080",fontSize:11,fontStyle:"italic"}}>
+                        No {q2TileFilter?q2TileFilter.replace(/_/g," "):"tracked changes"} for {dispName(c.name)} this quarter
+                      </td></tr>
+                    )}
+                    {isOpen && acctRows.length > 0 && (
                       <tr>
-                        <td colSpan={4} style={{padding:"10px 12px",background:"#F4F6FB",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>
-                          <div style={{fontSize:12,marginBottom:12}}>
-                            <div style={{fontWeight:500,marginBottom:8,fontSize:11,textTransform:"uppercase",color:"#808080"}}>Churned accounts ({c.mcc})</div>
-                            {churned.map((a,i)=>{
-                              const nm=typeof a==="string"?a:a.name;
-                              const prods=typeof a==="string"?[]:(a.products||[]);
-                              return <div key={i} style={{padding:"6px 0",borderBottom:"0.5px solid rgba(41,53,93,.06)",display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
-                                <span>{i+1}. {nm}</span>
-                                <span style={{display:"flex",gap:4,flexWrap:"wrap",justifyContent:"flex-end"}}>
-                                  {prods.map((p,j)=><span key={j} style={{fontSize:10,padding:"1px 7px",borderRadius:20,background:"rgba(220,38,38,.08)",color:"#991b1b",fontWeight:500}}>{p}</span>)}
-                                </span>
-                              </div>;
-                            })}
+                        <td colSpan={8} style={{padding:"0 0 12px 24px",borderBottom:"0.5px solid rgba(41,53,93,.08)",background:"rgba(41,53,93,.02)"}}>
+                          <div style={{fontSize:10,color:"#808080",padding:"6px 0 4px",fontStyle:"italic"}}>
+                            {acctRows.length} accounts{q2TileFilter?" · filtered: "+q2TileFilter.replace(/_/g," "):""}
                           </div>
-                          {(()=>{
-                            const det=getDet(c.n)||{};
-                            const inc=det.i||[], dec=det.d||[];
-                            if(!inc.length&&!dec.length) return null;
-                            const all=[...inc.map(r=>({...r,_t:"i"})),...dec.map(r=>({...r,_t:"d"}))].sort((a,b)=>b.n-a.n);
-                            return <div style={{borderTop:"0.5px solid rgba(41,53,93,.08)",paddingTop:10}}>
-                              <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:8}}>
-                                Billing changes
-                                {inc.length>0&&<span style={{marginLeft:6,padding:"1px 7px",borderRadius:20,background:"rgba(22,163,74,.1)",color:"#166534",fontWeight:500}}>↑ {inc.length}</span>}
-                                {dec.length>0&&<span style={{marginLeft:4,padding:"1px 7px",borderRadius:20,background:"rgba(220,38,38,.1)",color:"#991b1b",fontWeight:500}}>↓ {dec.length}</span>}
-                              </div>
-                              <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
-                                <thead><tr>
-                                  {["Enterprise ID","Account","Product","BOQ","Current","Net Change"].map(h=><th key={h} style={{textAlign:h==="Enterprise ID"||h==="Account"||h==="Product"?"left":"right",color:"#808080",fontWeight:500,padding:"0 8px 6px 0",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>{h}</th>)}
-                                </tr></thead>
-                                <tbody>
-                                  {all.map((r,i)=><tr key={i}>
-                                    <td style={{padding:"5px 8px 5px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",fontFamily:"monospace",color:"#808080"}}>{r.e}</td>
-                                    <td style={{padding:"5px 8px 5px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",maxWidth:130,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.a||"—"}</td>
-                                    <td style={{padding:"5px 8px 5px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)"}}>{r.l}</td>
-                                    <td style={{padding:"5px 8px 5px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#808080"}}>${r.b.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
-                                    <td style={{padding:"5px 8px 5px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right"}}>${r.m.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
-                                    <td style={{padding:"5px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",fontWeight:600,color:r._t==="i"?"#16a34a":"#dc2626"}}>
-                                      {r._t==="i"?"+":""}{r.n.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}
-                                    </td>
-                                  </tr>)}
-                                </tbody>
-                              </table>
-                            </div>;
-                          })()}
+                          <table style={{width:"100%",borderCollapse:"collapse",fontSize:11,tableLayout:"fixed"}}>
+                            <colgroup>
+                              <col style={{width:"38%"}}/><col style={{width:"9%"}}/><col style={{width:"10%"}}/>
+                              <col style={{width:"8%"}}/><col style={{width:"8%"}}/><col style={{width:"8%"}}/>
+                              <col style={{width:"8%"}}/><col style={{width:"11%"}}/>
+                            </colgroup>
+                            <thead><tr style={{borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>
+                              {["Account","BOQ MRR","Current MRR","Net New","Removed","Cancelled","Increase"].map((h,hi)=>(
+                                <th key={h} style={{padding:"4px 8px 4px 0",textAlign:hi===0?"left":"right",fontSize:10,
+                                  textTransform:"uppercase",color:"#808080",fontWeight:500,whiteSpace:"nowrap"}}>{h}</th>
+                              ))}
+                              <th style={{padding:"4px 0 4px 24px",textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500}}>Status</th>
+                            </tr></thead>
+                            <tbody>
+                              {acctRows.map((r,i)=>{
+                                const isIncrease = r.status==="increase";
+                                const isNetNew   = r.status==="net_new";
+                                const isCancelled= r.status==="cancelled";
+                                return (
+                                  <tr key={i} style={{borderTop:"0.5px solid rgba(41,53,93,.05)"}}>
+                                    <td style={{padding:"5px 8px 5px 0",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.acct}</td>
+                                    <td style={{padding:"5px 8px 5px 0",textAlign:"right",color:"#808080"}}>{r.boqMrr>0?fmt$(r.boqMrr):"--"}</td>
+                                    <td style={{padding:"5px 8px 5px 0",textAlign:"right"}}>{r.curMrr>0?fmt$(r.curMrr):"--"}</td>
+                                    <td style={{padding:"5px 8px 5px 0",textAlign:"right",color:"#16a34a"}}>{isNetNew?"+"+fmt$(r.curMrr):"--"}</td>
+                                    <td style={{padding:"5px 8px 5px 0",textAlign:"right",color:"#808080"}}>--</td>
+                                    <td style={{padding:"5px 8px 5px 0",textAlign:"right",color:"#d97706"}}>{isCancelled?"-"+fmt$(r.boqMrr):"--"}</td>
+                                    <td style={{padding:"5px 8px 5px 0",textAlign:"right",color:"#16a34a"}}>{isIncrease?"+"+fmt$(r.delta):"--"}</td>
+                                    <td style={{padding:"5px 0 5px 24px"}}>{statusBadge2(r.status)}</td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
                         </td>
                       </tr>
                     )}
@@ -4920,7 +4803,6 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
       </div>
     );
   };
-
 
   const renderQ3 = () => {
     if (!hasQ3) return (
@@ -5407,7 +5289,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
 
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
         <div style={{display:"flex",gap:2,background:"#ECEEF1",borderRadius:8,padding:3}}>
-          {[["overview","Overview"],["table","CSM table"],["churn","Churn detail"],["q3","Q3 Tracking"+( hasQ3?" ✓":"")]].map(([t,l])=>(
+          {[["overview","Q2 Tracking"],["q3","Q3 Tracking"+( hasQ3?" ✓":"")]].map(([t,l])=>(
             <button key={t} onClick={()=>setBobTab(t)}
               style={{padding:"5px 14px",fontSize:12,fontWeight:500,border:"none",borderRadius:6,cursor:"pointer",
                 background:bobTab===t?"#fff":"transparent",color:bobTab===t?"#29355D":t==="q3"&&hasQ3?"#16a34a":"#808080",
@@ -5420,9 +5302,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
           Monthly data · Overall: <strong style={{color:rCol(avgRet)}}>{fmtP(avgRet)}</strong> vs <strong>91%</strong> goal
         </span>
       </div>
-      {bobTab==="overview" && renderOverview()}
-      {bobTab==="table"    && renderTable()}
-      {bobTab==="churn"    && renderChurn()}
+      {bobTab==="overview" && renderQ2()}
       {bobTab==="q3"       && renderQ3()}
     </div>
   );
