@@ -18,7 +18,7 @@ const CSV_SKIPPED = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGw
 const CSV_HISTORY = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=162960918&single=true&output=csv";
 const CSV_BOB     = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=729347262&single=true&output=csv"; // book of business billing
 const CSV_BOB_DET = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=873304103&single=true&output=csv"; // book of business detail
-const CSV_BOB_ADJ = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=132587094&single=true&output=csv"; // bob adjustments
+const CSV_BOB_ADJ = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=806795688&single=true&output=csv"; // bob_adjustments (form submission log)
 // Q3 BOB tracking tabs
 // bob_q3_current = where you paste the fresh BOB report (input, not read by dashboard)
 // bob_q3_results = CSM-level rollup written by Apps Script (read by dashboard)
@@ -880,17 +880,23 @@ function getCallTotals(callData, csmName, week) {
 }
 
 function mapBobAdj(rows) {
-  // Columns: CSM Name, Account Name, Thryv ID, Which assets? (L2), MRR Amount removal or increase
+  // New "bob_adjustments" tab is a form-submission log. Columns include:
+  // CSM Name - First Name, CSM Name - Last Name, Account Name, Enterprise ID,
+  // Which assets?, MRR Amount removal or increase, Decision, Correct CSM Name - First/Last Name, etc.
+  // Per team direction: apply all rows regardless of Decision status, and ignore
+  // "Correct CSM Name" reassignment fields for now (adjustment stays with the original CSM).
   const pf = v => { const x=parseFloat(String(v||"").replace(/[$,]/g,"")); return isNaN(x)?0:x; };
   const adj = {}; // {csmName: {lcmDelta, entries:[{e,a,l,n}]}}
   rows.forEach(r => {
-    const csmRaw = (r["CSM Name"]||"").trim();
+    const first = (r["CSM Name - First Name"]||"").trim();
+    const last  = (r["CSM Name - Last Name"]||"").trim();
+    const csmRaw = (first && last) ? (first+" "+last) : (r["CSM Name"]||"").trim(); // fallback to old single-column format
     const csm = norm(csmRaw)||csmRaw;
     if (!csm||csm.length<3) return;
     const amount = pf(r["MRR Amount removal or increase"]||0);
     if (amount===0) return;
     const entry = {
-      e: (r["Thryv ID"]||"").trim(),
+      e: (r["Enterprise ID"]||r["Thryv ID"]||"").trim(),
       a: (r["Account Name"]||"").trim(),
       l: (r["Which assets?"]||"").trim(),
       n: amount,
