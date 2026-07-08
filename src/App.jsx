@@ -4530,22 +4530,49 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
     : managerCoaches ? COACHES.filter(c=>managerCoaches.includes(c.e)).map(c=>c.e)
     : Object.keys(liveCoachTotals);
 
+  // Shared churn data — used by Overview tile, Churn detail tab, and the full-list modal
+  const churnCSMs = csms.filter(c=>c.mcc>0).sort((a,b)=>b.mcc-a.mcc);
+  const allChurned = csms.reduce((s,c)=>s+(c.mcc||0),0);
+  const allProducts = [...new Set(csms.flatMap(c=>(c.churned||[]).flatMap(a=>a.products||[])))];
+  const allChurnedRows = churnCSMs.flatMap(c =>
+    (c.churned||c.mch.map(n=>({name:n,products:[]}))).map(a=>({
+      csm: dispName(c.n), coach: c.c.split(" ").slice(-1)[0],
+      account: typeof a==="string"?a:a.name,
+      products: typeof a==="string"?[]:(a.products||[]),
+      eid: typeof a==="string"?"":a.eid||"",
+    }))
+  );
+  const exportChurnCSV = () => {
+    const header = ["CSM","Coach","Account","Enterprise ID","Products"];
+    const rows = allChurnedRows.map(r=>[r.csm,r.coach,r.account,r.eid,r.products.join("; ")]);
+    const csv = [header,...rows].map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n");
+    const a = document.createElement("a");
+    a.href = "data:text/csv;charset=utf-8,"+encodeURIComponent(csv);
+    a.download = "churned_accounts_"+new Date().toISOString().slice(0,10)+".csv";
+    a.click();
+  };
+
   const renderOverview = () => (
     <div>
-      {/* Metric tiles */}
+      {/* Metric tiles — Churned accounts tile is clickable, opens full churn list */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(5,minmax(0,1fr))",gap:12,marginBottom:20}}>
         {[
-          {l:"Beginning of quarter", v:fmt$(totBoq),       s:csms.length+" CSMs",           col:"#29355D"},
-          {l:"Last completed month", v:fmt$(totLcm),       s:"Current billing",              col:"#5378FC"},
-          {l:"Net billing change",   v:(totNet<0?"-":"+")+fmt$(Math.abs(totNet)), s:"vs start of quarter", col:totNet<0?"#dc2626":"#16a34a"},
-          {l:"Retention rate",       v:fmtP(avgRet),       s:"Goal: "+fmtP(GOAL),            col:rCol(avgRet)},
-          {l:"Churned accounts",     v:String(totChurned),            s:"accounts w/ $0 billing this qtr", col:"#d97706"},
+          {l:"Beginning of quarter", v:fmt$(totBoq),       s:csms.length+" CSMs",           col:"#29355D", click:null},
+          {l:"Last completed month", v:fmt$(totLcm),       s:"Current billing",              col:"#5378FC", click:null},
+          {l:"Net billing change",   v:(totNet<0?"-":"+")+fmt$(Math.abs(totNet)), s:"vs start of quarter", col:totNet<0?"#dc2626":"#16a34a", click:null},
+          {l:"Retention rate",       v:fmtP(avgRet),       s:"Goal: "+fmtP(GOAL),            col:rCol(avgRet), click:null},
+          {l:"Churned accounts",     v:String(totChurned), s:"click to view full list",       col:"#d97706", click:()=>setChurnModal(true)},
         ].map(m=>(
-          <div key={m.l} style={{background:"#ECEEF1",borderRadius:8,padding:14,position:"relative",overflow:"hidden"}}>
+          <div key={m.l} onClick={m.click||undefined}
+            style={{background:"#ECEEF1",borderRadius:8,padding:14,position:"relative",overflow:"hidden",
+              cursor:m.click?"pointer":"default",transition:"box-shadow .15s"}}
+            onMouseEnter={e=>{if(m.click)e.currentTarget.style.boxShadow="0 2px 12px rgba(217,119,6,.18)";}}
+            onMouseLeave={e=>{e.currentTarget.style.boxShadow="none";}}>
             <div style={{position:"absolute",top:0,left:0,right:0,height:2,background:m.col,borderRadius:"8px 8px 0 0"}}/>
             <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:6}}>{m.l}</div>
             <div style={{fontSize:22,fontWeight:500,color:m.col,lineHeight:1,marginBottom:3}}>{m.v}</div>
-            <div style={{fontSize:11,color:"#808080"}}>{m.s}</div>
+            <div style={{fontSize:11,color:m.click?"#d97706":"#808080",fontWeight:m.click?500:400}}>{m.s}</div>
+            {m.click&&<div style={{position:"absolute",top:10,right:12,fontSize:11,color:"#d97706",opacity:.6}}>↗</div>}
           </div>
         ))}
       </div>
@@ -4666,7 +4693,22 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
     <div style={S.card}>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
         <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500}}>CSM retention — {csms.length} CSMs</div>
-        <div style={{fontSize:11,color:"#808080"}}>Click row to expand churn detail</div>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <span style={{fontSize:11,color:"#808080"}}>Click row to expand churn detail</span>
+          <button onClick={()=>{
+              const header = ["CSM","Coach","BOQ","Current","Net","Retention","Churned Accounts"];
+              const rows = csms.map(c=>[dispName(c.n),c.c,c.boq,c.lcm,c.net,(c.ret*100).toFixed(1)+"%",c.mcc]);
+              const csv = [header,...rows].map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n");
+              const a = document.createElement("a");
+              a.href = "data:text/csv;charset=utf-8,"+encodeURIComponent(csv);
+              a.download = "csm_retention_"+new Date().toISOString().slice(0,10)+".csv";
+              a.click();
+            }}
+            style={{padding:"4px 12px",borderRadius:20,border:"0.5px solid rgba(41,53,93,.2)",
+              background:"#fff",color:"#29355D",fontSize:11,fontWeight:500,cursor:"pointer"}}>
+            ⬇ Export CSV
+          </button>
+        </div>
       </div>
       <div style={{overflowX:"auto"}}>
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
@@ -4761,84 +4803,8 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
   );
 
   const renderChurn = () => {
-    const churnCSMs = csms.filter(c=>c.mcc>0).sort((a,b)=>b.mcc-a.mcc);
-    const allChurned = csms.reduce((s,c)=>s+(c.mcc||0),0);
-    const allProducts = [...new Set(csms.flatMap(c=>(c.churned||[]).flatMap(a=>a.products||[])))];
-
-    // Build flat list of all churned accounts for modal + export
-    const allChurnedRows = churnCSMs.flatMap(c =>
-      (c.churned||c.mch.map(n=>({name:n,products:[]}))).map(a=>({
-        csm: dispName(c.n), coach: c.c.split(" ").slice(-1)[0],
-        account: typeof a==="string"?a:a.name,
-        products: typeof a==="string"?[]:(a.products||[]),
-        eid: typeof a==="string"?"":a.eid||"",
-      }))
-    );
-
-    const exportCSV = () => {
-      const header = ["CSM","Coach","Account","Enterprise ID","Products"];
-      const rows = allChurnedRows.map(r=>[r.csm,r.coach,r.account,r.eid,r.products.join("; ")]);
-      const csv = [header,...rows].map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n");
-      const a = document.createElement("a");
-      a.href = "data:text/csv;charset=utf-8,"+encodeURIComponent(csv);
-      a.download = "churned_accounts_"+new Date().toISOString().slice(0,10)+".csv";
-      a.click();
-    };
-
     return (
       <div>
-        {/* Churned accounts full list modal */}
-        {churnModal&&<div onClick={()=>setChurnModal(false)}
-          style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
-          <div onClick={e=>e.stopPropagation()}
-            style={{background:"#fff",borderRadius:14,width:"100%",maxWidth:820,maxHeight:"85vh",display:"flex",flexDirection:"column",boxShadow:"0 8px 40px rgba(0,0,0,.18)"}}>
-            {/* Modal header */}
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"18px 24px",borderBottom:"0.5px solid rgba(41,53,93,.1)"}}>
-              <div>
-                <div style={{fontSize:16,fontWeight:700,color:"#29355D"}}>All Churned Accounts</div>
-                <div style={{fontSize:12,color:"#808080",marginTop:2}}>{allChurnedRows.length} accounts · {churnCSMs.length} CSMs</div>
-              </div>
-              <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                <button onClick={exportCSV}
-                  style={{padding:"7px 16px",borderRadius:8,border:"none",background:"#29355D",color:"#fff",fontSize:12,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}>
-                  ⬇ Export CSV
-                </button>
-                <button onClick={()=>setChurnModal(false)}
-                  style={{padding:"7px 12px",borderRadius:8,border:"0.5px solid rgba(41,53,93,.2)",background:"#fff",color:"#808080",fontSize:13,cursor:"pointer"}}>✕</button>
-              </div>
-            </div>
-            {/* Table */}
-            <div style={{overflowY:"auto",flex:1,padding:"0 24px 16px"}}>
-              <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,marginTop:12}}>
-                <thead style={{position:"sticky",top:0,background:"#fff",zIndex:1}}>
-                  <tr>
-                    {["CSM","Coach","Account","Enterprise ID","Products"].map(h=>(
-                      <th key={h} style={{padding:"8px 8px 8px 0",borderBottom:"1.5px solid rgba(41,53,93,.1)",textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:600,whiteSpace:"nowrap"}}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {allChurnedRows.map((r,i)=>(
-                    <tr key={i} style={{borderBottom:"0.5px solid rgba(41,53,93,.05)"}}>
-                      <td style={{padding:"8px 8px 8px 0",fontWeight:500,color:"#29355D",whiteSpace:"nowrap"}}>{r.csm}</td>
-                      <td style={{padding:"8px 8px 8px 0",color:"#808080",whiteSpace:"nowrap"}}>{r.coach}</td>
-                      <td style={{padding:"8px 8px 8px 0",maxWidth:220,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.account}</td>
-                      <td style={{padding:"8px 8px 8px 0",fontFamily:"monospace",color:"#808080",fontSize:11,whiteSpace:"nowrap"}}>{r.eid}</td>
-                      <td style={{padding:"8px 8px 8px 0"}}>
-                        <div style={{display:"flex",flexWrap:"wrap",gap:3}}>
-                          {r.products.map((p,j)=>(
-                            <span key={j} style={{fontSize:10,padding:"1px 7px",borderRadius:20,background:"rgba(220,38,38,.08)",color:"#991b1b",fontWeight:500,whiteSpace:"nowrap"}}>{p}</span>
-                          ))}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>}
-
         <div style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:12,marginBottom:20}}>
           {[
             {l:"Churned accounts",v:allChurned,s:"click to view full list",col:"#dc2626",click:()=>setChurnModal(true)},
@@ -4862,7 +4828,14 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
           ))}
         </div>
         <div style={S.card}>
-          <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>Churned accounts by CSM — click row to expand</div>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+            <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500}}>Churned accounts by CSM — click row to expand</div>
+            <button onClick={exportChurnCSV}
+              style={{padding:"4px 12px",borderRadius:20,border:"0.5px solid rgba(41,53,93,.2)",
+                background:"#fff",color:"#29355D",fontSize:11,fontWeight:500,cursor:"pointer"}}>
+              ⬇ Export CSV
+            </button>
+          </div>
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
             <thead><tr>
               <th style={thS}>CSM</th><th style={thS}>Coach</th>
@@ -5379,6 +5352,56 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
               <div style={{fontSize:11,color:"#808080",marginTop:2}}>{a.csm}</div>
             </div>;
           })}
+        </div>
+      </div>}
+
+      {/* Churned accounts full list modal — shared across all Book of Business sub-tabs */}
+      {churnModal&&<div onClick={()=>setChurnModal(false)}
+        style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+        <div onClick={e=>e.stopPropagation()}
+          style={{background:"#fff",borderRadius:14,width:"100%",maxWidth:820,maxHeight:"85vh",display:"flex",flexDirection:"column",boxShadow:"0 8px 40px rgba(0,0,0,.18)"}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"18px 24px",borderBottom:"0.5px solid rgba(41,53,93,.1)"}}>
+            <div>
+              <div style={{fontSize:16,fontWeight:700,color:"#29355D"}}>All Churned Accounts</div>
+              <div style={{fontSize:12,color:"#808080",marginTop:2}}>{allChurnedRows.length} accounts · {churnCSMs.length} CSMs</div>
+            </div>
+            <div style={{display:"flex",gap:8,alignItems:"center"}}>
+              <button onClick={exportChurnCSV}
+                style={{padding:"7px 16px",borderRadius:8,border:"none",background:"#29355D",color:"#fff",fontSize:12,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}>
+                ⬇ Export CSV
+              </button>
+              <button onClick={()=>setChurnModal(false)}
+                style={{padding:"7px 12px",borderRadius:8,border:"0.5px solid rgba(41,53,93,.2)",background:"#fff",color:"#808080",fontSize:13,cursor:"pointer"}}>✕</button>
+            </div>
+          </div>
+          <div style={{overflowY:"auto",flex:1,padding:"0 24px 16px"}}>
+            <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,marginTop:12}}>
+              <thead style={{position:"sticky",top:0,background:"#fff",zIndex:1}}>
+                <tr>
+                  {["CSM","Coach","Account","Enterprise ID","Products"].map(h=>(
+                    <th key={h} style={{padding:"8px 8px 8px 0",borderBottom:"1.5px solid rgba(41,53,93,.1)",textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:600,whiteSpace:"nowrap"}}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {allChurnedRows.map((r,i)=>(
+                  <tr key={i} style={{borderBottom:"0.5px solid rgba(41,53,93,.05)"}}>
+                    <td style={{padding:"8px 8px 8px 0",fontWeight:500,color:"#29355D",whiteSpace:"nowrap"}}>{r.csm}</td>
+                    <td style={{padding:"8px 8px 8px 0",color:"#808080",whiteSpace:"nowrap"}}>{r.coach}</td>
+                    <td style={{padding:"8px 8px 8px 0",maxWidth:220,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.account}</td>
+                    <td style={{padding:"8px 8px 8px 0",fontFamily:"monospace",color:"#808080",fontSize:11,whiteSpace:"nowrap"}}>{r.eid}</td>
+                    <td style={{padding:"8px 8px 8px 0"}}>
+                      <div style={{display:"flex",flexWrap:"wrap",gap:3}}>
+                        {r.products.map((p,j)=>(
+                          <span key={j} style={{fontSize:10,padding:"1px 7px",borderRadius:20,background:"rgba(220,38,38,.08)",color:"#991b1b",fontWeight:500,whiteSpace:"nowrap"}}>{p}</span>
+                        ))}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>}
 
