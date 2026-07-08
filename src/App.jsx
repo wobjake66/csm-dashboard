@@ -4485,6 +4485,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
   const [q2Sort,       setQ2Sort]       = useState({col:"retPct", dir:"asc"});
   const [q2TileFilter, setQ2TileFilter] = useState(null);
   const [q2CSMFilter,  setQ2CSMFilter]  = useState(null);
+  const [q2AcctSort,   setQ2AcctSort]   = useState({col:"acct", dir:"asc"});
   const [churnModal, setChurnModal] = useState(false);
   const [bobSort, setBobSort]       = useState({col:"ret", dir:"desc"});
   const [expandedBob, setExpandedBob] = useState(null);
@@ -4609,14 +4610,16 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
       const netNewMrr    = netNewEntries.reduce((s,e)=>s+e.m, 0);
       const increaseMrr  = increaseEntries.reduce((s,e)=>s+e.n, 0);
       const cancelledMrr = cancelledEntries.reduce((s,e)=>s+e.b, 0);
+      const decreaseMrr  = decreaseEntries.reduce((s,e)=>s+Math.abs(e.n), 0);
       return {
         name: c.n,
         boqAdjusted: c.boq,
         currentMrr:  c.lcm,
-        netNewMrr, increaseMrr, cancelledMrr,
+        netNewMrr, increaseMrr, cancelledMrr, decreaseMrr,
         removedMrr: 0, // Q2 book of business has no separate "removed from report" tracking
         netNewCount: netNewEntries.length,
         cancelledCount: cancelledEntries.length,
+        decreaseCount: decreaseEntries.length,
         removedCount: 0,
         retPct: c.ret,
         // Full account/product-line book — includes unchanged accounts, not just changed ones
@@ -4629,6 +4632,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
     const totalNetNew    = q2Data.reduce((s,c)=>s+c.netNewMrr, 0);
     const totalIncrease  = q2Data.reduce((s,c)=>s+c.increaseMrr, 0);
     const totalCancelled = q2Data.reduce((s,c)=>s+c.cancelledMrr, 0);
+    const totalDecrease  = q2Data.reduce((s,c)=>s+c.decreaseMrr, 0);
     const totalRemoved   = 0;
     const overallRet     = totalBoqAdj > 0 ? totalCurrent / totalBoqAdj : null;
 
@@ -4636,6 +4640,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
     const csmsWithEvent = (type) => {
       if (type === "increase")  return new Set(q2Data.filter(c=>c.increaseMrr>0).map(c=>c.name));
       if (type === "cancelled") return new Set(q2Data.filter(c=>c.cancelledMrr>0).map(c=>c.name));
+      if (type === "decrease")  return new Set(q2Data.filter(c=>c.decreaseMrr>0).map(c=>c.name));
       if (type === "net_new")   return new Set(q2Data.filter(c=>c.netNewMrr>0).map(c=>c.name));
       if (type === "removed")   return new Set(); // never populated — Q2 model has no removed-account tracking
       return null;
@@ -4714,19 +4719,28 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
 
     return (
       <div>
-        {/* 5 clickable tiles */}
-        <div style={{display:"grid",gridTemplateColumns:"repeat(5,minmax(0,1fr))",gap:10,marginBottom:16}}>
+        {/* 6 tiles: Q2 Retention (reset), Beginning Book & Ending Book (info only), Increases/Decreases/Cancels (filters) */}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(6,minmax(0,1fr))",gap:10,marginBottom:16}}>
           <div onClick={()=>{ setQ2TileFilter(null); setQ2CSMFilter(null); }}
             style={{background:!q2TileFilter?"#29355D":"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",
               borderTop:"3px solid #29355D",cursor:"pointer",transition:"all .15s"}}>
             <div style={{fontSize:10,textTransform:"uppercase",color:!q2TileFilter?"rgba(255,255,255,.7)":"#808080",fontWeight:500,marginBottom:4}}>Q2 Retention</div>
             <div style={{fontSize:22,fontWeight:600,color:!q2TileFilter?"#fff":retCol(overallRet),lineHeight:1,marginBottom:4}}>{fmtPct(overallRet)}</div>
-            <div style={{fontSize:10,color:!q2TileFilter?"rgba(255,255,255,.6)":"#808080"}}>goal 91% · adj BOQ {fmt$(totalBoqAdj)}</div>
+            <div style={{fontSize:10,color:!q2TileFilter?"rgba(255,255,255,.6)":"#808080"}}>goal 91%</div>
+          </div>
+          <div style={{background:"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",borderTop:"3px solid #5378FC"}}>
+            <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Beginning Book</div>
+            <div style={{fontSize:22,fontWeight:600,color:"#5378FC",lineHeight:1,marginBottom:4}}>{fmt$(totalBoqAdj)}</div>
+            <div style={{fontSize:10,color:"#808080"}}>{q2Data.length} CSMs</div>
+          </div>
+          <div style={{background:"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",borderTop:"3px solid #29355D"}}>
+            <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Ending Book</div>
+            <div style={{fontSize:22,fontWeight:600,color:"#29355D",lineHeight:1,marginBottom:4}}>{fmt$(totalCurrent)}</div>
+            <div style={{fontSize:10,color:"#808080"}}>current billing</div>
           </div>
           {tileBtn2("Increases",fmt$(totalIncrease),q2Data.reduce((s,c)=>s+c.acctRows.filter(r=>r.status==="increase").length,0)+" accounts","#16a34a","increase")}
-          {tileBtn2("Cancelled ($0)",fmt$(totalCancelled),q2Data.reduce((s,c)=>s+c.cancelledCount,0)+" accounts","#d97706","cancelled")}
-          {tileBtn2("Removed from BOQ",fmt$(totalRemoved),"0 accounts","#dc2626","removed")}
-          {tileBtn2("Net New",fmt$(totalNetNew),q2Data.reduce((s,c)=>s+c.netNewCount,0)+" accounts","#FF5000","net_new")}
+          {tileBtn2("Decreases",fmt$(totalDecrease),q2Data.reduce((s,c)=>s+c.decreaseCount,0)+" accounts","#dc2626","decrease")}
+          {tileBtn2("Cancels",fmt$(totalCancelled),q2Data.reduce((s,c)=>s+c.cancelledCount,0)+" accounts","#d97706","cancelled")}
         </div>
 
         {/* Sortable CSM table with inline expand */}
@@ -4750,6 +4764,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
               {sortTh2("removedMrr","Removed",true)}
               {sortTh2("cancelledMrr","Cancelled",true)}
               {sortTh2("increaseMrr","Increase",true)}
+              {sortTh2("decreaseMrr","Decrease",true)}
               <th key="retPct" onClick={()=>setQ2Sort(s=>({col:"retPct",dir:s.col==="retPct"&&s.dir==="asc"?"desc":"asc"}))} style={{padding:"0 8px 8px 24px",textAlign:"left",fontSize:10,textTransform:"uppercase",color:q2Sort.col==="retPct"?"#29355D":"#808080",fontWeight:q2Sort.col==="retPct"?700:500,cursor:"pointer",borderBottom:"0.5px solid rgba(41,53,93,.08)",userSelect:"none",whiteSpace:"nowrap"}}>{"Retention %"}{q2Sort.col==="retPct"?(q2Sort.dir==="asc"?" ↑":" ↓"):""}</th>
             </tr></thead>
             <tbody>
@@ -4771,6 +4786,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                       <td style={{padding:"8px 8px 8px 0",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#808080"}}>--</td>
                       <td style={{padding:"8px 8px 8px 0",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:c.cancelledMrr>0?"#d97706":"#808080"}}>{c.cancelledMrr>0?"-"+fmt$(c.cancelledMrr):"--"}</td>
                       <td style={{padding:"8px 8px 8px 0",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:c.increaseMrr>0?"#16a34a":"#808080"}}>{c.increaseMrr>0?"+"+fmt$(c.increaseMrr):"--"}</td>
+                      <td style={{padding:"8px 8px 8px 0",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:c.decreaseMrr>0?"#dc2626":"#808080"}}>{c.decreaseMrr>0?"-"+fmt$(c.decreaseMrr):"--"}</td>
                       <td style={{padding:"8px 8px 8px 24px",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)"}}>
                         <div style={{display:"flex",alignItems:"center",gap:8}}>
                           <div style={{width:80,height:5,background:"#ECEEF1",borderRadius:3,overflow:"hidden"}}>
@@ -4781,33 +4797,66 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                       </td>
                     </tr>
                     {isOpen && acctRows.length === 0 && (
-                      <tr><td colSpan={8} style={{padding:"8px 0 8px 24px",borderBottom:"0.5px solid rgba(41,53,93,.08)",
+                      <tr><td colSpan={9} style={{padding:"8px 0 8px 24px",borderBottom:"0.5px solid rgba(41,53,93,.08)",
                         color:"#808080",fontSize:11,fontStyle:"italic"}}>
                         No {q2TileFilter?q2TileFilter.replace(/_/g," "):"tracked changes"} for {dispName(c.name)} this quarter
                       </td></tr>
                     )}
-                    {isOpen && acctRows.length > 0 && (
+                    {isOpen && acctRows.length > 0 && (() => {
+                      // Derive sortable values per row and apply current sort
+                      const rowsWithVals = acctRows.map(r => ({
+                        ...r,
+                        netNewVal:   r.status==="net_new"   ? r.curMrr : 0,
+                        cancelledVal:r.status==="cancelled" ? r.boqMrr : 0,
+                        increaseVal: r.status==="increase"  ? r.delta  : 0,
+                        decreaseVal: r.status==="decrease"  ? Math.abs(r.delta) : 0,
+                      }));
+                      const sortedAcctRows = [...rowsWithVals].sort((a,b) => {
+                        const dir = q2AcctSort.dir==="asc" ? 1 : -1;
+                        const col = q2AcctSort.col;
+                        if (col==="acct") return dir*a.acct.localeCompare(b.acct);
+                        const va = col==="boqMrr"?a.boqMrr:col==="curMrr"?a.curMrr:col==="netNewVal"?a.netNewVal:col==="cancelledVal"?a.cancelledVal:col==="increaseVal"?a.increaseVal:col==="decreaseVal"?a.decreaseVal:0;
+                        const vb = col==="boqMrr"?b.boqMrr:col==="curMrr"?b.curMrr:col==="netNewVal"?b.netNewVal:col==="cancelledVal"?b.cancelledVal:col==="increaseVal"?b.increaseVal:col==="decreaseVal"?b.decreaseVal:0;
+                        return dir*(va-vb);
+                      });
+                      const aTh = (col,label,right=true) => {
+                        const active = q2AcctSort.col===col;
+                        return (
+                          <th key={col} onClick={()=>setQ2AcctSort(s=>({col,dir:s.col===col&&s.dir==="asc"?"desc":"asc"}))}
+                            style={{padding:"4px 8px 4px 0",textAlign:right?"right":"left",fontSize:10,
+                              textTransform:"uppercase",color:active?"#29355D":"#808080",fontWeight:active?700:500,
+                              cursor:"pointer",userSelect:"none",whiteSpace:"nowrap"}}>
+                            {label}{active?(q2AcctSort.dir==="asc"?" ↑":" ↓"):""}
+                          </th>
+                        );
+                      };
+                      return (
                       <tr>
-                        <td colSpan={8} style={{padding:"0 0 12px 24px",borderBottom:"0.5px solid rgba(41,53,93,.08)",background:"rgba(41,53,93,.02)"}}>
+                        <td colSpan={9} style={{padding:"0 0 12px 24px",borderBottom:"0.5px solid rgba(41,53,93,.08)",background:"rgba(41,53,93,.02)"}}>
                           <div style={{fontSize:10,color:"#808080",padding:"6px 0 4px",fontStyle:"italic"}}>
-                            {acctRows.length} accounts{q2TileFilter?" · filtered: "+q2TileFilter.replace(/_/g," "):""}
+                            {sortedAcctRows.length} accounts{q2TileFilter?" · filtered: "+q2TileFilter.replace(/_/g," "):""}
                           </div>
                           <table style={{width:"100%",borderCollapse:"collapse",fontSize:11,tableLayout:"fixed"}}>
                             <colgroup>
-                              <col style={{width:"38%"}}/><col style={{width:"9%"}}/><col style={{width:"10%"}}/>
+                              <col style={{width:"32%"}}/><col style={{width:"9%"}}/><col style={{width:"9%"}}/>
                               <col style={{width:"8%"}}/><col style={{width:"8%"}}/><col style={{width:"8%"}}/>
-                              <col style={{width:"8%"}}/><col style={{width:"11%"}}/>
+                              <col style={{width:"8%"}}/><col style={{width:"8%"}}/><col style={{width:"10%"}}/>
                             </colgroup>
                             <thead><tr style={{borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>
-                              {["Account","BOQ MRR","Current MRR","Net New","Removed","Cancelled","Increase"].map((h,hi)=>(
-                                <th key={h} style={{padding:"4px 8px 4px 0",textAlign:hi===0?"left":"right",fontSize:10,
-                                  textTransform:"uppercase",color:"#808080",fontWeight:500,whiteSpace:"nowrap"}}>{h}</th>
-                              ))}
+                              {aTh("acct","Account",false)}
+                              {aTh("boqMrr","BOQ MRR")}
+                              {aTh("curMrr","Current MRR")}
+                              {aTh("netNewVal","Net New")}
+                              <th style={{padding:"4px 8px 4px 0",textAlign:"right",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,whiteSpace:"nowrap"}}>Removed</th>
+                              {aTh("cancelledVal","Cancelled")}
+                              {aTh("increaseVal","Increase")}
+                              {aTh("decreaseVal","Decrease")}
                               <th style={{padding:"4px 0 4px 24px",textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500}}>Status</th>
                             </tr></thead>
                             <tbody>
-                              {acctRows.map((r,i)=>{
+                              {sortedAcctRows.map((r,i)=>{
                                 const isIncrease = r.status==="increase";
+                                const isDecrease = r.status==="decrease";
                                 const isNetNew   = r.status==="net_new";
                                 const isCancelled= r.status==="cancelled";
                                 return (
@@ -4819,6 +4868,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                                     <td style={{padding:"5px 8px 5px 0",textAlign:"right",color:"#808080"}}>--</td>
                                     <td style={{padding:"5px 8px 5px 0",textAlign:"right",color:"#d97706"}}>{isCancelled?"-"+fmt$(r.boqMrr):"--"}</td>
                                     <td style={{padding:"5px 8px 5px 0",textAlign:"right",color:"#16a34a"}}>{isIncrease?"+"+fmt$(r.delta):"--"}</td>
+                                    <td style={{padding:"5px 8px 5px 0",textAlign:"right",color:"#dc2626"}}>{isDecrease?"-"+fmt$(Math.abs(r.delta)):"--"}</td>
                                     <td style={{padding:"5px 0 5px 24px"}}>{statusBadge2(r.status)}</td>
                                   </tr>
                                 );
@@ -4827,7 +4877,8 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                           </table>
                         </td>
                       </tr>
-                    )}
+                      );
+                    })()}
                   </React.Fragment>
                 );
               })}
