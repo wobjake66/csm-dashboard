@@ -933,19 +933,32 @@ function mapBobDet(rows) {
         canceled[csm][acct].products.push(prod);
     }
 
-    if (net===0) return;
+    if (net===0) {
+      // Still record unchanged line items in the full account list
+      if (!det[csm]) det[csm] = {i:[],d:[],all:[]};
+      if (!det[csm].all) det[csm].all = [];
+      if (acct) det[csm].all.push({ e:eid, a:acct, l:prod, b:boq, m:lcm, n:0, status:"unchanged" });
+      return;
+    }
     const entry = {
       e: eid, a: acct, l: prod,
       b: boq, m: lcm, n: net,
     };
-    if (!det[csm]) det[csm] = {i:[],d:[]};
+    if (!det[csm]) det[csm] = {i:[],d:[],all:[]};
+    if (!det[csm].all) det[csm].all = [];
+    let status;
+    if (boq === 0 && lcm > 0) status = "net_new";
+    else if (boq > 0 && lcm === 0) status = "cancelled";
+    else if (net > 0) status = "increase";
+    else status = "decrease";
+    if (acct) det[csm].all.push({...entry, status});
     if (net>0) det[csm].i.push(entry);
     else det[csm].d.push(entry);
   });
 
   // Attach canceled summary to each CSM's det entry
   Object.entries(canceled).forEach(([csm, accts]) => {
-    if (!det[csm]) det[csm] = {i:[],d:[]};
+    if (!det[csm]) det[csm] = {i:[],d:[],all:[]};
     det[csm].churned = Object.entries(accts).map(([name, v]) => ({
       name, eid: v.eid, products: v.products
     }));
@@ -4561,15 +4574,19 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
   const renderQ2 = () => {
     const q2CSMs = csms; // already filtered by coach/manager/CSM via filtCSMs()
 
-    // Classify each CSM's account-level changes into Q3-style buckets using getDet()
+    // Classify each CSM's full account-level book using getDet().all (falls back to i/d if unavailable)
     const q2Data = q2CSMs.map(c => {
       const det = getDet(c.n) || {};
-      const inc = det.i || [];
-      const dec = det.d || [];
-      const netNewEntries   = inc.filter(e => e.b === 0);
-      const increaseEntries = inc.filter(e => e.b > 0);
-      const cancelledEntries= dec.filter(e => e.m === 0);
-      const decreaseEntries = dec.filter(e => e.m > 0);
+      const all = (det.all && det.all.length)
+        ? det.all
+        : [
+            ...(det.i||[]).map(e=>({...e, status: e.b===0?"net_new":"increase"})),
+            ...(det.d||[]).map(e=>({...e, status: e.m===0?"cancelled":"decrease"})),
+          ];
+      const netNewEntries   = all.filter(r => r.status === "net_new");
+      const increaseEntries = all.filter(r => r.status === "increase");
+      const cancelledEntries= all.filter(r => r.status === "cancelled");
+      const decreaseEntries = all.filter(r => r.status === "decrease");
       const netNewMrr    = netNewEntries.reduce((s,e)=>s+e.m, 0);
       const increaseMrr  = increaseEntries.reduce((s,e)=>s+e.n, 0);
       const cancelledMrr = cancelledEntries.reduce((s,e)=>s+e.b, 0);
@@ -4583,12 +4600,8 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
         cancelledCount: cancelledEntries.length,
         removedCount: 0,
         retPct: c.ret,
-        acctRows: [
-          ...netNewEntries.map(e=>({acct:e.a||"—",eid:e.e,boqMrr:e.b,curMrr:e.m,status:"net_new",delta:e.n})),
-          ...increaseEntries.map(e=>({acct:e.a||"—",eid:e.e,boqMrr:e.b,curMrr:e.m,status:"increase",delta:e.n})),
-          ...cancelledEntries.map(e=>({acct:e.a||"—",eid:e.e,boqMrr:e.b,curMrr:e.m,status:"cancelled",delta:e.n})),
-          ...decreaseEntries.map(e=>({acct:e.a||"—",eid:e.e,boqMrr:e.b,curMrr:e.m,status:"decrease",delta:e.n})),
-        ],
+        // Full account/product-line book — includes unchanged accounts, not just changed ones
+        acctRows: all.map(r => ({acct:r.a||"—",eid:r.e,boqMrr:r.b,curMrr:r.m,status:r.status,delta:r.n})),
       };
     });
 
@@ -4657,6 +4670,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
         net_new:  {bg:"#dcfce7",fg:"#166534",label:"Net New"},
         cancelled:{bg:"#fef9c3",fg:"#854d0e",label:"Cancelled"},
         removed:  {bg:"#fee2e2",fg:"#991b1b",label:"Removed"},
+        unchanged:{bg:"#f3f4f6",fg:"#6b7280",label:"No Change"},
       }[s]||{bg:"#f3f4f6",fg:"#374151",label:s};
       return <span style={{fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:20,background:cfg.bg,color:cfg.fg}}>{cfg.label}</span>;
     };
