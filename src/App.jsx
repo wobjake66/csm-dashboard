@@ -900,7 +900,8 @@ function mapBobAdj(rows) {
 }
 
 function mapBobDet(rows) {
-  // Columns: A=CSM Name, B=Enterprise ID, C=Account Name, D=L2, E=BOQ, F=LCM, G=Net Billing, H=Retention%
+  // Columns: A=CSM Name, B=Enterprise ID, C=Account Name, D=L2, E=Beginning of Quarter, F=End of Quarter, G=Retention%
+  // Note: there is no separate "Net Billing" column — net change is computed as End - Beginning.
   const pf = v => { const x=parseFloat(String(v||0).replace(/[$,%]/g,"")); return isNaN(x)?0:x; };
   const lf = raw => {
     if (!raw) return "";
@@ -918,13 +919,13 @@ function mapBobDet(rows) {
     const csm = norm(lf(csmRaw))||lf(csmRaw);
     if (!csm||csm.length<3) return;
     const boq = pf(r["Beginning of Quarter"]||0);
-    const lcm = pf(r["Last Completed Month"]||0);
-    const net = pf(r["Net Billing"]||0);
+    const lcm = pf(r["End of Quarter"]||r["Last Completed Month"]||0);
+    const net = lcm - boq;
     const acct = String(r["Account Name"]||"").trim();
     const prod = String(r["L2"]||"").trim();
     const eid  = String(r["Enterprise ID"]||"").trim();
 
-    // Track fully canceled lines (BOQ > 0, LCM = 0)
+    // Track fully canceled lines (BOQ > 0, End of Quarter = 0)
     if (boq > 0 && lcm === 0 && acct) {
       if (!canceled[csm]) canceled[csm] = {};
       if (!canceled[csm][acct]) canceled[csm][acct] = {eid, products:[]};
