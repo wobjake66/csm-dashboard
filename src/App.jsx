@@ -4608,19 +4608,22 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
       const increaseEntries = all.filter(r => r.status === "increase");
       const cancelledEntries= all.filter(r => r.status === "cancelled");
       const decreaseEntries = all.filter(r => r.status === "decrease");
+      const adjustmentEntries = all.filter(r => r.status === "adjustment");
       const netNewMrr    = netNewEntries.reduce((s,e)=>s+e.m, 0);
       const increaseMrr  = increaseEntries.reduce((s,e)=>s+e.n, 0);
       const cancelledMrr = cancelledEntries.reduce((s,e)=>s+e.b, 0);
       const decreaseMrr  = decreaseEntries.reduce((s,e)=>s+Math.abs(e.n), 0);
+      const adjustmentMrr= adjustmentEntries.reduce((s,e)=>s+(e.adjAmount||0), 0);
       return {
         name: c.n,
         boqAdjusted: c.boq,
         currentMrr:  c.lcm,
-        netNewMrr, increaseMrr, cancelledMrr, decreaseMrr,
+        netNewMrr, increaseMrr, cancelledMrr, decreaseMrr, adjustmentMrr,
         removedMrr: 0, // Q2 book of business has no separate "removed from report" tracking
         netNewCount: netNewEntries.length,
         cancelledCount: cancelledEntries.length,
         decreaseCount: decreaseEntries.length,
+        adjustmentCount: adjustmentEntries.length,
         removedCount: 0,
         retPct: c.ret,
         // Full account/product-line book — includes unchanged accounts, not just changed ones
@@ -4634,16 +4637,18 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
     const totalIncrease  = q2Data.reduce((s,c)=>s+c.increaseMrr, 0);
     const totalCancelled = q2Data.reduce((s,c)=>s+c.cancelledMrr, 0);
     const totalDecrease  = q2Data.reduce((s,c)=>s+c.decreaseMrr, 0);
+    const totalAdjustment= q2Data.reduce((s,c)=>s+c.adjustmentMrr, 0);
     const totalRemoved   = 0;
     const overallRet     = totalBoqAdj > 0 ? totalCurrent / totalBoqAdj : null;
 
     // Filter CSM table by active tile
     const csmsWithEvent = (type) => {
-      if (type === "increase")  return new Set(q2Data.filter(c=>c.increaseMrr>0).map(c=>c.name));
-      if (type === "cancelled") return new Set(q2Data.filter(c=>c.cancelledMrr>0).map(c=>c.name));
-      if (type === "decrease")  return new Set(q2Data.filter(c=>c.decreaseMrr>0).map(c=>c.name));
-      if (type === "net_new")   return new Set(q2Data.filter(c=>c.netNewMrr>0).map(c=>c.name));
-      if (type === "removed")   return new Set(); // never populated — Q2 model has no removed-account tracking
+      if (type === "increase")   return new Set(q2Data.filter(c=>c.increaseMrr>0).map(c=>c.name));
+      if (type === "cancelled")  return new Set(q2Data.filter(c=>c.cancelledMrr>0).map(c=>c.name));
+      if (type === "decrease")   return new Set(q2Data.filter(c=>c.decreaseMrr>0).map(c=>c.name));
+      if (type === "net_new")    return new Set(q2Data.filter(c=>c.netNewMrr>0).map(c=>c.name));
+      if (type === "adjustment") return new Set(q2Data.filter(c=>c.adjustmentMrr>0).map(c=>c.name));
+      if (type === "removed")    return new Set(); // never populated — Q2 model has no removed-account tracking
       return null;
     };
     const activeCsmSet = q2TileFilter ? csmsWithEvent(q2TileFilter) : null;
@@ -4721,8 +4726,8 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
 
     return (
       <div>
-        {/* 6 tiles: Q2 Retention (reset), Beginning Book & Ending Book (info only), Increases/Decreases/Cancels (filters) */}
-        <div style={{display:"grid",gridTemplateColumns:"repeat(6,minmax(0,1fr))",gap:10,marginBottom:16}}>
+        {/* 7 tiles: Q2 Retention (reset), Beginning Book & Ending Book (info only), Increases/Decreases/Cancels/Adjustments (filters) */}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(7,minmax(0,1fr))",gap:10,marginBottom:16}}>
           <div onClick={()=>{ setQ2TileFilter(null); setQ2CSMFilter(null); }}
             style={{background:!q2TileFilter?"#29355D":"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",
               borderTop:"3px solid #29355D",cursor:"pointer",transition:"all .15s"}}>
@@ -4743,6 +4748,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
           {tileBtn2("Increases",fmt$(totalIncrease),q2Data.reduce((s,c)=>s+c.acctRows.filter(r=>r.status==="increase").length,0)+" accounts","#16a34a","increase")}
           {tileBtn2("Decreases",fmt$(totalDecrease),q2Data.reduce((s,c)=>s+c.decreaseCount,0)+" accounts","#dc2626","decrease")}
           {tileBtn2("Cancels",fmt$(totalCancelled),q2Data.reduce((s,c)=>s+c.cancelledCount,0)+" accounts","#d97706","cancelled")}
+          {tileBtn2("Adjustments",fmt$(totalAdjustment),q2Data.reduce((s,c)=>s+c.adjustmentCount,0)+" accounts","#1e40af","adjustment")}
         </div>
 
         {/* Sortable CSM table with inline expand */}
@@ -4767,6 +4773,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
               {sortTh2("cancelledMrr","Cancelled",true)}
               {sortTh2("increaseMrr","Increase",true)}
               {sortTh2("decreaseMrr","Decrease",true)}
+              {sortTh2("adjustmentMrr","Adjustment",true)}
               <th key="retPct" onClick={()=>setQ2Sort(s=>({col:"retPct",dir:s.col==="retPct"&&s.dir==="asc"?"desc":"asc"}))} style={{padding:"0 8px 8px 24px",textAlign:"left",fontSize:10,textTransform:"uppercase",color:q2Sort.col==="retPct"?"#29355D":"#808080",fontWeight:q2Sort.col==="retPct"?700:500,cursor:"pointer",borderBottom:"0.5px solid rgba(41,53,93,.08)",userSelect:"none",whiteSpace:"nowrap"}}>{"Retention %"}{q2Sort.col==="retPct"?(q2Sort.dir==="asc"?" ↑":" ↓"):""}</th>
             </tr></thead>
             <tbody>
@@ -4789,6 +4796,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                       <td style={{padding:"8px 8px 8px 0",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:c.cancelledMrr>0?"#d97706":"#808080"}}>{c.cancelledMrr>0?"-"+fmt$(c.cancelledMrr):"--"}</td>
                       <td style={{padding:"8px 8px 8px 0",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:c.increaseMrr>0?"#16a34a":"#808080"}}>{c.increaseMrr>0?"+"+fmt$(c.increaseMrr):"--"}</td>
                       <td style={{padding:"8px 8px 8px 0",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:c.decreaseMrr>0?"#dc2626":"#808080"}}>{c.decreaseMrr>0?"-"+fmt$(c.decreaseMrr):"--"}</td>
+                      <td style={{padding:"8px 8px 8px 0",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:c.adjustmentMrr>0?"#1e40af":"#808080"}}>{c.adjustmentMrr>0?"+"+fmt$(c.adjustmentMrr):"--"}</td>
                       <td style={{padding:"8px 8px 8px 24px",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)"}}>
                         <div style={{display:"flex",alignItems:"center",gap:8}}>
                           <div style={{width:80,height:5,background:"#ECEEF1",borderRadius:3,overflow:"hidden"}}>
@@ -4799,7 +4807,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                       </td>
                     </tr>
                     {isOpen && acctRows.length === 0 && (
-                      <tr><td colSpan={9} style={{padding:"8px 0 8px 24px",borderBottom:"0.5px solid rgba(41,53,93,.08)",
+                      <tr><td colSpan={10} style={{padding:"8px 0 8px 24px",borderBottom:"0.5px solid rgba(41,53,93,.08)",
                         color:"#808080",fontSize:11,fontStyle:"italic"}}>
                         No {q2TileFilter?q2TileFilter.replace(/_/g," "):"tracked changes"} for {dispName(c.name)} this quarter
                       </td></tr>
