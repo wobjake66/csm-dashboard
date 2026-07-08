@@ -883,8 +883,11 @@ function mapBobAdj(rows) {
   // New "bob_adjustments" tab is a form-submission log. Columns include:
   // CSM Name - First Name, CSM Name - Last Name, Account Name, Enterprise ID,
   // Which assets?, MRR Amount removal or increase, Decision, Correct CSM Name - First/Last Name, etc.
-  // Per team direction: apply all rows regardless of Decision status, and ignore
-  // "Correct CSM Name" reassignment fields for now (adjustment stays with the original CSM).
+  // Per team direction: apply all rows regardless of Decision status, ignore
+  // "Correct CSM Name" reassignment fields for now, and treat every adjustment as a positive
+  // credit added to the CSM's ending book (current MRR / retention) — regardless of the sign
+  // entered on the submission form — since these corrections represent revenue that shouldn't
+  // count against the CSM's retention (e.g. moved to another team), not a further loss.
   const pf = v => { const x=parseFloat(String(v||"").replace(/[$,]/g,"")); return isNaN(x)?0:x; };
   const adj = {}; // {csmName: {lcmDelta, entries:[{e,a,l,n}]}}
   rows.forEach(r => {
@@ -893,7 +896,7 @@ function mapBobAdj(rows) {
     const csmRaw = (first && last) ? (first+" "+last) : (r["CSM Name"]||"").trim(); // fallback to old single-column format
     const csm = norm(csmRaw)||csmRaw;
     if (!csm||csm.length<3) return;
-    const amount = pf(r["MRR Amount removal or increase"]||0);
+    const amount = Math.abs(pf(r["MRR Amount removal or increase"]||0)); // always positive credit
     if (amount===0) return;
     const entry = {
       e: (r["Enterprise ID"]||r["Thryv ID"]||"").trim(),
