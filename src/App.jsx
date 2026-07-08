@@ -4438,16 +4438,47 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
     const adj = bobAdj[adjKey];
     const extraInc = adj.entries.filter(e=>e.n>0).map(e=>({...e, b:0, m:e.n, _adj:true}));
     const extraDec = adj.entries.filter(e=>e.n<0).map(e=>({...e, b:0, m:e.n, _adj:true}));
-    // Also inject into the full account list (.all) used by Q2 Tracking's expand view,
-    // tagged explicitly as increase/decrease (these are manual corrections, not brand-new accounts)
-    const extraAllInc = extraInc.map(e=>({...e, status:"increase"}));
-    const extraAllDec = extraDec.map(e=>({...e, status:"decrease"}));
-    const baseAll = base.all || [];
+    // Also apply adjustments to the full account list (.all) used by Q2 Tracking's expand view.
+    // An adjustment is a correction to the BOQ attributed to this CSM (e.g. "this account/product
+    // belongs to a different CSM and shouldn't count against my book"), NOT a separate event
+    // stacked on top of whatever already happened to that account this quarter. So: match the
+    // adjustment to the existing account row by Enterprise ID (preferring a matching product/asset
+    // name if there are multiple lines for that ID), reduce that row's BOQ by the adjustment amount,
+    // and recompute its status/delta from the corrected BOQ. Only fall back to a standalone new row
+    // if no matching account exists in the book at all.
+    const baseAll = [...(base.all || [])];
+    adj.entries.forEach(a => {
+      const eid = (a.e||"").trim();
+      let matchIdx = -1;
+      if (eid) {
+        const candidates = baseAll.map((row,idx)=>({row,idx})).filter(({row})=>(row.e||"").trim()===eid);
+        if (candidates.length === 1) {
+          matchIdx = candidates[0].idx;
+        } else if (candidates.length > 1) {
+          // Prefer a row whose product/asset name matches the adjustment's "Which assets?" field
+          const assetMatch = candidates.find(({row})=> a.l && row.l && row.l.toLowerCase()===a.l.toLowerCase());
+          matchIdx = assetMatch ? assetMatch.idx : candidates.sort((x,y)=>y.row.b-x.row.b)[0].idx;
+        }
+      }
+      if (matchIdx >= 0) {
+        const row = baseAll[matchIdx];
+        const newB = Math.max(0, row.b + a.n); // a.n is signed: negative = remove from BOQ, positive = add
+        let status;
+        if (newB === 0 && row.m > 0) status = "net_new";
+        else if (newB > 0 && row.m === 0) status = "cancelled";
+        else if (newB === row.m) status = "unchanged";
+        else status = row.m > newB ? "increase" : "decrease";
+        baseAll[matchIdx] = {...row, b:newB, n:row.m-newB, status, _adjusted:true, _adjAmount:a.n};
+      } else {
+        // No existing account row to net against — show as its own increase/decrease entry
+        baseAll.push({...a, b:0, m:a.n, status: a.n>0?"increase":"decrease", _adj:true});
+      }
+    });
     return {
       ...base,
       i: [...(base.i||[]), ...extraInc],
       d: [...(base.d||[]), ...extraDec],
-      all: [...baseAll, ...extraAllInc, ...extraAllDec],
+      all: baseAll,
     };
   };
   // Live sheet data when available, hardcoded fallback otherwise
