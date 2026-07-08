@@ -4479,6 +4479,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
   const [q2Sort,       setQ2Sort]       = useState({col:"retPct", dir:"asc"});
   const [q2TileFilter, setQ2TileFilter] = useState(null);
   const [q2CSMFilter,  setQ2CSMFilter]  = useState(null);
+  const [q2AcctSort,   setQ2AcctSort]   = useState({col:"acct", dir:"asc"});
   const [churnModal, setChurnModal] = useState(false);
   const [bobSort, setBobSort]       = useState({col:"ret", dir:"desc"});
   const [expandedBob, setExpandedBob] = useState(null);
@@ -4775,33 +4776,66 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                       </td>
                     </tr>
                     {isOpen && acctRows.length === 0 && (
-                      <tr><td colSpan={8} style={{padding:"8px 0 8px 24px",borderBottom:"0.5px solid rgba(41,53,93,.08)",
+                      <tr><td colSpan={9} style={{padding:"8px 0 8px 24px",borderBottom:"0.5px solid rgba(41,53,93,.08)",
                         color:"#808080",fontSize:11,fontStyle:"italic"}}>
                         No {q2TileFilter?q2TileFilter.replace(/_/g," "):"tracked changes"} for {dispName(c.name)} this quarter
                       </td></tr>
                     )}
-                    {isOpen && acctRows.length > 0 && (
+                    {isOpen && acctRows.length > 0 && (() => {
+                      // Derive sortable values per row and apply current sort
+                      const rowsWithVals = acctRows.map(r => ({
+                        ...r,
+                        netNewVal:   r.status==="net_new"   ? r.curMrr : 0,
+                        cancelledVal:r.status==="cancelled" ? r.boqMrr : 0,
+                        increaseVal: r.status==="increase"  ? r.delta  : 0,
+                        decreaseVal: r.status==="decrease"  ? Math.abs(r.delta) : 0,
+                      }));
+                      const sortedAcctRows = [...rowsWithVals].sort((a,b) => {
+                        const dir = q2AcctSort.dir==="asc" ? 1 : -1;
+                        const col = q2AcctSort.col;
+                        if (col==="acct") return dir*a.acct.localeCompare(b.acct);
+                        const va = col==="boqMrr"?a.boqMrr:col==="curMrr"?a.curMrr:col==="netNewVal"?a.netNewVal:col==="cancelledVal"?a.cancelledVal:col==="increaseVal"?a.increaseVal:col==="decreaseVal"?a.decreaseVal:0;
+                        const vb = col==="boqMrr"?b.boqMrr:col==="curMrr"?b.curMrr:col==="netNewVal"?b.netNewVal:col==="cancelledVal"?b.cancelledVal:col==="increaseVal"?b.increaseVal:col==="decreaseVal"?b.decreaseVal:0;
+                        return dir*(va-vb);
+                      });
+                      const aTh = (col,label,right=true) => {
+                        const active = q2AcctSort.col===col;
+                        return (
+                          <th key={col} onClick={()=>setQ2AcctSort(s=>({col,dir:s.col===col&&s.dir==="asc"?"desc":"asc"}))}
+                            style={{padding:"4px 8px 4px 0",textAlign:right?"right":"left",fontSize:10,
+                              textTransform:"uppercase",color:active?"#29355D":"#808080",fontWeight:active?700:500,
+                              cursor:"pointer",userSelect:"none",whiteSpace:"nowrap"}}>
+                            {label}{active?(q2AcctSort.dir==="asc"?" ↑":" ↓"):""}
+                          </th>
+                        );
+                      };
+                      return (
                       <tr>
-                        <td colSpan={8} style={{padding:"0 0 12px 24px",borderBottom:"0.5px solid rgba(41,53,93,.08)",background:"rgba(41,53,93,.02)"}}>
+                        <td colSpan={9} style={{padding:"0 0 12px 24px",borderBottom:"0.5px solid rgba(41,53,93,.08)",background:"rgba(41,53,93,.02)"}}>
                           <div style={{fontSize:10,color:"#808080",padding:"6px 0 4px",fontStyle:"italic"}}>
-                            {acctRows.length} accounts{q2TileFilter?" · filtered: "+q2TileFilter.replace(/_/g," "):""}
+                            {sortedAcctRows.length} accounts{q2TileFilter?" · filtered: "+q2TileFilter.replace(/_/g," "):""}
                           </div>
                           <table style={{width:"100%",borderCollapse:"collapse",fontSize:11,tableLayout:"fixed"}}>
                             <colgroup>
-                              <col style={{width:"38%"}}/><col style={{width:"9%"}}/><col style={{width:"10%"}}/>
+                              <col style={{width:"32%"}}/><col style={{width:"9%"}}/><col style={{width:"9%"}}/>
                               <col style={{width:"8%"}}/><col style={{width:"8%"}}/><col style={{width:"8%"}}/>
-                              <col style={{width:"8%"}}/><col style={{width:"11%"}}/>
+                              <col style={{width:"8%"}}/><col style={{width:"8%"}}/><col style={{width:"10%"}}/>
                             </colgroup>
                             <thead><tr style={{borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>
-                              {["Account","BOQ MRR","Current MRR","Net New","Removed","Cancelled","Increase"].map((h,hi)=>(
-                                <th key={h} style={{padding:"4px 8px 4px 0",textAlign:hi===0?"left":"right",fontSize:10,
-                                  textTransform:"uppercase",color:"#808080",fontWeight:500,whiteSpace:"nowrap"}}>{h}</th>
-                              ))}
+                              {aTh("acct","Account",false)}
+                              {aTh("boqMrr","BOQ MRR")}
+                              {aTh("curMrr","Current MRR")}
+                              {aTh("netNewVal","Net New")}
+                              <th style={{padding:"4px 8px 4px 0",textAlign:"right",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,whiteSpace:"nowrap"}}>Removed</th>
+                              {aTh("cancelledVal","Cancelled")}
+                              {aTh("increaseVal","Increase")}
+                              {aTh("decreaseVal","Decrease")}
                               <th style={{padding:"4px 0 4px 24px",textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500}}>Status</th>
                             </tr></thead>
                             <tbody>
-                              {acctRows.map((r,i)=>{
+                              {sortedAcctRows.map((r,i)=>{
                                 const isIncrease = r.status==="increase";
+                                const isDecrease = r.status==="decrease";
                                 const isNetNew   = r.status==="net_new";
                                 const isCancelled= r.status==="cancelled";
                                 return (
@@ -4813,6 +4847,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                                     <td style={{padding:"5px 8px 5px 0",textAlign:"right",color:"#808080"}}>--</td>
                                     <td style={{padding:"5px 8px 5px 0",textAlign:"right",color:"#d97706"}}>{isCancelled?"-"+fmt$(r.boqMrr):"--"}</td>
                                     <td style={{padding:"5px 8px 5px 0",textAlign:"right",color:"#16a34a"}}>{isIncrease?"+"+fmt$(r.delta):"--"}</td>
+                                    <td style={{padding:"5px 8px 5px 0",textAlign:"right",color:"#dc2626"}}>{isDecrease?"-"+fmt$(Math.abs(r.delta)):"--"}</td>
                                     <td style={{padding:"5px 0 5px 24px"}}>{statusBadge2(r.status)}</td>
                                   </tr>
                                 );
@@ -4821,7 +4856,8 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                           </table>
                         </td>
                       </tr>
-                    )}
+                      );
+                    })()}
                   </React.Fragment>
                 );
               })}
