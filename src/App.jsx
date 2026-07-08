@@ -966,8 +966,8 @@ function mapBob(rows) {
   rows.forEach(r => {
     const csmRaw  = String(r["CSM Name"]||r["csm_name"]||r["CSM"]||"").trim();
     const coachRaw= r["CSM Coach"]||r["Coach"]||"";
-    const boq=pf(r["Beginning of Quarter"]||r["BOQ"]||r["boq"]||0);
-    const lcm=pf(r["Last Completed Month"]||r["lcm"]||r["Current"]||0);
+    const boq=pf(r["Beginning of Quarter"]||r["Beginning Revenue"]||r["BOQ"]||r["boq"]||0);
+    const lcm=pf(r["Last Completed Month"]||r["Ending Revenue"]||r["lcm"]||r["Current"]||0);
     const net=pf(r["Net Billing"]||r["net"]||0);
     const pctRaw=pf(r["Retention %"]||r["Retention"]||r["ret"]||r["pct"]||0);
     const pct=pctRaw>1?pctRaw/100:pctRaw;
