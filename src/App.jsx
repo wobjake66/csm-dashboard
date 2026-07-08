@@ -4443,7 +4443,11 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
     // Adjustments are tracked separately and DON'T modify BOQ, current, or any retention math —
     // they show up as their own "Adjustment" row for visibility only, always displayed as a
     // positive tracked amount regardless of the sign entered on the submission form.
-    const adjRows = adj.entries.map(a => ({...a, b:0, m:0, n:0, status:"adjustment", adjAmount: Math.abs(a.n)}));
+    // The adjustment credit already flows into the CSM's top-level Current MRR / retention via
+    // lcmDelta. So the adjustment row here also needs m (current MRR) set to the credit amount —
+    // otherwise summing account-level rows (in the expand view and CSV export) won't match the
+    // top-line Ending Book / Current MRR figure, which double-counts the credit only at one level.
+    const adjRows = adj.entries.map(a => ({...a, b:0, m:a.n, n:a.n, status:"adjustment", adjAmount:a.n}));
     return {
       ...base,
       i: [...(base.i||[]), ...extraInc],
