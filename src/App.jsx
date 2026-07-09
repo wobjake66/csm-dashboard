@@ -4734,6 +4734,16 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
 
     return (
       <div>
+        {/* Preliminary data disclaimer */}
+        <div style={{display:"flex",alignItems:"center",gap:8,background:"#FFF7ED",border:"0.5px solid rgba(217,119,6,.25)",
+          borderRadius:8,padding:"9px 14px",marginBottom:14,fontSize:12,color:"#92400e"}}>
+          <span style={{fontSize:14}}>⚠️</span>
+          <span>
+            <strong>Preliminary numbers.</strong> These figures include all submitted adjustments, which may not be fully approved yet.
+            This view shows what results would look like if every submitted adjustment is accepted as-is — treat it as a working estimate, not final.
+          </span>
+        </div>
+
         {/* 7 tiles: Q2 Retention (reset), Beginning Book & Ending Book (info only), Increases/Decreases/Cancels/Adjustments (filters) */}
         <div style={{display:"grid",gridTemplateColumns:"repeat(7,minmax(0,1fr))",gap:10,marginBottom:16}}>
           <div onClick={()=>{ setQ2TileFilter(null); setQ2CSMFilter(null); }}
