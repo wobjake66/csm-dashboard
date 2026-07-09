@@ -282,6 +282,7 @@ function norm(n) { return NAME_NORM[n.toLowerCase().trim()] || n.trim(); }
 function dispName(n) {
   if (!n) return n;
   if (n === "Merve (MJ) Brielmann") return "MJ Brielmann";
+  if (n === "Lauren Carter") return "Lauren Fogg"; // married name change — same person, same internal ID
   return n;
 }
 function pm(v) { const x = parseFloat(String(v||0).replace(/[$,]/g,"")); return isNaN(x) ? 0 : x; }
