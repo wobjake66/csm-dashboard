@@ -264,6 +264,8 @@ const DEACTIVATED_CSMS = new Set([
   "matt sword",
   "tyler popplewell",
   "tyler moeggenberg",
+  "rossi valerio tejeda",
+  "rossi valerio",
 ]);
 
 function lk(n) { return n ? ROSTER[n.toLowerCase().trim()] || null : null; }
@@ -4920,6 +4922,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
     );
 
     const q3CSMs = Object.values(q3Current).filter(c => {
+      if (DEACTIVATED_CSMS.has((norm(c.name)||c.name||"").toLowerCase().trim())) return false;
       const i = lk(norm(c.name)) || lk(c.name);
       if (managerCoaches && !(i && managerCoaches.includes(i.c))) return false;
       if (filterCoach && (i && i.c) !== filterCoach) return false;
