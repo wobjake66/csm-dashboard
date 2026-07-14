@@ -4496,14 +4496,11 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
   const [q2TileFilter, setQ2TileFilter] = useState(null);
   const [q2CSMFilter,  setQ2CSMFilter]  = useState(null);
   const [q2AcctSort,   setQ2AcctSort]   = useState({col:"acct", dir:"asc"});
-  // Domo Book of Business tab state
-  const [domoView,       setDomoView]       = useState("csm");        // "csm" | "account"
-  const [domoSort,        setDomoSort]        = useState({col:"retPct", dir:"asc"});
-  const [domoAcctSort,    setDomoAcctSort]    = useState({col:"acct", dir:"asc"});
-  const [domoCSMFilter,   setDomoCSMFilter]   = useState(null);        // expanded CSM in "csm" view
-  const [domoStatusFilter,setDomoStatusFilter]= useState("");         // increase/decrease/cancelled/no_data/unchanged
-  const [domoSourceFilter,setDomoSourceFilter]= useState("");         // sf/supp/both/none
-  const [domoSearch,      setDomoSearch]      = useState("");
+  // Domo Book of Business tab state — mirrors Q2/Q3 Tracking pattern
+  const [domoSort,       setDomoSort]       = useState({col:"retPct", dir:"asc"});
+  const [domoAcctSort,   setDomoAcctSort]   = useState({col:"acct", dir:"asc"});
+  const [domoCSMFilter,  setDomoCSMFilter]  = useState(null);   // expanded CSM
+  const [domoTileFilter, setDomoTileFilter] = useState(null);   // clicked tile: increase/decrease/cancelled/no_data
   const [churnModal, setChurnModal] = useState(false);
   const [bobSort, setBobSort]       = useState({col:"ret", dir:"desc"});
   const [expandedBob, setExpandedBob] = useState(null);
@@ -5369,8 +5366,16 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
       return s;
     };
 
+    if (domoBoq.length === 0) return (
+      <div style={{...S.card,textAlign:"center",padding:"40px 20px",color:"#808080"}}>
+        <div style={{fontSize:32,marginBottom:12}}>📊</div>
+        <div style={{fontSize:14,fontWeight:500,color:"#29355D",marginBottom:8}}>Domo Book of Business — waiting on data</div>
+        <div style={{fontSize:12}}>Paste the fresh Domo BOQ export into the connected Google Sheet tab to populate this view.</div>
+      </div>
+    );
+
     // ── Parse Domo BOQ: group by EID, sum "Beginning of Quarter" across all L2 lines ──
-    const boqMap = {}; // {eid: {eid, csm, acct, boq}}
+    const boqMap = {};
     domoBoq.forEach(r => {
       const csmRaw = String(getCol(r,"CSM Name")||"").trim();
       if (!csmRaw || /TOTAL|GRAND/i.test(csmRaw)) return;
@@ -5384,22 +5389,19 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
       if (!boqMap[eid].acct && acct) boqMap[eid].acct = acct;
     });
 
-    // ── Parse revenue sources (bob_q3_current + bob_q3_supplemental), sum by EID ──
+    // ── Parse revenue sources, tracking presence separately from value ────────
     const parseRevenueByEid = (rows) => {
-      const map = {};
-      const seen = new Set(); // EIDs that appeared at least once, even at $0/blank
+      const map = {}; const seen = new Set();
       rows.forEach(r => {
         const eid = String(getCol(r,"Enterprise Id","Enterprise ID")||"").trim().toUpperCase();
         if (!eid) return;
         seen.add(eid);
-        const rev = pf(getCol(r,"SaaS Revenue"));
-        map[eid] = (map[eid]||0) + rev;
+        map[eid] = (map[eid]||0) + pf(getCol(r,"SaaS Revenue"));
       });
       return {map, seen};
     };
     const sfData   = parseRevenueByEid(q3BobCur);
     const suppData = parseRevenueByEid(q3Supp);
-    const sfMap = sfData.map, suppMap = suppData.map; // kept for the orphan-check below
 
     // ── Join: BOQ is the authoritative account list ──────────────────────────
     const allRows = Object.values(boqMap).map(b => {
@@ -5408,9 +5410,6 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
       const cur = sfRev + suppRev;
       const delta = cur - b.boq;
       const ret = b.boq > 0 ? cur / b.boq : null;
-      // seenAnywhere = the EID appeared as a row in at least one revenue file,
-      // even if that row's revenue was $0/blank — that's a real cancellation
-      // signal, not missing data. Only mark "no_data" if truly absent from both.
       const seenAnywhere = sfData.seen.has(b.eid) || suppData.seen.has(b.eid);
       let src = (sfRev>0 && suppRev>0) ? "both" : sfRev>0 ? "sf" : suppRev>0 ? "supp" : "none";
       let status;
@@ -5424,7 +5423,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
 
     // ── Orphans: in SF/Supp but not in BOQ at all ─────────────────────────────
     const boqEids = new Set(Object.keys(boqMap));
-    const orphanEids = new Set([...Object.keys(sfMap), ...Object.keys(suppMap)].filter(e=>!boqEids.has(e)));
+    const orphanEids = new Set([...Object.keys(sfData.map), ...Object.keys(suppData.map)].filter(e=>!boqEids.has(e)));
     const orphanCount = orphanEids.size;
 
     // ── Scope by coach/manager/CSM filters from the top of the page ──────────
@@ -5436,96 +5435,99 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
       return true;
     });
 
-    // ── Local Status/Source/Search filters ────────────────────────────────────
-    const filteredRows = scopedRows.filter(r => {
-      if (domoStatusFilter && r.status !== domoStatusFilter) return false;
-      if (domoSourceFilter && r.src !== domoSourceFilter) return false;
-      if (domoSearch) {
-        const s = domoSearch.toLowerCase();
-        if (!r.acct.toLowerCase().includes(s) && !r.eid.toLowerCase().includes(s)) return false;
-      }
-      return true;
+    // ── Group by CSM ───────────────────────────────────────────────────────────
+    const csmGroups = {};
+    scopedRows.forEach(r => {
+      const key = r.csm || "(unknown)";
+      if (!csmGroups[key]) csmGroups[key] = {
+        name:key, boq:0, cur:0,
+        increaseMrr:0, decreaseMrr:0, cancelledMrr:0,
+        increaseCount:0, decreaseCount:0, cancelledCount:0, noDataCount:0,
+        rows:[],
+      };
+      const g = csmGroups[key];
+      g.boq += r.boq; g.cur += r.cur; g.rows.push(r);
+      if (r.status==="increase")  { g.increaseMrr  += r.delta;          g.increaseCount++;  }
+      if (r.status==="decrease")  { g.decreaseMrr  += Math.abs(r.delta); g.decreaseCount++;  }
+      if (r.status==="cancelled") { g.cancelledMrr += r.boq;             g.cancelledCount++; }
+      if (r.status==="no_data")   { g.noDataCount++; }
     });
+    const domoData = Object.values(csmGroups).map(g => ({...g, delta:g.cur-g.boq, retPct: g.boq>0 ? g.cur/g.boq : null}));
 
-    // ── KPI tiles ──────────────────────────────────────────────────────────────
-    const totalBoq   = scopedRows.reduce((s,r)=>s+r.boq, 0);
-    const totalCur   = scopedRows.reduce((s,r)=>s+r.cur, 0);
-    const netChange  = totalCur - totalBoq;
-    const overallRet = totalBoq > 0 ? totalCur/totalBoq : null;
+    const totalBoq       = domoData.reduce((s,c)=>s+c.boq, 0);
+    const totalCur        = domoData.reduce((s,c)=>s+c.cur, 0);
+    const totalIncrease   = domoData.reduce((s,c)=>s+c.increaseMrr, 0);
+    const totalDecrease   = domoData.reduce((s,c)=>s+c.decreaseMrr, 0);
+    const totalCancelled  = domoData.reduce((s,c)=>s+c.cancelledMrr, 0);
+    const totalNoData     = domoData.reduce((s,c)=>s+c.noDataCount, 0);
+    const overallRet      = totalBoq > 0 ? totalCur/totalBoq : null;
+
+    // ── Filter CSM table by active tile ───────────────────────────────────────
+    const csmsWithEvent = (type) => {
+      if (type === "increase")  return new Set(domoData.filter(c=>c.increaseMrr>0).map(c=>c.name));
+      if (type === "decrease")  return new Set(domoData.filter(c=>c.decreaseMrr>0).map(c=>c.name));
+      if (type === "cancelled") return new Set(domoData.filter(c=>c.cancelledMrr>0).map(c=>c.name));
+      if (type === "no_data")   return new Set(domoData.filter(c=>c.noDataCount>0).map(c=>c.name));
+      return null;
+    };
+    const activeCsmSet = domoTileFilter ? csmsWithEvent(domoTileFilter) : null;
+    const visibleCSMs  = activeCsmSet ? domoData.filter(c => activeCsmSet.has(c.name)) : domoData;
+
+    const sortedCSMs = [...visibleCSMs].sort((a, b) => {
+      const dir = domoSort.dir === "asc" ? 1 : -1;
+      const col = domoSort.col;
+      const va = a[col] ?? (col === "name" ? "" : 0);
+      const vb = b[col] ?? (col === "name" ? "" : 0);
+      if (col === "name") return dir * String(va).localeCompare(String(vb));
+      return dir * ((Number(va)||0) - (Number(vb)||0));
+    });
 
     const fmt$   = n => "$"+Number(n||0).toLocaleString("en-US",{minimumFractionDigits:0,maximumFractionDigits:0});
     const fmtPct = p => p!=null ? (p*100).toFixed(1)+"%" : "--";
     const retCol = p => p==null?"#808080":p>=0.91?"#16a34a":p>=0.85?"#d97706":"#dc2626";
 
-    const statusPill = (s) => {
-      const cfg = {
-        increase:  {bg:"#dcfce7",fg:"#166534",label:"↑ Increase"},
-        decrease:  {bg:"#fee2e2",fg:"#991b1b",label:"↓ Decrease"},
-        cancelled: {bg:"#fef9c3",fg:"#854d0e",label:"$0 Cancelled"},
-        no_data:   {bg:"#f3f4f6",fg:"#6b7280",label:"No data"},
-        unchanged: {bg:"#f3f4f6",fg:"#6b7280",label:"Unchanged"},
-      }[s]||{bg:"#f3f4f6",fg:"#374151",label:s};
-      return <span style={{fontSize:10,fontWeight:500,padding:"1px 8px",borderRadius:20,background:cfg.bg,color:cfg.fg,whiteSpace:"nowrap"}}>{cfg.label}</span>;
-    };
-    const sourcePill = (s) => {
-      const cfg = {
-        sf:   {bg:"#eff6ff",fg:"#1e40af",label:"SF"},
-        supp: {bg:"#fff7ed",fg:"#c2410c",label:"Supp"},
-        both: {bg:"#dcfce7",fg:"#166534",label:"SF+Supp"},
-        none: {bg:"#f3f4f6",fg:"#6b7280",label:"No data"},
-      }[s]||{bg:"#f3f4f6",fg:"#374151",label:s};
-      return <span style={{fontSize:10,fontWeight:500,padding:"1px 8px",borderRadius:20,background:cfg.bg,color:cfg.fg,whiteSpace:"nowrap"}}>{cfg.label}</span>;
-    };
-
-    // ── By-CSM grouping ────────────────────────────────────────────────────────
-    const csmGroups = {};
-    filteredRows.forEach(r => {
-      const key = r.csm || "(unknown)";
-      if (!csmGroups[key]) csmGroups[key] = {name:key, boq:0, cur:0, increases:0, decreases:0, cancelled:0, noData:0, rows:[]};
-      const g = csmGroups[key];
-      g.boq += r.boq; g.cur += r.cur; g.rows.push(r);
-      if (r.status==="increase") g.increases++;
-      else if (r.status==="decrease") g.decreases++;
-      else if (r.status==="cancelled") g.cancelled++;
-      else if (r.status==="no_data") g.noData++;
-    });
-    const csmList = Object.values(csmGroups).map(g => ({
-      ...g, delta: g.cur-g.boq, ret: g.boq>0 ? g.cur/g.boq : null,
-    }));
-    const sortedCsmList = [...csmList].sort((a,b) => {
-      const dir = domoSort.dir==="asc"?1:-1;
-      const col = domoSort.col;
-      if (col==="name") return dir*a.name.localeCompare(b.name);
-      const va = col==="retPct"?(a.ret??-1):col==="boq"?a.boq:col==="cur"?a.cur:col==="delta"?a.delta:0;
-      const vb = col==="retPct"?(b.ret??-1):col==="boq"?b.boq:col==="cur"?b.cur:col==="delta"?b.delta:0;
-      return dir*(va-vb);
-    });
-
-    // ── Flat By-Account view (sorted) ─────────────────────────────────────────
-    const sortedAcctRows = [...filteredRows].sort((a,b) => {
-      const dir = domoAcctSort.dir==="asc"?1:-1;
-      const col = domoAcctSort.col;
-      if (col==="acct") return dir*a.acct.localeCompare(b.acct);
-      if (col==="csm")  return dir*a.csm.localeCompare(b.csm);
-      const va = col==="boq"?a.boq:col==="cur"?a.cur:col==="delta"?a.delta:col==="ret"?(a.ret??-1):0;
-      const vb = col==="boq"?b.boq:col==="cur"?b.cur:col==="delta"?b.delta:col==="ret"?(b.ret??-1):0;
-      return dir*(va-vb);
-    });
-
-    const domoTh = (col, label, right, sortState, setSortState) => {
-      const active = sortState.col === col;
+    const sortTh = (col, label, right) => {
+      const active = domoSort.col === col;
       return (
-        <th key={col} onClick={()=>setSortState(s=>({col, dir: s.col===col&&s.dir==="asc"?"desc":"asc"}))}
+        <th key={col} onClick={()=>setDomoSort(s=>({col, dir: s.col===col&&s.dir==="asc"?"desc":"asc"}))}
           style={{padding:"0 8px 8px 0",textAlign:right?"right":"left",fontSize:10,textTransform:"uppercase",
             color:active?"#29355D":"#808080",fontWeight:active?700:500,cursor:"pointer",
             borderBottom:"0.5px solid rgba(41,53,93,.08)",userSelect:"none",whiteSpace:"nowrap"}}>
-          {label}{active?(sortState.dir==="asc"?" ↑":" ↓"):""}
+          {label}{active?(domoSort.dir==="asc"?" ↑":" ↓"):""}
         </th>
       );
     };
 
+    const tileBtn = (label, value, sub, color, filterKey) => {
+      const active = domoTileFilter === filterKey;
+      return (
+        <div key={filterKey} onClick={()=>{ setDomoTileFilter(active?null:filterKey); setDomoCSMFilter(null); }}
+          style={{background:active?"#29355D":"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",
+            borderTop:"3px solid "+color,cursor:"pointer",transition:"all .15s",
+            boxShadow:active?"0 2px 8px rgba(41,53,93,.15)":"none"}}>
+          <div style={{fontSize:10,textTransform:"uppercase",color:active?"rgba(255,255,255,.7)":"#808080",fontWeight:500,marginBottom:4}}>{label}</div>
+          <div style={{fontSize:22,fontWeight:600,color:active?"#fff":color,lineHeight:1,marginBottom:4}}>{value}</div>
+          <div style={{fontSize:10,color:active?"rgba(255,255,255,.6)":"#808080"}}>{sub}</div>
+        </div>
+      );
+    };
+
+    const statusBadge = (s) => {
+      const cfg = {
+        increase:  {bg:"#dcfce7",fg:"#166534",label:"Increase"},
+        decrease:  {bg:"#fee2e2",fg:"#991b1b",label:"Decrease"},
+        cancelled: {bg:"#fef9c3",fg:"#854d0e",label:"Cancelled"},
+        no_data:   {bg:"#f3f4f6",fg:"#6b7280",label:"No Data"},
+        unchanged: {bg:"#f3f4f6",fg:"#6b7280",label:"No Change"},
+      }[s]||{bg:"#f3f4f6",fg:"#374151",label:s};
+      return <span style={{fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:20,background:cfg.bg,color:cfg.fg}}>{cfg.label}</span>;
+    };
+
     const exportDomoCSV = () => {
-      const rows = filteredRows;
+      const rows = sortedCSMs.flatMap(c => c.rows
+        .filter(r => !domoTileFilter || r.status === domoTileFilter)
+        .map(r => ({ csm: c.name, ...r }))
+      );
       if (!rows.length) return;
       const headers = ["CSM","Account","Enterprise ID","BOQ","SF MRR","Supp MRR","Combined","Change","Retention %","Source","Status"];
       const csv = [headers.join(","), ...rows.map(r =>
@@ -5535,21 +5537,13 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
       )].join("\n");
       const a = document.createElement("a");
       a.href = URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
-      a.download = "Domo-BoB-"+new Date().toISOString().slice(0,10)+".csv";
+      a.download = "Domo-BoB-"+(domoTileFilter||"all")+"-"+new Date().toISOString().slice(0,10)+".csv";
       a.click();
     };
 
-    if (domoBoq.length === 0) return (
-      <div style={{...S.card,textAlign:"center",padding:"40px 20px",color:"#808080"}}>
-        <div style={{fontSize:32,marginBottom:12}}>📊</div>
-        <div style={{fontSize:14,fontWeight:500,color:"#29355D",marginBottom:8}}>Domo Book of Business — waiting on data</div>
-        <div style={{fontSize:12}}>Paste the fresh Domo BOQ export into the connected Google Sheet tab to populate this view.</div>
-      </div>
-    );
-
     return (
       <div>
-        {/* Preliminary/test tab disclaimer */}
+        {/* Test tab disclaimer */}
         <div style={{display:"flex",alignItems:"center",gap:8,background:"#EFF6FF",border:"0.5px solid rgba(30,64,175,.2)",
           borderRadius:8,padding:"9px 14px",marginBottom:14,fontSize:12,color:"#1e40af"}}>
           <span style={{fontSize:14}}>🧪</span>
@@ -5557,194 +5551,156 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
             Current Revenue combines bob_q3_current + bob_q3_supplemental. This does not affect Q2 or Q3 Tracking.</span>
         </div>
 
-        {/* KPI tiles */}
-        <div style={{display:"grid",gridTemplateColumns:"repeat(5,minmax(0,1fr))",gap:10,marginBottom:16}}>
-          <div style={{background:"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",borderTop:"3px solid #29355D"}}>
-            <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>BOQ Accounts</div>
-            <div style={{fontSize:22,fontWeight:600,color:"#29355D",lineHeight:1,marginBottom:4}}>{scopedRows.length}</div>
-            <div style={{fontSize:10,color:"#808080"}}>unique EIDs</div>
+        {/* 7 tiles: Retention (reset), Beginning/Combined Book (info), Increases/Decreases/Cancelled/No Data (filters) */}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(7,minmax(0,1fr))",gap:10,marginBottom:16}}>
+          <div onClick={()=>{ setDomoTileFilter(null); setDomoCSMFilter(null); }}
+            style={{background:!domoTileFilter?"#29355D":"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",
+              borderTop:"3px solid #29355D",cursor:"pointer",transition:"all .15s"}}>
+            <div style={{fontSize:10,textTransform:"uppercase",color:!domoTileFilter?"rgba(255,255,255,.7)":"#808080",fontWeight:500,marginBottom:4}}>Retention</div>
+            <div style={{fontSize:22,fontWeight:600,color:!domoTileFilter?"#fff":retCol(overallRet),lineHeight:1,marginBottom:4}}>{fmtPct(overallRet)}</div>
+            <div style={{fontSize:10,color:!domoTileFilter?"rgba(255,255,255,.6)":"#808080"}}>goal 91%</div>
           </div>
           <div style={{background:"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",borderTop:"3px solid #5378FC"}}>
-            <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>BOQ Total</div>
+            <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Beginning Book</div>
             <div style={{fontSize:22,fontWeight:600,color:"#5378FC",lineHeight:1,marginBottom:4}}>{fmt$(totalBoq)}</div>
-            <div style={{fontSize:10,color:"#808080"}}>beginning book</div>
+            <div style={{fontSize:10,color:"#808080"}}>{domoData.length} CSMs</div>
           </div>
-          <div style={{background:"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",borderTop:"3px solid #16a34a"}}>
+          <div style={{background:"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",borderTop:"3px solid #29355D"}}>
             <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Combined MRR</div>
-            <div style={{fontSize:22,fontWeight:600,color:"#16a34a",lineHeight:1,marginBottom:4}}>{fmt$(totalCur)}</div>
+            <div style={{fontSize:22,fontWeight:600,color:"#29355D",lineHeight:1,marginBottom:4}}>{fmt$(totalCur)}</div>
             <div style={{fontSize:10,color:"#808080"}}>SF + supplemental</div>
           </div>
-          <div style={{background:"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",borderTop:"3px solid "+(netChange>=0?"#16a34a":"#dc2626")}}>
-            <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Net Change</div>
-            <div style={{fontSize:22,fontWeight:600,color:netChange>=0?"#16a34a":"#dc2626",lineHeight:1,marginBottom:4}}>{netChange>=0?"+":""}{fmt$(netChange)}</div>
-            <div style={{fontSize:10,color:"#808080"}}>vs BOQ</div>
-          </div>
-          <div style={{background:"#29355D",borderRadius:"0 0 10px 10px",padding:"12px 14px",borderTop:"3px solid #29355D"}}>
-            <div style={{fontSize:10,textTransform:"uppercase",color:"rgba(255,255,255,.7)",fontWeight:500,marginBottom:4}}>Retention</div>
-            <div style={{fontSize:22,fontWeight:600,color:"#fff",lineHeight:1,marginBottom:4}}>{fmtPct(overallRet)}</div>
-            <div style={{fontSize:10,color:"rgba(255,255,255,.6)"}}>goal 91%</div>
-          </div>
+          {tileBtn("Increases",fmt$(totalIncrease),domoData.reduce((s,c)=>s+c.increaseCount,0)+" accounts","#16a34a","increase")}
+          {tileBtn("Decreases",fmt$(totalDecrease),domoData.reduce((s,c)=>s+c.decreaseCount,0)+" accounts","#dc2626","decrease")}
+          {tileBtn("Cancelled",fmt$(totalCancelled),domoData.reduce((s,c)=>s+c.cancelledCount,0)+" accounts","#d97706","cancelled")}
+          {tileBtn("No Data",String(totalNoData),"accounts","#6b7280","no_data")}
         </div>
 
-        {/* View toggle + filters */}
-        <div style={{...S.card,marginBottom:16}}>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12,flexWrap:"wrap",gap:10}}>
-            <div style={{display:"flex",gap:2,background:"#ECEEF1",borderRadius:8,padding:3}}>
-              {[["csm","By CSM"],["account","By Account"]].map(([v,l])=>(
-                <button key={v} onClick={()=>setDomoView(v)}
-                  style={{padding:"5px 14px",fontSize:12,fontWeight:500,border:"none",borderRadius:6,cursor:"pointer",
-                    background:domoView===v?"#fff":"transparent",color:domoView===v?"#29355D":"#808080",
-                    boxShadow:domoView===v?"0 1px 3px rgba(0,0,0,.08)":"none"}}>
-                  {l}
-                </button>
-              ))}
+        {/* Sortable CSM table with inline expand */}
+        <div style={{...S.card}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+            <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500}}>
+              {domoTileFilter ? sortedCSMs.length+" CSMs with "+domoTileFilter.replace(/_/g," ")+" — click name to expand" : "CSM Retention — click name to expand"}
             </div>
-            <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-              <select value={domoStatusFilter} onChange={e=>setDomoStatusFilter(e.target.value)}
-                style={{padding:"5px 10px",borderRadius:8,border:"0.5px solid rgba(41,53,93,.2)",fontSize:12,color:"#29355D",background:"#fff"}}>
-                <option value="">All statuses</option>
-                <option value="increase">Increase</option>
-                <option value="decrease">Decrease</option>
-                <option value="cancelled">Cancelled</option>
-                <option value="no_data">No data</option>
-                <option value="unchanged">Unchanged</option>
-              </select>
-              <select value={domoSourceFilter} onChange={e=>setDomoSourceFilter(e.target.value)}
-                style={{padding:"5px 10px",borderRadius:8,border:"0.5px solid rgba(41,53,93,.2)",fontSize:12,color:"#29355D",background:"#fff"}}>
-                <option value="">All sources</option>
-                <option value="sf">SF only</option>
-                <option value="supp">Supplemental only</option>
-                <option value="both">SF + Supp</option>
-                <option value="none">No data</option>
-              </select>
-              <input value={domoSearch} onChange={e=>setDomoSearch(e.target.value)} placeholder="Search account or EID…"
-                style={{padding:"5px 10px",borderRadius:8,border:"0.5px solid rgba(41,53,93,.2)",fontSize:12,color:"#29355D",width:180}}/>
-              <button onClick={exportDomoCSV}
-                style={{padding:"5px 14px",borderRadius:20,border:"0.5px solid rgba(41,53,93,.2)",
-                  background:"#fff",color:"#29355D",fontSize:12,fontWeight:500,cursor:"pointer",whiteSpace:"nowrap"}}>
-                ⬇ Export CSV
-              </button>
-            </div>
+            <button onClick={exportDomoCSV}
+              style={{padding:"4px 12px",borderRadius:20,border:"0.5px solid rgba(41,53,93,.2)",
+                background:"#fff",color:"#29355D",fontSize:11,fontWeight:500,cursor:"pointer"}}>
+              ⬇ Export CSV
+            </button>
           </div>
-
-          {domoView === "csm" ? (
-            <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
-              <thead><tr>
-                {domoTh("name","CSM",false,domoSort,setDomoSort)}
-                {domoTh("boq","BOQ",true,domoSort,setDomoSort)}
-                {domoTh("cur","Combined MRR",true,domoSort,setDomoSort)}
-                {domoTh("delta","Change",true,domoSort,setDomoSort)}
-                {domoTh("retPct","Retention %",false,domoSort,setDomoSort)}
-                <th style={{padding:"0 8px 8px 24px",textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500}}>Breakdown</th>
-              </tr></thead>
-              <tbody>
-                {sortedCsmList.map(g => {
-                  const isOpen = domoCSMFilter === g.name;
-                  return (
-                    <React.Fragment key={g.name}>
-                      <tr onClick={()=>setDomoCSMFilter(isOpen?null:g.name)}
-                        style={{cursor:"pointer",background:isOpen?"rgba(41,53,93,.04)":"transparent"}}>
-                        <td style={{padding:"8px 8px 8px 0",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)",fontWeight:500,color:"#29355D"}}>
-                          <span style={{marginRight:6,fontSize:9,display:"inline-block",transition:"transform .15s",
-                            transform:isOpen?"rotate(90deg)":"none",color:"#808080"}}>▶</span>
-                          {dispName(g.name)}
-                        </td>
-                        <td style={{padding:"8px 8px 8px 0",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#808080"}}>{fmt$(g.boq)}</td>
-                        <td style={{padding:"8px 8px 8px 0",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)",textAlign:"right"}}>{fmt$(g.cur)}</td>
-                        <td style={{padding:"8px 8px 8px 0",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)",textAlign:"right",fontWeight:500,color:g.delta>=0?"#16a34a":"#dc2626"}}>{g.delta>=0?"+":""}{fmt$(g.delta)}</td>
-                        <td style={{padding:"8px 8px 8px 24px",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)"}}>
-                          <div style={{display:"flex",alignItems:"center",gap:8}}>
-                            <div style={{width:80,height:5,background:"#ECEEF1",borderRadius:3,overflow:"hidden"}}>
-                              <div style={{width:Math.min((g.ret||0)*100,100).toFixed(1)+"%",height:"100%",background:retCol(g.ret),borderRadius:3}}/>
-                            </div>
-                            <span style={{fontWeight:600,color:retCol(g.ret)}}>{fmtPct(g.ret)}</span>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+            <thead><tr>
+              {sortTh("name","CSM",false)}
+              {sortTh("boq","BOQ",true)}
+              {sortTh("cur","Combined MRR",true)}
+              {sortTh("increaseMrr","Increase",true)}
+              {sortTh("decreaseMrr","Decrease",true)}
+              {sortTh("cancelledMrr","Cancelled",true)}
+              {sortTh("noDataCount","No Data",true)}
+              <th style={{padding:"0 8px 8px 24px",textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500}}>Retention %</th>
+            </tr></thead>
+            <tbody>
+              {sortedCSMs.map(c => {
+                const isOpen = domoCSMFilter === c.name;
+                const acctRows = c.rows.filter(r => !domoTileFilter || r.status === domoTileFilter);
+                return (
+                  <React.Fragment key={c.name}>
+                    <tr onClick={()=>setDomoCSMFilter(isOpen?null:c.name)}
+                      style={{cursor:"pointer",background:isOpen?"rgba(41,53,93,.04)":"transparent"}}>
+                      <td style={{padding:"8px 8px 8px 0",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)",fontWeight:500,color:"#29355D"}}>
+                        <span style={{marginRight:6,fontSize:9,display:"inline-block",transition:"transform .15s",
+                          transform:isOpen?"rotate(90deg)":"none",color:"#808080"}}>▶</span>
+                        {dispName(c.name)}
+                      </td>
+                      <td style={{padding:"8px 8px 8px 0",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#808080"}}>{fmt$(c.boq)}</td>
+                      <td style={{padding:"8px 8px 8px 0",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)",textAlign:"right"}}>{fmt$(c.cur)}</td>
+                      <td style={{padding:"8px 8px 8px 0",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:c.increaseMrr>0?"#16a34a":"#808080"}}>{c.increaseMrr>0?"+"+fmt$(c.increaseMrr):"--"}</td>
+                      <td style={{padding:"8px 8px 8px 0",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:c.decreaseMrr>0?"#dc2626":"#808080"}}>{c.decreaseMrr>0?"-"+fmt$(c.decreaseMrr):"--"}</td>
+                      <td style={{padding:"8px 8px 8px 0",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:c.cancelledMrr>0?"#d97706":"#808080"}}>{c.cancelledMrr>0?"-"+fmt$(c.cancelledMrr):"--"}</td>
+                      <td style={{padding:"8px 8px 8px 0",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:c.noDataCount>0?"#6b7280":"#808080"}}>{c.noDataCount>0?c.noDataCount:"--"}</td>
+                      <td style={{padding:"8px 8px 8px 24px",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)"}}>
+                        <div style={{display:"flex",alignItems:"center",gap:8}}>
+                          <div style={{width:80,height:5,background:"#ECEEF1",borderRadius:3,overflow:"hidden"}}>
+                            <div style={{width:Math.min((c.retPct||0)*100,100).toFixed(1)+"%",height:"100%",background:retCol(c.retPct),borderRadius:3}}/>
                           </div>
-                        </td>
-                        <td style={{padding:"8px 0 8px 24px",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)"}}>
-                          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                            {g.increases>0&&<span style={{fontSize:10,padding:"1px 7px",borderRadius:20,background:"#dcfce7",color:"#166534"}}>↑{g.increases}</span>}
-                            {g.decreases>0&&<span style={{fontSize:10,padding:"1px 7px",borderRadius:20,background:"#fee2e2",color:"#991b1b"}}>↓{g.decreases}</span>}
-                            {g.cancelled>0&&<span style={{fontSize:10,padding:"1px 7px",borderRadius:20,background:"#fef9c3",color:"#854d0e"}}>$0 {g.cancelled}</span>}
-                            {g.noData>0&&<span style={{fontSize:10,padding:"1px 7px",borderRadius:20,background:"#f3f4f6",color:"#6b7280"}}>no data {g.noData}</span>}
-                          </div>
-                        </td>
-                      </tr>
-                      {isOpen && (
+                          <span style={{fontWeight:600,color:retCol(c.retPct)}}>{fmtPct(c.retPct)}</span>
+                        </div>
+                      </td>
+                    </tr>
+                    {isOpen && acctRows.length === 0 && (
+                      <tr><td colSpan={8} style={{padding:"8px 0 8px 24px",borderBottom:"0.5px solid rgba(41,53,93,.08)",
+                        color:"#808080",fontSize:11,fontStyle:"italic"}}>
+                        No {domoTileFilter?domoTileFilter.replace(/_/g," "):"tracked"} accounts for {dispName(c.name)}
+                      </td></tr>
+                    )}
+                    {isOpen && acctRows.length > 0 && (() => {
+                      const sortedAcctRows = [...acctRows].sort((a,b) => {
+                        const dir = domoAcctSort.dir==="asc"?1:-1;
+                        const col = domoAcctSort.col;
+                        if (col==="acct") return dir*a.acct.localeCompare(b.acct);
+                        const va = col==="boq"?a.boq:col==="cur"?a.cur:col==="delta"?a.delta:col==="ret"?(a.ret??-1):0;
+                        const vb = col==="boq"?b.boq:col==="cur"?b.cur:col==="delta"?b.delta:col==="ret"?(b.ret??-1):0;
+                        return dir*(va-vb);
+                      });
+                      const aTh = (col,label,right=true) => {
+                        const active = domoAcctSort.col===col;
+                        return (
+                          <th key={col} onClick={()=>setDomoAcctSort(s=>({col,dir:s.col===col&&s.dir==="asc"?"desc":"asc"}))}
+                            style={{padding:"4px 8px 4px 0",textAlign:right?"right":"left",fontSize:10,
+                              textTransform:"uppercase",color:active?"#29355D":"#808080",fontWeight:active?700:500,
+                              cursor:"pointer",userSelect:"none",whiteSpace:"nowrap"}}>
+                            {label}{active?(domoAcctSort.dir==="asc"?" ↑":" ↓"):""}
+                          </th>
+                        );
+                      };
+                      return (
                         <tr>
-                          <td colSpan={6} style={{padding:"0 0 12px 24px",borderBottom:"0.5px solid rgba(41,53,93,.08)",background:"rgba(41,53,93,.02)"}}>
+                          <td colSpan={8} style={{padding:"0 0 12px 24px",borderBottom:"0.5px solid rgba(41,53,93,.08)",background:"rgba(41,53,93,.02)"}}>
+                            <div style={{fontSize:10,color:"#808080",padding:"6px 0 4px",fontStyle:"italic"}}>
+                              {sortedAcctRows.length} accounts{domoTileFilter?" · filtered: "+domoTileFilter.replace(/_/g," "):""}
+                            </div>
                             <table style={{width:"100%",borderCollapse:"collapse",fontSize:11,tableLayout:"fixed"}}>
                               <colgroup>
-                                <col style={{width:"30%"}}/><col style={{width:"12%"}}/><col style={{width:"9%"}}/><col style={{width:"9%"}}/>
-                                <col style={{width:"9%"}}/><col style={{width:"9%"}}/><col style={{width:"10%"}}/><col style={{width:"12%"}}/>
+                                <col style={{width:"30%"}}/><col style={{width:"14%"}}/><col style={{width:"10%"}}/>
+                                <col style={{width:"10%"}}/><col style={{width:"10%"}}/><col style={{width:"10%"}}/><col style={{width:"16%"}}/>
                               </colgroup>
                               <thead><tr style={{borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>
-                                {["Account","EID","BOQ","SF MRR","Supp MRR","Combined","Change","Status"].map((h,hi)=>(
-                                  <th key={h} style={{padding:"4px 8px 4px 0",textAlign:hi<2?"left":"right",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,whiteSpace:"nowrap"}}>{h}</th>
-                                ))}
+                                {aTh("acct","Account",false)}
+                                <th style={{padding:"4px 8px 4px 0",textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500}}>EID</th>
+                                {aTh("boq","BOQ")}
+                                {aTh("cur","Combined")}
+                                {aTh("delta","Change")}
+                                {aTh("ret","Retention %")}
+                                <th style={{padding:"4px 0 4px 24px",textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500}}>Status</th>
                               </tr></thead>
                               <tbody>
-                                {g.rows.map((r,i)=>(
+                                {sortedAcctRows.map((r,i)=>(
                                   <tr key={i} style={{borderTop:"0.5px solid rgba(41,53,93,.05)"}}>
                                     <td style={{padding:"5px 8px 5px 0",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.acct}</td>
                                     <td style={{padding:"5px 8px 5px 0",fontFamily:"monospace",fontSize:10,color:"#808080"}}>{r.eid}</td>
                                     <td style={{padding:"5px 8px 5px 0",textAlign:"right",color:"#808080"}}>{r.boq>0?fmt$(r.boq):"--"}</td>
-                                    <td style={{padding:"5px 8px 5px 0",textAlign:"right"}}>{r.sfRev>0?fmt$(r.sfRev):"--"}</td>
-                                    <td style={{padding:"5px 8px 5px 0",textAlign:"right"}}>{r.suppRev>0?fmt$(r.suppRev):"--"}</td>
-                                    <td style={{padding:"5px 8px 5px 0",textAlign:"right",fontWeight:500}}>{r.cur>0?fmt$(r.cur):"--"}</td>
+                                    <td style={{padding:"5px 8px 5px 0",textAlign:"right"}}>{r.cur>0?fmt$(r.cur):"--"}</td>
                                     <td style={{padding:"5px 8px 5px 0",textAlign:"right",color:r.delta>0?"#16a34a":r.delta<0?"#dc2626":"#808080"}}>{r.delta!==0?(r.delta>0?"+":"")+fmt$(r.delta):"--"}</td>
-                                    <td style={{padding:"5px 0 5px 0"}}>{statusPill(r.status)}</td>
+                                    <td style={{padding:"5px 8px 5px 0",textAlign:"right",fontWeight:600,color:retCol(r.ret)}}>{fmtPct(r.ret)}</td>
+                                    <td style={{padding:"5px 0 5px 24px"}}>{statusBadge(r.status)}</td>
                                   </tr>
                                 ))}
                               </tbody>
                             </table>
                           </td>
                         </tr>
-                      )}
-                    </React.Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
-          ) : (
-            <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
-              <thead><tr>
-                {domoTh("csm","CSM",false,domoAcctSort,setDomoAcctSort)}
-                {domoTh("acct","Account",false,domoAcctSort,setDomoAcctSort)}
-                <th style={{padding:"0 8px 8px 0",textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500}}>EID</th>
-                {domoTh("boq","BOQ",true,domoAcctSort,setDomoAcctSort)}
-                {domoTh("cur","Combined MRR",true,domoAcctSort,setDomoAcctSort)}
-                {domoTh("delta","Change",true,domoAcctSort,setDomoAcctSort)}
-                {domoTh("ret","Retention %",true,domoAcctSort,setDomoAcctSort)}
-                <th style={{padding:"0 8px 8px 0",textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500}}>Source</th>
-                <th style={{padding:"0 0 8px 0",textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500}}>Status</th>
-              </tr></thead>
-              <tbody>
-                {sortedAcctRows.slice(0,500).map((r,i)=>(
-                  <tr key={i} style={{borderBottom:"0.5px solid rgba(41,53,93,.05)"}}>
-                    <td style={{padding:"7px 8px 7px 0",whiteSpace:"nowrap"}}>{dispName(r.csm)}</td>
-                    <td style={{padding:"7px 8px 7px 0",maxWidth:220,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.acct}</td>
-                    <td style={{padding:"7px 8px 7px 0",fontFamily:"monospace",fontSize:10,color:"#808080"}}>{r.eid}</td>
-                    <td style={{padding:"7px 8px 7px 0",textAlign:"right",color:"#808080"}}>{r.boq>0?fmt$(r.boq):"--"}</td>
-                    <td style={{padding:"7px 8px 7px 0",textAlign:"right"}}>{r.cur>0?fmt$(r.cur):"--"}</td>
-                    <td style={{padding:"7px 8px 7px 0",textAlign:"right",color:r.delta>0?"#16a34a":r.delta<0?"#dc2626":"#808080"}}>{r.delta!==0?(r.delta>0?"+":"")+fmt$(r.delta):"--"}</td>
-                    <td style={{padding:"7px 8px 7px 0",textAlign:"right",fontWeight:600,color:retCol(r.ret)}}>{fmtPct(r.ret)}</td>
-                    <td style={{padding:"7px 8px 7px 0"}}>{sourcePill(r.src)}</td>
-                    <td style={{padding:"7px 0 7px 0"}}>{statusPill(r.status)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-          {domoView==="account" && sortedAcctRows.length>500 && (
-            <div style={{fontSize:11,color:"#808080",textAlign:"center",padding:"10px 0 0"}}>
-              Showing first 500 of {sortedAcctRows.length} accounts — narrow with filters or export CSV for the full list.
-            </div>
-          )}
+                      );
+                    })()}
+                  </React.Fragment>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
 
         {/* Orphan accounts callout */}
         {orphanCount > 0 && (
-          <div style={{...S.card,background:"#FEF2F2",border:"0.5px solid rgba(220,38,38,.2)"}}>
+          <div style={{...S.card,background:"#FEF2F2",border:"0.5px solid rgba(220,38,38,.2)",marginTop:16}}>
             <div style={{fontSize:12,fontWeight:600,color:"#991b1b",marginBottom:6}}>
               ⚠ {orphanCount} accounts found in SF/Supplemental but not in the BOQ file — excluded from all totals above
             </div>
