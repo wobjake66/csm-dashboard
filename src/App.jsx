@@ -4048,6 +4048,18 @@ function RevenueView({rawRev, csms, filterCoach, filterCSM, managerCoaches}) {
     return true;
   });
 
+  // Same as `filtered` but ignores the region click-filter — used by panels that must
+  // always show all 3 regions side by side (Revenue by Region, Top 3 by Region), so
+  // clicking one region dims the others instead of zeroing them out.
+  const filteredAllRegions = rows.filter(r=>{
+    if (!inQuarterFilter(r.qtr)) return false;
+    const i = lk(r.csm);
+    if (managerCoaches && !managerCoaches.includes(i&&i.c)) return false;
+    if (filterCoach && !(i&&i.c===filterCoach)) return false;
+    if (filterCSM && r.csm !== filterCSM) return false;
+    return true;
+  });
+
   // ── Totals ────────────────────────────────────────────────────────────────
   const totalMRR  = filtered.reduce((s,r)=>s+r.mrr,0);
   const totalOTR  = filtered.reduce((s,r)=>s+r.otr,0);
@@ -4224,12 +4236,12 @@ function RevenueView({rawRev, csms, filterCoach, filterCSM, managerCoaches}) {
         <div style={cardStyle}>
           <div style={secTitle}>Revenue by Region</div>
           {["DR","US","ANZ"].map(reg=>{
-            const regRows = rows.filter(r=>r.region===reg && (!managerCoaches||managerCoaches.includes(lk(r.csm)&&lk(r.csm).c)) && (!filterCoach||(lk(r.csm)&&lk(r.csm).c===filterCoach)) && (!filterCSM||r.csm===filterCSM));
+            const regRows = filteredAllRegions.filter(r=>r.region===reg);
             const regMRR = regRows.reduce((s,r)=>s+r.mrr,0);
             const regOTR = regRows.reduce((s,r)=>s+r.otr,0);
             const regTot = regRows.reduce((s,r)=>s+r.tot,0);
             const regSubs = regRows.length;
-            const maxRegTot = Math.max(...["DR","US","ANZ"].map(r=>rows.filter(x=>x.region===r).reduce((s,x)=>s+x.tot,0)))||1;
+            const maxRegTot = Math.max(...["DR","US","ANZ"].map(r=>filteredAllRegions.filter(x=>x.region===r).reduce((s,x)=>s+x.tot,0)))||1;
             const REG_COL = {DR:"#FF5000",US:"#29355D",ANZ:"#5378FC"};
             return <div key={reg} style={{marginBottom:12,cursor:"pointer",opacity:regionFilter===reg||regionFilter==="all"?1:0.4}} onClick={()=>setRegionFilter(r=>r===reg?"all":reg)}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:11,marginBottom:4}}>
@@ -4299,7 +4311,7 @@ function RevenueView({rawRev, csms, filterCoach, filterCSM, managerCoaches}) {
             const REG_COL={DR:"#FF5000",US:"#29355D",ANZ:"#5378FC"};
             const REG_LABEL={DR:"Dominican Republic","US":"United States","ANZ":"Australia & NZ"};
             const regCsms = {};
-            rows.filter(r=>r.region===reg && (!managerCoaches||managerCoaches.includes(lk(r.csm)&&lk(r.csm).c)) && (!filterCoach||(lk(r.csm)&&lk(r.csm).c===filterCoach)) && (!filterCSM||r.csm===filterCSM)).forEach(r=>{
+            filteredAllRegions.filter(r=>r.region===reg).forEach(r=>{
               if(!regCsms[r.csm]) regCsms[r.csm]={csm:r.csm,total:0,mrr:0,otr:0,subs:0};
               regCsms[r.csm].total+=r.tot; regCsms[r.csm].mrr+=r.mrr;
               regCsms[r.csm].otr+=r.otr; regCsms[r.csm].subs++;
