@@ -4976,16 +4976,29 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
       };
     });
 
-    // Current accounts: {eid: {csm, acct, mrr}}
+    // Current accounts: {eid: {csm, acct, mrr}} — combines bob_q3_current (SF) with
+    // bob_q3_supplemental (secondary SF report), summed by Enterprise ID. It doesn't
+    // matter which file an account's revenue came from — the totals should be combined.
     const curAcctMap = {};
     q3BobCur.forEach(r => {
       const eid = String(getCol(r,"EnterprisId","EnterpriseId","enterprise id","Enterprise Id")||"").trim();
       if (!eid) return;
-      curAcctMap[eid] = {
-        csm:  String(getCol(r,"Client Success Manager","csm_name")||"").trim(),
-        acct: String(getCol(r,"Account Name","account name")||"").trim(),
-        mrr:  pf(getCol(r,"SaaS Revenue","saas revenue")),
-      };
+      const csm  = String(getCol(r,"Client Success Manager","csm_name")||"").trim();
+      const acct = String(getCol(r,"Account Name","account name")||"").trim();
+      const mrr  = pf(getCol(r,"SaaS Revenue","saas revenue"));
+      if (!curAcctMap[eid]) curAcctMap[eid] = {csm, acct, mrr:0};
+      curAcctMap[eid].mrr += mrr;
+      if (!curAcctMap[eid].acct && acct) curAcctMap[eid].acct = acct;
+      if (!curAcctMap[eid].csm && csm) curAcctMap[eid].csm = csm;
+    });
+    q3Supp.forEach(r => {
+      const eid = String(getCol(r,"EnterprisId","EnterpriseId","enterprise id","Enterprise Id")||"").trim();
+      if (!eid) return;
+      const acct = String(getCol(r,"Account Name","account name")||"").trim();
+      const mrr  = pf(getCol(r,"SaaS Revenue","saas revenue"));
+      if (!curAcctMap[eid]) curAcctMap[eid] = {csm:"", acct, mrr:0}; // no CSM column in supplemental
+      curAcctMap[eid].mrr += mrr;
+      if (!curAcctMap[eid].acct && acct) curAcctMap[eid].acct = acct;
     });
 
     // Build full book for a CSM: all BOQ accounts + net new, with current status
