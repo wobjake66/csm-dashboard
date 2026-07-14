@@ -5151,7 +5151,12 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
               {sortTh("decreaseMrr","Decrease",true)}
               {sortTh("cancelledMrr","Cancelled",true)}
               {sortTh("adjustmentMrr","Adjustment",true)}
-              <th style={{padding:"0 8px 8px 24px",textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500}}>Retention %</th>
+              <th onClick={()=>setQ2dSort(s=>({col:"retPct",dir:s.col==="retPct"&&s.dir==="asc"?"desc":"asc"}))}
+                style={{padding:"0 8px 8px 24px",textAlign:"left",fontSize:10,textTransform:"uppercase",
+                  color:q2dSort.col==="retPct"?"#29355D":"#808080",fontWeight:q2dSort.col==="retPct"?700:500,
+                  cursor:"pointer",userSelect:"none",whiteSpace:"nowrap"}}>
+                Retention %{q2dSort.col==="retPct"?(q2dSort.dir==="asc"?" ↑":" ↓"):""}
+              </th>
             </tr></thead>
             <tbody>
               {sortedCSMs.map(c => {
@@ -5237,7 +5242,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                                 {aTh("decrease","Decrease")}
                                 {aTh("cancelled","Cancelled")}
                                 {aTh("adjustment","Adjustment")}
-                                <th style={{padding:"4px 0 4px 24px",textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500}}>Retention %</th>
+                                {aTh("ret","Retention %")}
                               </tr></thead>
                               <tbody>
                                 {sortedAcctRows.map((r,i)=>{
@@ -5944,7 +5949,12 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
               {sortTh("decreaseMrr","Decrease",true)}
               {sortTh("cancelledMrr","Cancelled",true)}
               {sortTh("noDataCount","No Data",true)}
-              <th style={{padding:"0 8px 8px 24px",textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500}}>Retention %</th>
+              <th onClick={()=>setDomoSort(s=>({col:"retPct",dir:s.col==="retPct"&&s.dir==="asc"?"desc":"asc"}))}
+                style={{padding:"0 8px 8px 24px",textAlign:"left",fontSize:10,textTransform:"uppercase",
+                  color:domoSort.col==="retPct"?"#29355D":"#808080",fontWeight:domoSort.col==="retPct"?700:500,
+                  cursor:"pointer",userSelect:"none",whiteSpace:"nowrap"}}>
+                Retention %{domoSort.col==="retPct"?(domoSort.dir==="asc"?" ↑":" ↓"):""}
+              </th>
             </tr></thead>
             <tbody>
               {sortedCSMs.map(c => {
@@ -6029,7 +6039,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                                 {aTh("decrease","Decrease")}
                                 {aTh("cancelled","Cancelled")}
                                 {aTh("noData","No Data")}
-                                <th style={{padding:"4px 0 4px 24px",textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500}}>Retention %</th>
+                                {aTh("ret","Retention %")}
                               </tr></thead>
                               <tbody>
                                 {sortedAcctRows.map((r,i)=>{
