@@ -27,6 +27,8 @@ const CSV_Q3_RESULTS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66P
 const CSV_Q3_LOG     = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=1341900683&single=true&output=csv"; // bob_q3_log
 const CSV_Q3_BOQ     = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=1420711886&single=true&output=csv"; // bob_q3_boq account level
 const CSV_Q3_CUR     = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=549601512&single=true&output=csv";  // bob_q3_current account level
+const CSV_DOMO_BOQ   = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=40086456&single=true&output=csv";   // Domo_bob_q3_boq (fresh Domo export, multi-L2-row per EID)
+const CSV_Q3_SUPP    = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=653676072&single=true&output=csv"; // bob_q3_supplemental (secondary SF revenue report, no CSM column)
 const CSV_CALLS   = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=466716688&single=true&output=csv"; // calls history (raw bookings export)
 const CSV_QA_MC   = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=1435312575&single=true&output=csv"; // MC Activation QA
 const CSV_QA_SS   = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=2091285368&single=true&output=csv"; // Setup & Strategy QA
@@ -4433,7 +4435,7 @@ const BOB_CSMS = [{"n":"Chelsea Dingus","c":"Kendra Morelli","boq":21073,"lcm":1
 
 const BOB_DETAIL = {"Katelyn Ankrom":{"i":[],"d":[{"e":"BSFD0842","a":"Coconut Health","l":"Websites","b":117.0,"m":0.0,"n":-117.0},{"e":"BSFV9004","a":"Our World ID","l":"Social","b":750.0,"m":0.0,"n":-750.0},{"e":"BSFV9004","a":"Our World ID","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0}]},"Sylvia Appla":{"i":[{"e":"BSDZ5782","a":"Rawlins Neville","l":"Marketing Ctr","b":499.09,"m":509.09,"n":10.0}],"d":[{"e":"BSFC6415","a":"TotallyOT","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSFD6635","a":"Stix and Tonez","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSFV5882","a":"Keep Healthy Massage","l":"Marketing Ctr","b":358.19,"m":351.82,"n":-6.37},{"e":"BSFD6638","a":"C & T Earthworks","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSDK7610","a":"Chisham Express Pharmacy","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSDK7610","a":"Chisham Express Pharmacy","l":"Websites","b":131.82,"m":0.0,"n":-131.82},{"e":"BSFP7559","a":"Dale's Tree Services","l":"Marketing Ctr","b":570.91,"m":0.0,"n":-570.91},{"e":"BSFD8439","a":"Frostbite Auto Air","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0}]},"Libby Booher":{"i":[{"e":"BSCZ0276","a":"Whisked Away","l":"Platform Other","b":91.0,"m":126.0,"n":35.0}],"d":[{"e":"BSFR1218","a":"Varsity Flooring LLC","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFP2668","a":"Zebra Stripes Child Care & Preschool","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFP2668","a":"Zebra Stripes Child Care & Preschool","l":"Business Ctr","b":179.0,"m":0.0,"n":-179.0},{"e":"BSFX4774","a":"Faith Window Cleaning","l":"Growth Pkgs","b":300.0,"m":0.0,"n":-300.0},{"e":"BSFP7298","a":"CAMPBELL REMODELING AND MAINTENANCE LLC","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFP7298","a":"CAMPBELL REMODELING AND MAINTENANCE LLC","l":"Business Ctr","b":179.0,"m":0.0,"n":-179.0}]},"Merve (MJ) Brielmann":{"i":[],"d":[{"e":"BSFD7986","a":"OTU+","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0}]},"Karen Capellan Tavarez":{"i":[],"d":[{"e":"BSFF1595","a":"Gutter Customs LLC","l":"Websites","b":117.0,"m":0.0,"n":-117.0},{"e":"BRXB6268","a":"Tapia Demolition","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFF5427","a":"PM Landscaping","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFF2698","a":"EZ Garage Solutions","l":"Marketing Ctr","b":293.0,"m":0.0,"n":-293.0},{"e":"BSFF2698","a":"EZ Garage Solutions","l":"Social","b":500.0,"m":0.0,"n":-500.0},{"e":"BSDV3762","a":"Conecta Inc Chicago","l":"Business Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFZ2268","a":"Rescore America","l":"Marketing Ctr","b":304.0,"m":293.0,"n":-11.0}]},"Joseph Guillermo Carmona Garcia":{"i":[],"d":[{"e":"BSFC0370","a":"Radiant Energy","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFC0370","a":"Radiant Energy","l":"Websites","b":117.0,"m":0.0,"n":-117.0},{"e":"BSFX9079","a":"Moreland Exteriors","l":"Marketing Ctr","b":400.0,"m":384.0,"n":-16.0},{"e":"BSFP7403","a":"Reyes Roofing","l":"Marketing Ctr","b":433.0,"m":0.0,"n":-433.0},{"e":"BSFF2291","a":"Better Ways Home Services","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFC3268","a":"Distance Movers","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFD0406","a":"Eagle Hardwood Flooring, Inc.","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFC4086","a":"PMV Limousine INC","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFC2925","a":"guHome Remodeling Roofing & Gutters Plus","l":"Growth Pkgs","b":300.0,"m":0.0,"n":-300.0},{"e":"BSFF4071","a":"Persic Heating & Air, LLC","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFG0022","a":"Precision European Auto Repair","l":"Thryv Leads","b":2000.0,"m":0.0,"n":-2000.0}]},"Lauren Carter":{"i":[],"d":[{"e":"BSCQ8015","a":"Shea's Health and Nutrition","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFG0266","a":"SparrowHawk Mobile Detailing","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFG0266","a":"SparrowHawk Mobile Detailing","l":"SEO","b":900.0,"m":0.0,"n":-900.0},{"e":"BSFG0266","a":"SparrowHawk Mobile Detailing","l":"Social","b":500.0,"m":0.0,"n":-500.0},{"e":"BSFD2805","a":"Freeway Graphics & Design","l":"Marketing Ctr","b":433.0,"m":0.0,"n":-433.0},{"e":"BSFD2805","a":"Freeway Graphics & Design","l":"Thryv Leads","b":1500.0,"m":0.0,"n":-1500.0},{"e":"BRWZ3696","a":"Campbell's Sewer & Drain Cleaning","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFM0705","a":"Equipment Guardians LLC","l":"Marketing Ctr","b":433.0,"m":384.0,"n":-49.0},{"e":"BSDZ9243","a":"JD3 Mobile DNA Services LLC","l":"Business Ctr","b":254.0,"m":0.0,"n":-254.0},{"e":"BSDZ9243","a":"JD3 Mobile DNA Services LLC","l":"Websites","b":117.0,"m":0.0,"n":-117.0},{"e":"BSFD0438","a":"Andy's Pro Tire & Auto","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFP7420","a":"Marketside Chiropractic","l":"SEO","b":400.0,"m":0.0,"n":-400.0}]},"Johnny Cornielle":{"i":[],"d":[{"e":"BSFM3039","a":"Cool Concepts Inc.","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFM3039","a":"Cool Concepts Inc.","l":"Recurring Labor","b":125.0,"m":0.0,"n":-125.0},{"e":"BSFC7378","a":"Safe Resolutions LLC","l":"Business Ctr","b":571.0,"m":0.0,"n":-571.0},{"e":"BSFC7323","a":"ALL THINGS PINKABOO","l":"Business Ctr","b":244.0,"m":0.0,"n":-244.0}]},"Dave Crisler":{"i":[],"d":[{"e":"BSDM8338","a":"Logan West Laundromat","l":"Marketing Ctr","b":286.37,"m":280.0,"n":-6.37},{"e":"BSFP6650","a":"M1 business system","l":"Thryv Leads","b":545.0,"m":0.0,"n":-545.0},{"e":"BSFP6650","a":"M1 business system","l":"Marketing Ctr","b":499.09,"m":0.0,"n":-499.09},{"e":"BSDM0105","a":"Manuka Dental Care","l":"Websites","b":131.82,"m":0.0,"n":-131.82},{"e":"BSDM0105","a":"Manuka Dental Care","l":"SEO","b":600.0,"m":0.0,"n":-600.0},{"e":"BSDL2104","a":"Kirbside Clean A Bin","l":"Thryv Leads","b":953.0,"m":0.0,"n":-953.0},{"e":"BSCZ1564","a":"MEP PLUMBING LIMITED","l":"Marketing Ctr","b":330.0,"m":318.0,"n":-12.0},{"e":"BSFF8532","a":"Shop N Go Car Wash & Care","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSFM2341","a":"Imperial Detail Co.","l":"Marketing Ctr","b":318.0,"m":0.0,"n":-318.0},{"e":"BSFP3560","a":"Top Mix Construction","l":"Marketing Ctr","b":570.91,"m":0.0,"n":-570.91},{"e":"BSFP3560","a":"Top Mix Construction","l":"Growth Pkgs","b":454.55,"m":0.0,"n":-454.55},{"e":"BSFB1708","a":"Sabetian Natural Appearance Clinic","l":"Marketing Ctr","b":318.0,"m":0.0,"n":-318.0},{"e":"BSFB1708","a":"Sabetian Natural Appearance Clinic","l":"SEO","b":2100.0,"m":0.0,"n":-2100.0}]},"Matt Daly":{"i":[],"d":[{"e":"BSFM0691","a":"Bright & White Teeth Whitening","l":"Social","b":750.0,"m":0.0,"n":-750.0},{"e":"BSFP3574","a":"Perth Taxi Booking","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSFD6682","a":"SPEEDLINE Tree Surgery Pty Ltd","l":"Thryv Leads","b":909.0,"m":0.0,"n":-909.0}]},"Misty Decatur":{"i":[{"e":"BFQC0918","a":"Dubois County Garage Doors","l":"Platform Other","b":7.2,"m":43.2,"n":36.0},{"e":"BRPJ7139","a":"Manwill Plumbing & Heating","l":"Thryv Leads","b":10000.0,"m":12000.0,"n":2000.0}],"d":[{"e":"BSFB9303","a":"Dollar Bill's Heating and Air","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFC8129","a":"Lakeshore Custom Masonry","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFR5072","a":"SERVPRO of Lenoir, Duplin & Jones Counties","l":"Thryv Leads","b":2400.0,"m":0.0,"n":-2400.0},{"e":"BSFR5072","a":"SERVPRO of Lenoir, Duplin & Jones Counties","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0}]},"Chelsea Dingus":{"i":[],"d":[{"e":"BSFV6235","a":"Bullet Hole Annex","l":"SEO","b":700.0,"m":0.0,"n":-700.0},{"e":"BSFC0344","a":"Jerry's Paint & Body Shop","l":"Social","b":750.0,"m":0.0,"n":-750.0},{"e":"BSFC0344","a":"Jerry's Paint & Body Shop","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFR9436","a":"Master Tech Transmission","l":"Growth Pkgs","b":500.0,"m":0.0,"n":-500.0},{"e":"BSFP3006","a":"Beautistry Makeup Academy","l":"Business Ctr","b":179.0,"m":0.0,"n":-179.0},{"e":"BSFP3006","a":"Beautistry Makeup Academy","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0}]},"Misti Dixon":{"i":[],"d":[{"e":"BSFB5643","a":"Main Line Benefits- Barry Schumann","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFD8782","a":"Source Light Wellness Center","l":"Business Ctr","b":179.0,"m":0.0,"n":-179.0},{"e":"BSFD7585","a":"Beyond Roofing LLC","l":"Marketing Ctr","b":433.0,"m":0.0,"n":-433.0}]},"Kyle Dye":{"i":[],"d":[{"e":"BSFC2761","a":"Pickaway Flooring Center","l":"Marketing Ctr","b":433.0,"m":0.0,"n":-433.0},{"e":"BRXM5706","a":"Decorative Concrete Designer","l":"Marketing Ctr","b":433.0,"m":0.0,"n":-433.0},{"e":"BSDZ8620","a":"Springtown Electric","l":"SEO","b":800.0,"m":0.0,"n":-800.0}]},"Jathzelyn Elizabeth Fortuna Paulino":{"i":[],"d":[{"e":"BSFD0151","a":"Ollies Electric, LLC","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFD9975","a":"An Apple A Day Nutrition Counseling","l":"Marketing Ctr","b":628.0,"m":244.0,"n":-384.0},{"e":"BSFM0571","a":"OaksMark","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFQ9159","a":"Mark's Electric LLC","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFZ2626","a":"Faithful Turf","l":"Marketing Ctr","b":400.0,"m":384.0,"n":-16.0},{"e":"BSFD8028","a":"Precision Injury Law","l":"Marketing Ctr","b":293.0,"m":0.0,"n":-293.0},{"e":"BSFD8028","a":"Precision Injury Law","l":"Social","b":750.0,"m":0.0,"n":-750.0},{"e":"BRQB2178","a":"Uebe Insured","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFQ2873","a":"Fleming-moving llc","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFF2428","a":"Jarred Pierce Real Estate","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BRXK9889","a":"Big & Little Storage","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFG0515","a":"Cowboy Roadside Services","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFF0131","a":"Urgent Dental Care/Smile Centers of America","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFD9863","a":"ABS The Clean Machine","l":"Social","b":750.0,"m":0.0,"n":-750.0},{"e":"BSFD0870","a":"Pure Power CPAs","l":"Social","b":750.0,"m":0.0,"n":-750.0}]},"Florence Francois Nova":{"i":[],"d":[{"e":"BRXD8965","a":"Allen & Hoshall","l":"Marketing Ctr","b":141.17,"m":0.0,"n":-141.17},{"e":"BRXD8965","a":"Allen & Hoshall","l":"Growth Pkgs","b":183.33,"m":0.0,"n":-183.33}]},"Samuel Frias De Paula":{"i":[],"d":[{"e":"BRXR4376","a":"Buell & Olivieri Insurance","l":"Marketing Ctr","b":293.0,"m":0.0,"n":-293.0},{"e":"BSCN3394","a":"A Lonestar Service Blinds and Shutters","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFF1866","a":"Johnson's Roofing","l":"Marketing Ctr","b":433.0,"m":0.0,"n":-433.0},{"e":"BSFP7451","a":"Tanaechi","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0}]},"Dorka Frias Lantigua":{"i":[],"d":[{"e":"BSFD2732","a":"Dovinh Group","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSCW0716","a":"Nebraska 7v7 Football","l":"Platform Other","b":7.2,"m":0.0,"n":-7.2},{"e":"BSCW0716","a":"Nebraska 7v7 Football","l":"Business Ctr","b":179.0,"m":0.0,"n":-179.0},{"e":"BSCW0716","a":"Nebraska 7v7 Football","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BJVF3798","a":"Flower Shoppe Inc","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSDQ2902","a":"Vaughn Overhead Door","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFF5876","a":"Paramount Elevator Services","l":"Platform Other","b":21.6,"m":0.0,"n":-21.6},{"e":"BSFG3622","a":"Modern Man Studio","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFQ3508","a":"Guildcraft Exteriors","l":"Growth Pkgs","b":500.0,"m":0.0,"n":-500.0},{"e":"BSFQ3508","a":"Guildcraft Exteriors","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0}]},"Michael Furlong":{"i":[],"d":[{"e":"BSFP7811","a":"Jeune Aesthetics","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BKGK5247","a":"Aloota Farley Co L.P>A","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFR1756","a":"Xpress One Plumber","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFR1756","a":"Xpress One Plumber","l":"Thryv Leads","b":2600.0,"m":0.0,"n":-2600.0},{"e":"BSFF7993","a":"Gustavo Chavez Realtor","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFM2827","a":"Cedar Dental Clinic","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFP4508","a":"Terminatus Pest Control","l":"Growth Pkgs","b":500.0,"m":0.0,"n":-500.0}]},"Tracy-Ann Gaudencio":{"i":[{"e":"BSFF9092","a":"Heatherton Dental","l":"Thryv Leads","b":1818.0,"m":2727.0,"n":909.0}],"d":[{"e":"BSFF7479","a":"Account Elite Spray Pave","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSCZ4215","a":"Kokich Electrical Limited","l":"Marketing Ctr","b":330.0,"m":318.0,"n":-12.0}]},"Warda Gul":{"i":[{"e":"BSFC6690","a":"BrightR Financial","l":"Marketing Ctr","b":499.09,"m":509.09,"n":10.0}],"d":[{"e":"BSFC6809","a":"Affordable Flooring Solutions","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSFC6809","a":"Affordable Flooring Solutions","l":"Business Ctr","b":320.0,"m":0.0,"n":-320.0},{"e":"BSFF6463","a":"Decorug Carpet Cleaning","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSFD7053","a":"ABC Test Tag & Fire Australia","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSFG3134","a":"The Daylesford Meat Co","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSFC6760","a":"Synergy Beauty Supplies","l":"Marketing Ctr","b":499.09,"m":0.0,"n":-499.09},{"e":"BSFF1002","a":"Shangri-La Decors","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSFF1002","a":"Shangri-La Decors","l":"Social","b":1150.0,"m":0.0,"n":-1150.0},{"e":"BSFG0509","a":"KINGSTON AUTOMOTIVE ELECTRICS PTY. LTD.","l":"Websites","b":131.82,"m":0.0,"n":-131.82},{"e":"BSFG0509","a":"KINGSTON AUTOMOTIVE ELECTRICS PTY. LTD.","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSFC6545","a":"Davern & Co","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSDK8933","a":"JRs Mower & Motorcycle","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSDK8933","a":"JRs Mower & Motorcycle","l":"Websites","b":131.82,"m":0.0,"n":-131.82},{"e":"BSDL7066","a":"R G Electrical Pty Ltd","l":"Marketing Ctr","b":286.37,"m":280.0,"n":-6.37}]},"April Hall":{"i":[],"d":[{"e":"BSBS1494","a":"SCL4 LLC","l":"Platform Other","b":7.2,"m":0.0,"n":-7.2},{"e":"BSBS1494","a":"SCL4 LLC","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFF5886","a":"Stronger Built Construction","l":"Marketing Ctr","b":433.0,"m":0.0,"n":-433.0},{"e":"BRZR7821","a":"Harrell Mobile Auto Repair","l":"Marketing Ctr","b":293.0,"m":244.0,"n":-49.0},{"e":"BSFC9928","a":"Goals4Sports","l":"Marketing Ctr","b":293.0,"m":244.0,"n":-49.0},{"e":"BSFF2916","a":"Screen Mobile of Lubbock","l":"Marketing Ctr","b":293.0,"m":0.0,"n":-293.0},{"e":"BSFF2916","a":"Screen Mobile of Lubbock","l":"Social","b":1000.0,"m":0.0,"n":-1000.0}]},"Karissa Hernandez":{"i":[],"d":[{"e":"BSFC0179","a":"Zero Spore Restoration","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFC5052","a":"GBD Concrete","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFS0459","a":"Vital Blooms Wellness","l":"Business Ctr","b":179.0,"m":0.0,"n":-179.0},{"e":"BKQN3456","a":"FLB Insurance Agency","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BRXM4163","a":"Magnolia Mobile Veterinary","l":"Marketing Ctr","b":277.75,"m":0.0,"n":-277.75},{"e":"BSFF6632","a":"Hope Restored Missions","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFF9284","a":"AutoVisor 360","l":"Marketing Ctr","b":293.0,"m":0.0,"n":-293.0},{"e":"BSFQ2920","a":"Vantage Pest Control","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFF4034","a":"East Texas Flames LLC","l":"Social","b":750.0,"m":0.0,"n":-750.0},{"e":"BSFF4034","a":"East Texas Flames LLC","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFP4568","a":"Acme Roofing & Siding LLC","l":"Thryv Leads","b":2200.0,"m":0.0,"n":-2200.0},{"e":"BSFP4568","a":"Acme Roofing & Siding LLC","l":"Marketing Ctr","b":628.0,"m":384.0,"n":-244.0},{"e":"BSFC4104","a":"Heaven Storm Roofing","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0}]},"Damita Hill":{"i":[],"d":[{"e":"BSFD9778","a":"Woodard Assurance","l":"Platform Other","b":7.2,"m":0.0,"n":-7.2},{"e":"BSFD9778","a":"Woodard Assurance","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFZ1492","a":"Flash Fence","l":"Social","b":500.0,"m":0.0,"n":-500.0},{"e":"BSFZ1492","a":"Flash Fence","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFZ3386","a":"Feelin Drippy Mobile IV Therapy","l":"Marketing Ctr","b":433.0,"m":0.0,"n":-433.0},{"e":"BSFQ9230","a":"L&R Excavation","l":"Social","b":500.0,"m":0.0,"n":-500.0},{"e":"BSFQ9230","a":"L&R Excavation","l":"Marketing Ctr","b":433.0,"m":384.0,"n":-49.0}]},"Saira Julian Guzman":{"i":[],"d":[{"e":"BSFM0874","a":"Snowfall Towing LLC","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFG4148","a":"Consolidated Insurance Group of South Carolina","l":"Marketing Ctr","b":293.0,"m":0.0,"n":-293.0},{"e":"BSFG4148","a":"Consolidated Insurance Group of South Carolina","l":"Websites","b":117.0,"m":0.0,"n":-117.0},{"e":"BSFG3800","a":"MINT Nutrition","l":"Marketing Ctr","b":293.0,"m":0.0,"n":-293.0},{"e":"BSFQ8706","a":"Sea Pro Home Renovation","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BHCM4169","a":"North Valley Veterinary Clinic","l":"Marketing Ctr","b":192.4,"m":0.0,"n":-192.4}]},"Taylor Kidd":{"i":[],"d":[{"e":"BSFD0246","a":"Its A Beautiful World Travel","l":"SEO","b":800.0,"m":0.0,"n":-800.0},{"e":"BSFD0246","a":"Its A Beautiful World Travel","l":"Marketing Ctr","b":433.0,"m":0.0,"n":-433.0},{"e":"BSFP6023","a":"Mindsense Serenity","l":"Marketing Ctr","b":293.0,"m":49.0,"n":-244.0},{"e":"BDST1459","a":"Coweta Smiles","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BDST1459","a":"Coweta Smiles","l":"SEO","b":700.0,"m":0.0,"n":-700.0}]},"Barbara Larrosa Presinal":{"i":[],"d":[{"e":"BRXV1840","a":"Phillip Brown Construction LLC","l":"Growth Pkgs","b":150.0,"m":0.0,"n":-150.0},{"e":"BSFF6276","a":"Adams Plumbing","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFD7034","a":"Bossert Bookkeeping LLC","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFG1609","a":"Noah Auto Sales","l":"Social","b":750.0,"m":0.0,"n":-750.0},{"e":"BRXG6596","a":"Budget HVAC","l":"SEO","b":700.0,"m":0.0,"n":-700.0}]},"Kellie Lester":{"i":[],"d":[{"e":"BRXJ0339","a":"Able Roofing Company","l":"Marketing Ctr","b":433.0,"m":0.0,"n":-433.0},{"e":"BRXJ0339","a":"Able Roofing Company","l":"Growth Pkgs","b":300.0,"m":0.0,"n":-300.0},{"e":"BSFM3683","a":"Shine Effect Cleaning Services","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFM3683","a":"Shine Effect Cleaning Services","l":"Growth Pkgs","b":500.0,"m":0.0,"n":-500.0},{"e":"BSDZ8739","a":"Rc Home Renovations","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSDZ8739","a":"Rc Home Renovations","l":"Websites","b":117.0,"m":0.0,"n":-117.0},{"e":"BSFF4291","a":"Brighter Light Media","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFD5506","a":"WaterWise Plumbing","l":"Websites","b":117.0,"m":0.0,"n":-117.0},{"e":"BRXC8972","a":"Mary El Coiffures","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0}]},"Juan Liberato":{"i":[],"d":[{"e":"BSFF2981","a":"Redding Salon","l":"Social","b":750.0,"m":0.0,"n":-750.0}]},"Sakshi Mahalwal":{"i":[{"e":"BSDL5682","a":"Plain Pallets Pty Ltd","l":"Marketing Ctr","b":499.09,"m":509.09,"n":10.0}],"d":[{"e":"BSDZ6167","a":"Millers Civil Contractors","l":"Thryv Leads","b":454.0,"m":0.0,"n":-454.0},{"e":"BSFF9155","a":"Bristols Automotive Specialists","l":"Marketing Ctr","b":407.0,"m":0.0,"n":-407.0},{"e":"BSFG0909","a":"P & D Homes","l":"Marketing Ctr","b":351.82,"m":0.0,"n":-351.82},{"e":"BSCZ1631","a":"CARPETWEST LIMITED","l":"Marketing Ctr","b":318.0,"m":0.0,"n":-318.0},{"e":"BSCZ6848","a":"ASL Industries Ltd","l":"Marketing Ctr","b":330.0,"m":318.0,"n":-12.0},{"e":"BSFF2333","a":"Grant Financial Consulting","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSDX0816","a":"Bell Lawyers","l":"Social","b":1500.0,"m":0.0,"n":-1500.0},{"e":"BSFM0696","a":"Agape Sanitation","l":"Websites","b":131.82,"m":0.0,"n":-131.82},{"e":"BSFM0696","a":"Agape Sanitation","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0}]},"Peter Manalac":{"i":[],"d":[{"e":"BSFC6308","a":"My Antenna Tech","l":"Websites","b":131.82,"m":0.0,"n":-131.82},{"e":"BSFC6308","a":"My Antenna Tech","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSDK5917","a":"Beaufort Newsagent","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSDP9748","a":"Oceania Engineering Services","l":"Websites","b":131.82,"m":0.0,"n":-131.82},{"e":"BSDP9748","a":"Oceania Engineering Services","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSFS8025","a":"Smartline Electrical","l":"Websites","b":131.82,"m":0.0,"n":-131.82},{"e":"BSFG0578","a":"Jerry's Paintless Dent Repair","l":"Thryv Leads","b":454.0,"m":0.0,"n":-454.0},{"e":"BSFG0578","a":"Jerry's Paintless Dent Repair","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSDP7478","a":"DTS Electrical","l":"Marketing Ctr","b":318.0,"m":0.0,"n":-318.0}]},"Scott Mather":{"i":[],"d":[{"e":"BSFP7146","a":"Forever Glam Scrubs and More Murrieta","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSDL2334","a":"Local Exterior Services","l":"Websites","b":117.0,"m":0.0,"n":-117.0}]},"Wilson Mercedes":{"i":[],"d":[{"e":"BSCM8875","a":"Dry Line LLC","l":"Marketing Ctr","b":293.0,"m":0.0,"n":-293.0},{"e":"BSFF5372","a":"Camera Creations Photography","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFD8980","a":"Azteca Taxi Cab","l":"Social","b":500.0,"m":0.0,"n":-500.0},{"e":"BSFF8453","a":"1 and Done Legal Document Assistance","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFD0345","a":"Boat Stuf","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFZ1197","a":"Joannie\u2019s Florals and Events","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFZ1197","a":"Joannie\u2019s Florals and Events","l":"Growth Pkgs","b":300.0,"m":0.0,"n":-300.0},{"e":"BSFF8709","a":"Andrew's Violin and Viola Music Lessons By Appointment","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSBX9512","a":"Blackwell Agency Inc","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFP3203","a":"Fairfield house cleaning","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSDZ8288","a":"S.P.E.C Training Program LLC","l":"Platform Other","b":21.6,"m":0.0,"n":-21.6},{"e":"BSDZ8288","a":"S.P.E.C Training Program LLC","l":"Business Ctr","b":410.0,"m":0.0,"n":-410.0}]},"Tyler Moeggenberg":{"i":[],"d":[{"e":"BSFM3106","a":"Kevin Yul Wright, JD - Business Loan Success Academy Inc","l":"Websites","b":117.0,"m":0.0,"n":-117.0},{"e":"BSFM3106","a":"Kevin Yul Wright, JD - Business Loan Success Academy Inc","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSCS3567","a":"Healthier you counseling center","l":"Social","b":500.0,"m":0.0,"n":-500.0},{"e":"BSFP6950","a":"Property Management Remote Staffing","l":"Marketing Ctr","b":433.0,"m":0.0,"n":-433.0},{"e":"BSFP6950","a":"Property Management Remote Staffing","l":"Social","b":1000.0,"m":0.0,"n":-1000.0},{"e":"BSFP6950","a":"Get Staffing","l":"Marketing Ctr","b":293.0,"m":0.0,"n":-293.0},{"e":"BSFP6950","a":"Get Staffing","l":"Social","b":1000.0,"m":0.0,"n":-1000.0},{"e":"BSFP6950","a":"HYPR Staffing","l":"Marketing Ctr","b":433.0,"m":0.0,"n":-433.0},{"e":"BSFP6950","a":"HYPR Callers","l":"Marketing Ctr","b":293.0,"m":0.0,"n":-293.0},{"e":"BSFM3540","a":"JD's One Stop Auto Shop","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFB0193","a":"Christine Simper","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFF4901","a":"Howard County ALF","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFF4901","a":"Howard County ALF","l":"Social","b":750.0,"m":0.0,"n":-750.0},{"e":"BBCH4580","a":"Granite State Home Improvements","l":"Marketing Ctr","b":628.0,"m":384.0,"n":-244.0}]},"Irina Larianni Molina Molina":{"i":[],"d":[{"e":"BSFD1222","a":"The Ranch Garage Doors NC","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFC0954","a":"Locksmith Citrus Florida","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFF6588","a":"Genesis Landworks LLC","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFC8762","a":"Joint Sealant & Waterproofing LLC","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFC4055","a":"Brewhaus America, Inc.","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFD0442","a":"Jack's Plumbing","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFG1730","a":"DAB Digital Enterprises, LLC","l":"Marketing Ctr","b":293.0,"m":244.0,"n":-49.0},{"e":"BSFG1730","a":"DAB Digital Enterprises, LLC","l":"Social","b":500.0,"m":0.0,"n":-500.0}]},"Yessica Montero Urena":{"i":[{"e":"BBJS3449","a":"Wood Well Drilling LLC","l":"Websites","b":117.0,"m":125.0,"n":8.0}],"d":[{"e":"BBXQ7972","a":"PICK OF THE LITTER PAINTING","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFF9513","a":"Healthy Home Enterprises LLC","l":"Marketing Ctr","b":293.0,"m":0.0,"n":-293.0},{"e":"BSFF9513","a":"Healthy Home Enterprises LLC","l":"Platform Other","b":7.2,"m":0.0,"n":-7.2},{"e":"BSFX7950","a":"Elizbiz Limited Liability Company","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BJWQ7551","a":"Kirch Edward Property Management Inc","l":"Websites","b":117.0,"m":0.0,"n":-117.0},{"e":"BSFP7368","a":"Tropical Sunbeds Tanning Salon","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0}]},"Victor Abner Moscoso Fernandez":{"i":[],"d":[{"e":"BHBX0819","a":"North Bay Painting","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFF7006","a":"JACKSON & SON CONSTRUCTION LLC","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFF4377","a":"Sheltons Janitorial","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFG1957","a":"Marz landscaping","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFX4887","a":"A Reed Consulting Inc.","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSDF5952","a":"Elquin Tree Service Inc.","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSDD7006","a":"Perfectly Placed Home Organizing","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0}]},"Ellise Payne":{"i":[{"e":"BSFD7073","a":"Bay City Demolition","l":"Websites","b":131.82,"m":136.36,"n":4.54}],"d":[{"e":"BSFC6433","a":"Carpet One Lithgow Pty Ltd.","l":"Growth Pkgs","b":272.73,"m":0.0,"n":-272.73},{"e":"BSDM5923","a":"The Battery Terminal","l":"Social","b":1525.0,"m":0.0,"n":-1525.0},{"e":"BSFF7767","a":"DocSmart Solutions Limited","l":"Marketing Ctr","b":318.0,"m":0.0,"n":-318.0},{"e":"BSFD6631","a":"HAIR @ THE HUB","l":"Marketing Ctr","b":499.09,"m":0.0,"n":-499.09},{"e":"BSFF2320","a":"BeltUp Leather Co.","l":"Thryv Leads","b":3636.0,"m":0.0,"n":-3636.0},{"e":"BSFF9360","a":"Easy Excavators","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSDZ5486","a":"AOF Space Design","l":"Social","b":750.0,"m":0.0,"n":-750.0}]},"Sati Ananda Pimentel Malespin":{"i":[],"d":[{"e":"BSFC7529","a":"Acclaim Homecare Svc, LLC","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFF3087","a":"John P. Burgess, DDS","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFV5376","a":"Georgia Studs Construction","l":"Business Ctr","b":179.0,"m":0.0,"n":-179.0},{"e":"BSFV5376","a":"Georgia Studs Construction","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFC8834","a":"Vision Home Improvement LLC","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFC8834","a":"Vision Home Improvement LLC","l":"Business Ctr","b":179.0,"m":0.0,"n":-179.0},{"e":"BFMP0738","a":"Quality Garage Doors","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0}]},"Tyler Popplewell":{"i":[],"d":[{"e":"BSFQ9150","a":"Four Girls and a Dream","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFQ9150","a":"Four Girls and a Dream","l":"Business Ctr","b":179.0,"m":0.0,"n":-179.0}]},"Yolanda Ramirez":{"i":[{"e":"BSFX4907","a":"Gulf Wind Cigars","l":"Websites","b":117.0,"m":125.0,"n":8.0}],"d":[{"e":"BSFB8524","a":"national awnings Miami","l":"Thryv Leads","b":1500.0,"m":0.0,"n":-1500.0},{"e":"BSFB8524","a":"national awnings Miami","l":"Social","b":750.0,"m":0.0,"n":-750.0},{"e":"BSFD2514","a":"D.I. Ready Cleaning Service Inc.","l":"Thryv Leads","b":1800.0,"m":0.0,"n":-1800.0},{"e":"BJQR3935","a":"Star Landscaping","l":"Thryv Leads","b":1500.0,"m":1000.0,"n":-500.0},{"e":"BRRZ3102","a":"Mr. Plumber","l":"Thryv Leads","b":3600.0,"m":2100.0,"n":-1500.0}]},"Alejandro Rodriguez-Medina":{"i":[{"e":"BSFD2501","a":"Plumbing Kingz LLC","l":"Business Ctr","b":208.0,"m":237.0,"n":29.0}],"d":[{"e":"BSFC8877","a":"Johnson Asphalt Paving","l":"Social","b":500.0,"m":0.0,"n":-500.0},{"e":"BSFF2943","a":"Jesus Knows My Name","l":"Websites","b":117.0,"m":0.0,"n":-117.0},{"e":"BSFF2943","a":"Jesus Knows My Name","l":"Business Ctr","b":179.0,"m":0.0,"n":-179.0},{"e":"BSFZ3549","a":"Trees Plus Inc","l":"SEO","b":500.0,"m":0.0,"n":-500.0},{"e":"BDTV2624","a":"Portage Auto Mall Complete Auto Repair Center","l":"Growth Pkgs","b":500.0,"m":0.0,"n":-500.0},{"e":"BDTV2624","a":"Portage Auto Mall Complete Auto Repair Center","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFC3508","a":"Clean It All","l":"Websites","b":117.0,"m":0.0,"n":-117.0},{"e":"BSFC3508","a":"Clean It All","l":"Business Ctr","b":244.0,"m":0.0,"n":-244.0}]},"Stacy Roers":{"i":[],"d":[{"e":"BSFZ1687","a":"Hypnosis at Kentic Healing Connection","l":"Marketing Ctr","b":293.0,"m":0.0,"n":-293.0},{"e":"BSFB5606","a":"Colonial Loan","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFB5611","a":"Colonial Loan","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BRXT2163","a":"Screens Only","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0}]},"Zoltan Rudolf":{"i":[],"d":[{"e":"BSFF2764","a":"Kerbing By Design","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSCZ2971","a":"Daveron Scaffolding Ltd","l":"Marketing Ctr","b":318.0,"m":0.0,"n":-318.0},{"e":"BSFD9058","a":"Eza Plumbing and Drainage","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSFD8834","a":"Mowbray Newsagency","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSFD7043","a":"Smile More Dental","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSDM9422","a":"Productive Plastics","l":"Thryv Leads","b":4545.0,"m":0.0,"n":-4545.0},{"e":"BSDW3326","a":"CBI Blinds","l":"Thryv Leads","b":909.0,"m":0.0,"n":-909.0},{"e":"BSDW3326","a":"CBI Blinds","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0}]},"Kennedy Sanchez":{"i":[{"e":"BRXD6298","a":"A-1 Driveway Replacement","l":"Thryv Leads","b":3000.0,"m":4000.0,"n":1000.0}],"d":[{"e":"BRXH7873","a":"Gaddis Nursery Inc.","l":"Growth Pkgs","b":100.0,"m":0.0,"n":-100.0},{"e":"BRXH7873","a":"Gaddis Nursery Inc.","l":"Marketing Ctr","b":69.4,"m":0.0,"n":-69.4},{"e":"BSFF6990","a":"Romano's Painting LLC","l":"Websites","b":117.0,"m":0.0,"n":-117.0},{"e":"BSFF6990","a":"Romano's Painting LLC","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFF6990","a":"Romano's Painting LLC","l":"Social","b":500.0,"m":0.0,"n":-500.0},{"e":"BRWS6514","a":"4 C's Construction","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BRWS6514","a":"4 C's Construction","l":"Growth Pkgs","b":300.0,"m":0.0,"n":-300.0},{"e":"BSFR0035","a":"Bloomhouse Landscape and Irrigation","l":"Thryv Leads","b":2100.0,"m":0.0,"n":-2100.0},{"e":"BSFP2855","a":"TB Roadside Assistance","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFF2724","a":"Florida Luxury Home and Condo","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFF2724","a":"Florida Luxury Home and Condo","l":"Platform Other","b":7.2,"m":0.0,"n":-7.2}]},"Darling Danais Santos Taveras":{"i":[],"d":[{"e":"BSFB2359","a":"Stor It Here Storage","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFF6200","a":"Botail by Jeffrey","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFB3954","a":"Davinci Valentin Brand","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFF0871","a":"New England Auctions","l":"Marketing Ctr","b":293.0,"m":244.0,"n":-49.0}]},"Steven Saunders":{"i":[],"d":[{"e":"BSFM1190","a":"D & M Asphalt Services, Inc","l":"Social","b":750.0,"m":0.0,"n":-750.0},{"e":"BSFP3972","a":"LM Bodywork Institute","l":"Websites","b":117.0,"m":0.0,"n":-117.0},{"e":"BSFP3972","a":"LM Bodywork Institute","l":"Business Ctr","b":179.0,"m":0.0,"n":-179.0},{"e":"BSFC4006","a":"Floridas First Coast Of Golf","l":"Business Ctr","b":244.0,"m":0.0,"n":-244.0}]},"Rafael Sencion Sencion":{"i":[],"d":[{"e":"BSFP8938","a":"Toro Birria","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFP8938","a":"Toro Birria","l":"Growth Pkgs","b":300.0,"m":0.0,"n":-300.0},{"e":"BSFF7702","a":"Quantum Sports Center","l":"Social","b":750.0,"m":0.0,"n":-750.0},{"e":"BSFF7702","a":"Quantum Sports Center","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSCL3353","a":"REPAIR APPLIANCE TECH","l":"Growth Pkgs","b":300.0,"m":0.0,"n":-300.0},{"e":"BSCL3353","a":"REPAIR APPLIANCE TECH","l":"Marketing Ctr","b":433.0,"m":0.0,"n":-433.0},{"e":"BSFF5647","a":"JJ Cillis Group LLC","l":"Marketing Ctr","b":293.0,"m":0.0,"n":-293.0},{"e":"BSFF5647","a":"JJ Cillis Group LLC","l":"Websites","b":117.0,"m":0.0,"n":-117.0},{"e":"BSFP4560","a":"Technology Networks","l":"Marketing Ctr","b":293.0,"m":244.0,"n":-49.0},{"e":"BSFP4560","a":"Technology Networks","l":"Social","b":500.0,"m":0.0,"n":-500.0},{"e":"BSBN3109","a":"Tolberts Heating & Cooling LLC","l":"Social","b":500.0,"m":0.0,"n":-500.0},{"e":"BSFD2419","a":"Sunterjee LLC","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0}]},"Ashley Shaffer":{"i":[],"d":[{"e":"BSFF5411","a":"Stretch-abilitation","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFF5411","a":"Stretch-abilitation","l":"SEO","b":1300.0,"m":0.0,"n":-1300.0},{"e":"BSFF5411","a":"Stretch-abilitation","l":"Social","b":500.0,"m":0.0,"n":-500.0},{"e":"BRXF3371","a":"Care Medical Center","l":"Social","b":1500.0,"m":0.0,"n":-1500.0},{"e":"BSCW6209","a":"Douglas Water Depot","l":"Thryv Leads","b":1000.0,"m":0.0,"n":-1000.0},{"e":"BRWN8733","a":"West Oaks Animal Hospital LLC","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BRXV6313","a":"Mauldin Trash Service","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BRXV6313","a":"Mauldin Trash Service","l":"SEO","b":1200.0,"m":0.0,"n":-1200.0}]},"Nikita Siepen-Bowers":{"i":[{"e":"BSFD8077","a":"Action - Priority","l":"Websites","b":131.82,"m":136.36,"n":4.54},{"e":"BSDV1069","a":"Hawkesbury City Plumbing Pty Ltd","l":"Marketing Ctr","b":111.53,"m":114.88,"n":3.35}],"d":[{"e":"BSFD8077","a":"Action - Priority","l":"Thryv Leads","b":909.0,"m":0.0,"n":-909.0},{"e":"BSFX6219","a":"Leakend Leak Finding Services","l":"Marketing Ctr","b":286.37,"m":280.0,"n":-6.37},{"e":"BSDW7306","a":"Giraffe Removals","l":"Marketing Ctr","b":351.82,"m":0.0,"n":-351.82},{"e":"BSDW7306","a":"Giraffe Removals","l":"Thryv Leads","b":1818.0,"m":0.0,"n":-1818.0},{"e":"BSDW7306","a":"Giraffe Removals","l":"SEO","b":1200.0,"m":0.0,"n":-1200.0},{"e":"BSFD7064","a":"Total Vision Pool Fencing","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSDM0061","a":"The Squeegees Window Cleaning","l":"Business Ctr","b":320.0,"m":0.0,"n":-320.0},{"e":"BSFB5778","a":"NZ Natural Formulas","l":"Websites","b":29.0,"m":0.0,"n":-29.0},{"e":"BSFB5778","a":"NZ Natural Formulas","l":"SEO","b":1750.0,"m":0.0,"n":-1750.0},{"e":"BSFB5778","a":"NZ Natural Formulas","l":"Marketing Ctr","b":318.0,"m":0.0,"n":-318.0},{"e":"BSFB5778","a":"NZ Natural Formulas","l":"Social","b":1650.0,"m":0.0,"n":-1650.0},{"e":"BSDB3382","a":"G&M NODDING LIMITED","l":"Marketing Ctr","b":318.0,"m":0.0,"n":-318.0},{"e":"BSDM1772","a":"Wizard Motors Pty Ltd","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSFC6732","a":"Mr Hook Towing and Metal","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSDL0232","a":"Williams Premium Wholesale","l":"Marketing Ctr","b":509.1,"m":499.09,"n":-10.01},{"e":"BSFQ6729","a":"BRP Construction limited","l":"Social","b":825.0,"m":0.0,"n":-825.0},{"e":"BSFQ6729","a":"BRP Construction limited","l":"Marketing Ctr","b":407.0,"m":0.0,"n":-407.0}]},"Sarah Swanson":{"i":[{"e":"BSFV8753","a":"24/7 Events","l":"Thryv Leads","b":2000.0,"m":4800.0,"n":2800.0}],"d":[{"e":"BSCT7730","a":"Elemental Landscaping Inc","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFB9274","a":"masterwealthbuildersllc","l":"Business Ctr","b":254.0,"m":0.0,"n":-254.0},{"e":"BSFB9274","a":"masterwealthbuildersllc","l":"Websites","b":117.0,"m":0.0,"n":-117.0},{"e":"BRDX7750","a":"Paradise Landscaping and Tree Service","l":"Social","b":750.0,"m":0.0,"n":-750.0},{"e":"BRDX7750","a":"Paradise Landscaping and Tree Service","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0}]},"Matt Sword":{"i":[],"d":[{"e":"BSFQ2287","a":"Levels Ahead Painting","l":"Social","b":750.0,"m":0.0,"n":-750.0},{"e":"BSFQ2287","a":"Levels Ahead Painting","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFM3452","a":"AllTime Lock Out Service","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFM3452","a":"AllTime Lock Out Service","l":"SEO","b":400.0,"m":0.0,"n":-400.0},{"e":"BSFF2470","a":"Bella Roma pasta and pizza","l":"Growth Pkgs","b":500.0,"m":0.0,"n":-500.0},{"e":"BSFF6379","a":"A Family for Every Child","l":"Marketing Ctr","b":293.0,"m":0.0,"n":-293.0},{"e":"BSDZ9849","a":"Makeup by Jaundalyn","l":"Business Ctr","b":410.0,"m":0.0,"n":-410.0},{"e":"BSFP3264","a":"Shine Bright Cleaning Solutions","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFP3264","a":"Shine Bright Cleaning Solutions","l":"Platform Other","b":7.2,"m":0.0,"n":-7.2}]},"Elianny Tena Antigua":{"i":[],"d":[{"e":"BSFR6524","a":"Financial Grafix LLP","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFR6524","a":"Financial Grafix LLP","l":"Growth Pkgs","b":300.0,"m":0.0,"n":-300.0}]},"Heidi Torres Uribe":{"i":[{"e":"BSDR4708","a":"Triple Clean","l":"Platform Other","b":36.0,"m":50.4,"n":14.4}],"d":[{"e":"BSFF4402","a":"Green Year Landscaping","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BRWV6069","a":"Custom Decks Plus","l":"Websites","b":64.9,"m":0.0,"n":-64.9},{"e":"BSFF4269","a":"Airport Towing","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFF3693","a":"Cold Spring School","l":"Social","b":750.0,"m":0.0,"n":-750.0},{"e":"BSFF3693","a":"Cold Spring School","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFF9591","a":"Helping Hands Estate Sales","l":"Social","b":500.0,"m":0.0,"n":-500.0},{"e":"BSFF9591","a":"Helping Hands Estate Sales","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFF9591","a":"Helping Hands Estate Sales","l":"Platform Other","b":7.2,"m":0.0,"n":-7.2},{"e":"BSDR4708","a":"Triple Clean","l":"Business Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFV9017","a":"Premier Patio & Deck","l":"SEO","b":1900.0,"m":0.0,"n":-1900.0},{"e":"BSFD9971","a":"MBI International, LLC","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0}]},"Karmita Turner":{"i":[],"d":[{"e":"BFPM2056","a":"ARTchitectural","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BQLC8330","a":"Oakridge Roofing Solutions LLC","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFP8430","a":"K & K Solutions Inc","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0}]},"Rossi Valerio Tejeda":{"i":[],"d":[{"e":"BSFZ2573","a":"Empire Works GA","l":"Marketing Ctr","b":400.0,"m":384.0,"n":-16.0}]},"Ashley Vasquez Mena":{"i":[],"d":[{"e":"BNNC5836","a":"Palm Family Eyecare","l":"Marketing Ctr","b":135.9,"m":86.9,"n":-49.0},{"e":"BNNC5836","a":"Palm Family Eyecare","l":"Growth Pkgs","b":300.0,"m":0.0,"n":-300.0},{"e":"BBCL3929","a":"Highland Farm","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFD8550","a":"Vanguard Fence & Deck LLC","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFF9026","a":"I-ONE CONSTRUCTION","l":"Marketing Ctr","b":433.0,"m":0.0,"n":-433.0},{"e":"BSFF9026","a":"I-ONE CONSTRUCTION","l":"Social","b":750.0,"m":0.0,"n":-750.0},{"e":"BSFP7091","a":"AZA Drywall and Remodeling","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BSFD1240","a":"Truflo Plumbing Solutions LLC","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFF5601","a":"Ready Golf 4K","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFF5601","a":"Ready Golf 4K","l":"Social","b":500.0,"m":0.0,"n":-500.0},{"e":"BRXB5124","a":"Carrie's Cash 4 Your Car","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0},{"e":"BRXB5124","a":"Carrie's Cash 4 Your Car","l":"Thryv Leads","b":1500.0,"m":0.0,"n":-1500.0}]},"Mark Velazquez":{"i":[],"d":[{"e":"BSFQ3467","a":"CJ Construction","l":"Marketing Ctr","b":433.0,"m":0.0,"n":-433.0},{"e":"BSFP7148","a":"Loving My Pregnancy","l":"Social","b":500.0,"m":0.0,"n":-500.0},{"e":"BSFP7148","a":"Loving My Pregnancy","l":"Growth Pkgs","b":500.0,"m":0.0,"n":-500.0},{"e":"BSFF9272","a":"Guirian Bookkeeping Services","l":"Marketing Ctr","b":384.0,"m":0.0,"n":-384.0}]},"Indu Vijay":{"i":[{"e":"BSDD3552","a":"Hodge motors","l":"Websites","b":155.0,"m":160.0,"n":5.0}],"d":[{"e":"BSFD8658","a":"Safeguard Tree Services","l":"Marketing Ctr","b":280.0,"m":0.0,"n":-280.0},{"e":"BSFF3589","a":"JP Air Conditioning - Heating & Cooling","l":"Marketing Ctr","b":499.09,"m":0.0,"n":-499.09}]},"Anthony Yen":{"i":[{"e":"BSFR8712","a":"Inexpensive Tree Care","l":"Thryv Leads","b":2500.0,"m":3000.0,"n":500.0},{"e":"BSBQ1871","a":"AG Builders LLC","l":"Websites","b":117.0,"m":125.0,"n":8.0},{"e":"BSDL7961","a":"Luxury Bubbles","l":"Thryv Leads","b":4000.0,"m":6000.0,"n":2000.0}],"d":[{"e":"BSFR4557","a":"Total Pest Control","l":"Thryv Leads","b":1300.0,"m":0.0,"n":-1300.0},{"e":"BSFX8681","a":"Angels of Mercy Private Homecare Services","l":"Marketing Ctr","b":400.0,"m":384.0,"n":-16.0},{"e":"BSGB1783","a":"Email Marketing Group Inc","l":"Social","b":750.0,"m":0.0,"n":-750.0},{"e":"BSGB1783","a":"Email Marketing Group Inc","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BSFF4619","a":"Maxine Lawson- USA Benefits Group","l":"Marketing Ctr","b":244.0,"m":0.0,"n":-244.0},{"e":"BRXS2753","a":"HL Holmes Asphalt Paving","l":"Platform Other","b":7.2,"m":0.0,"n":-7.2},{"e":"BSFF5680","a":"C&J Drain Cleaning","l":"Websites","b":117.0,"m":0.0,"n":-117.0},{"e":"BRXP5453","a":"American West Services","l":"Marketing Ctr","b":244.0,"m":228.0,"n":-16.0},{"e":"BSDD8734","a":"The Event Gallery","l":"Business Ctr","b":179.0,"m":0.0,"n":-179.0}]}};
 
-function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChurn, churnAlerts, onSelectCSM, liveBobDet={}, bobAdj={}, q3Current={}, q3Log=[], q3BobBoq=[], q3BobCur=[]}) {
+function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChurn, churnAlerts, onSelectCSM, liveBobDet={}, bobAdj={}, q3Current={}, q3Log=[], q3BobBoq=[], q3BobCur=[], domoBoq=[], q3Supp=[]}) {
   const [bobSubTab, setBobSubTab] = useState("current"); // "current" | "q3"
   const hasQ3 = Object.keys(q3Current).length > 0;
   const getDet = n => {
@@ -4494,6 +4496,14 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
   const [q2TileFilter, setQ2TileFilter] = useState(null);
   const [q2CSMFilter,  setQ2CSMFilter]  = useState(null);
   const [q2AcctSort,   setQ2AcctSort]   = useState({col:"acct", dir:"asc"});
+  // Domo Book of Business tab state
+  const [domoView,       setDomoView]       = useState("csm");        // "csm" | "account"
+  const [domoSort,        setDomoSort]        = useState({col:"retPct", dir:"asc"});
+  const [domoAcctSort,    setDomoAcctSort]    = useState({col:"acct", dir:"asc"});
+  const [domoCSMFilter,   setDomoCSMFilter]   = useState(null);        // expanded CSM in "csm" view
+  const [domoStatusFilter,setDomoStatusFilter]= useState("");         // increase/decrease/cancelled/no_data/unchanged
+  const [domoSourceFilter,setDomoSourceFilter]= useState("");         // sf/supp/both/none
+  const [domoSearch,      setDomoSearch]      = useState("");
   const [churnModal, setChurnModal] = useState(false);
   const [bobSort, setBobSort]       = useState({col:"ret", dir:"desc"});
   const [expandedBob, setExpandedBob] = useState(null);
@@ -5322,6 +5332,411 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
     );
   };
 
+  // ── DOMO BOOK OF BUSINESS — new test tab ───────────────────────────────────
+  // Beginning Book: fresh Domo BOQ export (multi-row per EID, one row per L2
+  // product line) summed by Enterprise ID. Current Revenue: bob_q3_current +
+  // bob_q3_supplemental, joined by Enterprise ID and summed together. CSM
+  // attribution always comes from the Domo BOQ file, never from the SF files.
+  const renderDomoBoB = () => {
+    const pf = v => { const x = parseFloat(String(v||"0").replace(/[$,]/g,"")); return isNaN(x)?0:x; };
+    const getCol = (row, ...names) => {
+      for (const n of names) {
+        const k = Object.keys(row).find(k => k.toLowerCase().replace(/[^a-z]/g,"") === n.toLowerCase().replace(/[^a-z]/g,""));
+        if (k && row[k] !== undefined && row[k] !== "") return row[k];
+      }
+      return "";
+    };
+    const lfSwap = raw => {
+      const s = String(raw||"").trim();
+      if (!s) return "";
+      if (s.includes(",")) {
+        const [last, first] = s.split(",", 2);
+        return (first.trim()+" "+last.trim()).replace(/  +/g," ").trim();
+      }
+      return s;
+    };
+
+    // ── Parse Domo BOQ: group by EID, sum "Beginning of Quarter" across all L2 lines ──
+    const boqMap = {}; // {eid: {eid, csm, acct, boq}}
+    domoBoq.forEach(r => {
+      const csmRaw = String(getCol(r,"CSM Name")||"").trim();
+      if (!csmRaw || /TOTAL|GRAND/i.test(csmRaw)) return;
+      const eid = String(getCol(r,"Enterprise ID","Enterprise Id")||"").trim().toUpperCase();
+      if (!eid) return;
+      const boqAmt = pf(getCol(r,"Beginning of Quarter"));
+      const acct = String(getCol(r,"Account Name")||"").trim();
+      const csmName = norm(lfSwap(csmRaw)) || lfSwap(csmRaw);
+      if (!boqMap[eid]) boqMap[eid] = {eid, csm:csmName, acct, boq:0};
+      boqMap[eid].boq += boqAmt;
+      if (!boqMap[eid].acct && acct) boqMap[eid].acct = acct;
+    });
+
+    // ── Parse revenue sources (bob_q3_current + bob_q3_supplemental), sum by EID ──
+    const parseRevenueByEid = (rows) => {
+      const map = {};
+      rows.forEach(r => {
+        const eid = String(getCol(r,"Enterprise Id","Enterprise ID")||"").trim().toUpperCase();
+        if (!eid) return;
+        const rev = pf(getCol(r,"SaaS Revenue"));
+        map[eid] = (map[eid]||0) + rev;
+      });
+      return map;
+    };
+    const sfMap   = parseRevenueByEid(q3BobCur);
+    const suppMap = parseRevenueByEid(q3Supp);
+
+    // ── Join: BOQ is the authoritative account list ──────────────────────────
+    const allRows = Object.values(boqMap).map(b => {
+      const sfRev   = sfMap[b.eid]   || 0;
+      const suppRev = suppMap[b.eid] || 0;
+      const cur = sfRev + suppRev;
+      const delta = cur - b.boq;
+      const ret = b.boq > 0 ? cur / b.boq : null;
+      let src = (sfRev>0 && suppRev>0) ? "both" : sfRev>0 ? "sf" : suppRev>0 ? "supp" : "none";
+      let status;
+      if (src === "none") status = "no_data";
+      else if (b.boq > 0 && cur === 0) status = "cancelled";
+      else if (Math.abs(delta) < 0.5) status = "unchanged";
+      else if (delta > 0) status = "increase";
+      else status = "decrease";
+      return {eid:b.eid, csm:b.csm, acct:b.acct, boq:b.boq, sfRev, suppRev, cur, delta, ret, status, src};
+    });
+
+    // ── Orphans: in SF/Supp but not in BOQ at all ─────────────────────────────
+    const boqEids = new Set(Object.keys(boqMap));
+    const orphanEids = new Set([...Object.keys(sfMap), ...Object.keys(suppMap)].filter(e=>!boqEids.has(e)));
+    const orphanCount = orphanEids.size;
+
+    // ── Scope by coach/manager/CSM filters from the top of the page ──────────
+    const scopedRows = allRows.filter(r => {
+      const i = lk(norm(r.csm)) || lk(r.csm);
+      if (managerCoaches && !(i && managerCoaches.includes(i.c))) return false;
+      if (filterCoach && (i && i.c) !== filterCoach) return false;
+      if (filterCSM && norm(r.csm) !== filterCSM && r.csm !== filterCSM) return false;
+      return true;
+    });
+
+    // ── Local Status/Source/Search filters ────────────────────────────────────
+    const filteredRows = scopedRows.filter(r => {
+      if (domoStatusFilter && r.status !== domoStatusFilter) return false;
+      if (domoSourceFilter && r.src !== domoSourceFilter) return false;
+      if (domoSearch) {
+        const s = domoSearch.toLowerCase();
+        if (!r.acct.toLowerCase().includes(s) && !r.eid.toLowerCase().includes(s)) return false;
+      }
+      return true;
+    });
+
+    // ── KPI tiles ──────────────────────────────────────────────────────────────
+    const totalBoq   = scopedRows.reduce((s,r)=>s+r.boq, 0);
+    const totalCur   = scopedRows.reduce((s,r)=>s+r.cur, 0);
+    const netChange  = totalCur - totalBoq;
+    const overallRet = totalBoq > 0 ? totalCur/totalBoq : null;
+
+    const fmt$   = n => "$"+Number(n||0).toLocaleString("en-US",{minimumFractionDigits:0,maximumFractionDigits:0});
+    const fmtPct = p => p!=null ? (p*100).toFixed(1)+"%" : "--";
+    const retCol = p => p==null?"#808080":p>=0.91?"#16a34a":p>=0.85?"#d97706":"#dc2626";
+
+    const statusPill = (s) => {
+      const cfg = {
+        increase:  {bg:"#dcfce7",fg:"#166534",label:"↑ Increase"},
+        decrease:  {bg:"#fee2e2",fg:"#991b1b",label:"↓ Decrease"},
+        cancelled: {bg:"#fef9c3",fg:"#854d0e",label:"$0 Cancelled"},
+        no_data:   {bg:"#f3f4f6",fg:"#6b7280",label:"No data"},
+        unchanged: {bg:"#f3f4f6",fg:"#6b7280",label:"Unchanged"},
+      }[s]||{bg:"#f3f4f6",fg:"#374151",label:s};
+      return <span style={{fontSize:10,fontWeight:500,padding:"1px 8px",borderRadius:20,background:cfg.bg,color:cfg.fg,whiteSpace:"nowrap"}}>{cfg.label}</span>;
+    };
+    const sourcePill = (s) => {
+      const cfg = {
+        sf:   {bg:"#eff6ff",fg:"#1e40af",label:"SF"},
+        supp: {bg:"#fff7ed",fg:"#c2410c",label:"Supp"},
+        both: {bg:"#dcfce7",fg:"#166534",label:"SF+Supp"},
+        none: {bg:"#f3f4f6",fg:"#6b7280",label:"No data"},
+      }[s]||{bg:"#f3f4f6",fg:"#374151",label:s};
+      return <span style={{fontSize:10,fontWeight:500,padding:"1px 8px",borderRadius:20,background:cfg.bg,color:cfg.fg,whiteSpace:"nowrap"}}>{cfg.label}</span>;
+    };
+
+    // ── By-CSM grouping ────────────────────────────────────────────────────────
+    const csmGroups = {};
+    filteredRows.forEach(r => {
+      const key = r.csm || "(unknown)";
+      if (!csmGroups[key]) csmGroups[key] = {name:key, boq:0, cur:0, increases:0, decreases:0, cancelled:0, noData:0, rows:[]};
+      const g = csmGroups[key];
+      g.boq += r.boq; g.cur += r.cur; g.rows.push(r);
+      if (r.status==="increase") g.increases++;
+      else if (r.status==="decrease") g.decreases++;
+      else if (r.status==="cancelled") g.cancelled++;
+      else if (r.status==="no_data") g.noData++;
+    });
+    const csmList = Object.values(csmGroups).map(g => ({
+      ...g, delta: g.cur-g.boq, ret: g.boq>0 ? g.cur/g.boq : null,
+    }));
+    const sortedCsmList = [...csmList].sort((a,b) => {
+      const dir = domoSort.dir==="asc"?1:-1;
+      const col = domoSort.col;
+      if (col==="name") return dir*a.name.localeCompare(b.name);
+      const va = col==="retPct"?(a.ret??-1):col==="boq"?a.boq:col==="cur"?a.cur:col==="delta"?a.delta:0;
+      const vb = col==="retPct"?(b.ret??-1):col==="boq"?b.boq:col==="cur"?b.cur:col==="delta"?b.delta:0;
+      return dir*(va-vb);
+    });
+
+    // ── Flat By-Account view (sorted) ─────────────────────────────────────────
+    const sortedAcctRows = [...filteredRows].sort((a,b) => {
+      const dir = domoAcctSort.dir==="asc"?1:-1;
+      const col = domoAcctSort.col;
+      if (col==="acct") return dir*a.acct.localeCompare(b.acct);
+      if (col==="csm")  return dir*a.csm.localeCompare(b.csm);
+      const va = col==="boq"?a.boq:col==="cur"?a.cur:col==="delta"?a.delta:col==="ret"?(a.ret??-1):0;
+      const vb = col==="boq"?b.boq:col==="cur"?b.cur:col==="delta"?b.delta:col==="ret"?(b.ret??-1):0;
+      return dir*(va-vb);
+    });
+
+    const domoTh = (col, label, right, sortState, setSortState) => {
+      const active = sortState.col === col;
+      return (
+        <th key={col} onClick={()=>setSortState(s=>({col, dir: s.col===col&&s.dir==="asc"?"desc":"asc"}))}
+          style={{padding:"0 8px 8px 0",textAlign:right?"right":"left",fontSize:10,textTransform:"uppercase",
+            color:active?"#29355D":"#808080",fontWeight:active?700:500,cursor:"pointer",
+            borderBottom:"0.5px solid rgba(41,53,93,.08)",userSelect:"none",whiteSpace:"nowrap"}}>
+          {label}{active?(sortState.dir==="asc"?" ↑":" ↓"):""}
+        </th>
+      );
+    };
+
+    const exportDomoCSV = () => {
+      const rows = filteredRows;
+      if (!rows.length) return;
+      const headers = ["CSM","Account","Enterprise ID","BOQ","SF MRR","Supp MRR","Combined","Change","Retention %","Source","Status"];
+      const csv = [headers.join(","), ...rows.map(r =>
+        [dispName(r.csm),r.acct,r.eid,r.boq,r.sfRev,r.suppRev,r.cur,r.delta,r.ret!=null?(r.ret*100).toFixed(1):"",r.src,r.status]
+        .map(v=>{ const s=String(v??"").replace(/"/g,'""'); return s.includes(",")||s.includes('"')?'"'+s+'"':s; })
+        .join(",")
+      )].join("\n");
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
+      a.download = "Domo-BoB-"+new Date().toISOString().slice(0,10)+".csv";
+      a.click();
+    };
+
+    if (domoBoq.length === 0) return (
+      <div style={{...S.card,textAlign:"center",padding:"40px 20px",color:"#808080"}}>
+        <div style={{fontSize:32,marginBottom:12}}>📊</div>
+        <div style={{fontSize:14,fontWeight:500,color:"#29355D",marginBottom:8}}>Domo Book of Business — waiting on data</div>
+        <div style={{fontSize:12}}>Paste the fresh Domo BOQ export into the connected Google Sheet tab to populate this view.</div>
+      </div>
+    );
+
+    return (
+      <div>
+        {/* Preliminary/test tab disclaimer */}
+        <div style={{display:"flex",alignItems:"center",gap:8,background:"#EFF6FF",border:"0.5px solid rgba(30,64,175,.2)",
+          borderRadius:8,padding:"9px 14px",marginBottom:14,fontSize:12,color:"#1e40af"}}>
+          <span style={{fontSize:14}}>🧪</span>
+          <span><strong>Test tab.</strong> Beginning Book comes from a fresh Domo export (separate from the locked Q3 BOQ).
+            Current Revenue combines bob_q3_current + bob_q3_supplemental. This does not affect Q2 or Q3 Tracking.</span>
+        </div>
+
+        {/* KPI tiles */}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(5,minmax(0,1fr))",gap:10,marginBottom:16}}>
+          <div style={{background:"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",borderTop:"3px solid #29355D"}}>
+            <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>BOQ Accounts</div>
+            <div style={{fontSize:22,fontWeight:600,color:"#29355D",lineHeight:1,marginBottom:4}}>{scopedRows.length}</div>
+            <div style={{fontSize:10,color:"#808080"}}>unique EIDs</div>
+          </div>
+          <div style={{background:"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",borderTop:"3px solid #5378FC"}}>
+            <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>BOQ Total</div>
+            <div style={{fontSize:22,fontWeight:600,color:"#5378FC",lineHeight:1,marginBottom:4}}>{fmt$(totalBoq)}</div>
+            <div style={{fontSize:10,color:"#808080"}}>beginning book</div>
+          </div>
+          <div style={{background:"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",borderTop:"3px solid #16a34a"}}>
+            <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Combined MRR</div>
+            <div style={{fontSize:22,fontWeight:600,color:"#16a34a",lineHeight:1,marginBottom:4}}>{fmt$(totalCur)}</div>
+            <div style={{fontSize:10,color:"#808080"}}>SF + supplemental</div>
+          </div>
+          <div style={{background:"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",borderTop:"3px solid "+(netChange>=0?"#16a34a":"#dc2626")}}>
+            <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Net Change</div>
+            <div style={{fontSize:22,fontWeight:600,color:netChange>=0?"#16a34a":"#dc2626",lineHeight:1,marginBottom:4}}>{netChange>=0?"+":""}{fmt$(netChange)}</div>
+            <div style={{fontSize:10,color:"#808080"}}>vs BOQ</div>
+          </div>
+          <div style={{background:"#29355D",borderRadius:"0 0 10px 10px",padding:"12px 14px",borderTop:"3px solid #29355D"}}>
+            <div style={{fontSize:10,textTransform:"uppercase",color:"rgba(255,255,255,.7)",fontWeight:500,marginBottom:4}}>Retention</div>
+            <div style={{fontSize:22,fontWeight:600,color:"#fff",lineHeight:1,marginBottom:4}}>{fmtPct(overallRet)}</div>
+            <div style={{fontSize:10,color:"rgba(255,255,255,.6)"}}>goal 91%</div>
+          </div>
+        </div>
+
+        {/* View toggle + filters */}
+        <div style={{...S.card,marginBottom:16}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12,flexWrap:"wrap",gap:10}}>
+            <div style={{display:"flex",gap:2,background:"#ECEEF1",borderRadius:8,padding:3}}>
+              {[["csm","By CSM"],["account","By Account"]].map(([v,l])=>(
+                <button key={v} onClick={()=>setDomoView(v)}
+                  style={{padding:"5px 14px",fontSize:12,fontWeight:500,border:"none",borderRadius:6,cursor:"pointer",
+                    background:domoView===v?"#fff":"transparent",color:domoView===v?"#29355D":"#808080",
+                    boxShadow:domoView===v?"0 1px 3px rgba(0,0,0,.08)":"none"}}>
+                  {l}
+                </button>
+              ))}
+            </div>
+            <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+              <select value={domoStatusFilter} onChange={e=>setDomoStatusFilter(e.target.value)}
+                style={{padding:"5px 10px",borderRadius:8,border:"0.5px solid rgba(41,53,93,.2)",fontSize:12,color:"#29355D",background:"#fff"}}>
+                <option value="">All statuses</option>
+                <option value="increase">Increase</option>
+                <option value="decrease">Decrease</option>
+                <option value="cancelled">Cancelled</option>
+                <option value="no_data">No data</option>
+                <option value="unchanged">Unchanged</option>
+              </select>
+              <select value={domoSourceFilter} onChange={e=>setDomoSourceFilter(e.target.value)}
+                style={{padding:"5px 10px",borderRadius:8,border:"0.5px solid rgba(41,53,93,.2)",fontSize:12,color:"#29355D",background:"#fff"}}>
+                <option value="">All sources</option>
+                <option value="sf">SF only</option>
+                <option value="supp">Supplemental only</option>
+                <option value="both">SF + Supp</option>
+                <option value="none">No data</option>
+              </select>
+              <input value={domoSearch} onChange={e=>setDomoSearch(e.target.value)} placeholder="Search account or EID…"
+                style={{padding:"5px 10px",borderRadius:8,border:"0.5px solid rgba(41,53,93,.2)",fontSize:12,color:"#29355D",width:180}}/>
+              <button onClick={exportDomoCSV}
+                style={{padding:"5px 14px",borderRadius:20,border:"0.5px solid rgba(41,53,93,.2)",
+                  background:"#fff",color:"#29355D",fontSize:12,fontWeight:500,cursor:"pointer",whiteSpace:"nowrap"}}>
+                ⬇ Export CSV
+              </button>
+            </div>
+          </div>
+
+          {domoView === "csm" ? (
+            <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+              <thead><tr>
+                {domoTh("name","CSM",false,domoSort,setDomoSort)}
+                {domoTh("boq","BOQ",true,domoSort,setDomoSort)}
+                {domoTh("cur","Combined MRR",true,domoSort,setDomoSort)}
+                {domoTh("delta","Change",true,domoSort,setDomoSort)}
+                {domoTh("retPct","Retention %",false,domoSort,setDomoSort)}
+                <th style={{padding:"0 8px 8px 24px",textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500}}>Breakdown</th>
+              </tr></thead>
+              <tbody>
+                {sortedCsmList.map(g => {
+                  const isOpen = domoCSMFilter === g.name;
+                  return (
+                    <React.Fragment key={g.name}>
+                      <tr onClick={()=>setDomoCSMFilter(isOpen?null:g.name)}
+                        style={{cursor:"pointer",background:isOpen?"rgba(41,53,93,.04)":"transparent"}}>
+                        <td style={{padding:"8px 8px 8px 0",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)",fontWeight:500,color:"#29355D"}}>
+                          <span style={{marginRight:6,fontSize:9,display:"inline-block",transition:"transform .15s",
+                            transform:isOpen?"rotate(90deg)":"none",color:"#808080"}}>▶</span>
+                          {dispName(g.name)}
+                        </td>
+                        <td style={{padding:"8px 8px 8px 0",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#808080"}}>{fmt$(g.boq)}</td>
+                        <td style={{padding:"8px 8px 8px 0",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)",textAlign:"right"}}>{fmt$(g.cur)}</td>
+                        <td style={{padding:"8px 8px 8px 0",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)",textAlign:"right",fontWeight:500,color:g.delta>=0?"#16a34a":"#dc2626"}}>{g.delta>=0?"+":""}{fmt$(g.delta)}</td>
+                        <td style={{padding:"8px 8px 8px 24px",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)"}}>
+                          <div style={{display:"flex",alignItems:"center",gap:8}}>
+                            <div style={{width:80,height:5,background:"#ECEEF1",borderRadius:3,overflow:"hidden"}}>
+                              <div style={{width:Math.min((g.ret||0)*100,100).toFixed(1)+"%",height:"100%",background:retCol(g.ret),borderRadius:3}}/>
+                            </div>
+                            <span style={{fontWeight:600,color:retCol(g.ret)}}>{fmtPct(g.ret)}</span>
+                          </div>
+                        </td>
+                        <td style={{padding:"8px 0 8px 24px",borderBottom:isOpen?"none":"0.5px solid rgba(41,53,93,.05)"}}>
+                          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                            {g.increases>0&&<span style={{fontSize:10,padding:"1px 7px",borderRadius:20,background:"#dcfce7",color:"#166534"}}>↑{g.increases}</span>}
+                            {g.decreases>0&&<span style={{fontSize:10,padding:"1px 7px",borderRadius:20,background:"#fee2e2",color:"#991b1b"}}>↓{g.decreases}</span>}
+                            {g.cancelled>0&&<span style={{fontSize:10,padding:"1px 7px",borderRadius:20,background:"#fef9c3",color:"#854d0e"}}>$0 {g.cancelled}</span>}
+                            {g.noData>0&&<span style={{fontSize:10,padding:"1px 7px",borderRadius:20,background:"#f3f4f6",color:"#6b7280"}}>no data {g.noData}</span>}
+                          </div>
+                        </td>
+                      </tr>
+                      {isOpen && (
+                        <tr>
+                          <td colSpan={6} style={{padding:"0 0 12px 24px",borderBottom:"0.5px solid rgba(41,53,93,.08)",background:"rgba(41,53,93,.02)"}}>
+                            <table style={{width:"100%",borderCollapse:"collapse",fontSize:11,tableLayout:"fixed"}}>
+                              <colgroup>
+                                <col style={{width:"30%"}}/><col style={{width:"12%"}}/><col style={{width:"9%"}}/><col style={{width:"9%"}}/>
+                                <col style={{width:"9%"}}/><col style={{width:"9%"}}/><col style={{width:"10%"}}/><col style={{width:"12%"}}/>
+                              </colgroup>
+                              <thead><tr style={{borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>
+                                {["Account","EID","BOQ","SF MRR","Supp MRR","Combined","Change","Status"].map((h,hi)=>(
+                                  <th key={h} style={{padding:"4px 8px 4px 0",textAlign:hi<2?"left":"right",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,whiteSpace:"nowrap"}}>{h}</th>
+                                ))}
+                              </tr></thead>
+                              <tbody>
+                                {g.rows.map((r,i)=>(
+                                  <tr key={i} style={{borderTop:"0.5px solid rgba(41,53,93,.05)"}}>
+                                    <td style={{padding:"5px 8px 5px 0",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.acct}</td>
+                                    <td style={{padding:"5px 8px 5px 0",fontFamily:"monospace",fontSize:10,color:"#808080"}}>{r.eid}</td>
+                                    <td style={{padding:"5px 8px 5px 0",textAlign:"right",color:"#808080"}}>{r.boq>0?fmt$(r.boq):"--"}</td>
+                                    <td style={{padding:"5px 8px 5px 0",textAlign:"right"}}>{r.sfRev>0?fmt$(r.sfRev):"--"}</td>
+                                    <td style={{padding:"5px 8px 5px 0",textAlign:"right"}}>{r.suppRev>0?fmt$(r.suppRev):"--"}</td>
+                                    <td style={{padding:"5px 8px 5px 0",textAlign:"right",fontWeight:500}}>{r.cur>0?fmt$(r.cur):"--"}</td>
+                                    <td style={{padding:"5px 8px 5px 0",textAlign:"right",color:r.delta>0?"#16a34a":r.delta<0?"#dc2626":"#808080"}}>{r.delta!==0?(r.delta>0?"+":"")+fmt$(r.delta):"--"}</td>
+                                    <td style={{padding:"5px 0 5px 0"}}>{statusPill(r.status)}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          ) : (
+            <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+              <thead><tr>
+                {domoTh("csm","CSM",false,domoAcctSort,setDomoAcctSort)}
+                {domoTh("acct","Account",false,domoAcctSort,setDomoAcctSort)}
+                <th style={{padding:"0 8px 8px 0",textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500}}>EID</th>
+                {domoTh("boq","BOQ",true,domoAcctSort,setDomoAcctSort)}
+                {domoTh("cur","Combined MRR",true,domoAcctSort,setDomoAcctSort)}
+                {domoTh("delta","Change",true,domoAcctSort,setDomoAcctSort)}
+                {domoTh("ret","Retention %",true,domoAcctSort,setDomoAcctSort)}
+                <th style={{padding:"0 8px 8px 0",textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500}}>Source</th>
+                <th style={{padding:"0 0 8px 0",textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500}}>Status</th>
+              </tr></thead>
+              <tbody>
+                {sortedAcctRows.slice(0,500).map((r,i)=>(
+                  <tr key={i} style={{borderBottom:"0.5px solid rgba(41,53,93,.05)"}}>
+                    <td style={{padding:"7px 8px 7px 0",whiteSpace:"nowrap"}}>{dispName(r.csm)}</td>
+                    <td style={{padding:"7px 8px 7px 0",maxWidth:220,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.acct}</td>
+                    <td style={{padding:"7px 8px 7px 0",fontFamily:"monospace",fontSize:10,color:"#808080"}}>{r.eid}</td>
+                    <td style={{padding:"7px 8px 7px 0",textAlign:"right",color:"#808080"}}>{r.boq>0?fmt$(r.boq):"--"}</td>
+                    <td style={{padding:"7px 8px 7px 0",textAlign:"right"}}>{r.cur>0?fmt$(r.cur):"--"}</td>
+                    <td style={{padding:"7px 8px 7px 0",textAlign:"right",color:r.delta>0?"#16a34a":r.delta<0?"#dc2626":"#808080"}}>{r.delta!==0?(r.delta>0?"+":"")+fmt$(r.delta):"--"}</td>
+                    <td style={{padding:"7px 8px 7px 0",textAlign:"right",fontWeight:600,color:retCol(r.ret)}}>{fmtPct(r.ret)}</td>
+                    <td style={{padding:"7px 8px 7px 0"}}>{sourcePill(r.src)}</td>
+                    <td style={{padding:"7px 0 7px 0"}}>{statusPill(r.status)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          {domoView==="account" && sortedAcctRows.length>500 && (
+            <div style={{fontSize:11,color:"#808080",textAlign:"center",padding:"10px 0 0"}}>
+              Showing first 500 of {sortedAcctRows.length} accounts — narrow with filters or export CSV for the full list.
+            </div>
+          )}
+        </div>
+
+        {/* Orphan accounts callout */}
+        {orphanCount > 0 && (
+          <div style={{...S.card,background:"#FEF2F2",border:"0.5px solid rgba(220,38,38,.2)"}}>
+            <div style={{fontSize:12,fontWeight:600,color:"#991b1b",marginBottom:6}}>
+              ⚠ {orphanCount} accounts found in SF/Supplemental but not in the BOQ file — excluded from all totals above
+            </div>
+            <div style={{fontSize:11,color:"#808080"}}>
+              These accounts have revenue but no matching Enterprise ID in the Domo BOQ export, so there's no baseline to compare against. Check whether they need to be added to the BOQ export.
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
     const visibleAlerts = (churnAlerts||[]).filter(a => {
     if (managerCoaches) { const i=lk(a.csm); if(!(i&&managerCoaches.includes(i.c))) return false; }
     if (filterCoach) { const i=lk(a.csm); if(!(i&&i.c===filterCoach)) return false; }
@@ -5407,7 +5822,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
 
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
         <div style={{display:"flex",gap:2,background:"#ECEEF1",borderRadius:8,padding:3}}>
-          {[["overview","Q2 Tracking"],["q3","Q3 Tracking"+( hasQ3?" ✓":"")]].map(([t,l])=>(
+          {[["overview","Q2 Tracking"],["q3","Q3 Tracking"+( hasQ3?" ✓":"")],["domo","Domo Book of Business"]].map(([t,l])=>(
             <button key={t} onClick={()=>setBobTab(t)}
               style={{padding:"5px 14px",fontSize:12,fontWeight:500,border:"none",borderRadius:6,cursor:"pointer",
                 background:bobTab===t?"#fff":"transparent",color:bobTab===t?"#29355D":t==="q3"&&hasQ3?"#16a34a":"#808080",
@@ -5422,6 +5837,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
       </div>
       {bobTab==="overview" && renderQ2()}
       {bobTab==="q3"       && renderQ3()}
+      {bobTab==="domo"     && renderDomoBoB()}
     </div>
   );
 }
@@ -5576,6 +5992,8 @@ export default function App() {
   const [q3Log, setQ3Log]         = useState([]);
   const [q3BobBoq, setQ3BobBoq]   = useState([]); // account-level BOQ rows
   const [q3BobCur, setQ3BobCur]   = useState([]); // account-level current rows
+  const [domoBoq, setDomoBoq]     = useState([]); // fresh Domo BOQ export rows
+  const [q3Supp,  setQ3Supp]      = useState([]); // supplemental SF revenue rows
   const [skippedCSMs, setSkippedCSMs] = useState([]);
   const [rawRev, setRawRev] = useState([]);
   const [bobData, setBobData] = useState(null);
@@ -5645,7 +6063,9 @@ export default function App() {
         CSV_Q3_LOG     ? fetchCSV(CSV_Q3_LOG).catch(()=>[])     : Promise.resolve([]),
         fetchCSV(CSV_Q3_BOQ).catch(()=>[]),
         fetchCSV(CSV_Q3_CUR).catch(()=>[]),
-      ]).then(([revRows, emailRows, cadRows, dueRows, ontimeRows, historyRows, skippedRows, bobRows, bobDetRows, bobAdjRows, callRows, qaMcRows, qaSSRows, mcRows, bcRows, churnAlertRows, q3CurrentRows, q3LogRows, q3BobBoqRows, q3BobCurRows]) => {
+        fetchCSV(CSV_DOMO_BOQ).catch(()=>[]),
+        fetchCSV(CSV_Q3_SUPP).catch(()=>[]),
+      ]).then(([revRows, emailRows, cadRows, dueRows, ontimeRows, historyRows, skippedRows, bobRows, bobDetRows, bobAdjRows, callRows, qaMcRows, qaSSRows, mcRows, bcRows, churnAlertRows, q3CurrentRows, q3LogRows, q3BobBoqRows, q3BobCurRows, domoBoqRows, q3SuppRows]) => {
         latestEmail   = emailRows;
         latestCad     = cadRows;
         latestDue     = dueRows;
@@ -5687,6 +6107,8 @@ export default function App() {
         if (q3LogRows&&q3LogRows.length>0) setQ3Log(mapQ3Log(q3LogRows));
         if (q3BobBoqRows&&q3BobBoqRows.length>0) setQ3BobBoq(q3BobBoqRows);
         if (q3BobCurRows&&q3BobCurRows.length>0) setQ3BobCur(q3BobCurRows);
+        if (domoBoqRows&&domoBoqRows.length>0) setDomoBoq(domoBoqRows);
+        if (q3SuppRows&&q3SuppRows.length>0) setQ3Supp(q3SuppRows);
         setUpdatedAt(new Date().toLocaleTimeString());
         setStatus("ok");
         console.log("Full load complete");
@@ -6073,7 +6495,7 @@ My question: ${aiCustom}`,
           {tab==="leaderboard"&&<LeaderboardView csms={filteredCSMs} bobRaw={bobRaw}/>}
           {tab==="activity"&&<ActivityView csms={filteredCSMs}/>}
           {tab==="revenue"&&<RevenueView rawRev={rawRev} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches}/>}
-          {tab==="bob"&&<BobView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} churnAlerts={churnAlerts} onSelectCSM={selectCSMFn} liveBobDet={liveBobDet} bobAdj={bobAdj} q3Current={q3Current} q3Log={q3Log} q3BobBoq={q3BobBoq} q3BobCur={q3BobCur}/>}
+          {tab==="bob"&&<BobView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} churnAlerts={churnAlerts} onSelectCSM={selectCSMFn} liveBobDet={liveBobDet} bobAdj={bobAdj} q3Current={q3Current} q3Log={q3Log} q3BobBoq={q3BobBoq} q3BobCur={q3BobCur} domoBoq={domoBoq} q3Supp={q3Supp}/>}
           {tab==="trends"&&<TrendsView history={history} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} qamc={qamc} qass={qass}/>}
         </div>
       )}
