@@ -5716,18 +5716,6 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
             </tbody>
           </table>
         </div>
-
-        {/* Orphan accounts callout */}
-        {orphanCount > 0 && (
-          <div style={{...S.card,background:"#FEF2F2",border:"0.5px solid rgba(220,38,38,.2)",marginTop:16}}>
-            <div style={{fontSize:12,fontWeight:600,color:"#991b1b",marginBottom:6}}>
-              ⚠ {orphanCount} accounts found in SF/Supplemental but not in the BOQ file — excluded from all totals above
-            </div>
-            <div style={{fontSize:11,color:"#808080"}}>
-              These accounts have revenue but no matching Enterprise ID in the Domo BOQ export, so there's no baseline to compare against. Check whether they need to be added to the BOQ export.
-            </div>
-          </div>
-        )}
       </div>
     );
   };
