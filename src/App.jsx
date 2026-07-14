@@ -5374,27 +5374,34 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
     // ── Parse revenue sources (bob_q3_current + bob_q3_supplemental), sum by EID ──
     const parseRevenueByEid = (rows) => {
       const map = {};
+      const seen = new Set(); // EIDs that appeared at least once, even at $0/blank
       rows.forEach(r => {
         const eid = String(getCol(r,"Enterprise Id","Enterprise ID")||"").trim().toUpperCase();
         if (!eid) return;
+        seen.add(eid);
         const rev = pf(getCol(r,"SaaS Revenue"));
         map[eid] = (map[eid]||0) + rev;
       });
-      return map;
+      return {map, seen};
     };
-    const sfMap   = parseRevenueByEid(q3BobCur);
-    const suppMap = parseRevenueByEid(q3Supp);
+    const sfData   = parseRevenueByEid(q3BobCur);
+    const suppData = parseRevenueByEid(q3Supp);
+    const sfMap = sfData.map, suppMap = suppData.map; // kept for the orphan-check below
 
     // ── Join: BOQ is the authoritative account list ──────────────────────────
     const allRows = Object.values(boqMap).map(b => {
-      const sfRev   = sfMap[b.eid]   || 0;
-      const suppRev = suppMap[b.eid] || 0;
+      const sfRev   = sfData.map[b.eid]   || 0;
+      const suppRev = suppData.map[b.eid] || 0;
       const cur = sfRev + suppRev;
       const delta = cur - b.boq;
       const ret = b.boq > 0 ? cur / b.boq : null;
+      // seenAnywhere = the EID appeared as a row in at least one revenue file,
+      // even if that row's revenue was $0/blank — that's a real cancellation
+      // signal, not missing data. Only mark "no_data" if truly absent from both.
+      const seenAnywhere = sfData.seen.has(b.eid) || suppData.seen.has(b.eid);
       let src = (sfRev>0 && suppRev>0) ? "both" : sfRev>0 ? "sf" : suppRev>0 ? "supp" : "none";
       let status;
-      if (src === "none") status = "no_data";
+      if (!seenAnywhere) status = "no_data";
       else if (b.boq > 0 && cur === 0) status = "cancelled";
       else if (Math.abs(delta) < 0.5) status = "unchanged";
       else if (delta > 0) status = "increase";
