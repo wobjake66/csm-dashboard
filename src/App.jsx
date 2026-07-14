@@ -5566,7 +5566,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
             <div style={{fontSize:10,color:"#808080"}}>{domoData.length} CSMs</div>
           </div>
           <div style={{background:"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",borderTop:"3px solid #29355D"}}>
-            <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Combined MRR</div>
+            <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Current MRR</div>
             <div style={{fontSize:22,fontWeight:600,color:"#29355D",lineHeight:1,marginBottom:4}}>{fmt$(totalCur)}</div>
             <div style={{fontSize:10,color:"#808080"}}>SF + supplemental</div>
           </div>
@@ -5592,7 +5592,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
             <thead><tr>
               {sortTh("name","CSM",false)}
               {sortTh("boq","BOQ",true)}
-              {sortTh("cur","Combined MRR",true)}
+              {sortTh("cur","Current MRR",true)}
               {sortTh("increaseMrr","Increase",true)}
               {sortTh("decreaseMrr","Decrease",true)}
               {sortTh("cancelledMrr","Cancelled",true)}
@@ -5638,9 +5638,17 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                         const dir = domoAcctSort.dir==="asc"?1:-1;
                         const col = domoAcctSort.col;
                         if (col==="acct") return dir*a.acct.localeCompare(b.acct);
-                        const va = col==="boq"?a.boq:col==="cur"?a.cur:col==="delta"?a.delta:col==="ret"?(a.ret??-1):0;
-                        const vb = col==="boq"?b.boq:col==="cur"?b.cur:col==="delta"?b.delta:col==="ret"?(b.ret??-1):0;
-                        return dir*(va-vb);
+                        const val = (r) => {
+                          if (col==="boq") return r.boq;
+                          if (col==="cur") return r.cur;
+                          if (col==="ret") return r.ret??-1;
+                          if (col==="increase")  return r.status==="increase"  ? r.delta : 0;
+                          if (col==="decrease")  return r.status==="decrease"  ? Math.abs(r.delta) : 0;
+                          if (col==="cancelled") return r.status==="cancelled" ? r.boq : 0;
+                          if (col==="noData")    return r.status==="no_data"  ? 1 : 0;
+                          return 0;
+                        };
+                        return dir*(val(a)-val(b));
                       });
                       const aTh = (col,label,right=true) => {
                         const active = domoAcctSort.col===col;
@@ -5661,30 +5669,41 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                             </div>
                             <table style={{width:"100%",borderCollapse:"collapse",fontSize:11,tableLayout:"fixed"}}>
                               <colgroup>
-                                <col style={{width:"30%"}}/><col style={{width:"14%"}}/><col style={{width:"10%"}}/>
-                                <col style={{width:"10%"}}/><col style={{width:"10%"}}/><col style={{width:"10%"}}/><col style={{width:"16%"}}/>
+                                <col style={{width:"24%"}}/><col style={{width:"11%"}}/><col style={{width:"8%"}}/>
+                                <col style={{width:"9%"}}/><col style={{width:"8%"}}/><col style={{width:"8%"}}/>
+                                <col style={{width:"9%"}}/><col style={{width:"8%"}}/><col style={{width:"15%"}}/>
                               </colgroup>
                               <thead><tr style={{borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>
                                 {aTh("acct","Account",false)}
                                 <th style={{padding:"4px 8px 4px 0",textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500}}>EID</th>
                                 {aTh("boq","BOQ")}
-                                {aTh("cur","Combined")}
-                                {aTh("delta","Change")}
-                                {aTh("ret","Retention %")}
-                                <th style={{padding:"4px 0 4px 24px",textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500}}>Status</th>
+                                {aTh("cur","Current MRR")}
+                                {aTh("increase","Increase")}
+                                {aTh("decrease","Decrease")}
+                                {aTh("cancelled","Cancelled")}
+                                {aTh("noData","No Data")}
+                                <th style={{padding:"4px 0 4px 24px",textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500}}>Retention %</th>
                               </tr></thead>
                               <tbody>
-                                {sortedAcctRows.map((r,i)=>(
+                                {sortedAcctRows.map((r,i)=>{
+                                  const isIncrease = r.status==="increase";
+                                  const isDecrease = r.status==="decrease";
+                                  const isCancelled= r.status==="cancelled";
+                                  const isNoData   = r.status==="no_data";
+                                  return (
                                   <tr key={i} style={{borderTop:"0.5px solid rgba(41,53,93,.05)"}}>
                                     <td style={{padding:"5px 8px 5px 0",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.acct}</td>
                                     <td style={{padding:"5px 8px 5px 0",fontFamily:"monospace",fontSize:10,color:"#808080"}}>{r.eid}</td>
                                     <td style={{padding:"5px 8px 5px 0",textAlign:"right",color:"#808080"}}>{r.boq>0?fmt$(r.boq):"--"}</td>
                                     <td style={{padding:"5px 8px 5px 0",textAlign:"right"}}>{r.cur>0?fmt$(r.cur):"--"}</td>
-                                    <td style={{padding:"5px 8px 5px 0",textAlign:"right",color:r.delta>0?"#16a34a":r.delta<0?"#dc2626":"#808080"}}>{r.delta!==0?(r.delta>0?"+":"")+fmt$(r.delta):"--"}</td>
-                                    <td style={{padding:"5px 8px 5px 0",textAlign:"right",fontWeight:600,color:retCol(r.ret)}}>{fmtPct(r.ret)}</td>
-                                    <td style={{padding:"5px 0 5px 24px"}}>{statusBadge(r.status)}</td>
+                                    <td style={{padding:"5px 8px 5px 0",textAlign:"right",color:isIncrease?"#16a34a":"#808080"}}>{isIncrease?"+"+fmt$(r.delta):"--"}</td>
+                                    <td style={{padding:"5px 8px 5px 0",textAlign:"right",color:isDecrease?"#dc2626":"#808080"}}>{isDecrease?"-"+fmt$(Math.abs(r.delta)):"--"}</td>
+                                    <td style={{padding:"5px 8px 5px 0",textAlign:"right",color:isCancelled?"#d97706":"#808080"}}>{isCancelled?"-"+fmt$(r.boq):"--"}</td>
+                                    <td style={{padding:"5px 8px 5px 0",textAlign:"right",color:isNoData?"#6b7280":"#808080"}}>{isNoData?"—":"--"}</td>
+                                    <td style={{padding:"5px 0 5px 24px",fontWeight:600,color:retCol(r.ret)}}>{fmtPct(r.ret)}</td>
                                   </tr>
-                                ))}
+                                  );
+                                })}
                               </tbody>
                             </table>
                           </td>
