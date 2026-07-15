@@ -1470,7 +1470,7 @@ function CoachCard({coach, csms, onSelectCSM, onSelectCoach}) {
 }
 
 // ── CSM DETAIL VIEW ────────────────────────────────────────────────────────
-function CSMDetail({csm: csmRaw, onClear, bobRaw, mcChurn, bcChurn, liveBobDet={}, bobAdj={}}) {
+function CSMDetail({csm: csmRaw, onClear, bobRaw, mcChurn, bcChurn, liveBobDet={}, bobAdj={}, isCsmView=false}) {
   const getDet = n => {
     const base = liveBobDet[n]||liveBobDet[norm(n)]||BOB_DETAIL[n]||BOB_DETAIL[norm(n)]||{};
     const adjKey = Object.keys(bobAdj).find(k=>norm(k)===n||k===n);
@@ -1519,42 +1519,42 @@ function CSMDetail({csm: csmRaw, onClear, bobRaw, mcChurn, bcChurn, liveBobDet={
   const overdueAccts  = dueAccts.filter(a=>a.d.some(t=>t.ov));
 
   const wins=[], atts=[];
-  if(csm.rev>0) { wins.push("Revenue this period: "+fd(csm.rev)+(csm.mrr>0?" (MRR "+fd(csm.mrr)+")":" ")); }
-  else { atts.push("No revenue this period — identify upsell or upgrade opportunities"); }
+  if(csm.rev>0) { wins.push("You logged "+fd(csm.rev)+" in revenue this period"+(csm.mrr>0?" ("+fd(csm.mrr)+" MRR)":"")+" — great work!"); }
+  else { atts.push("No revenue logged yet this period — look for upsell or upgrade opportunities with your accounts"); }
   if(csm.sent>0) {
-    if(csm.openRate>=0.7) wins.push("Excellent email open rate of "+pp(csm.openRate)+" — above 70% target");
-    else if(csm.openRate>=0.5) atts.push("Email open rate "+pp(csm.openRate)+" is below target — review subject lines");
-    else atts.push("Low email open rate of "+pp(csm.openRate)+" — cadence emails need refreshing");
-    if(csm.replyRate>0.15) wins.push("Strong reply rate of "+pp(csm.replyRate)+" — clients engaging");
-  } else { atts.push("No email activity — confirm cadence is active"); }
+    if(csm.openRate>=0.7) wins.push("Your email open rate is "+pp(csm.openRate)+" — above the 70% target, your subject lines are landing");
+    else if(csm.openRate>=0.5) atts.push("Your email open rate is "+pp(csm.openRate)+" — try refreshing your subject lines to get above 70%");
+    else atts.push("Your email open rate is "+pp(csm.openRate)+" — your cadence emails may need new subject lines or content");
+    if(csm.replyRate>0.15) wins.push("Strong reply rate of "+pp(csm.replyRate)+" — your clients are responding and engaging");
+  } else { atts.push("No email activity found — make sure your cadence is active and running"); }
   if(ot&&ot.otTotal>=3) {
-    if(ot.otPct>=0.8) wins.push("On-time cadence rate of "+pp(ot.otPct)+" across "+ot.otTotal+" tasks");
-    else if(ot.otPct>=0.6) atts.push("On-time rate of "+pp(ot.otPct)+" — some tasks completed late");
-    else atts.push("On-time rate of only "+pp(ot.otPct)+" ("+ot.otTotal+" tasks) — timeliness needs focus");
+    if(ot.otPct>=0.8) wins.push("You're completing cadence tasks on time "+pp(ot.otPct)+" of the time across "+ot.otTotal+" tasks — keep it up");
+    else if(ot.otPct>=0.6) atts.push("Your on-time cadence rate is "+pp(ot.otPct)+" — aim for 80%+ by catching tasks before they go overdue");
+    else atts.push("Your on-time rate is "+pp(ot.otPct)+" across "+ot.otTotal+" tasks — prioritize completing tasks on their scheduled day");
   }
   // BOB retention insights
   if (csm.bobRet!=null) {
-    if (csm.bobRet>=0.91) wins.push("Book of business retention "+pp(csm.bobRet)+" — above the 91% goal");
-    else if (csm.bobRet>=0.88) atts.push("Retention "+pp(csm.bobRet)+" is near but below the 91% goal — focus on at-risk accounts");
-    else atts.push("Retention "+pp(csm.bobRet)+" is significantly below the 91% goal — prioritize retention conversations");
+    if (csm.bobRet>=0.91) wins.push("Your book retention is "+pp(csm.bobRet)+" — above the 91% goal, you're protecting your book well");
+    else if (csm.bobRet>=0.88) atts.push("Your retention is "+pp(csm.bobRet)+", just below the 91% goal — reach out to any at-risk accounts this week");
+    else atts.push("Your retention is "+pp(csm.bobRet)+", which is below goal — prioritize proactive conversations with accounts showing low engagement");
   }
-  if (csm.churnedAccts&&csm.churnedAccts.length>0) atts.push("Churn: "+csm.churnedAccts.length+" account"+(csm.churnedAccts.length>1?"s":"")+" at $0 billing ("+csm.churnedAccts.slice(0,3).map(a=>a.name+(a.products&&a.products.length?" ["+a.products.join(", ")+"]":"")).join(", ")+")");
-  else if (csm.bobMcc>0) atts.push("MC churn: "+csm.bobMcc+" account"+(csm.bobMcc>1?"s":"")+" canceled this quarter");
+  if (csm.churnedAccts&&csm.churnedAccts.length>0) atts.push(csm.churnedAccts.length+" account"+(csm.churnedAccts.length>1?"s have":" has")+" churned this quarter ("+csm.churnedAccts.slice(0,3).map(a=>a.name+(a.products&&a.products.length?" ["+a.products.join(", ")+"]":"")).join(", ")+")");
+  else if (csm.bobMcc>0) atts.push(csm.bobMcc+" MC account"+(csm.bobMcc>1?"s":"")+" canceled this quarter — review what happened and document in notes");
   if (csm.bobNet<0&&csm.bobBoq>0) {
     const lostPct = Math.abs(csm.bobNet)/csm.bobBoq;
-    if (lostPct>0.1) atts.push("Net billing down "+pp(lostPct)+" vs start of quarter — "+fd(Math.abs(csm.bobNet))+" lost");
+    if (lostPct>0.1) atts.push("Your book is down "+pp(lostPct)+" ("+fd(Math.abs(csm.bobNet))+") vs. start of quarter — focus on stabilizing remaining at-risk accounts");
   }
   if(csm.skippedCount>0) {
     if (csm.skippedFourthCount>0) {
-      atts.unshift("🚩 "+csm.skippedFourthCount+" account"+(csm.skippedFourthCount>1?"s":"")+" Continued After 4th Reschedule — requires immediate coaching conversation");
+      atts.unshift("🚩 "+csm.skippedFourthCount+" account"+(csm.skippedFourthCount>1?"s have":" has")+" been rescheduled 4+ times — connect with your coach about next steps");
     }
     const regularSkips = csm.skippedCount - csm.skippedFourthCount;
-    if (regularSkips>0) atts.push(regularSkips+" skipped cadence task"+(regularSkips>1?"s":"")+" yesterday — review notes with CSM");
+    if (regularSkips>0) atts.push("You had "+regularSkips+" skipped cadence task"+(regularSkips>1?"s":"")+" yesterday — check the account notes and reschedule");
   }
-  else if(csm.overdueCount>0) atts.push(csm.overdueCount+" overdue tasks across "+overdueAccts.length+" accounts");
+  else if(csm.overdueCount>0) atts.push("You have "+csm.overdueCount+" overdue task"+(csm.overdueCount>1?"s":"")+" across "+overdueAccts.length+" account"+(overdueAccts.length>1?"s":"")+" — complete these today");
   if(csm.cadCount>0) {
-    if(csm.cadPct>=0.9) wins.push("Cadence completion on track at "+pp(csm.cadPct));
-    else atts.push("Cadence completion "+pp(csm.cadPct)+" is below the 90% target");
+    if(csm.cadPct>=0.9) wins.push("Cadence completion at "+pp(csm.cadPct)+" — you're hitting the 90% target");
+    else atts.push("Your cadence completion is "+pp(csm.cadPct)+", below the 90% target — check for overdue tasks in the table below");
   }
 
   const statBox = (label, val, sub, col) => (
@@ -1573,11 +1573,15 @@ function CSMDetail({csm: csmRaw, onClear, bobRaw, mcChurn, bcChurn, liveBobDet={
       {/* Header card */}
       <div style={{...S.card,marginBottom:16}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
-          <div style={{fontSize:20,fontWeight:500,color:"#29355D"}}>{csm.name}</div>
+          <div style={{fontSize:20,fontWeight:500,color:"#29355D"}}>
+            {isCsmView ? "👋 Your daily snapshot — "+csm.name.split(" ")[0] : csm.name}
+          </div>
           {onClear&&<button onClick={onClear} style={{fontSize:11,color:"#FF5000",background:"none",border:"0.5px solid #FF5000",borderRadius:20,padding:"4px 12px",cursor:"pointer"}}>✕ Clear filter</button>}
         </div>
         <div style={{fontSize:12,color:"#808080",marginBottom:16}}>
-          {i.t||csm.team||""}{i.r?" · "+i.r:""}{coach?" · Coach: "+coach.n:""}
+          {isCsmView
+            ? (i.t||csm.team||"")+(i.r?" · "+i.r:"")+(coach?" · Coach: "+coach.n:"")
+            : (i.t||csm.team||"")+(i.r?" · "+i.r:"")+(coach?" · Coach: "+coach.n:"")}
         </div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(5,minmax(0,1fr))",gap:12}}>
           {statBox("Revenue",       csm.rev>0?fd(csm.rev):"--",       csm.mrr>0?"MRR "+fd(csm.mrr):null,                                          csm.rev>0?"#FF5000":null)}
@@ -1594,13 +1598,13 @@ function CSMDetail({csm: csmRaw, onClear, bobRaw, mcChurn, bcChurn, liveBobDet={
         <div style={{background:"rgba(22,163,74,.06)",border:"0.5px solid rgba(22,163,74,.2)",borderRadius:12,padding:16}}>
           <div style={{fontSize:12,fontWeight:500,color:"#166534",marginBottom:10}}>✓ What's working</div>
           {wins.length===0
-            ? <div style={{fontSize:12,color:"#808080",fontStyle:"italic"}}>No clear wins yet this period</div>
+            ? <div style={{fontSize:12,color:"#808080",fontStyle:"italic"}}>Keep going — wins will show up here as your data comes in</div>
             : wins.map((w,idx)=><div key={idx} style={{fontSize:12,padding:"5px 0",borderBottom:"0.5px solid rgba(0,0,0,.06)",display:"flex",gap:6}}><span style={{color:"#16a34a",flexShrink:0}}>✓</span>{w}</div>)}
         </div>
         <div style={{background:"rgba(220,38,38,.05)",border:"0.5px solid rgba(220,38,38,.15)",borderRadius:12,padding:16}}>
-          <div style={{fontSize:12,fontWeight:500,color:"#991b1b",marginBottom:10}}>⚠ Coaching focus</div>
+          <div style={{fontSize:12,fontWeight:500,color:"#991b1b",marginBottom:10}}>⚠ Needs your attention</div>
           {atts.length===0
-            ? <div style={{fontSize:12,color:"#808080",fontStyle:"italic"}}>No urgent issues identified</div>
+            ? <div style={{fontSize:12,color:"#808080",fontStyle:"italic"}}>Nothing urgent — you're in good shape today! 🎉</div>
             : atts.map((a,idx)=><div key={idx} style={{fontSize:12,padding:"5px 0",borderBottom:"0.5px solid rgba(0,0,0,.06)",display:"flex",gap:6}}><span style={{color:"#dc2626",flexShrink:0}}>⚠</span>{a}</div>)}
         </div>
       </div>
@@ -1653,7 +1657,7 @@ function CSMDetail({csm: csmRaw, onClear, bobRaw, mcChurn, bcChurn, liveBobDet={
       {/* Skipped cadences detail */}
       {csm.skippedCount>0&&<div style={{...S.card,marginBottom:16}}>
         <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
-          <span style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500}}>Skipped cadences — prior day</span>
+          <span style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500}}>Tasks skipped yesterday — action needed</span>
           <span style={{fontSize:10,fontWeight:600,padding:"2px 8px",borderRadius:20,background:"rgba(127,29,29,.1)",color:"#7f1d1d"}}>{csm.skippedCount} skipped</span>
           {csm.skippedFourthCount>0&&<span style={{fontSize:10,fontWeight:600,padding:"2px 8px",borderRadius:20,background:"rgba(220,38,38,.15)",color:"#991b1b"}}>🚩 {csm.skippedFourthCount} × 4th reschedule</span>}
         </div>
@@ -1731,7 +1735,7 @@ function CSMDetail({csm: csmRaw, onClear, bobRaw, mcChurn, bcChurn, liveBobDet={
       <div style={{...S.card,marginBottom:16}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
           <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500}}>
-            Cadence accounts
+            Your tasks
             {dueAccts.length>0&&<span style={{marginLeft:8,fontSize:10,fontWeight:500,padding:"2px 8px",borderRadius:20,background:"rgba(220,38,38,.1)",color:"#991b1b"}}>{csm.overdueCount} overdue</span>}
           </div>
           <div style={{display:"flex",gap:4,background:"#ECEEF1",borderRadius:8,padding:3}}>
@@ -1746,7 +1750,7 @@ function CSMDetail({csm: csmRaw, onClear, bobRaw, mcChurn, bcChurn, liveBobDet={
 
         {cadTab==="due" ? (
           dueAccts.length===0
-            ? <div style={{color:"#808080",fontSize:12,padding:"8px 0"}}>No due or overdue tasks</div>
+            ? <div style={{color:"#808080",fontSize:12,padding:"8px 0"}}>You're all caught up — no due or overdue tasks right now 🎉</div>
             : <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
                 <thead><tr>
                   <th style={{...thS,width:"35%"}}>Account</th>
@@ -1813,10 +1817,10 @@ function CSMDetail({csm: csmRaw, onClear, bobRaw, mcChurn, bcChurn, liveBobDet={
       {/* Revenue integrations */}
       <div style={S.card}>
         <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>
-          Revenue integrations — {csm.accts.length} submissions · {fd(totalAcctRev)} total
+          Your revenue submissions — {csm.accts.length} this period{csm.accts.length>0?" · "+fd(totalAcctRev)+" total":""}
         </div>
         {csm.accts.length===0
-          ? <div style={{color:"#808080",fontSize:12}}>No submissions this period</div>
+          ? <div style={{color:"#808080",fontSize:12}}>No revenue submissions yet this period — log your first integration below</div>
           : <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,tableLayout:"fixed"}}>
               <colgroup><col style={{width:"38%"}}/><col style={{width:"10%"}}/><col style={{width:"11%"}}/><col style={{width:"11%"}}/><col style={{width:"30%"}}/></colgroup>
               <thead><tr>{["Business","Type","MRR","OTR","Integration"].map(h=><th key={h} style={{...thS,textAlign:h==="MRR"||h==="OTR"?"right":"left"}}>{h}</th>)}</tr></thead>
@@ -1843,7 +1847,7 @@ function CSMDetail({csm: csmRaw, onClear, bobRaw, mcChurn, bcChurn, liveBobDet={
 function CoachingView({csms, coach, onSelectCSM, onSelectCoach, onClear, skippedCSMs, bobRaw, mcChurn, bcChurn, liveBobDet={}, isCsmView=false, bobAdj={}}) {
   if (onSelectCSM._selected) {
     const c = csms.find(x=>x.name===onSelectCSM._selected)||csms[0];
-    return c ? <CSMDetail csm={c} onClear={isCsmView?null:onClear} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} liveBobDet={liveBobDet} bobAdj={bobAdj}/> : null;
+    return c ? <CSMDetail csm={c} onClear={isCsmView?null:onClear} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} liveBobDet={liveBobDet} bobAdj={bobAdj} isCsmView={isCsmView}/> : null;
   }
   const coaches = coach ? COACHES.filter(c=>c.e===coach) : COACHES;
   const cols = coaches.length===1?1:coaches.length===2?2:3;
