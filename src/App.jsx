@@ -5186,8 +5186,10 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
         rows:[],
       };
       const g = csmGroups[key];
-      g.boq += r.boq; g.cur += r.cur; g.rows.push(r);
-      if (r.status==="increase")   { g.increaseMrr  += r.delta;          g.increaseCount++;   }
+      g.boq += r.boq;
+      if (r.status !== "adjustment") g.cur += r.cur; // adjustment cur added separately via adjAmount
+      g.rows.push(r);
+      if (r.status==="increase")   { g.increaseMrr  += r.delta;           g.increaseCount++;   }
       if (r.status==="decrease")   { g.decreaseMrr  += Math.abs(r.delta); g.decreaseCount++;   }
       if (r.status==="cancelled")  { g.cancelledMrr += r.boq;             g.cancelledCount++;  }
       if (r.status==="adjustment") { g.adjustmentMrr+= r.adjAmount;       g.adjustmentCount++; g.cur += r.adjAmount; }
