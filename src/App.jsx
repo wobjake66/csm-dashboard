@@ -2374,7 +2374,7 @@ function OverviewView({csms, allCSMs, bobRaw, bobAdj, history, callData, filterC
 }
 
 // ── LEADERBOARD TAB ────────────────────────────────────────────────────────
-function LeaderboardView({csms, bobRaw, history=[], q2DomoBoq=[], domoBoq=[], q3BobCur=[], q3Supp=[]}) {
+function LeaderboardView({csms, bobRaw, history=[], q2DomoBoq=[], domoBoq=[], q3BobCur=[], q3Supp=[], rawRev=[]}) {
   const [sort, setSort]     = useState({col:"rev", dir:"desc"});
   const [period, setPeriod] = useState("current_quarter");
 
@@ -2419,12 +2419,29 @@ function LeaderboardView({csms, bobRaw, history=[], q2DomoBoq=[], domoBoq=[], q3
   const histInRange  = (history||[]).filter(r => inScopeNames.has(r.name) && inRange(r.date));
   const hasHistory   = histInRange.length > 0;
 
-  // ── Aggregate history: revenue, cadence, email, on-time ──────────────────
+  // ── Revenue: directly from rawRev (same source as Revenue tab), filtered by quarter ──
+  // Quarter strings in rawRev look like "Q2 2026", "Q3 2026", etc.
+  const qtrMatchFn = {
+    last_quarter:    qtr => qtr === `Q${lqIdx+1} ${lqYr}`,
+    current_quarter: qtr => qtr === `Q${qIdx+1} ${yr}`,
+    ytd:             qtr => qtr.includes(String(yr)),
+  }[period];
+
+  const revByCsm = {};
+  (rawRev||[]).forEach(r => {
+    const csm = norm((r["CSM Name"]||r["csm_name"]||"").trim());
+    if (!csm) return;
+    const qtr = (r["Quarter for Consideration"]||r["Quarter"]||"").trim();
+    if (!qtrMatchFn(qtr)) return;
+    const tot = parseFloat(String(r["Total Revenue Added"]||r["Total Revenue"]||r["Revenue"]||0).replace(/[$,]/g,""))||0;
+    revByCsm[csm] = (revByCsm[csm]||0) + tot;
+  });
+
+  // ── Cadence, email, on-time: from history snapshots for the period ────────
   const agg = {};
   histInRange.forEach(r => {
-    if (!agg[r.name]) agg[r.name] = {rev:0, sent:0, opens:0, cadTotal:0, cadComp:0, otTotal:0, otWsum:0};
+    if (!agg[r.name]) agg[r.name] = {sent:0, opens:0, cadTotal:0, cadComp:0, otTotal:0, otWsum:0};
     const a = agg[r.name];
-    a.rev      += r.rev||0;
     a.sent     += r.sent||0;
     a.opens    += (r.sent||0)*(r.openRate||0);
     a.cadTotal += r.cadTotal||0;
@@ -2571,7 +2588,7 @@ function LeaderboardView({csms, bobRaw, history=[], q2DomoBoq=[], domoBoq=[], q3
     const a = agg[c.name]||{};
     return {
       c,
-      rev:      hasHistory ? (a.rev||0) : c.rev,
+      rev:      revByCsm[c.name]||0,
       sent:     hasHistory ? (a.sent||0) : c.sent,
       openRate: hasHistory ? (a.sent>0 ? Math.min(a.opens/a.sent,1) : null) : (c.sent>0 ? c.openRate : null),
       cadPct:   hasHistory ? (a.cadTotal>0 ? a.cadComp/a.cadTotal : null) : (c.cadCount>0 ? c.cadPct : null),
@@ -6568,7 +6585,7 @@ My question: ${aiCustom}`,
             skippedCSMs={skippedCSMs.filter(c=>{const i=lk(c.name);if(filterCoach&&(i&&i.c)!==filterCoach)return false;if(filterCSM&&c.name!==filterCSM)return false;return true;})}
             bobAdj={bobAdj} getDet={getDet}/>}
           {tab==="overview"&&<OverviewView csms={filteredCSMs} allCSMs={csms} bobRaw={bobRaw} bobAdj={bobAdj} history={history} callData={callData} filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches}/>}
-          {tab==="leaderboard"&&<LeaderboardView csms={filteredCSMs} bobRaw={bobRaw} history={history} q2DomoBoq={q2DomoBoq} domoBoq={domoBoq} q3BobCur={q3BobCur} q3Supp={q3Supp}/>}
+          {tab==="leaderboard"&&<LeaderboardView csms={filteredCSMs} bobRaw={bobRaw} history={history} q2DomoBoq={q2DomoBoq} domoBoq={domoBoq} q3BobCur={q3BobCur} q3Supp={q3Supp} rawRev={rawRev}/>}
           
           {tab==="revenue"&&<RevenueView rawRev={rawRev} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches}/>}
           {tab==="bob"&&<BobView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} churnAlerts={churnAlerts} onSelectCSM={selectCSMFn} liveBobDet={liveBobDet} bobAdj={bobAdj} q3BobCur={q3BobCur} domoBoq={domoBoq} q3Supp={q3Supp} q2DomoBoq={q2DomoBoq}/>}
