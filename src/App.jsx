@@ -2374,42 +2374,52 @@ function OverviewView({csms, allCSMs, bobRaw, bobAdj, history, callData, filterC
 }
 
 // ── LEADERBOARD TAB ────────────────────────────────────────────────────────
-function LeaderboardView({csms, bobRaw, history=[]}) {
-  const [sort, setSort]       = useState({col:"rev", dir:"desc"});
-  const [period, setPeriod]   = useState("current_quarter");
+function LeaderboardView({csms, bobRaw, history=[], q2DomoBoq=[], domoBoq=[], q3BobCur=[], q3Supp=[]}) {
+  const [sort, setSort]     = useState({col:"rev", dir:"desc"});
+  const [period, setPeriod] = useState("current_quarter");
 
-  // ── Period: only 3 options, all quarter-aligned ───────────────────────────
-  const now = new Date();
-  const yr  = now.getFullYear();
-  const qIdx = Math.floor(now.getMonth() / 3); // 0-3
-  const qStarts = [[0,1],[3,4],[6,7],[9,10]];  // [startMo, endMo]
+  // ── Determine current/last quarter labels from today ─────────────────────
+  const now  = new Date();
+  const yr   = now.getFullYear();
+  const qIdx = Math.floor(now.getMonth() / 3); // 0–3
 
-  const getQRange = (year, q) => {
-    const [sm, em] = qStarts[q];
-    return {
-      from: new Date(year, sm, 1),
-      to:   new Date(year, em + 1, 0, 23, 59, 59, 999),
-      label: `Q${q+1} ${year}`,
-    };
-  };
+  // Current quarter date range
+  const curQStart = new Date(yr, qIdx * 3, 1);
+  const curQEnd   = new Date(yr, qIdx * 3 + 3, 0, 23, 59, 59, 999);
+  const curQLabel = `Q${qIdx+1} ${yr}`;
 
-  const ranges = {
-    last_quarter:    qIdx > 0 ? getQRange(yr, qIdx-1) : getQRange(yr-1, 3),
-    current_quarter: getQRange(yr, qIdx),
-    ytd:             {from: new Date(yr, 0, 1), to: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999), label: `YTD ${yr}`},
-  };
-  const {from, to, label} = ranges[period];
+  // Last quarter date range
+  const lqIdx  = qIdx > 0 ? qIdx - 1 : 3;
+  const lqYr   = qIdx > 0 ? yr : yr - 1;
+  const lqStart = new Date(lqYr, lqIdx * 3, 1);
+  const lqEnd   = new Date(lqYr, lqIdx * 3 + 3, 0, 23, 59, 59, 999);
+  const lqLabel  = `Q${lqIdx+1} ${lqYr}`;
+
+  const ytdStart = new Date(yr, 0, 1);
+  const ytdEnd   = new Date(yr, now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+  const OPTS = [
+    {k:"last_quarter",    l: lqLabel},
+    {k:"current_quarter", l: curQLabel},
+    {k:"ytd",             l: `YTD ${yr}`},
+  ];
+
+  // ── History filter for the selected period (revenue, cadence, email) ──────
+  const periodRange = {
+    last_quarter:    {from: lqStart,   to: lqEnd},
+    current_quarter: {from: curQStart, to: curQEnd},
+    ytd:             {from: ytdStart,  to: ytdEnd},
+  }[period];
 
   const inRange = dateStr => {
     const d = parseLocalDate(dateStr);
-    return d >= from && d <= to;
+    return d >= periodRange.from && d <= periodRange.to;
   };
-
   const inScopeNames = new Set(csms.map(c=>c.name));
   const histInRange  = (history||[]).filter(r => inScopeNames.has(r.name) && inRange(r.date));
   const hasHistory   = histInRange.length > 0;
 
-  // ── Aggregate history per CSM (revenue, cadence, on-time, email) ──────────
+  // ── Aggregate history: revenue, cadence, email, on-time ──────────────────
   const agg = {};
   histInRange.forEach(r => {
     if (!agg[r.name]) agg[r.name] = {rev:0, sent:0, opens:0, cadTotal:0, cadComp:0, otTotal:0, otWsum:0};
@@ -2422,13 +2432,138 @@ function LeaderboardView({csms, bobRaw, history=[]}) {
     if (r.otTotal>=1 && r.otPct!=null) { a.otTotal += r.otTotal; a.otWsum += r.otTotal*r.otPct; }
   });
 
-  // ── Retention: always live from bobRaw, never period-filtered ────────────
-  const getLiveRet = c => {
-    if (bobRaw&&bobRaw.bob) {
-      const k = Object.keys(bobRaw.bob).find(k => norm(k)===c.name || k===c.name);
-      if (k) { const d=bobRaw.bob[k]; if(d.boq>0&&d.lcm!=null) return d.lcm/d.boq; }
-    }
-    return c.bobRet!=null ? c.bobRet : null;
+  // ── BOB retention — computed from Domo BOQ source data, same as BOB tab ───
+  // Q2: q2DomoBoq has BOQ + End of Quarter directly per account
+  const q2RetByCsm = (() => {
+    const m = {};
+    (q2DomoBoq||[]).forEach(r => {
+      const getCol = (row,...keys) => { for(const k of keys){const found=Object.keys(row).find(x=>x.trim().toLowerCase()===k.toLowerCase());if(found)return row[found];}return ""; };
+      const pf = v => parseFloat(String(v||"").replace(/[$,]/g,""))||0;
+      const lfSwap = n => { if(!n)return n; const p=n.split(","); return p.length===2?p[1].trim()+" "+p[0].trim():n; };
+      const csmRaw = String(getCol(r,"CSM Name")||"").trim();
+      if (!csmRaw || /TOTAL|GRAND/i.test(csmRaw)) return;
+      const csmName = norm(lfSwap(csmRaw)) || lfSwap(csmRaw);
+      const acct    = String(getCol(r,"Account Name")||"").trim();
+      const isAdj   = /adjustment/i.test(acct);
+      const boq     = pf(getCol(r,"Beginning of Quarter"));
+      const cur     = pf(getCol(r,"End of Quarter"));
+      if (!m[csmName]) m[csmName] = {boq:0, cur:0};
+      m[csmName].boq += boq;
+      if (isAdj) m[csmName].cur += Math.abs(cur);
+      else       m[csmName].cur += cur;
+    });
+    const result = {};
+    Object.entries(m).forEach(([k,v]) => { result[k] = v.boq>0 ? v.cur/v.boq : null; });
+    return result;
+  })();
+
+  // Q3: domoBoq (BOQ) joined with q3BobCur + q3Supp (current)
+  const q3RetByCsm = (() => {
+    const getCol = (row,...keys) => { for(const k of keys){const found=Object.keys(row).find(x=>x.trim().toLowerCase()===k.toLowerCase());if(found)return row[found];}return ""; };
+    const pf = v => parseFloat(String(v||"").replace(/[$,]/g,""))||0;
+    const lfSwap = n => { if(!n)return n; const p=n.split(","); return p.length===2?p[1].trim()+" "+p[0].trim():n; };
+
+    const boqMap = {};
+    (domoBoq||[]).forEach(r => {
+      const csmRaw = String(getCol(r,"CSM Name")||"").trim();
+      if (!csmRaw || /TOTAL|GRAND/i.test(csmRaw)) return;
+      const eid = String(getCol(r,"Enterprise ID","Enterprise Id")||"").trim().toUpperCase();
+      if (!eid) return;
+      const boqAmt  = pf(getCol(r,"Beginning of Quarter"));
+      const csmName = norm(lfSwap(csmRaw)) || lfSwap(csmRaw);
+      if (!boqMap[eid]) boqMap[eid] = {eid, csm:csmName, boq:0};
+      boqMap[eid].boq += boqAmt;
+    });
+
+    const sfMap = {}, suppMap = {};
+    (q3BobCur||[]).forEach(r => {
+      const eid = String(getCol(r,"Enterprise Id","Enterprise ID")||"").trim().toUpperCase();
+      if (!eid) return;
+      sfMap[eid] = (sfMap[eid]||0) + pf(getCol(r,"SaaS Revenue"));
+    });
+    (q3Supp||[]).forEach(r => {
+      const eid = String(getCol(r,"Enterprise Id","Enterprise ID")||"").trim().toUpperCase();
+      if (!eid) return;
+      suppMap[eid] = (suppMap[eid]||0) + pf(getCol(r,"SaaS Revenue"));
+    });
+
+    const csmTotals = {};
+    Object.values(boqMap).forEach(b => {
+      const cur = (sfMap[b.eid]||0) + (suppMap[b.eid]||0);
+      if (!csmTotals[b.csm]) csmTotals[b.csm] = {boq:0, cur:0};
+      csmTotals[b.csm].boq += b.boq;
+      csmTotals[b.csm].cur += cur;
+    });
+    const result = {};
+    Object.entries(csmTotals).forEach(([k,v]) => { result[k] = v.boq>0 ? v.cur/v.boq : null; });
+    return result;
+  })();
+
+  // YTD retention: combine Q2 + Q3 BOQ data — sum each CSM's boq and cur across both quarters
+  const ytdRetByCsm = (() => {
+    const getCol = (row,...keys) => { for(const k of keys){const found=Object.keys(row).find(x=>x.trim().toLowerCase()===k.toLowerCase());if(found)return row[found];}return ""; };
+    const pf = v => parseFloat(String(v||"").replace(/[$,]/g,""))||0;
+    const lfSwap = n => { if(!n)return n; const p=n.split(","); return p.length===2?p[1].trim()+" "+p[0].trim():n; };
+    const totals = {};
+
+    // Add Q2 boq/cur
+    (q2DomoBoq||[]).forEach(r => {
+      const csmRaw = String(getCol(r,"CSM Name")||"").trim();
+      if (!csmRaw || /TOTAL|GRAND/i.test(csmRaw)) return;
+      const csmName = norm(lfSwap(csmRaw)) || lfSwap(csmRaw);
+      const acct    = String(getCol(r,"Account Name")||"").trim();
+      const isAdj   = /adjustment/i.test(acct);
+      const boq     = pf(getCol(r,"Beginning of Quarter"));
+      const cur     = pf(getCol(r,"End of Quarter"));
+      if (!totals[csmName]) totals[csmName] = {boq:0, cur:0};
+      totals[csmName].boq += boq;
+      if (isAdj) totals[csmName].cur += Math.abs(cur);
+      else       totals[csmName].cur += cur;
+    });
+
+    // Add Q3 boq/cur via domoBoq + q3BobCur + q3Supp
+    const boqMap = {};
+    (domoBoq||[]).forEach(r => {
+      const csmRaw = String(getCol(r,"CSM Name")||"").trim();
+      if (!csmRaw || /TOTAL|GRAND/i.test(csmRaw)) return;
+      const eid = String(getCol(r,"Enterprise ID","Enterprise Id")||"").trim().toUpperCase();
+      if (!eid) return;
+      const boqAmt  = pf(getCol(r,"Beginning of Quarter"));
+      const csmName = norm(lfSwap(csmRaw)) || lfSwap(csmRaw);
+      if (!boqMap[eid]) boqMap[eid] = {eid, csm:csmName, boq:0};
+      boqMap[eid].boq += boqAmt;
+    });
+    const sfMap = {}, suppMap = {};
+    (q3BobCur||[]).forEach(r => {
+      const eid = String(getCol(r,"Enterprise Id","Enterprise ID")||"").trim().toUpperCase();
+      if (eid) sfMap[eid] = (sfMap[eid]||0) + pf(getCol(r,"SaaS Revenue"));
+    });
+    (q3Supp||[]).forEach(r => {
+      const eid = String(getCol(r,"Enterprise Id","Enterprise ID")||"").trim().toUpperCase();
+      if (eid) suppMap[eid] = (suppMap[eid]||0) + pf(getCol(r,"SaaS Revenue"));
+    });
+    Object.values(boqMap).forEach(b => {
+      const cur = (sfMap[b.eid]||0) + (suppMap[b.eid]||0);
+      if (!totals[b.csm]) totals[b.csm] = {boq:0, cur:0};
+      totals[b.csm].boq += b.boq;
+      totals[b.csm].cur += cur;
+    });
+
+    const result = {};
+    Object.entries(totals).forEach(([k,v]) => { result[k] = v.boq>0 ? v.cur/v.boq : null; });
+    return result;
+  })();
+
+  // Pick the right retention map for the selected period
+  const retMap = period==="last_quarter" ? q2RetByCsm : period==="current_quarter" ? q3RetByCsm : ytdRetByCsm;
+
+  const getRet = c => {
+    // Try canonical name, then display name, then csm.name
+    const r = retMap[c.name] ?? retMap[dispName(c.name)] ?? null;
+    if (r !== null) return r;
+    // Fuzzy fallback: find any key in retMap that norm()s to this csm
+    const key = Object.keys(retMap).find(k => norm(k)===c.name);
+    return key ? retMap[key] : null;
   };
 
   // ── Build rows ────────────────────────────────────────────────────────────
@@ -2436,12 +2571,12 @@ function LeaderboardView({csms, bobRaw, history=[]}) {
     const a = agg[c.name]||{};
     return {
       c,
-      rev:      hasHistory ? (a.rev||0)   : c.rev,
-      sent:     hasHistory ? (a.sent||0)  : c.sent,
+      rev:      hasHistory ? (a.rev||0) : c.rev,
+      sent:     hasHistory ? (a.sent||0) : c.sent,
       openRate: hasHistory ? (a.sent>0 ? Math.min(a.opens/a.sent,1) : null) : (c.sent>0 ? c.openRate : null),
-      cadPct:   hasHistory ? (a.cadTotal>0 ? a.cadComp/a.cadTotal : null)   : (c.cadCount>0 ? c.cadPct : null),
-      otPct:    hasHistory ? (a.otTotal>0  ? a.otWsum/a.otTotal   : null)   : (c.otTotal>=3 ? c.otPct  : null),
-      bobRet:   getLiveRet(c),  // always live
+      cadPct:   hasHistory ? (a.cadTotal>0 ? a.cadComp/a.cadTotal : null) : (c.cadCount>0 ? c.cadPct : null),
+      otPct:    hasHistory ? (a.otTotal>0  ? a.otWsum/a.otTotal   : null) : (c.otTotal>=3 ? c.otPct  : null),
+      bobRet:   getRet(c),
       overdueCount: c.overdueCount,
     };
   });
@@ -2449,21 +2584,20 @@ function LeaderboardView({csms, bobRaw, history=[]}) {
   // ── Sort ──────────────────────────────────────────────────────────────────
   const getVal = (row, col) => {
     switch(col) {
-      case "rev":          return row.rev>0      ? row.rev      : null;
-      case "sent":         return row.sent>0     ? row.sent     : null;
+      case "rev":          return row.rev>0 ? row.rev : null;
+      case "sent":         return row.sent>0 ? row.sent : null;
       case "openRate":     return row.openRate!=null ? row.openRate : null;
-      case "cadPct":       return row.cadPct!=null   ? row.cadPct   : null;
-      case "otPct":        return row.otPct!=null    ? row.otPct    : null;
+      case "cadPct":       return row.cadPct!=null ? row.cadPct : null;
+      case "otPct":        return row.otPct!=null ? row.otPct : null;
       case "overdueCount": return row.overdueCount>0 ? row.overdueCount : null;
-      case "bobRet":       return row.bobRet!=null   ? row.bobRet   : null;
+      case "bobRet":       return row.bobRet!=null ? row.bobRet : null;
       default:             return null;
     }
   };
   const sorted = [...rows].sort((a,b) => {
     const av=getVal(a,sort.col), bv=getVal(b,sort.col);
     if(av===null&&bv===null) return a.c.name.localeCompare(b.c.name);
-    if(av===null) return 1;
-    if(bv===null) return -1;
+    if(av===null) return 1; if(bv===null) return -1;
     if(av!==bv) return sort.dir==="desc" ? bv-av : av-bv;
     return a.c.name.localeCompare(b.c.name);
   });
@@ -2476,20 +2610,13 @@ function LeaderboardView({csms, bobRaw, history=[]}) {
     </th>
   );
 
-  const OPTS = [
-    {k:"last_quarter",    l: ranges.last_quarter.label},
-    {k:"current_quarter", l: ranges.current_quarter.label},
-    {k:"ytd",             l: `YTD ${yr}`},
-  ];
-
   return (
     <div>
-      {/* Period selector */}
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16,flexWrap:"wrap",gap:8}}>
         <div style={{fontSize:13,fontWeight:500,color:"#29355D"}}>Leaderboard</div>
         <div style={{display:"flex",gap:4,background:"#ECEEF1",borderRadius:8,padding:3}}>
           {OPTS.map(({k,l})=>(
-            <button key={k} onClick={()=>setPeriod(k)}
+            <button key={k} onClick={()=>{setPeriod(k);setSort({col:"rev",dir:"desc"});}}
               style={{padding:"4px 14px",fontSize:11,fontWeight:500,borderRadius:6,border:"none",
                 background:period===k?"#fff":"transparent",
                 color:period===k?"#29355D":"#808080",
@@ -2499,13 +2626,11 @@ function LeaderboardView({csms, bobRaw, history=[]}) {
           ))}
         </div>
       </div>
-
       {!hasHistory&&(
         <div style={{background:"rgba(217,119,6,.06)",border:"0.5px solid rgba(217,119,6,.25)",borderRadius:10,padding:10,marginBottom:14,fontSize:12,color:"#92400e"}}>
-          No history data found for {label} — revenue, cadence, and email columns may be incomplete. Retention always reflects live data.
+          No history data found for this period — revenue, cadence, and email columns may be incomplete.
         </div>
       )}
-
       <div style={S.card}>
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
           <thead><tr>
@@ -6443,7 +6568,7 @@ My question: ${aiCustom}`,
             skippedCSMs={skippedCSMs.filter(c=>{const i=lk(c.name);if(filterCoach&&(i&&i.c)!==filterCoach)return false;if(filterCSM&&c.name!==filterCSM)return false;return true;})}
             bobAdj={bobAdj} getDet={getDet}/>}
           {tab==="overview"&&<OverviewView csms={filteredCSMs} allCSMs={csms} bobRaw={bobRaw} bobAdj={bobAdj} history={history} callData={callData} filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches}/>}
-          {tab==="leaderboard"&&<LeaderboardView csms={filteredCSMs} bobRaw={bobRaw} history={history}/>}
+          {tab==="leaderboard"&&<LeaderboardView csms={filteredCSMs} bobRaw={bobRaw} history={history} q2DomoBoq={q2DomoBoq} domoBoq={domoBoq} q3BobCur={q3BobCur} q3Supp={q3Supp}/>}
           
           {tab==="revenue"&&<RevenueView rawRev={rawRev} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches}/>}
           {tab==="bob"&&<BobView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} churnAlerts={churnAlerts} onSelectCSM={selectCSMFn} liveBobDet={liveBobDet} bobAdj={bobAdj} q3BobCur={q3BobCur} domoBoq={domoBoq} q3Supp={q3Supp} q2DomoBoq={q2DomoBoq}/>}
