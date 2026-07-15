@@ -4601,14 +4601,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
           mca:0, bcc:0, bca:0, bch:[],
           hasAdj: lcmAdj!==0, adjAmount: lcmAdj};
       }).filter(c => c.boq > 0)
-    : BOB_CSMS.map(c => {
-        const det = getDet(c.n);
-        const churned = det.churned || [];
-        return {...c,
-          ret:c.boq>0&&c.lcm!=null?c.lcm/c.boq:c.ret,
-          mcc:churned.length||c.mcc, mch:churned.length?churned.map(a=>a.name):c.mch,
-          churned, bcc:0, bch:[]};
-      });
+    : []; // No stale fallback — show nothing when live BOB data is absent
   const [bobTab, setBobTab]         = useState("overview");
   const [q2Sort,       setQ2Sort]       = useState({col:"retPct", dir:"asc"});
   const [q2TileFilter, setQ2TileFilter] = useState(null);
