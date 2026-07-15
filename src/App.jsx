@@ -71,7 +71,7 @@ const TEAM_LOGOS = {
 //   Steven Saunders → Kendra Morelli, Sidharta Goris removed from roster
 
 const NAME_NORM = {
-  "darling danais":"Darling Danais Santos Taveras","darling taveras":"Darling Danais Santos Taveras","darling danais santos taveras":"Darling Danais Santos Taveras",
+  "darling danais":"Darling Danais Santos Taveras","darling taveras":"Darling Danais Santos Taveras","darling danais santos taveras":"Darling Danais Santos Taveras","darling santos taveras":"Darling Danais Santos Taveras",
   "heidi torres":"Heidi Torres Uribe","heidi uribe":"Heidi Torres Uribe","heidi torres uribe":"Heidi Torres Uribe",
   "irina larianni":"Irina Larianni Molina Molina","irina molina":"Irina Larianni Molina Molina","irina molina molina":"Irina Larianni Molina Molina","irina larianni molina molina":"Irina Larianni Molina Molina","irina molina molina":"Irina Larianni Molina Molina",
   "jathzelyn elizabeth":"Jathzelyn Elizabeth Fortuna Paulino","jathzelyn fortuna":"Jathzelyn Elizabeth Fortuna Paulino","jathzelyn fortuna paulino":"Jathzelyn Elizabeth Fortuna Paulino","jathzelyn paulino":"Jathzelyn Elizabeth Fortuna Paulino","jazz fortuna":"Jathzelyn Elizabeth Fortuna Paulino","jathzelyn elizabeth fortuna paulino":"Jathzelyn Elizabeth Fortuna Paulino",
@@ -79,7 +79,7 @@ const NAME_NORM = {
   "joseph carmona":"Joseph Guillermo Carmona Garcia","joseph carmona garcia":"Joseph Guillermo Carmona Garcia","joseph garcia":"Joseph Guillermo Carmona Garcia","joseph guillermo":"Joseph Guillermo Carmona Garcia","joseph guillermo carmona garcia":"Joseph Guillermo Carmona Garcia",
   "sam frias":"Samuel Frias De Paula","sam frias de paula":"Samuel Frias De Paula","samuel frias":"Samuel Frias De Paula","samuel paula":"Samuel Frias De Paula","samuel frias de paula":"Samuel Frias De Paula",
   "sati ananda":"Sati Ananda Pimentel Malespin","sati malespin":"Sati Ananda Pimentel Malespin","sati pimentel":"Sati Ananda Pimentel Malespin","sati pimentel malespin":"Sati Ananda Pimentel Malespin","sati ananda pimentel malespin":"Sati Ananda Pimentel Malespin",
-  "victor abner":"Victor Abner Moscoso Fernandez","victor fernandez":"Victor Abner Moscoso Fernandez","victor moscoso":"Victor Abner Moscoso Fernandez","victorabner moscoso fernandez":"Victor Abner Moscoso Fernandez","victor abner moscoso fernandez":"Victor Abner Moscoso Fernandez",
+  "victor abner":"Victor Abner Moscoso Fernandez","victor fernandez":"Victor Abner Moscoso Fernandez","victor moscoso":"Victor Abner Moscoso Fernandez","victor moscoso fernandez":"Victor Abner Moscoso Fernandez","victorabner moscoso fernandez":"Victor Abner Moscoso Fernandez","victor abner moscoso fernandez":"Victor Abner Moscoso Fernandez",
   "wilson mercedes":"Wilson Mercedes",
   "yessica montero":"Yessica Montero Urena","yessica urena":"Yessica Montero Urena","yessica montero urena":"Yessica Montero Urena","yessica montero":"Yessica Montero Urena",
   "barbara larrosa":"Barbara Larrosa Presinal","barbara presinal":"Barbara Larrosa Presinal","barbara larrosa presinal":"Barbara Larrosa Presinal",
