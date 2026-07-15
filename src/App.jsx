@@ -2589,25 +2589,19 @@ function LeaderboardView({csms, bobRaw, history=[], q2DomoBoq=[], domoBoq=[], q3
     return {
       c,
       rev:      revByCsm[c.name]||0,
-      sent:     hasHistory ? (a.sent||0) : c.sent,
-      openRate: hasHistory ? (a.sent>0 ? Math.min(a.opens/a.sent,1) : null) : (c.sent>0 ? c.openRate : null),
       cadPct:   hasHistory ? (a.cadTotal>0 ? a.cadComp/a.cadTotal : null) : (c.cadCount>0 ? c.cadPct : null),
       otPct:    hasHistory ? (a.otTotal>0  ? a.otWsum/a.otTotal   : null) : (c.otTotal>=3 ? c.otPct  : null),
       bobRet:   getRet(c),
-      overdueCount: c.overdueCount,
     };
   });
 
   // ── Sort ──────────────────────────────────────────────────────────────────
   const getVal = (row, col) => {
     switch(col) {
-      case "rev":          return row.rev>0 ? row.rev : null;
-      case "sent":         return row.sent>0 ? row.sent : null;
-      case "openRate":     return row.openRate!=null ? row.openRate : null;
-      case "cadPct":       return row.cadPct!=null ? row.cadPct : null;
-      case "otPct":        return row.otPct!=null ? row.otPct : null;
-      case "overdueCount": return row.overdueCount>0 ? row.overdueCount : null;
-      case "bobRet":       return row.bobRet!=null ? row.bobRet : null;
+      case "rev":    return row.rev>0 ? row.rev : null;
+      case "cadPct": return row.cadPct!=null ? row.cadPct : null;
+      case "otPct":  return row.otPct!=null ? row.otPct : null;
+      case "bobRet": return row.bobRet!=null ? row.bobRet : null;
       default:             return null;
     }
   };
@@ -2654,9 +2648,9 @@ function LeaderboardView({csms, bobRaw, history=[], q2DomoBoq=[], domoBoq=[], q3
             <th style={{width:28,fontSize:10,color:"#808080",fontWeight:500,padding:"0 0 8px",textAlign:"left",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>{"#"}</th>
             <th style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,padding:"0 0 8px",textAlign:"left",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>CSM</th>
             <th style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,padding:"0 0 8px",textAlign:"left",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>Team</th>
-            {th("rev","Revenue")}{th("sent","Emails")}{th("openRate","Open %")}{th("cadPct","Cadence")}{th("otPct","On-time %")}{th("overdueCount","Overdue")}{th("bobRet","Retention")}
+            {th("rev","Revenue")}{th("cadPct","Cadence")}{th("otPct","On-time %")}{th("bobRet","Retention")}
           </tr></thead>
-          <tbody>{sorted.map(({c,rev,sent,openRate,cadPct,otPct,bobRet,overdueCount},i)=>{
+          <tbody>{sorted.map(({c,rev,cadPct,otPct,bobRet},i)=>{
             const info=lk(c.name)||{};
             const tcol=TEAM_COLS[info.t||c.team]||"#888";
             return <tr key={c.name}>
@@ -2664,11 +2658,8 @@ function LeaderboardView({csms, bobRaw, history=[], q2DomoBoq=[], domoBoq=[], q3
               <td style={{padding:"9px 8px 9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",fontWeight:500}}>{dispName(c.name)}</td>
               <td style={{padding:"9px 8px 9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)"}}><span style={{display:"inline-block",width:6,height:6,borderRadius:"50%",background:tcol,marginRight:5,verticalAlign:"middle"}}/><span style={{color:"#808080",fontSize:11}}>{st(info.t||c.team)}</span></td>
               <td style={{padding:"9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#FF5000",fontWeight:500}}>{rev>0?fd(rev):"--"}</td>
-              <td style={{padding:"9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right"}}>{sent>0?sent:"--"}</td>
-              <td style={{padding:"9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",fontWeight:500,color:openRate!=null?pc(openRate):"#888"}}>{openRate!=null?pp(openRate):"--"}</td>
               <td style={{padding:"9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",fontWeight:500,color:cadPct!=null?pc(cadPct):"#888"}}>{cadPct!=null?pp(cadPct):"--"}</td>
               <td style={{padding:"9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",fontWeight:500,color:otPct!=null?pc(otPct):"#888"}}>{otPct!=null?pp(otPct):"--"}</td>
-              <td style={{padding:"9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right"}}>{overdueCount>0?<span style={{fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:20,background:"rgba(220,38,38,.1)",color:"#991b1b"}}>{overdueCount}</span>:"--"}</td>
               <td style={{padding:"9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right"}}>{bobRet!=null?<span style={{fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:20,background:bobRet>=0.91?"rgba(22,163,74,.1)":bobRet>=0.85?"rgba(217,119,6,.1)":"rgba(220,38,38,.1)",color:bobRet>=0.91?"#166534":bobRet>=0.85?"#854d0e":"#991b1b"}}>{pp(bobRet)}</span>:"--"}</td>
             </tr>;
           })}</tbody>
