@@ -2374,89 +2374,140 @@ function OverviewView({csms, allCSMs, bobRaw, bobAdj, history, callData, filterC
 }
 
 // ── LEADERBOARD TAB ────────────────────────────────────────────────────────
-function LeaderboardView({csms, bobRaw}) {
-  const [sort,setSort]=useState({col:"rev",dir:"desc"});
+function LeaderboardView({csms, bobRaw, history=[]}) {
+  const [sort, setSort]             = useState({col:"rev", dir:"desc"});
+  const [dateFilter, setDateFilter] = useState("last_week");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo,   setCustomTo]   = useState("");
 
-  // Calculate retention directly from bobRaw lcm/boq — never use stored ret field
-  const getBobRet = c => {
-    if (bobRaw && bobRaw.bob) {
-      const k = Object.keys(bobRaw.bob).find(k => norm(k)===c.name || k===c.name);
-      if (k) {
-        const d = bobRaw.bob[k];
-        if (d.boq > 0 && d.lcm != null) return d.lcm / d.boq;
-      }
+  // Period setup
+  const allHistDates = (history||[]).map(r=>r.date).filter(Boolean).sort();
+  const latestKnown  = allHistDates[allHistDates.length-1];
+  const latestDate   = latestKnown ? parseLocalDate(latestKnown) : new Date();
+  const range        = getDateRange(dateFilter, latestDate, customFrom, customTo);
+  const inRange = dateStr => {
+    if (!range.from || !range.to) return true;
+    const d = parseLocalDate(dateStr);
+    return d >= range.from && d <= range.to;
+  };
+  const inScopeNames = new Set(csms.map(c=>c.name));
+  const histInRange  = (history||[]).filter(r => inScopeNames.has(r.name) && inRange(r.date));
+  const hasHistory   = histInRange.length > 0;
+
+  // Aggregate history per CSM for the period
+  const agg = {};
+  histInRange.forEach(r => {
+    if (!agg[r.name]) agg[r.name] = {rev:0,sent:0,opens:0,cadTotal:0,cadComp:0,otTotal:0,otWsum:0,bobRows:[]};
+    const a = agg[r.name];
+    a.rev      += r.rev||0;
+    a.sent     += r.sent||0;
+    a.opens    += (r.sent||0)*(r.openRate||0);
+    a.cadTotal += r.cadTotal||0;
+    a.cadComp  += (r.cadTotal||0)*(r.cadPct!=null?r.cadPct:0);
+    if (r.otTotal>=1&&r.otPct!=null){a.otTotal+=r.otTotal;a.otWsum+=r.otTotal*r.otPct;}
+    if (r.bobRet!=null) a.bobRows.push({date:r.date,ret:r.bobRet});
+  });
+
+  // Live retention from bobRaw
+  const getLiveRet = c => {
+    if (bobRaw&&bobRaw.bob) {
+      const k = Object.keys(bobRaw.bob).find(k=>norm(k)===c.name||k===c.name);
+      if (k) { const d=bobRaw.bob[k]; if(d.boq>0&&d.lcm!=null) return d.lcm/d.boq; }
     }
-    // Fall back to c.bobRet (already fixed to be lcm/boq in buildCSMs)
-    return c.bobRet != null ? c.bobRet : null;
+    return c.bobRet!=null?c.bobRet:null;
   };
 
-  // For each column, define what the "real" sortable value is.
-  // null means "no data" — always sorted to the bottom regardless of direction.
-  const getVal = (c, col) => {
+  // Build display rows: history-aggregated when available, else live csm fields
+  const rows = csms.map(c => {
+    const a = agg[c.name]||{};
+    const rev      = hasHistory ? (a.rev||0) : c.rev;
+    const sent     = hasHistory ? (a.sent||0) : c.sent;
+    const openRate = hasHistory ? (a.sent>0?Math.min(a.opens/a.sent,1):null) : (c.sent>0?c.openRate:null);
+    const cadPct   = hasHistory ? (a.cadTotal>0?a.cadComp/a.cadTotal:null) : (c.cadCount>0?c.cadPct:null);
+    const otPct    = hasHistory ? (a.otTotal>0?a.otWsum/a.otTotal:null) : (c.otTotal>=3?c.otPct:null);
+    let bobRet = getLiveRet(c);
+    if (a.bobRows&&a.bobRows.length>0) {
+      const sr = [...a.bobRows].sort((x,y)=>x.date.localeCompare(y.date));
+      bobRet = sr[sr.length-1].ret;
+    }
+    return {c, rev, sent, openRate, cadPct, otPct, bobRet, overdueCount:c.overdueCount, bobBoq:c.bobBoq};
+  });
+
+  // Sort
+  const getVal = (row, col) => {
     switch(col) {
-      case "rev":          return c.rev > 0 ? c.rev : null;
-      case "sent":         return c.sent > 0 ? c.sent : null;
-      case "openRate":     return c.sent > 0 ? c.openRate : null;
-      case "cadPct":       return c.cadCount > 0 ? c.cadPct : null;
-      case "otPct":        return c.otTotal >= 3 ? c.otPct : null;
-      case "overdueCount": return c.overdueCount > 0 ? c.overdueCount : null;
-      case "bobBoq":       return c.bobBoq > 0 ? c.bobBoq : null;
-      case "bobRet":       return getBobRet(c);
+      case "rev":          return row.rev>0?row.rev:null;
+      case "sent":         return row.sent>0?row.sent:null;
+      case "openRate":     return row.openRate!=null?row.openRate:null;
+      case "cadPct":       return row.cadPct!=null?row.cadPct:null;
+      case "otPct":        return row.otPct!=null?row.otPct:null;
+      case "overdueCount": return row.overdueCount>0?row.overdueCount:null;
+      case "bobBoq":       return row.bobBoq>0?row.bobBoq:null;
+      case "bobRet":       return row.bobRet!=null?row.bobRet:null;
       default:             return null;
     }
   };
-
-  const sorted=[...csms].sort((a,b)=>{
-    const av = getVal(a, sort.col);
-    const bv = getVal(b, sort.col);
-    // Nulls always go to the bottom
-    if (av === null && bv === null) return a.name.localeCompare(b.name);
-    if (av === null) return 1;
-    if (bv === null) return -1;
-    // Both have values — sort by direction
-    if (av !== bv) return sort.dir === "desc" ? bv - av : av - bv;
-    // Tie-break alphabetically
-    return a.name.localeCompare(b.name);
+  const sorted = [...rows].sort((a,b) => {
+    const av=getVal(a,sort.col), bv=getVal(b,sort.col);
+    if(av===null&&bv===null) return a.c.name.localeCompare(b.c.name);
+    if(av===null) return 1;
+    if(bv===null) return -1;
+    if(av!==bv) return sort.dir==="desc"?bv-av:av-bv;
+    return a.c.name.localeCompare(b.c.name);
   });
 
-  const medals=["🥇","🥈","🥉"];
-  const th=(col,lbl)=>(
+  const medals = ["🥇","🥈","🥉"];
+  const th = (col,lbl) => (
     <th onClick={()=>setSort(s=>({col,dir:s.col===col&&s.dir==="desc"?"asc":"desc"}))}
       style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,padding:"0 0 8px",textAlign:"right",cursor:"pointer",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>
       {lbl}{sort.col===col?(sort.dir==="desc"?" ▼":" ▲"):<span style={{color:"#ccc",fontSize:9}}> ↕</span>}
     </th>
   );
+
   return (
-    <div style={S.card}>
-      <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
-        <thead><tr>
-          <th style={{width:28,fontSize:10,color:"#808080",fontWeight:500,padding:"0 0 8px",textAlign:"left",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>#</th>
-          <th style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,padding:"0 0 8px",textAlign:"left",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>CSM</th>
-          <th style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,padding:"0 0 8px",textAlign:"left",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>Team</th>
-          {th("rev","Revenue")}{th("sent","Emails")}{th("openRate","Open %")}{th("cadPct","Cadence")}{th("otPct","On-time %")}{th("overdueCount","Overdue")}{th("bobBoq","BOQ $")}{th("bobRet","Retention")}
-        </tr></thead>
-        <tbody>{sorted.map((c,i)=>{
-          const info=lk(c.name)||{};
-          const col=TEAM_COLS[info.t||c.team]||"#888";
-          return <tr key={c.name}>
-            <td style={{padding:"9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)"}}>{i<3?medals[i]:(i+1)+"."}</td>
-            <td style={{padding:"9px 8px 9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",fontWeight:500}}>{dispName(c.name)}</td>
-            <td style={{padding:"9px 8px 9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)"}}><span style={{display:"inline-block",width:6,height:6,borderRadius:"50%",background:col,marginRight:5,verticalAlign:"middle"}}/><span style={{color:"#808080",fontSize:11}}>{st(info.t||c.team)}</span></td>
-            <td style={{padding:"9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#FF5000",fontWeight:500}}>{c.rev>0?fd(c.rev):"--"}</td>
-            <td style={{padding:"9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right"}}>{c.sent>0?c.sent:"--"}</td>
-            <td style={{padding:"9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",fontWeight:500,color:c.sent>0?pc(c.openRate):"#888"}}>{c.sent>0?pp(c.openRate):"--"}</td>
-            <td style={{padding:"9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",fontWeight:500,color:c.cadCount>0?pc(c.cadPct):"#888"}}>{c.cadCount>0?pp(c.cadPct):"--"}</td>
-            <td style={{padding:"9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",fontWeight:500,color:c.otTotal>=3?pc(c.otPct):"#888"}}>{c.otTotal>=3?pp(c.otPct):"--"}</td>
-            <td style={{padding:"9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right"}}>{c.overdueCount>0?<span style={{fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:20,background:"rgba(220,38,38,.1)",color:"#991b1b"}}>{c.overdueCount}</span>:"--"}</td>
-            <td style={{padding:"9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#808080",fontSize:11}}>{c.bobBoq>0?fk(c.bobBoq):"--"}</td>
-            {(()=>{const r=getBobRet(c);return <td style={{padding:"9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right"}}>{r!=null?<span style={{fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:20,background:r>=0.91?"rgba(22,163,74,.1)":r>=0.85?"rgba(217,119,6,.1)":"rgba(220,38,38,.1)",color:r>=0.91?"#166534":r>=0.85?"#854d0e":"#991b1b"}}>{pp(r)}</span>:"--"}</td>})()}
-          </tr>;
-        })}</tbody>
-      </table>
+    <div>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16,flexWrap:"wrap",gap:8}}>
+        <div style={{fontSize:13,fontWeight:500,color:"#29355D"}}>Leaderboard</div>
+        <PeriodPicker value={dateFilter} onChange={setDateFilter}
+          customFrom={customFrom} customTo={customTo}
+          onFromChange={setCustomFrom} onToChange={setCustomTo}
+          latestDate={latestKnown}/>
+      </div>
+      {!hasHistory&&(
+        <div style={{background:"rgba(217,119,6,.06)",border:"0.5px solid rgba(217,119,6,.25)",borderRadius:10,padding:10,marginBottom:14,fontSize:12,color:"#92400e"}}>
+          No history data for this period — showing current live figures. Pick a quarter to rank by historical data.
+        </div>
+      )}
+      <div style={S.card}>
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+          <thead><tr>
+            <th style={{width:28,fontSize:10,color:"#808080",fontWeight:500,padding:"0 0 8px",textAlign:"left",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>{"#"}</th>
+            <th style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,padding:"0 0 8px",textAlign:"left",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>CSM</th>
+            <th style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,padding:"0 0 8px",textAlign:"left",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>Team</th>
+            {th("rev","Revenue")}{th("sent","Emails")}{th("openRate","Open %")}{th("cadPct","Cadence")}{th("otPct","On-time %")}{th("overdueCount","Overdue")}{th("bobBoq","BOQ $")}{th("bobRet","Retention")}
+          </tr></thead>
+          <tbody>{sorted.map(({c,rev,sent,openRate,cadPct,otPct,bobRet,overdueCount,bobBoq},i)=>{
+            const info=lk(c.name)||{};
+            const tcol=TEAM_COLS[info.t||c.team]||"#888";
+            return <tr key={c.name}>
+              <td style={{padding:"9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)"}}>{i<3?medals[i]:(i+1)+"."}</td>
+              <td style={{padding:"9px 8px 9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",fontWeight:500}}>{dispName(c.name)}</td>
+              <td style={{padding:"9px 8px 9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)"}}><span style={{display:"inline-block",width:6,height:6,borderRadius:"50%",background:tcol,marginRight:5,verticalAlign:"middle"}}/><span style={{color:"#808080",fontSize:11}}>{st(info.t||c.team)}</span></td>
+              <td style={{padding:"9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#FF5000",fontWeight:500}}>{rev>0?fd(rev):"--"}</td>
+              <td style={{padding:"9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right"}}>{sent>0?sent:"--"}</td>
+              <td style={{padding:"9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",fontWeight:500,color:openRate!=null?pc(openRate):"#888"}}>{openRate!=null?pp(openRate):"--"}</td>
+              <td style={{padding:"9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",fontWeight:500,color:cadPct!=null?pc(cadPct):"#888"}}>{cadPct!=null?pp(cadPct):"--"}</td>
+              <td style={{padding:"9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",fontWeight:500,color:otPct!=null?pc(otPct):"#888"}}>{otPct!=null?pp(otPct):"--"}</td>
+              <td style={{padding:"9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right"}}>{overdueCount>0?<span style={{fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:20,background:"rgba(220,38,38,.1)",color:"#991b1b"}}>{overdueCount}</span>:"--"}</td>
+              <td style={{padding:"9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#808080",fontSize:11}}>{bobBoq>0?fk(bobBoq):"--"}</td>
+              <td style={{padding:"9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right"}}>{bobRet!=null?<span style={{fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:20,background:bobRet>=0.91?"rgba(22,163,74,.1)":bobRet>=0.85?"rgba(217,119,6,.1)":"rgba(220,38,38,.1)",color:bobRet>=0.91?"#166534":bobRet>=0.85?"#854d0e":"#991b1b"}}>{pp(bobRet)}</span>:"--"}</td>
+            </tr>;
+          })}</tbody>
+        </table>
+      </div>
     </div>
   );
 }
-
 // ── TRENDS VIEW ────────────────────────────────────────────────────────────
 function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}, qass={}}) {
   const [metric, setMetric] = useState("otPct");
@@ -6365,7 +6416,7 @@ My question: ${aiCustom}`,
             skippedCSMs={skippedCSMs.filter(c=>{const i=lk(c.name);if(filterCoach&&(i&&i.c)!==filterCoach)return false;if(filterCSM&&c.name!==filterCSM)return false;return true;})}
             bobAdj={bobAdj} getDet={getDet}/>}
           {tab==="overview"&&<OverviewView csms={filteredCSMs} allCSMs={csms} bobRaw={bobRaw} bobAdj={bobAdj} history={history} callData={callData} filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches}/>}
-          {tab==="leaderboard"&&<LeaderboardView csms={filteredCSMs} bobRaw={bobRaw}/>}
+          {tab==="leaderboard"&&<LeaderboardView csms={filteredCSMs} bobRaw={bobRaw} history={history}/>}
           
           {tab==="revenue"&&<RevenueView rawRev={rawRev} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches}/>}
           {tab==="bob"&&<BobView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} churnAlerts={churnAlerts} onSelectCSM={selectCSMFn} liveBobDet={liveBobDet} bobAdj={bobAdj} q3BobCur={q3BobCur} domoBoq={domoBoq} q3Supp={q3Supp} q2DomoBoq={q2DomoBoq}/>}
