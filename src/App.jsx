@@ -2457,148 +2457,6 @@ function LeaderboardView({csms, bobRaw}) {
   );
 }
 
-// ── ACTIVITY TAB ───────────────────────────────────────────────────────────
-function SortableTable({title, cols, rows, defaultCol, defaultDir="desc"}) {
-  const [sort, setSort] = useState({col: defaultCol, dir: defaultDir});
-  const sorted = [...rows].sort((a, b) => {
-    const av = a[sort.col] ?? (typeof a[sort.col]==="string" ? "" : -Infinity);
-    const bv = b[sort.col] ?? (typeof b[sort.col]==="string" ? "" : -Infinity);
-    if (typeof av === "string") return sort.dir==="asc" ? av.localeCompare(bv) : bv.localeCompare(av);
-    return sort.dir === "asc" ? av - bv : bv - av;
-  });
-  const toggle = col => setSort(s => ({col, dir: s.col===col && s.dir==="desc" ? "asc" : "desc"}));
-  const thStyle = (right) => ({fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,padding:"0 0 8px",textAlign:right?"right":"left",borderBottom:"0.5px solid rgba(41,53,93,.08)",cursor:"pointer",userSelect:"none",whiteSpace:"nowrap"});
-  const arrow = col => sort.col===col ? (sort.dir==="desc"?" ▼":" ▲") : " ↕";
-  return (
-    <div style={S.card}>
-      <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>{title}</div>
-      {rows.length===0
-        ? <div style={{color:"#808080",fontSize:12}}>No data available</div>
-        : <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
-            <thead><tr>
-              {cols.map(({key,label,right})=>(
-                <th key={key} style={thStyle(right)} onClick={()=>toggle(key)}>
-                  {label}<span style={{color: sort.col===key ? "#FF5000" : "#ccc", fontSize:9}}>{arrow(key)}</span>
-                </th>
-              ))}
-            </tr></thead>
-            <tbody>{sorted.map((row,i)=>row._render(i))}</tbody>
-          </table>}
-    </div>
-  );
-}
-
-function ActivityView({csms}) {
-  const tdBase = {padding:"6px 0", borderBottom:"0.5px solid rgba(41,53,93,.05)"};
-
-  // Email table rows
-  const emRows = csms.filter(c=>c.sent>0).map(c=>({
-    name: c.name, sent: c.sent, openRate: c.openRate, replyRate: c.replyRate,
-    _render: (i) => <tr key={c.name}>
-      <td style={tdBase}>{dispName(c.name)}</td>
-      <td style={{...tdBase,textAlign:"right"}}>{c.sent}</td>
-      <td style={{...tdBase,textAlign:"right",fontWeight:500,color:pc(c.openRate)}}>{pp(c.openRate)}</td>
-      <td style={{...tdBase,textAlign:"right",fontWeight:500,color:pc(c.replyRate)}}>{pp(c.replyRate)}</td>
-    </tr>
-  }));
-
-  // On-time table rows
-  const otRows = csms.filter(c=>c.otTotal>=3).map(c=>({
-    name: c.name, otTotal: c.otTotal, otOnTime: c.otOnTime, otPct: c.otPct,
-    _render: (i) => <tr key={c.name}>
-      <td style={tdBase}>{dispName(c.name)}</td>
-      <td style={{...tdBase,textAlign:"right",color:"#808080"}}>{c.otTotal}</td>
-      <td style={{...tdBase,textAlign:"right"}}>{c.otOnTime}</td>
-      <td style={{...tdBase,textAlign:"right",fontWeight:500,color:bc(c.otPct,0.8,0.6)}}>{pp(c.otPct)}</td>
-    </tr>
-  }));
-
-  // Due/overdue table rows
-  const dueRows = csms.filter(c=>c.dueCount>0).map(c=>({
-    name: c.name, dueCount: c.dueCount, overdueCount: c.overdueCount, newToday: c.newToday,
-    _render: (i) => <tr key={c.name}>
-      <td style={tdBase}>{dispName(c.name)}</td>
-      <td style={{...tdBase,textAlign:"right"}}>{c.dueCount}</td>
-      <td style={{...tdBase,textAlign:"right"}}>
-        <span style={{fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:20,background:"rgba(220,38,38,.1)",color:"#991b1b"}}>{c.overdueCount}</span>
-      </td>
-      <td style={{...tdBase,textAlign:"right"}}>
-        {c.newToday>0
-          ? <span style={{fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:20,background:"rgba(83,120,252,.1)",color:"#1e3a8a"}}>{c.newToday}</span>
-          : "--"}
-      </td>
-    </tr>
-  }));
-
-  return (
-    <div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}}>
-        <SortableTable
-          title="Email performance"
-          defaultCol="sent"
-          cols={[
-            {key:"name",      label:"CSM",     right:false},
-            {key:"sent",      label:"Sent",    right:true},
-            {key:"openRate",  label:"Open %",  right:true},
-            {key:"replyRate", label:"Reply %", right:true},
-          ]}
-          rows={emRows}
-        />
-        <SortableTable
-          title="On-time cadence %"
-          defaultCol="otPct"
-          cols={[
-            {key:"name",     label:"CSM",     right:false},
-            {key:"otTotal",  label:"Tasks",   right:true},
-            {key:"otOnTime", label:"On-time", right:true},
-            {key:"otPct",    label:"Rate",    right:true},
-          ]}
-          rows={otRows}
-        />
-      </div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
-        <SortableTable
-          title="Due / past due cadence"
-          defaultCol="overdueCount"
-          cols={[
-            {key:"name",         label:"CSM",     right:false},
-            {key:"dueCount",     label:"Due",     right:true},
-            {key:"overdueCount", label:"Overdue", right:true},
-            {key:"newToday",     label:"New",     right:true},
-          ]}
-          rows={dueRows}
-        />
-        <SortableTable
-          title="Cadence completions — yesterday"
-          defaultCol="cadPct"
-          defaultDir="desc"
-          cols={[
-            {key:"name",     label:"CSM",        right:false},
-            {key:"cadCount", label:"Tasks",      right:true},
-            {key:"cadPct",   label:"Completed %",right:true},
-          ]}
-          rows={csms.filter(c=>c.cadCount>0).map(c=>({
-            name:     c.name,
-            cadCount: c.cadCount,
-            cadPct:   c.cadPct,
-            _render: (i) => <tr key={c.name}>
-              <td style={{padding:"6px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",fontSize:12}}>{dispName(c.name)}</td>
-              <td style={{padding:"6px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",fontSize:12,color:"#808080"}}>{c.cadCount}</td>
-              <td style={{padding:"6px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",fontSize:12}}>
-                <span style={{fontWeight:500,padding:"1px 8px",borderRadius:20,fontSize:10,
-                  background: c.cadPct>=0.9?"rgba(22,163,74,.1)":c.cadPct>=0.5?"rgba(217,119,6,.1)":"rgba(220,38,38,.1)",
-                  color:      c.cadPct>=0.9?"#166534":c.cadPct>=0.5?"#854d0e":"#991b1b"}}>
-                  {pp(c.cadPct)}
-                </span>
-              </td>
-            </tr>
-          }))}
-        />
-      </div>
-    </div>
-  );
-}
-
 // ── TRENDS VIEW ────────────────────────────────────────────────────────────
 function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}, qass={}}) {
   const [metric, setMetric] = useState("otPct");
@@ -6440,7 +6298,7 @@ My question: ${aiCustom}`,
           </div>
         </div>
         <div style={{display:"flex",alignItems:"stretch",padding:"0 24px"}}>
-          {["coaching","overview","digest","revenue","bob","leaderboard","activity","trends"].filter(t=>!isCsmView||(t!=="leaderboard"&&t!=="trends")).map(t=>(
+          {["coaching","overview","digest","revenue","bob","leaderboard","trends"].filter(t=>!isCsmView||(t!=="leaderboard"&&t!=="trends")).map(t=>(
             <button key={t} onClick={()=>setTab(t)}
               style={{padding:"10px 18px",fontSize:13,fontWeight:500,color:tab===t?"#fff":"rgba(255,255,255,.55)",background:"transparent",border:"none",cursor:"pointer",borderBottom:tab===t?"3px solid #FF5000":"3px solid transparent",whiteSpace:"nowrap"}}>
               {t==="coaching"?"Coaching":t==="digest"?"📋 Daily Digest":t==="trends"?"📈 Trends":t==="revenue"?"💰 Revenue":t==="bob"?"📋 Book of Business":t.charAt(0).toUpperCase()+t.slice(1)}
@@ -6508,7 +6366,7 @@ My question: ${aiCustom}`,
             bobAdj={bobAdj} getDet={getDet}/>}
           {tab==="overview"&&<OverviewView csms={filteredCSMs} allCSMs={csms} bobRaw={bobRaw} bobAdj={bobAdj} history={history} callData={callData} filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches}/>}
           {tab==="leaderboard"&&<LeaderboardView csms={filteredCSMs} bobRaw={bobRaw}/>}
-          {tab==="activity"&&<ActivityView csms={filteredCSMs}/>}
+          
           {tab==="revenue"&&<RevenueView rawRev={rawRev} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches}/>}
           {tab==="bob"&&<BobView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} churnAlerts={churnAlerts} onSelectCSM={selectCSMFn} liveBobDet={liveBobDet} bobAdj={bobAdj} q3BobCur={q3BobCur} domoBoq={domoBoq} q3Supp={q3Supp} q2DomoBoq={q2DomoBoq}/>}
           {tab==="trends"&&<TrendsView history={history} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} qamc={qamc} qass={qass}/>}
