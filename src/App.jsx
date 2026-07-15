@@ -2375,75 +2375,87 @@ function OverviewView({csms, allCSMs, bobRaw, bobAdj, history, callData, filterC
 
 // ── LEADERBOARD TAB ────────────────────────────────────────────────────────
 function LeaderboardView({csms, bobRaw, history=[]}) {
-  const [sort, setSort]             = useState({col:"rev", dir:"desc"});
-  const [dateFilter, setDateFilter] = useState("last_week");
-  const [customFrom, setCustomFrom] = useState("");
-  const [customTo,   setCustomTo]   = useState("");
+  const [sort, setSort]       = useState({col:"rev", dir:"desc"});
+  const [period, setPeriod]   = useState("current_quarter");
 
-  // Period setup
-  const allHistDates = (history||[]).map(r=>r.date).filter(Boolean).sort();
-  const latestKnown  = allHistDates[allHistDates.length-1];
-  const latestDate   = latestKnown ? parseLocalDate(latestKnown) : new Date();
-  const range        = getDateRange(dateFilter, latestDate, customFrom, customTo);
-  const inRange = dateStr => {
-    if (!range.from || !range.to) return true;
-    const d = parseLocalDate(dateStr);
-    return d >= range.from && d <= range.to;
+  // ── Period: only 3 options, all quarter-aligned ───────────────────────────
+  const now = new Date();
+  const yr  = now.getFullYear();
+  const qIdx = Math.floor(now.getMonth() / 3); // 0-3
+  const qStarts = [[0,1],[3,4],[6,7],[9,10]];  // [startMo, endMo]
+
+  const getQRange = (year, q) => {
+    const [sm, em] = qStarts[q];
+    return {
+      from: new Date(year, sm, 1),
+      to:   new Date(year, em + 1, 0, 23, 59, 59, 999),
+      label: `Q${q+1} ${year}`,
+    };
   };
+
+  const ranges = {
+    last_quarter:    qIdx > 0 ? getQRange(yr, qIdx-1) : getQRange(yr-1, 3),
+    current_quarter: getQRange(yr, qIdx),
+    ytd:             {from: new Date(yr, 0, 1), to: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999), label: `YTD ${yr}`},
+  };
+  const {from, to, label} = ranges[period];
+
+  const inRange = dateStr => {
+    const d = parseLocalDate(dateStr);
+    return d >= from && d <= to;
+  };
+
   const inScopeNames = new Set(csms.map(c=>c.name));
   const histInRange  = (history||[]).filter(r => inScopeNames.has(r.name) && inRange(r.date));
   const hasHistory   = histInRange.length > 0;
 
-  // Aggregate history per CSM for the period
+  // ── Aggregate history per CSM (revenue, cadence, on-time, email) ──────────
   const agg = {};
   histInRange.forEach(r => {
-    if (!agg[r.name]) agg[r.name] = {rev:0,sent:0,opens:0,cadTotal:0,cadComp:0,otTotal:0,otWsum:0,bobRows:[]};
+    if (!agg[r.name]) agg[r.name] = {rev:0, sent:0, opens:0, cadTotal:0, cadComp:0, otTotal:0, otWsum:0};
     const a = agg[r.name];
     a.rev      += r.rev||0;
     a.sent     += r.sent||0;
     a.opens    += (r.sent||0)*(r.openRate||0);
     a.cadTotal += r.cadTotal||0;
-    a.cadComp  += (r.cadTotal||0)*(r.cadPct!=null?r.cadPct:0);
-    if (r.otTotal>=1&&r.otPct!=null){a.otTotal+=r.otTotal;a.otWsum+=r.otTotal*r.otPct;}
-    if (r.bobRet!=null) a.bobRows.push({date:r.date,ret:r.bobRet});
+    a.cadComp  += (r.cadTotal||0)*(r.cadPct!=null ? r.cadPct : 0);
+    if (r.otTotal>=1 && r.otPct!=null) { a.otTotal += r.otTotal; a.otWsum += r.otTotal*r.otPct; }
   });
 
-  // Live retention from bobRaw
+  // ── Retention: always live from bobRaw, never period-filtered ────────────
   const getLiveRet = c => {
     if (bobRaw&&bobRaw.bob) {
-      const k = Object.keys(bobRaw.bob).find(k=>norm(k)===c.name||k===c.name);
+      const k = Object.keys(bobRaw.bob).find(k => norm(k)===c.name || k===c.name);
       if (k) { const d=bobRaw.bob[k]; if(d.boq>0&&d.lcm!=null) return d.lcm/d.boq; }
     }
-    return c.bobRet!=null?c.bobRet:null;
+    return c.bobRet!=null ? c.bobRet : null;
   };
 
-  // Build display rows: history-aggregated when available, else live csm fields
+  // ── Build rows ────────────────────────────────────────────────────────────
   const rows = csms.map(c => {
     const a = agg[c.name]||{};
-    const rev      = hasHistory ? (a.rev||0) : c.rev;
-    const sent     = hasHistory ? (a.sent||0) : c.sent;
-    const openRate = hasHistory ? (a.sent>0?Math.min(a.opens/a.sent,1):null) : (c.sent>0?c.openRate:null);
-    const cadPct   = hasHistory ? (a.cadTotal>0?a.cadComp/a.cadTotal:null) : (c.cadCount>0?c.cadPct:null);
-    const otPct    = hasHistory ? (a.otTotal>0?a.otWsum/a.otTotal:null) : (c.otTotal>=3?c.otPct:null);
-    let bobRet = getLiveRet(c);
-    if (a.bobRows&&a.bobRows.length>0) {
-      const sr = [...a.bobRows].sort((x,y)=>x.date.localeCompare(y.date));
-      bobRet = sr[sr.length-1].ret;
-    }
-    return {c, rev, sent, openRate, cadPct, otPct, bobRet, overdueCount:c.overdueCount, bobBoq:c.bobBoq};
+    return {
+      c,
+      rev:      hasHistory ? (a.rev||0)   : c.rev,
+      sent:     hasHistory ? (a.sent||0)  : c.sent,
+      openRate: hasHistory ? (a.sent>0 ? Math.min(a.opens/a.sent,1) : null) : (c.sent>0 ? c.openRate : null),
+      cadPct:   hasHistory ? (a.cadTotal>0 ? a.cadComp/a.cadTotal : null)   : (c.cadCount>0 ? c.cadPct : null),
+      otPct:    hasHistory ? (a.otTotal>0  ? a.otWsum/a.otTotal   : null)   : (c.otTotal>=3 ? c.otPct  : null),
+      bobRet:   getLiveRet(c),  // always live
+      overdueCount: c.overdueCount,
+    };
   });
 
-  // Sort
+  // ── Sort ──────────────────────────────────────────────────────────────────
   const getVal = (row, col) => {
     switch(col) {
-      case "rev":          return row.rev>0?row.rev:null;
-      case "sent":         return row.sent>0?row.sent:null;
-      case "openRate":     return row.openRate!=null?row.openRate:null;
-      case "cadPct":       return row.cadPct!=null?row.cadPct:null;
-      case "otPct":        return row.otPct!=null?row.otPct:null;
-      case "overdueCount": return row.overdueCount>0?row.overdueCount:null;
-      case "bobBoq":       return row.bobBoq>0?row.bobBoq:null;
-      case "bobRet":       return row.bobRet!=null?row.bobRet:null;
+      case "rev":          return row.rev>0      ? row.rev      : null;
+      case "sent":         return row.sent>0     ? row.sent     : null;
+      case "openRate":     return row.openRate!=null ? row.openRate : null;
+      case "cadPct":       return row.cadPct!=null   ? row.cadPct   : null;
+      case "otPct":        return row.otPct!=null    ? row.otPct    : null;
+      case "overdueCount": return row.overdueCount>0 ? row.overdueCount : null;
+      case "bobRet":       return row.bobRet!=null   ? row.bobRet   : null;
       default:             return null;
     }
   };
@@ -2452,41 +2464,57 @@ function LeaderboardView({csms, bobRaw, history=[]}) {
     if(av===null&&bv===null) return a.c.name.localeCompare(b.c.name);
     if(av===null) return 1;
     if(bv===null) return -1;
-    if(av!==bv) return sort.dir==="desc"?bv-av:av-bv;
+    if(av!==bv) return sort.dir==="desc" ? bv-av : av-bv;
     return a.c.name.localeCompare(b.c.name);
   });
 
   const medals = ["🥇","🥈","🥉"];
   const th = (col,lbl) => (
-    <th onClick={()=>setSort(s=>({col,dir:s.col===col&&s.dir==="desc"?"asc":"desc"}))}
+    <th onClick={()=>setSort(s=>({col, dir:s.col===col&&s.dir==="desc"?"asc":"desc"}))}
       style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,padding:"0 0 8px",textAlign:"right",cursor:"pointer",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>
       {lbl}{sort.col===col?(sort.dir==="desc"?" ▼":" ▲"):<span style={{color:"#ccc",fontSize:9}}> ↕</span>}
     </th>
   );
 
+  const OPTS = [
+    {k:"last_quarter",    l: ranges.last_quarter.label},
+    {k:"current_quarter", l: ranges.current_quarter.label},
+    {k:"ytd",             l: `YTD ${yr}`},
+  ];
+
   return (
     <div>
+      {/* Period selector */}
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16,flexWrap:"wrap",gap:8}}>
         <div style={{fontSize:13,fontWeight:500,color:"#29355D"}}>Leaderboard</div>
-        <PeriodPicker value={dateFilter} onChange={setDateFilter}
-          customFrom={customFrom} customTo={customTo}
-          onFromChange={setCustomFrom} onToChange={setCustomTo}
-          latestDate={latestKnown}/>
+        <div style={{display:"flex",gap:4,background:"#ECEEF1",borderRadius:8,padding:3}}>
+          {OPTS.map(({k,l})=>(
+            <button key={k} onClick={()=>setPeriod(k)}
+              style={{padding:"4px 14px",fontSize:11,fontWeight:500,borderRadius:6,border:"none",
+                background:period===k?"#fff":"transparent",
+                color:period===k?"#29355D":"#808080",
+                cursor:"pointer",boxShadow:period===k?"0 1px 3px rgba(0,0,0,.08)":"none"}}>
+              {l}
+            </button>
+          ))}
+        </div>
       </div>
+
       {!hasHistory&&(
         <div style={{background:"rgba(217,119,6,.06)",border:"0.5px solid rgba(217,119,6,.25)",borderRadius:10,padding:10,marginBottom:14,fontSize:12,color:"#92400e"}}>
-          No history data for this period — showing current live figures. Pick a quarter to rank by historical data.
+          No history data found for {label} — revenue, cadence, and email columns may be incomplete. Retention always reflects live data.
         </div>
       )}
+
       <div style={S.card}>
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
           <thead><tr>
             <th style={{width:28,fontSize:10,color:"#808080",fontWeight:500,padding:"0 0 8px",textAlign:"left",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>{"#"}</th>
             <th style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,padding:"0 0 8px",textAlign:"left",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>CSM</th>
             <th style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,padding:"0 0 8px",textAlign:"left",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>Team</th>
-            {th("rev","Revenue")}{th("sent","Emails")}{th("openRate","Open %")}{th("cadPct","Cadence")}{th("otPct","On-time %")}{th("overdueCount","Overdue")}{th("bobBoq","BOQ $")}{th("bobRet","Retention")}
+            {th("rev","Revenue")}{th("sent","Emails")}{th("openRate","Open %")}{th("cadPct","Cadence")}{th("otPct","On-time %")}{th("overdueCount","Overdue")}{th("bobRet","Retention")}
           </tr></thead>
-          <tbody>{sorted.map(({c,rev,sent,openRate,cadPct,otPct,bobRet,overdueCount,bobBoq},i)=>{
+          <tbody>{sorted.map(({c,rev,sent,openRate,cadPct,otPct,bobRet,overdueCount},i)=>{
             const info=lk(c.name)||{};
             const tcol=TEAM_COLS[info.t||c.team]||"#888";
             return <tr key={c.name}>
@@ -2499,7 +2527,6 @@ function LeaderboardView({csms, bobRaw, history=[]}) {
               <td style={{padding:"9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",fontWeight:500,color:cadPct!=null?pc(cadPct):"#888"}}>{cadPct!=null?pp(cadPct):"--"}</td>
               <td style={{padding:"9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",fontWeight:500,color:otPct!=null?pc(otPct):"#888"}}>{otPct!=null?pp(otPct):"--"}</td>
               <td style={{padding:"9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right"}}>{overdueCount>0?<span style={{fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:20,background:"rgba(220,38,38,.1)",color:"#991b1b"}}>{overdueCount}</span>:"--"}</td>
-              <td style={{padding:"9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#808080",fontSize:11}}>{bobBoq>0?fk(bobBoq):"--"}</td>
               <td style={{padding:"9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right"}}>{bobRet!=null?<span style={{fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:20,background:bobRet>=0.91?"rgba(22,163,74,.1)":bobRet>=0.85?"rgba(217,119,6,.1)":"rgba(220,38,38,.1)",color:bobRet>=0.91?"#166534":bobRet>=0.85?"#854d0e":"#991b1b"}}>{pp(bobRet)}</span>:"--"}</td>
             </tr>;
           })}</tbody>
