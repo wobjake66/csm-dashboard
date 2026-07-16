@@ -3663,19 +3663,11 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
     return key ? q3RetByCsm[key] : null;
   };
 
-  const [period, setPeriod] = React.useState("week");
   // getDet fallback if not passed as prop
   const getDetFn = getDet || (n => BOB_DETAIL[n]||BOB_DETAIL[norm(n)]||{});
   const [expanded, setExpanded] = React.useState(null);
   const [aiCopied, setAiCopied] = React.useState(false);
   const [scoreFilter, setScoreFilter] = React.useState("all");
-
-  const PERIODS = [
-    {k:"yesterday", l:"Yesterday"},
-    {k:"week",      l:"Last Week"},
-    {k:"month",     l:"Last Month"},
-    {k:"quarter",   l:"Last Quarter"},
-  ];
 
   // ── Signal scoring ──────────────────────────────────────────────────────
   const scoreColor = s => s==="legend"?"#7c3aed":s==="green"?"#16a34a":s==="yellow"?"#d97706":s==="red"?"#dc2626":"#808080";
@@ -3901,7 +3893,7 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
   // ── AI prompt builder ─────────────────────────────────────────────────
   const runDigestAI = async () => {
     const lines = ["=== DAILY DIGEST — THRYV CSM TEAM ===",
-      "Period: "+PERIODS.find(p=>p.k===period)?.l,""];
+      "Period: Current quarter",""];
     visibleCSMs.forEach(csm=>{
       const sigs = buildSignals(csm);
       const overall = worstScore(sigs.map(s=>s.score).filter(s=>s!=="gray"));
@@ -3951,14 +3943,10 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
         <div>
           <div style={{fontSize:18,fontWeight:700,color:"#29355D"}}>📋 Daily Digest</div>
           <div style={{fontSize:12,color:"#808080",marginTop:2}}>
-            {filterCSM?dispName(filterCSM):filterCoach?COACHES.find(c=>c.e===filterCoach)?.n:"Full team"} · {PERIODS.find(p=>p.k===period)?.l}
+            {filterCSM?dispName(filterCSM):filterCoach?COACHES.find(c=>c.e===filterCoach)?.n:"Full team"} · Live signals
           </div>
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-          {/* Period picker */}
-          <PeriodPicker value={period} onChange={setPeriod}
-            customFrom={""} customTo={""}
-            onFromChange={()=>{}} onToChange={()=>{}}/>
           {/* AI button */}
           <button onClick={runDigestAI}
             style={{display:"flex",alignItems:"center",gap:6,padding:"7px 14px",borderRadius:8,
@@ -4023,7 +4011,7 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
                 <div style={{fontSize:15,fontWeight:700,color:"#29355D"}}>
                   {overall==="legend"?"Team is legendary":overall==="green"?"Team is winning":overall==="yellow"?"Team needs attention":"Team has urgent issues"}
                 </div>
-                <div style={{fontSize:11,color:"#808080"}}>{visibleCSMs.length} CSMs · {PERIODS.find(p=>p.k===period)?.l}</div>
+                <div style={{fontSize:11,color:"#808080"}}>{visibleCSMs.length} CSMs · Live signals</div>
               </div>
             </div>
             <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
