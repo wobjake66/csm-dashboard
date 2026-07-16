@@ -3652,8 +3652,6 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
     Object.entries(totals).forEach(([k,v]) => {
       result[k] = {boq:v.boq, cur:v.cur, ret: v.boq>0 ? v.cur/v.boq : null};
     });
-    console.log("[DigestView] q3RetByCsm keys:", Object.keys(result).slice(0,5), "total:", Object.keys(result).length);
-    console.log("[DigestView] domoBoq rows:", (domoBoq||[]).length, "q3BobCur rows:", (q3BobCur||[]).length);
     return result;
   }, [domoBoq, q3BobCur, q3Supp]);
 
@@ -3933,14 +3931,14 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
   // ── Team rollup ────────────────────────────────────────────────────────
   const teamSignals = () => {
     if (visibleCSMs.length === 0) return [];
-    const cats = ["rev","ret","cad","calls","qa"];
+    const cats = ["rev","bob","cad","calls","qa"];
     return cats.map(cat=>{
       const scores = visibleCSMs.map(c=>buildSignals(c).find(s=>s.key===cat)?.score).filter(s=>s&&s!=="gray");
       const reds   = scores.filter(s=>s==="red").length;
       const yellows= scores.filter(s=>s==="yellow").length;
       const greens = scores.filter(s=>s==="green").length;
       const overall= reds>0&&reds>greens?"red":yellows>greens?"yellow":greens>0?"green":"gray";
-      const labels = {rev:"Revenue",ret:"Retention",cad:"Cadence",calls:"Calls",qa:"QA"};
+      const labels = {rev:"Revenue",bob:"Retention",cad:"Cadence",calls:"Calls",qa:"QA"};
       return {key:cat, label:labels[cat], score:overall,
         summary: greens+"/"+scores.length+" green"+(reds>0?", "+reds+" red":"")};
     });
