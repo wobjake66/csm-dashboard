@@ -3609,7 +3609,59 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
 
 // ── DAILY DIGEST ────────────────────────────────────────────────────────────
 function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, bcChurn,
-  liveBobDet, callData, qamc, qass, skippedCSMs, bobAdj, history=[], getDet}) {
+  liveBobDet, callData, qamc, qass, skippedCSMs, bobAdj, history=[], getDet,
+  domoBoq=[], q3BobCur=[], q3Supp=[]}) {
+
+  // ── Compute Q3 BOB retention per CSM from the same sources as the BOB tab ──
+  const q3RetByCsm = React.useMemo(() => {
+    const getCol = (row,...keys) => { for(const k of keys){const found=Object.keys(row).find(x=>x.trim().toLowerCase()===k.toLowerCase());if(found)return row[found];}return ""; };
+    const pf = v => parseFloat(String(v||"").replace(/[$,]/g,""))||0;
+    const lfSwap = n => { if(!n)return n; const p=n.split(","); return p.length===2?p[1].trim()+" "+p[0].trim():n; };
+
+    // Build BOQ map: eid → {csm, boq}
+    const boqMap = {};
+    (domoBoq||[]).forEach(r => {
+      const csmRaw = String(getCol(r,"CSM Name")||"").trim();
+      if (!csmRaw || /TOTAL|GRAND/i.test(csmRaw)) return;
+      const eid = String(getCol(r,"Enterprise ID","Enterprise Id")||"").trim().toUpperCase();
+      if (!eid) return;
+      const csmName = norm(lfSwap(csmRaw)) || lfSwap(csmRaw);
+      if (!boqMap[eid]) boqMap[eid] = {csm:csmName, boq:0};
+      boqMap[eid].boq += pf(getCol(r,"Beginning of Quarter"));
+    });
+
+    // Build current revenue map: eid → cur
+    const curMap = {};
+    (q3BobCur||[]).forEach(r => {
+      const eid = String(getCol(r,"Enterprise Id","Enterprise ID")||"").trim().toUpperCase();
+      if (eid) curMap[eid] = (curMap[eid]||0) + pf(getCol(r,"SaaS Revenue"));
+    });
+    (q3Supp||[]).forEach(r => {
+      const eid = String(getCol(r,"Enterprise Id","Enterprise ID")||"").trim().toUpperCase();
+      if (eid) curMap[eid] = (curMap[eid]||0) + pf(getCol(r,"SaaS Revenue"));
+    });
+
+    // Aggregate per CSM
+    const totals = {};
+    Object.entries(boqMap).forEach(([eid, {csm, boq}]) => {
+      if (!totals[csm]) totals[csm] = {boq:0, cur:0};
+      totals[csm].boq += boq;
+      totals[csm].cur += curMap[eid]||0;
+    });
+    const result = {};
+    Object.entries(totals).forEach(([k,v]) => {
+      result[k] = {boq:v.boq, cur:v.cur, ret: v.boq>0 ? v.cur/v.boq : null};
+    });
+    return result;
+  }, [domoBoq, q3BobCur, q3Supp]);
+
+  // Helper: get Q3 BOB entry for a CSM
+  const getQ3Bob = csm => {
+    const direct = q3RetByCsm[csm.name];
+    if (direct) return direct;
+    const key = Object.keys(q3RetByCsm).find(k => norm(k)===csm.name);
+    return key ? q3RetByCsm[key] : null;
+  };
 
   const [period, setPeriod] = React.useState("week");
   // getDet fallback if not passed as prop
@@ -3728,42 +3780,41 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
     });
     signals.push({key:"cad", label:"Cadence", score:cadScore, value:cadValue, detail:cadDetail});
 
-    // ── BOB RETENTION ──
-    // Use live bobRaw if available for accurate retention
-    const liveKey = bobRaw&&bobRaw.bob ? Object.keys(bobRaw.bob).find(k=>norm(k)===csm.name||k===csm.name) : null;
-    const liveBobEntry = liveKey ? bobRaw.bob[liveKey] : null;
-    const adjK = bobAdj ? Object.keys(bobAdj).find(k=>norm(k)===csm.name||k===csm.name) : null;
-    const lcmD = adjK ? bobAdj[adjK].lcmDelta : 0;
-    const liveBoq = liveBobEntry ? liveBobEntry.boq : csm.bobBoq;
-    const liveLcm = liveBobEntry ? (liveBobEntry.lcm||0)+lcmD : (csm.bobLcm||0)+lcmD;
-    const liveRet = liveBoq>0 ? liveLcm/liveBoq : csm.bobRet;
-    const retScore = liveRet==null?"gray":liveRet>=0.99?"legend":liveRet>=0.91?"green":liveRet>=0.85?"yellow":"red";
-    if (liveBoq>0) signals.push({
-      key:"bob", label:"Retention",
+    // ── Q3 BOB RETENTION ── sourced from domoBoq + q3BobCur + q3Supp (same as BOB tab)
+    const q3Bob = getQ3Bob(csm);
+    const q3Ret  = q3Bob?.ret ?? null;
+    const q3Boq  = q3Bob?.boq ?? 0;
+    const q3Cur  = q3Bob?.cur ?? 0;
+    const retScore = q3Ret==null?"gray":q3Ret>=0.99?"legend":q3Ret>=0.91?"green":q3Ret>=0.85?"yellow":"red";
+    if (q3Boq>0) signals.push({
+      key:"bob", label:"Q3 Retention",
       score: retScore,
-      value: liveRet!=null ? pp(liveRet)+(retScore==="legend"?" — exceptional":retScore==="green"?" — above 91% goal":retScore==="yellow"?" — near goal":" — below 85%") : "No BOB data",
-      detail: [],
+      value: q3Ret!=null
+        ? pp(q3Ret)+(retScore==="legend"?" — exceptional":retScore==="green"?" — above 91% goal":retScore==="yellow"?" — near goal":" — below 85%")
+        : "No Q3 BOB data",
+      detail: q3Boq>0 ? [{
+        name:"Q3 Book of Business",
+        note: fd(q3Boq)+" BOQ → "+fd(q3Cur)+" current"+(q3Ret!=null?" ("+pp(q3Ret)+" retention)":""),
+        score: retScore==="gray"?"green":retScore,
+        isTrend:true,
+      }] : [],
     });
 
     // ── REVENUE ──
-    // Legend: MRR added AND positive net billing (actually growing BOB)
     const revScore = csm.rev>0&&(csm.bobNet||0)>0?"legend":csm.rev>0?"green":csm.bobNet<0?"red":"yellow";
     const revDetail = [];
-    if (csm.accts) csm.accts.slice(0,3).forEach(a=>{
-      if (a.m>0) revDetail.push({name:a.b, note:"MRR "+fd(a.m), score:"green"});
-    });
-    // QTD BOB context — use live bobRaw to match BOB card
-    if (liveBoq>0) revDetail.push({
-      name:"Quarter BOB",
-      note: fd(liveBoq)+" BOQ → "+fd(liveLcm)+" current"+(liveRet!=null?" ("+pp(liveRet)+" retention)":""),
-      score: liveRet>=0.91?"green":liveRet>=0.85?"yellow":"red",
+    if (csm.accts) csm.accts.slice(0,3).forEach(a=>{ if (a.m>0) revDetail.push({name:a.b, note:"MRR "+fd(a.m), score:"green"}); });
+    if (q3Boq>0) revDetail.push({
+      name:"Q3 BOB",
+      note: fd(q3Boq)+" BOQ → "+fd(q3Cur)+" current"+(q3Ret!=null?" ("+pp(q3Ret)+" retention)":""),
+      score: q3Ret!=null&&q3Ret>=0.91?"green":q3Ret!=null&&q3Ret>=0.85?"yellow":"red",
       isTrend:true,
     });
     (det.d||[]).slice(0,2).forEach(r=>revDetail.push({name:r.a||r.e, note:fd(r.n)+" "+r.l, score:"red"}));
     signals.push({
       key:"rev", label:"Revenue",
       score: revScore,
-      value: revScore==="legend" ? fd(csm.rev)+" MRR added QTD · BOB growing" : csm.rev>0 ? fd(csm.rev)+" MRR added QTD" : liveBoq>0 ? "No revenue QTD · BOB: "+fd(liveLcm) : "No revenue data",
+      value: revScore==="legend" ? fd(csm.rev)+" MRR added QTD · BOB growing" : csm.rev>0 ? fd(csm.rev)+" MRR added QTD" : q3Boq>0 ? "No revenue QTD · BOB: "+fd(q3Cur) : "No revenue data",
       detail: revDetail,
     });
 
@@ -6576,7 +6627,7 @@ My question: ${aiCustom}`,
             isCsmView={isCsmView} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn}
             liveBobDet={liveBobDet} callData={callData} qamc={qamc} qass={qass} history={history}
             skippedCSMs={skippedCSMs.filter(c=>{const i=lk(c.name);if(filterCoach&&(i&&i.c)!==filterCoach)return false;if(filterCSM&&c.name!==filterCSM)return false;return true;})}
-            bobAdj={bobAdj} getDet={getDet}/>}
+            bobAdj={bobAdj} getDet={getDet} domoBoq={domoBoq} q3BobCur={q3BobCur} q3Supp={q3Supp}/>}
           {tab==="overview"&&<OverviewView csms={filteredCSMs} allCSMs={csms} bobRaw={bobRaw} bobAdj={bobAdj} history={history} callData={callData} filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches}/>}
           {tab==="leaderboard"&&<LeaderboardView csms={filteredCSMs} bobRaw={bobRaw} history={history} q2DomoBoq={q2DomoBoq} domoBoq={domoBoq} q3BobCur={q3BobCur} q3Supp={q3Supp} rawRev={rawRev}/>}
           
