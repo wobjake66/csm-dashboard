@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
-const imgCrushingIt  = "https://raw.githubusercontent.com/wobjake66/csm-dashboard/main/crushing_it.jpg";
-const imgAlmostThere = "https://raw.githubusercontent.com/wobjake66/csm-dashboard/main/almost_there.jpg";
-const imgNeedsLove   = "https://raw.githubusercontent.com/wobjake66/csm-dashboard/main/needs_love.jpg";
-const imgLegend      = "https://raw.githubusercontent.com/wobjake66/csm-dashboard/main/legend_status.jpg";
+const imgCrushingIt  = "https://raw.githubusercontent.com/wobjake66/csm-dashboard/main/crushing_it.png";
+const imgAlmostThere = "https://raw.githubusercontent.com/wobjake66/csm-dashboard/main/almost_there.png";
+const imgNeedsLove   = "https://raw.githubusercontent.com/wobjake66/csm-dashboard/main/needs_love.png";
+const imgLegend      = "https://raw.githubusercontent.com/wobjake66/csm-dashboard/main/legend_status.png";
 import * as XLSX from "xlsx";
 
 const PIN = "thryv2025";
