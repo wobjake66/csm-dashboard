@@ -3652,6 +3652,8 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
     Object.entries(totals).forEach(([k,v]) => {
       result[k] = {boq:v.boq, cur:v.cur, ret: v.boq>0 ? v.cur/v.boq : null};
     });
+    console.log("[DigestView] q3RetByCsm keys:", Object.keys(result).slice(0,5), "total:", Object.keys(result).length);
+    console.log("[DigestView] domoBoq rows:", (domoBoq||[]).length, "q3BobCur rows:", (q3BobCur||[]).length);
     return result;
   }, [domoBoq, q3BobCur, q3Supp]);
 
