@@ -4903,7 +4903,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
 
     const fmt$   = n => "$"+Number(n||0).toLocaleString("en-US",{minimumFractionDigits:0,maximumFractionDigits:0});
     const fmtPct = p => p!=null ? (p*100).toFixed(1)+"%" : "--";
-    const retCol = p => p==null?"#808080":p>=0.91?"#16a34a":p>=0.85?"#d97706":"#dc2626";
+    const retCol = p => p==null?"#808080":p>=0.9095?"#16a34a":p>=0.845?"#d97706":"#dc2626";
 
     const sortTh2 = (col, label, right) => {
       const active = q2Sort.col === col;
@@ -5265,7 +5265,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
 
     const fmt$   = n => "$"+Number(n||0).toLocaleString("en-US",{minimumFractionDigits:0,maximumFractionDigits:0});
     const fmtPct = p => p!=null ? (p*100).toFixed(1)+"%" : "--";
-    const retCol = p => p==null?"#808080":p>=0.91?"#16a34a":p>=0.85?"#d97706":"#dc2626";
+    const retCol = p => p==null?"#808080":p>=0.9095?"#16a34a":p>=0.845?"#d97706":"#dc2626";
 
     const sortTh = (col, label, right) => {
       const active = q2dSort.col === col;
@@ -5631,7 +5631,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
 
     const fmt$   = n => "$"+Number(n||0).toLocaleString("en-US",{minimumFractionDigits:0,maximumFractionDigits:0});
     const fmtPct = p => p!=null ? (p*100).toFixed(1)+"%" : "--";
-    const retCol = p => p==null?"#808080":p>=0.91?"#16a34a":p>=0.85?"#d97706":"#dc2626";
+    const retCol = p => p==null?"#808080":p>=0.9095?"#16a34a":p>=0.845?"#d97706":"#dc2626";
 
     const sortTh = (col, label, right) => {
       const active = domoSort.col === col;
