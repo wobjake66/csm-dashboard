@@ -725,6 +725,7 @@ function normalizeService(raw) {
   if (s.includes("implementation"))        return "Implementation";
   if (s.includes("keap"))                  return "Keap";
   if (s.includes("integrated"))            return "Integrated Onboarding";
+  if (s.includes("website"))                 return "Website Call";
   return "Other";
 }
 
@@ -3067,6 +3068,15 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
         const latestDate = allCallWeeks.length > 0 ? toDate(allCallWeeks[allCallWeeks.length-1]) : new Date();
         const filterWeek = w => {
           const wd = toDate(w);
+          if (callDateFilter==="this_week") {
+            // Monday of the week containing the latest date
+            const ld = new Date(latestDate);
+            const day = ld.getDay();
+            const diff = (day === 0) ? -6 : 1 - day;
+            const monday = new Date(ld); monday.setDate(ld.getDate() + diff);
+            monday.setHours(0,0,0,0);
+            return wd >= monday;
+          }
           if (callDateFilter==="last_week") {
             const wkAgo = new Date(latestDate); wkAgo.setDate(wkAgo.getDate()-7);
             return wd >= wkAgo;
@@ -3188,7 +3198,7 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
               </div>
               <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
                 {/* Date filter pills */}
-                {[["all","All"],["last_week","Last week"],["last_month","Last month"],["last_quarter","Last quarter"],["custom","Custom"]].map(([v,l])=>(
+                {[["all","All"],["this_week","This week"],["last_week","Last week"],["last_month","Last month"],["last_quarter","Last quarter"],["custom","Custom"]].map(([v,l])=>(
                   <button key={v} onClick={()=>setCallDateFilter(v)}
                     style={{padding:"4px 10px",borderRadius:20,border:"0.5px solid "+(callDateFilter===v?"#29355D":"rgba(41,53,93,.15)"),
                       background:callDateFilter===v?"#29355D":"#fff",color:callDateFilter===v?"#fff":"#808080",
@@ -3294,7 +3304,10 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
                           border:"0.5px solid "+(isSelected?"#29355D":"rgba(41,53,93,.1)"),
                           transition:"all .15s"}}>
                         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}}>
-                          <span style={{fontSize:12,fontWeight:500,color:"#29355D"}}>{svc}</span>
+                          <span style={{fontSize:12,fontWeight:500,color:"#29355D"}}>
+                            {svc}
+                            {svc==="Website Call"&&<span style={{marginLeft:6,fontSize:9,fontWeight:700,padding:"2px 6px",borderRadius:20,background:"#5378FC",color:"#fff",verticalAlign:"middle",letterSpacing:"0.05em"}}>NEW</span>}
+                          </span>
                           <span style={{fontSize:12,fontWeight:600,color:compCol}}>{(compRate*100).toFixed(0)}%</span>
                         </div>
                         <div style={{height:5,background:"rgba(0,0,0,.08)",borderRadius:3,marginBottom:5,overflow:"hidden"}}>
