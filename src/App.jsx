@@ -2692,6 +2692,7 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
   const [callSelectedCSM, setCallSelectedCSM] = useState(null);
   const [callSelectedSvc, setCallSelectedSvc] = useState(null);
   const [callCompare, setCallCompare]         = useState(false);
+  const [callExpandedCSM, setCallExpandedCSM] = useState(null);
   const [qaType, setQaType]                   = useState("mc");
   const [qaMonth, setQaMonth]                 = useState(null);
   const [qaCompare, setQaCompare]             = useState(false);
@@ -3098,6 +3099,30 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
         const lastCW  = callWeeks[callWeeks.length-1];
         const prevCW  = callWeeks[callWeeks.length-2];
 
+        // Daily average: calculate actual days in the filtered window
+        const dailyDays = (() => {
+          if (callWeeks.length === 0) return 7;
+          if (callDateFilter === "this_week") {
+            // Days from Monday through the latest known day
+            const ld = new Date(latestDate);
+            const day = ld.getDay();
+            return day === 0 ? 7 : day; // Mon=1..Sat=6, Sun=7
+          }
+          if (callDateFilter === "last_week")    return 7;
+          if (callDateFilter === "last_month")   return 30;
+          if (callDateFilter === "last_quarter") return 91;
+          if (callDateFilter === "custom" && callCustomFrom && callCustomTo) {
+            const diff = toDate(callCustomTo) - toDate(callCustomFrom);
+            return Math.max(1, Math.round(diff / (1000*60*60*24)) + 1);
+          }
+          // "all" — use span from first to last week + 7
+          if (callWeeks.length > 0) {
+            const diff = toDate(lastCW) - toDate(callWeeks[0]);
+            return Math.max(1, Math.round(diff / (1000*60*60*24)) + 7);
+          }
+          return 7;
+        })();
+
         // Compare: prior equivalent period
         const priorWeeks = (() => {
           if (!callCompare || callDateFilter === "all") return [];
@@ -3339,6 +3364,7 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
                   {hasPrior
                     ? <th style={{padding:"0 8px 8px 0",textAlign:"right",fontSize:10,textTransform:"uppercase",color:"#5378FC",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>vs Prior</th>
                     : <th style={{padding:"0 8px 8px 0",textAlign:"right",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>vs Prior wk</th>}
+                  <th style={{padding:"0 8px 8px 0",textAlign:"right",fontSize:10,textTransform:"uppercase",color:"#29355D",fontWeight:600,borderBottom:"0.5px solid rgba(41,53,93,.08)",whiteSpace:"nowrap"}}>Daily Avg</th>
                 </tr></thead>
                 <tbody>
                   {callCSMs.sort((a,b)=>{
@@ -3371,7 +3397,8 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
                     if (t.total===0) return null;
                     const isSelected = callSelectedCSM===n;
                     return (
-                      <tr key={n} onClick={()=>setCallSelectedCSM(isSelected?null:n)}
+                    <React.Fragment key={n}>
+                      <tr onClick={()=>setCallSelectedCSM(isSelected?null:n)}
                         style={{cursor:"pointer",background:isSelected?"rgba(41,53,93,.04)":"transparent"}}>
                         <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",fontWeight:isSelected?700:500,color:isSelected?"#29355D":"inherit"}}>{dispName(n)}</td>
                         <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#808080"}}>{t.total}</td>
@@ -3400,7 +3427,73 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
                               </span>
                             : <span style={{color:"#808080"}}>--</span>}
                         </td>
+                        <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right"}}>
+                          {(()=>{
+                            const avg = t.total / dailyDays;
+                            const isExpanded = callExpandedCSM === n;
+                            return (
+                              <button onClick={e=>{e.stopPropagation();setCallExpandedCSM(isExpanded?null:n);}}
+                                style={{background:isExpanded?"#29355D":"rgba(41,53,93,.07)",border:"none",
+                                  borderRadius:6,padding:"3px 8px",cursor:"pointer",
+                                  color:isExpanded?"#fff":"#29355D",fontSize:12,fontWeight:600,
+                                  transition:"all .15s",whiteSpace:"nowrap"}}>
+                                {avg.toFixed(1)}
+                                <span style={{fontSize:10,marginLeft:3,opacity:0.7}}>{isExpanded?"▲":"▼"}</span>
+                              </button>
+                            );
+                          })()}
+                        </td>
                       </tr>
+                      {callExpandedCSM===n&&(()=>{
+                        const svcBreakdown = {};
+                        callWeeks.forEach(w => {
+                          const wData = (callData[resolveCSM(n)]||{})[w]||{};
+                          Object.entries(wData).forEach(([svc,d]) => {
+                            if (!svcBreakdown[svc]) svcBreakdown[svc]={completed:0,noShow:0,cancelled:0,total:0};
+                            svcBreakdown[svc].completed  += d.completed;
+                            svcBreakdown[svc].noShow     += d.noShow;
+                            svcBreakdown[svc].cancelled  += (d.cancelled||0);
+                            svcBreakdown[svc].total      += d.completed+d.noShow+(d.cancelled||0);
+                          });
+                        });
+                        const svcEntries = Object.entries(svcBreakdown).sort((a,b)=>b[1].total-a[1].total);
+                        return (
+                          <tr key={n+"_svc"}>
+                            <td colSpan={8} style={{padding:"0 0 10px 16px",borderBottom:"0.5px solid rgba(41,53,93,.05)"}}>
+                              <div style={{background:"rgba(41,53,93,.03)",borderRadius:8,padding:"10px 14px",
+                                border:"0.5px solid rgba(41,53,93,.1)"}}>
+                                <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:8}}>
+                                  Daily avg by call type — {dailyDays} day window
+                                </div>
+                                <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+                                  {svcEntries.map(([svc,d])=>{
+                                    const avg = d.total / dailyDays;
+                                    const compRate = d.total>0 ? d.completed/d.total : 0;
+                                    const compCol = compRate>=0.85?"#16a34a":compRate>=0.70?"#d97706":"#dc2626";
+                                    return (
+                                      <div key={svc} style={{background:"#fff",borderRadius:6,padding:"7px 11px",
+                                        border:"0.5px solid rgba(41,53,93,.12)",minWidth:140}}>
+                                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:3}}>
+                                          <span style={{fontSize:11,fontWeight:600,color:"#29355D"}}>{svc}</span>
+                                          <span style={{fontSize:13,fontWeight:700,color:"#29355D",marginLeft:10}}>{avg.toFixed(1)}<span style={{fontSize:9,color:"#808080",fontWeight:400}}>/day</span></span>
+                                        </div>
+                                        <div style={{fontSize:10,color:"#808080",marginBottom:3}}>
+                                          {d.completed} done · {d.noShow} no-show · {d.cancelled} cancel
+                                        </div>
+                                        <div style={{height:3,background:"rgba(0,0,0,.07)",borderRadius:2,overflow:"hidden"}}>
+                                          <div style={{width:(compRate*100).toFixed(1)+"%",height:"100%",background:compCol,borderRadius:2}}/>
+                                        </div>
+                                        <div style={{fontSize:9,color:compCol,fontWeight:600,marginTop:2}}>{(compRate*100).toFixed(0)}% completion</div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })()}
+                    </React.Fragment>
                     );
                   }).filter(Boolean)}
                 </tbody>
