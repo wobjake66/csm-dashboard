@@ -2693,6 +2693,8 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
   const [callSelectedSvc, setCallSelectedSvc] = useState(null);
   const [callCompare, setCallCompare]         = useState(false);
   const [callExpandedCSM, setCallExpandedCSM] = useState(null);
+  const [callSortCol, setCallSortCol]         = useState("compRate");
+  const [callSortDir, setCallSortDir]         = useState("desc");
   const [qaType, setQaType]                   = useState("mc");
   const [qaMonth, setQaMonth]                 = useState(null);
   const [qaCompare, setQaCompare]             = useState(false);
@@ -3209,7 +3211,17 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
           return {v: (d>0?"+":"")+d.toFixed(isPct?1:0)+(isPct?"pp":""), neg: d<0, pos: d>0};
         };
 
-        return (
+        // ── Sortable table helpers ──
+        const onSort = col => {
+          if (callSortCol === col) setCallSortDir(d => d==="asc"?"desc":"asc");
+          else { setCallSortCol(col); setCallSortDir(col==="name"?"asc":"desc"); }
+        };
+        const sortArrow = col => callSortCol===col ? (callSortDir==="asc"?" ↑":" ↓") : " ↕";
+        const thBase = {padding:"0 8px 8px 0",fontSize:10,textTransform:"uppercase",fontWeight:500,
+          borderBottom:"0.5px solid rgba(41,53,93,.08)",cursor:"pointer",userSelect:"none",whiteSpace:"nowrap"};
+        const thActive = col => ({color:callSortCol===col?"#29355D":undefined, fontWeight:callSortCol===col?700:500});
+
+                return (
           <div style={{marginTop:24}}>
             {/* Header + date filter */}
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,flexWrap:"wrap",gap:8}}>
@@ -3353,28 +3365,73 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
               <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>
                 CSM call performance{hasPrior?" — current vs prior period":lastCW?" — "+lastCW:""}
               </div>
+
               <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
                 <thead><tr>
-                  <th style={{padding:"0 8px 8px 0",textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>CSM</th>
-                  <th style={{padding:"0 8px 8px 0",textAlign:"right",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>Booked</th>
-                  <th style={{padding:"0 8px 8px 0",textAlign:"right",fontSize:10,textTransform:"uppercase",color:"#16a34a",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>Completed</th>
-                  <th style={{padding:"0 8px 8px 0",textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)",minWidth:140}}>Completion rate</th>
-                  <th style={{padding:"0 8px 8px 0",textAlign:"right",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>No shows</th>
-                  <th style={{padding:"0 8px 8px 0",textAlign:"right",fontSize:10,textTransform:"uppercase",color:"#d97706",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>Cancelled</th>
-                  {hasPrior
-                    ? <th style={{padding:"0 8px 8px 0",textAlign:"right",fontSize:10,textTransform:"uppercase",color:"#5378FC",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>vs Prior</th>
-                    : <th style={{padding:"0 8px 8px 0",textAlign:"right",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>vs Prior wk</th>}
-                  <th style={{padding:"0 8px 8px 0",textAlign:"right",fontSize:10,textTransform:"uppercase",color:"#29355D",fontWeight:600,borderBottom:"0.5px solid rgba(41,53,93,.08)",whiteSpace:"nowrap"}}>Daily Avg</th>
+                  {[["name","CSM","left","#808080"],["total","Booked","right","#808080"],
+                    ["completed","Completed","right","#16a34a"],["compRate","Completion rate","left","#808080"],
+                    ["noShow","No shows","right","#808080"],["cancelled","Cancelled","right","#d97706"]
+                  ].map(([col,label,align,baseColor])=>(
+                    <th key={col} onClick={()=>onSort(col)}
+                      style={{...thBase,...thActive(col),textAlign:align,
+                        color:callSortCol===col?"#29355D":baseColor,
+                        minWidth:col==="compRate"?140:undefined}}>
+                      {label}<span style={{opacity:0.5,fontSize:9}}>{sortArrow(col)}</span>
+                    </th>
+                  ))}
+                  <th onClick={()=>onSort("delta")}
+                    style={{...thBase,textAlign:"right",
+                      color:callSortCol==="delta"?"#29355D":(hasPrior?"#5378FC":"#808080"),
+                      fontWeight:callSortCol==="delta"?700:500}}>
+                    {hasPrior?"vs Prior":"vs Prior wk"}<span style={{opacity:0.5,fontSize:9}}>{sortArrow("delta")}</span>
+                  </th>
+                  <th onClick={()=>onSort("dailyAvg")}
+                    style={{...thBase,textAlign:"right",
+                      color:callSortCol==="dailyAvg"?"#29355D":"#29355D",
+                      fontWeight:callSortCol==="dailyAvg"?700:600}}>
+                    Daily Avg<span style={{opacity:0.5,fontSize:9}}>{sortArrow("dailyAvg")}</span>
+                  </th>
                 </tr></thead>
                 <tbody>
-                  {callCSMs.sort((a,b)=>{
-                    const ta=aggTotals([a],callSelectedSvc);
-                    const tb=aggTotals([b],callSelectedSvc);
-                    const compA=ta.total>0?ta.completed/ta.total:0;
-                    const compB=tb.total>0?tb.completed/tb.total:0;
-                    return compB-compA;
-                  }).map(n=>{
-                    const t    = aggTotals([n], callSelectedSvc);
+                  {callCSMs.map(n=>{
+                    // Pre-compute sort values for each CSM
+                    const t = aggTotals([n], callSelectedSvc);
+                    if (t.total===0) return null;
+                    return {n, t};
+                  }).filter(Boolean).sort((rowA, rowB)=>{
+                    const {n:a, t:ta} = rowA;
+                    const {n:b, t:tb} = rowB;
+                    const dir = callSortDir==="asc" ? 1 : -1;
+                    if (callSortCol==="name")     return dir * dispName(a).localeCompare(dispName(b));
+                    if (callSortCol==="total")    return dir * (ta.total - tb.total);
+                    if (callSortCol==="completed") return dir * (ta.completed - tb.completed);
+                    if (callSortCol==="compRate") {
+                      const cA=ta.total>0?ta.completed/ta.total:0;
+                      const cB=tb.total>0?tb.completed/tb.total:0;
+                      return dir * (cA - cB);
+                    }
+                    if (callSortCol==="noShow")   return dir * (ta.noShow - tb.noShow);
+                    if (callSortCol==="cancelled") return dir * ((ta.cancelled||0) - (tb.cancelled||0));
+                    if (callSortCol==="dailyAvg") return dir * (ta.total - tb.total); // same as booked scaled same
+                    if (callSortCol==="delta") {
+                      const getDelta = n => {
+                        const t = aggTotals([n], callSelectedSvc);
+                        if (hasPrior) {
+                          const p = aggForWeeks([n], callSelectedSvc, priorWeeks);
+                          return (p&&p.total>0&&t.total>0) ? t.rate-p.rate : null;
+                        }
+                        const tL = lastCW ? (() => { const w=(callData[resolveCSM(n)]||{})[lastCW]||{}; let c=0,ns=0; Object.entries(w).forEach(([s,d])=>{if(!callSelectedSvc||s===callSelectedSvc){c+=d.completed;ns+=d.noShow;}}); return {total:c+ns,rate:c+ns>0?ns/(c+ns):0}; })() : null;
+                        const tP = prevCW ? (() => { const w=(callData[resolveCSM(n)]||{})[prevCW]||{}; let c=0,ns=0; Object.entries(w).forEach(([s,d])=>{if(!callSelectedSvc||s===callSelectedSvc){c+=d.completed;ns+=d.noShow;}}); return {total:c+ns,rate:c+ns>0?ns/(c+ns):0}; })() : null;
+                        return (tL&&tP&&tL.total>0&&tP.total>0) ? tL.rate-tP.rate : null;
+                      };
+                      const dA=getDelta(a), dB=getDelta(b);
+                      if (dA==null&&dB==null) return 0;
+                      if (dA==null) return 1; if (dB==null) return -1;
+                      return dir * (dA - dB);
+                    }
+                    return 0;
+                  }).map(({n})=>{
+                    const t = aggTotals([n], callSelectedSvc);
                     // Week-over-week delta using last two weeks
                     const tLast = lastCW ? (() => {
                       const wData = (callData[resolveCSM(n)]||{})[lastCW]||{};
@@ -3394,7 +3451,6 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
                       ? (csmPrior&&csmPrior.total>0&&t.total>0 ? t.rate-csmPrior.rate : null)
                       : (tLast&&tPrev&&tLast.total>0&&tPrev.total>0 ? tLast.rate-tPrev.rate : null);
                     const deltaRef = hasPrior ? csmPrior : null;
-                    if (t.total===0) return null;
                     const isSelected = callSelectedCSM===n;
                     return (
                     <React.Fragment key={n}>
@@ -3580,7 +3636,17 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
         const totalAudits = visibleCSMs.reduce((s,n)=>s+(monthData[n]?.audits||0),0);
         const belowGoal   = visibleCSMs.filter(n=>(monthData[n]?.total||0)<0.80);
 
-        return (
+        // ── Sortable table helpers ──
+        const onSort = col => {
+          if (callSortCol === col) setCallSortDir(d => d==="asc"?"desc":"asc");
+          else { setCallSortCol(col); setCallSortDir(col==="name"?"asc":"desc"); }
+        };
+        const sortArrow = col => callSortCol===col ? (callSortDir==="asc"?" ↑":" ↓") : " ↕";
+        const thBase = {padding:"0 8px 8px 0",fontSize:10,textTransform:"uppercase",fontWeight:500,
+          borderBottom:"0.5px solid rgba(41,53,93,.08)",cursor:"pointer",userSelect:"none",whiteSpace:"nowrap"};
+        const thActive = col => ({color:callSortCol===col?"#29355D":undefined, fontWeight:callSortCol===col?700:500});
+
+                return (
           <div style={{marginTop:24}}>
             {/* Header controls */}
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16,flexWrap:"wrap",gap:8}}>
