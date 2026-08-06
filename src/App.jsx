@@ -3221,7 +3221,74 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
           borderBottom:"0.5px solid rgba(41,53,93,.08)",cursor:"pointer",userSelect:"none",whiteSpace:"nowrap"};
         const thActive = col => ({color:callSortCol===col?"#29355D":undefined, fontWeight:callSortCol===col?700:500});
 
-                return (
+        // ── Export CSV ──
+        const exportCallsCSV = () => {
+          const allSvcs = new Set();
+          callCSMs.forEach(n => {
+            callWeeks.forEach(w => {
+              Object.keys((callData[resolveCSM(n)]||{})[w]||{}).forEach(s => allSvcs.add(s));
+            });
+          });
+          const svcs = [...allSvcs].sort();
+
+          const dataRows = callCSMs.map(n => {
+            const t = aggTotals([n], callSelectedSvc);
+            if (t.total === 0) return null;
+            const info  = lk(n);
+            const coach = info ? COACHES.find(c=>c.e===info.c) : null;
+            const compRate = t.total>0 ? (t.completed/t.total*100).toFixed(1) : "0.0";
+            const dailyAvg = (t.total/dailyDays).toFixed(2);
+
+            const svcTotalsRow = {};
+            svcs.forEach(s => { svcTotalsRow[s] = {completed:0,noShow:0,cancelled:0,total:0}; });
+            callWeeks.forEach(w => {
+              const wData = (callData[resolveCSM(n)]||{})[w]||{};
+              Object.entries(wData).forEach(([s,d]) => {
+                if (svcTotalsRow[s]) {
+                  svcTotalsRow[s].completed += d.completed;
+                  svcTotalsRow[s].noShow    += d.noShow;
+                  svcTotalsRow[s].cancelled += (d.cancelled||0);
+                  svcTotalsRow[s].total     += d.completed+d.noShow+(d.cancelled||0);
+                }
+              });
+            });
+
+            const row = [
+              dispName(n), coach?coach.n:"", info?(info.reg||""):"",
+              t.total, t.completed, compRate+"%", t.noShow, t.cancelled||0,
+              dailyAvg,
+              callWeeks.length>0?callWeeks[0]:"", lastCW||"", dailyDays,
+            ];
+            svcs.forEach(s => {
+              const sd = svcTotalsRow[s];
+              row.push(sd.total, sd.completed, sd.noShow, sd.cancelled, (sd.total/dailyDays).toFixed(2));
+            });
+            return row;
+          }).filter(Boolean);
+
+          if (!dataRows.length) return;
+
+          const baseHeaders = ["CSM","Coach","Region","Booked","Completed","Completion Rate",
+            "No Shows","Cancelled","Daily Avg","Period Start","Period End","Days in Window"];
+          const svcHeaders = svcs.flatMap(s=>[
+            s+" — Booked", s+" — Completed", s+" — No Shows", s+" — Cancelled", s+" — Daily Avg"
+          ]);
+          const esc = v => { const s=String(v??"").replace(/"/g,'""'); return s.includes(",")||s.includes('"')||s.includes("\n")?'"'+s+'"':s; };
+          const csv = [[...baseHeaders,...svcHeaders].map(esc).join(","), ...dataRows.map(r=>r.map(esc).join(","))].join("\n");
+
+          const filterTag = [
+            callSelectedCSM ? dispName(callSelectedCSM) : (filterCoach ? (COACHES.find(c=>c.e===filterCoach)||{}).n||"team" : "all"),
+            callSelectedSvc ? callSelectedSvc.replace(/ /g,"-") : null,
+            callDateFilter !== "all" ? callDateFilter : null,
+          ].filter(Boolean).join("_") || "all-csms";
+
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
+          a.download = "calls_"+filterTag+"_"+new Date().toISOString().slice(0,10)+".csv";
+          a.click();
+        };
+
+        return (
           <div style={{marginTop:24}}>
             {/* Header + date filter */}
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,flexWrap:"wrap",gap:8}}>
@@ -3362,8 +3429,16 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
 
             {/* CSM table */}
             <div style={S.card}>
-              <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>
-                CSM call performance{hasPrior?" — current vs prior period":lastCW?" — "+lastCW:""}
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+                <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500}}>
+                  CSM call performance{hasPrior?" — current vs prior period":lastCW?" — "+lastCW:""}
+                </div>
+                <button onClick={exportCallsCSV}
+                  style={{padding:"4px 12px",borderRadius:20,border:"0.5px solid rgba(41,53,93,.2)",
+                    background:"#fff",color:"#29355D",fontSize:11,fontWeight:500,cursor:"pointer",
+                    whiteSpace:"nowrap"}}>
+                  ⬇ Export CSV
+                </button>
               </div>
 
               <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
