@@ -3101,6 +3101,13 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
           return dt;
         };
         const now = new Date();
+        // Single-day shortcuts
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+        const todayEnd   = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+        const yestStart  = new Date(todayStart); yestStart.setDate(todayStart.getDate()-1);
+        const yestEnd    = new Date(todayEnd);   yestEnd.setDate(todayEnd.getDate()-1);
+        const tmrwStart  = new Date(todayStart); tmrwStart.setDate(todayStart.getDate()+1);
+        const tmrwEnd    = new Date(todayEnd);   tmrwEnd.setDate(todayEnd.getDate()+1);
         // This week: Mon–Sun of current calendar week
         const thisWeekMon = getMondayOf(now);
         const thisWeekSun = new Date(thisWeekMon); thisWeekSun.setDate(thisWeekMon.getDate()+6); thisWeekSun.setHours(23,59,59,999);
@@ -3119,6 +3126,9 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
 
         const filterWeek = w => {
           const wd = toDate(w);
+          if (callDateFilter==="today")        return wd >= todayStart  && wd <= todayEnd;
+          if (callDateFilter==="yesterday")    return wd >= yestStart   && wd <= yestEnd;
+          if (callDateFilter==="tomorrow")     return wd >= tmrwStart   && wd <= tmrwEnd;
           if (callDateFilter==="this_week")    return wd >= thisWeekMon  && wd <= thisWeekSun;
           if (callDateFilter==="last_week")    return wd >= lastWeekMon  && wd <= lastWeekSun;
           if (callDateFilter==="last_month")   return wd >= lastMonthStart && wd <= lastMonthEnd;
@@ -3132,35 +3142,27 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
         const lastCW  = callWeeks[callWeeks.length-1];
         const prevCW  = callWeeks[callWeeks.length-2];
 
-        // Daily average: exact days in the calendar window
-        const dailyDays = (() => {
-          if (callWeeks.length === 0) return 7;
-          if (callDateFilter === "this_week") {
-            // Days from Monday through today (or latest data day, whichever is earlier)
-            const cap = now < latestDate ? now : latestDate;
-            const diff = cap - thisWeekMon;
-            return Math.max(1, Math.floor(diff / (1000*60*60*24)) + 1);
-          }
-          if (callDateFilter === "last_week")    return 7;
-          if (callDateFilter === "last_month") {
-            // Exact days in the prior month
-            return lastMonthEnd.getDate();
-          }
-          if (callDateFilter === "last_quarter") {
-            const diff = lastQEnd - lastQStart;
-            return Math.round(diff / (1000*60*60*24)) + 1;
-          }
-          if (callDateFilter === "custom" && callCustomFrom && callCustomTo) {
-            const diff = toDate(callCustomTo) - toDate(callCustomFrom);
-            return Math.max(1, Math.round(diff / (1000*60*60*24)) + 1);
-          }
-          // "all" — span of all data
-          if (callWeeks.length > 0) {
-            const diff = toDate(lastCW) - toDate(callWeeks[0]);
-            return Math.max(1, Math.round(diff / (1000*60*60*24)) + 1);
-          }
-          return 7;
-        })();
+        // Daily average denominator: count distinct days a CSM had ANY appointment
+        // This way days off (no calls) don't dilute the average
+        const getDailyDays = (csmName) => {
+          const key = resolveCSM(csmName);
+          const activeDays = new Set(
+            callWeeks.filter(w => {
+              const wData = (callData[key]||{})[w]||{};
+              return Object.values(wData).some(d =>
+                d.completed>0 || d.noShow>0 || d.cancelled>0 || d.scheduled>0
+              );
+            })
+          );
+          return Math.max(1, activeDays.size);
+        };
+        // Global daily days (for org-level tiles) — distinct days any CSM had a call
+        const dailyDays = Math.max(1, new Set(
+          callWeeks.filter(w => callCSMs.some(n => {
+            const wData = (callData[resolveCSM(n)]||{})[w]||{};
+            return Object.values(wData).some(d => d.completed>0||d.noShow>0||d.cancelled>0||d.scheduled>0);
+          }))
+        ).size);
 
         // Compare: prior equivalent period
         const priorWeeks = (() => {
@@ -3282,7 +3284,8 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
             const info  = lk(n);
             const coach = info ? COACHES.find(c=>c.e===info.c) : null;
             const compRate = (t.resolved||0)>0 ? (t.completed/t.resolved*100).toFixed(1) : "0.0";
-            const dailyAvg = (t.total/dailyDays).toFixed(2);
+            const csmDaysExp = getDailyDays(n);
+            const dailyAvg = (t.total/csmDaysExp).toFixed(2);
 
             const svcTotalsRow = {};
             svcs.forEach(s => { svcTotalsRow[s] = {completed:0,noShow:0,cancelled:0,scheduled:0,total:0}; });
@@ -3345,6 +3348,9 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
                   {callSelectedSvc&&<span style={{marginLeft:8,fontSize:12,color:"#FF5000"}}> — {callSelectedSvc}</span>}
                 </div>
                 <div style={{fontSize:11,color:"#808080"}}>{
+                  callDateFilter==="today"        ? `Today — ${todayStart.toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"})}` :
+                  callDateFilter==="yesterday"    ? `Yesterday — ${yestStart.toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"})}` :
+                  callDateFilter==="tomorrow"     ? `Tomorrow — ${tmrwStart.toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"})}` :
                   callDateFilter==="this_week"    ? `This week (${thisWeekMon.toLocaleDateString("en-US",{month:"short",day:"numeric"})} – ${thisWeekSun.toLocaleDateString("en-US",{month:"short",day:"numeric"})})` :
                   callDateFilter==="last_week"    ? `Last week (${lastWeekMon.toLocaleDateString("en-US",{month:"short",day:"numeric"})} – ${lastWeekSun.toLocaleDateString("en-US",{month:"short",day:"numeric"})})` :
                   callDateFilter==="last_month"   ? `${lastMonthStart.toLocaleDateString("en-US",{month:"long",year:"numeric"})}` :
@@ -3355,7 +3361,7 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
               </div>
               <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
                 {/* Date filter pills */}
-                {[["all","All"],["this_week","This week"],["last_week","Last week"],["last_month","Last month"],["last_quarter","Last quarter"],["custom","Custom"]].map(([v,l])=>(
+                {[["today","Today"],["yesterday","Yesterday"],["tomorrow","Tomorrow"],["this_week","This week"],["last_week","Last week"],["last_month","Last month"],["last_quarter","Last quarter"],["all","All"],["custom","Custom"]].map(([v,l])=>(
                   <button key={v} onClick={()=>setCallDateFilter(v)}
                     style={{padding:"4px 10px",borderRadius:20,border:"0.5px solid "+(callDateFilter===v?"#29355D":"rgba(41,53,93,.15)"),
                       background:callDateFilter===v?"#29355D":"#fff",color:callDateFilter===v?"#fff":"#808080",
@@ -3622,7 +3628,8 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
                         </td>
                         <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right"}}>
                           {(()=>{
-                            const avg = t.total / dailyDays;
+                            const csmDays = getDailyDays(n);
+                            const avg = csmDays > 0 ? t.total / csmDays : 0;
                             const isExpanded = callExpandedCSM === n;
                             return (
                               <button onClick={e=>{e.stopPropagation();setCallExpandedCSM(isExpanded?null:n);}}
@@ -3631,7 +3638,7 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
                                   color:isExpanded?"#fff":"#29355D",fontSize:12,fontWeight:600,
                                   transition:"all .15s",whiteSpace:"nowrap"}}>
                                 {avg.toFixed(1)}
-                                <span style={{fontSize:10,marginLeft:3,opacity:0.7}}>{isExpanded?"▲":"▼"}</span>
+                                <span style={{fontSize:9,marginLeft:2,opacity:0.6,fontWeight:400}}>{isExpanded?"▲":"▼"} {csmDays}d</span>
                               </button>
                             );
                           })()}
@@ -3656,20 +3663,23 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
                             <td colSpan={8} style={{padding:"0 0 10px 16px",borderBottom:"0.5px solid rgba(41,53,93,.05)"}}>
                               <div style={{background:"rgba(41,53,93,.03)",borderRadius:8,padding:"10px 14px",
                                 border:"0.5px solid rgba(41,53,93,.1)"}}>
+                                {(()=>{ const csmDaysExp = getDailyDays(n); return (
                                 <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:8}}>
-                                  Daily avg by call type — {dailyDays} day window
+                                  Daily avg by call type — {csmDaysExp} active day{csmDaysExp!==1?"s":""}
                                 </div>
+                                ); })()}
                                 <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
                                   {svcEntries.map(([svc,d])=>{
                                     const avg = d.total / dailyDays;
                                     const compRate = d.total>0 ? d.completed/d.total : 0;
                                     const compCol = compRate>=0.85?"#16a34a":compRate>=0.70?"#d97706":"#dc2626";
+                                    const csmDaysExp2 = getDailyDays(n);
                                     return (
                                       <div key={svc} style={{background:"#fff",borderRadius:6,padding:"7px 11px",
                                         border:"0.5px solid rgba(41,53,93,.12)",minWidth:140}}>
                                         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:3}}>
                                           <span style={{fontSize:11,fontWeight:600,color:"#29355D"}}>{svc}</span>
-                                          <span style={{fontSize:13,fontWeight:700,color:"#29355D",marginLeft:10}}>{avg.toFixed(1)}<span style={{fontSize:9,color:"#808080",fontWeight:400}}>/day</span></span>
+                                          <span style={{fontSize:13,fontWeight:700,color:"#29355D",marginLeft:10}}>{(d.total/csmDaysExp2).toFixed(1)}<span style={{fontSize:9,color:"#808080",fontWeight:400}}>/day</span></span>
                                         </div>
                                         <div style={{fontSize:10,color:"#808080",marginBottom:3}}>
                                           {(d.scheduled||0)>0&&<span style={{color:"#5378FC",fontWeight:500}}>{d.scheduled} scheduled · </span>}
