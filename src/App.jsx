@@ -3142,27 +3142,7 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
         const lastCW  = callWeeks[callWeeks.length-1];
         const prevCW  = callWeeks[callWeeks.length-2];
 
-        // Daily average denominator: count distinct days a CSM had ANY appointment
-        // This way days off (no calls) don't dilute the average
-        const getDailyDays = (csmName) => {
-          const key = resolveCSM(csmName);
-          const activeDays = new Set(
-            callWeeks.filter(w => {
-              const wData = (callData[key]||{})[w]||{};
-              return Object.values(wData).some(d =>
-                d.completed>0 || d.noShow>0 || d.cancelled>0 || d.scheduled>0
-              );
-            })
-          );
-          return Math.max(1, activeDays.size);
-        };
-        // Global daily days (for org-level tiles) — distinct days any CSM had a call
-        const dailyDays = Math.max(1, new Set(
-          callWeeks.filter(w => callCSMs.some(n => {
-            const wData = (callData[resolveCSM(n)]||{})[w]||{};
-            return Object.values(wData).some(d => d.completed>0||d.noShow>0||d.cancelled>0||d.scheduled>0);
-          }))
-        ).size);
+
 
         // Compare: prior equivalent period
         const priorWeeks = (() => {
@@ -3215,6 +3195,28 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
         }).map(c=>c.name);
         const resolveCSM = n => callData[n] ? n : Object.keys(callData).find(k=>norm(k)===n)||n;
         let callCSMs = filtNames.filter(n=>callData[n]||Object.keys(callData).find(k=>norm(k)===n));
+
+        // Daily average denominator: count distinct days a CSM had ANY appointment
+        // This way days off (no calls) don't dilute the average
+        const getDailyDays = (csmName) => {
+          const key = resolveCSM(csmName);
+          const activeDays = new Set(
+            callWeeks.filter(day => {
+              const wData = (callData[key]||{})[day]||{};
+              return Object.values(wData).some(d =>
+                d.completed>0 || d.noShow>0 || d.cancelled>0 || d.scheduled>0
+              );
+            })
+          );
+          return Math.max(1, activeDays.size);
+        };
+        // Global daily days — distinct days any CSM had a call in the filtered window
+        const dailyDays = Math.max(1, new Set(
+          callWeeks.filter(day => callCSMs.some(n => {
+            const wData = (callData[resolveCSM(n)]||{})[day]||{};
+            return Object.values(wData).some(d => d.completed>0||d.noShow>0||d.cancelled>0||d.scheduled>0);
+          }))
+        ).size);
 
         // Apply selected CSM drill-down
         if (callSelectedCSM) callCSMs = callCSMs.filter(n=>n===callSelectedCSM||resolveCSM(n)===callSelectedCSM);
@@ -7086,3 +7088,4 @@ My question: ${aiCustom}`,
     </div>
   );
 }
+  
