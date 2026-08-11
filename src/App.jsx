@@ -6467,7 +6467,6 @@ function PinLock({onUnlock}) {
 }
 
 // ── MAIN APP ───────────────────────────────────────────────────────────────
-export default 
 // ═══════════════════════════════════════════════════════════════════════════
 // MY DASHBOARD — self-contained view, responds to coach/CSM filter
 // Only 3 lines above touch the rest of the app. Delete this + those 3 to revert.
@@ -6706,6 +6705,10 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={}, churnA
   );
 }
 // ═══════════════════════════════════════════════════════════════════════════
+
+
+// ── MAIN APP ───────────────────────────────────────────────────────────────
+export default 
 
 function App() {
   const [unlocked, setUnlocked] = useState(false);
@@ -7331,3 +7334,4 @@ My question: ${aiCustom}`,
     </div>
   );
 }
+  
