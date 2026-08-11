@@ -6482,6 +6482,7 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
   const fk   = n => n>=1000?"$"+(n/1000).toFixed(1).replace(/\.0$/,"")+"k":"$"+Math.round(n);
   const pf   = v => { const x=parseFloat(String(v||0).replace(/[$,]/g,"")); return isNaN(x)?0:x; };
   const gC   = (r,...ks) => { for(const k of ks){ if(r[k]!=null) return r[k]; } return null; };
+  const lfSwap = n => { if(!n)return n; const p=n.split(","); return p.length===2?p[1].trim()+" "+p[0].trim():n; };
 
   const now          = new Date();
   const coachName    = filterCoach?(COACHES.find(c=>c.e===filterCoach)||{}).n||"Team":"";
@@ -6527,7 +6528,7 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
     if (!csmRaw||/TOTAL|GRAND/i.test(csmRaw)) return;
     const eid=String(gC(r,"Enterprise ID","Enterprise Id")||"").trim().toUpperCase();
     if (!eid) return;
-    const csmKey=norm(csmRaw)||csmRaw;
+    const csmKey=norm(lfSwap(csmRaw))||lfSwap(csmRaw);
     if (!boqMap[eid]) boqMap[eid]={eid,csm:csmKey,acct:String(gC(r,"Account Name")||"").trim(),boq:0};
     boqMap[eid].boq+=pf(gC(r,"Beginning of Quarter"));
     if (!boqMap[eid].acct) boqMap[eid].acct=String(gC(r,"Account Name")||"").trim();
@@ -6541,8 +6542,12 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
     return {map,seen};
   };
   const sfD=parseRev(q3BobCur), supD=parseRev(q3Supp);
-  const csmNorms=new Set(csmNames.map(n=>norm(n)));
-  const bobRows=Object.values(boqMap).filter(b=>csmNorms.has(b.csm)||csmNorms.has(norm(b.csm)));
+  // Build a set of all normalized name variants for the filtered CSMs
+  const csmNorms=new Set(csmNames.flatMap(n=>[norm(n),n.toLowerCase()].filter(Boolean)));
+  const bobRows=Object.values(boqMap).filter(b=>{
+    const bNorm=b.csm; // already norm(lfSwap(...)) from boqMap building
+    return csmNorms.has(bNorm)||csmNorms.has(norm(bNorm));
+  });
   const totalAccts=bobRows.length;
   const totalBoq=bobRows.reduce((s,b)=>s+b.boq,0);
   const totalCur=bobRows.reduce((s,b)=>s+(sfD.map[b.eid]||0)+(supD.map[b.eid]||0),0);
@@ -6576,8 +6581,9 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
   const cadPct=cadTotal>0?cadDone/cadTotal:null;
   const overdueCSMs=csms.filter(c=>(c.overdueCount||0)>0).sort((a,b)=>(b.overdueCount||0)-(a.overdueCount||0));
 
-  // Revenue from history
-  const totalRevMrr=csms.reduce((s,c)=>s+(c.mrr||0),0);
+  // Revenue: prefer Q3 BoB current MRR (totalCur), fall back to history mrr
+  const historyMrr=csms.reduce((s,c)=>s+(c.mrr||0),0);
+  const totalRevMrr=totalCur>0?totalCur:historyMrr;
 
   const card={background:"#fff",borderRadius:12,padding:"20px 24px",boxShadow:"0 1px 4px rgba(41,53,93,.07)",marginBottom:16};
   const lbl={fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:600,letterSpacing:"0.05em",marginBottom:8,display:"block"};
