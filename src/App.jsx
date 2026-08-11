@@ -817,57 +817,80 @@ function mapCalls(rows) {
   // {csmName: {week: {service: {completed, noShow}}}}
   const by = {};
 
+  // ── Status priority: terminal statuses beat Scheduled ──
+  const STATUS_PRIORITY = {completed:4, "no show":3, cancelled:2, scheduled:1};
+
+  // ── Pass 1: parse every row into a keyed map for dedup ──
+  // Dedup key = "apptTime|clientEmail|service" — unique per booking
+  // If same key appears twice (Scheduled in one upload, Completed in next), keep highest priority
+  const apptMap = {}; // key → {csm, dayKey, svc, statusKey, priority}
+
   rows.forEach(r => {
-    // Support both raw export columns and manual entry columns
-    const apptTime  = String(r["Appointment Time"] || r["appointment_time"] || r["week"] || "").trim();
-    const staffRaw  = String(r["Staff Name"]  || r["Staff"] || r["csm_name"] || r["Assigned To"] || "").trim();
-    const svcRaw    = String(r["Service Name"]|| r["Service"]|| r["service_type"] || r["Appointment Type"] || "").trim();
-    const status    = String(r["Status"]      || "").trim().toLowerCase();
+    const apptTime = String(r["Appointment Time"] || r["appointment_time"] || r["week"] || "").trim();
+    const staffRaw = String(r["Staff Name"] || r["Staff"] || r["csm_name"] || r["Assigned To"] || "").trim();
+    const svcRaw   = String(r["Service Name"] || r["Service"] || r["service_type"] || r["Appointment Type"] || "").trim();
+    const emailRaw = String(r["Client Email"] || r["email"] || "").trim().toLowerCase();
 
     if (!staffRaw || !apptTime) return;
 
-    const csm  = norm(staffRaw) || staffRaw;
-    // Store by exact day (YYYY-MM-DD) so custom date filters work per-day
+    const csm = norm(staffRaw) || staffRaw;
     const apptDate = new Date(apptTime);
     const dayKey = !isNaN(apptDate)
       ? apptDate.getFullYear() + "-" + String(apptDate.getMonth()+1).padStart(2,"0") + "-" + String(apptDate.getDate()).padStart(2,"0")
       : apptTime.slice(0,10);
-    const week = dayKey;
-    const svc  = normalizeService(svcRaw) || svcRaw || "Other";
+    const svc = normalizeService(svcRaw) || svcRaw || "Other";
 
-    // Scan all fields for the appointment status — could be in various columns
-    // The "Status" column in Thryv exports is sometimes customer status, not appt status
-    const allVals = Object.values(r).map(v=>String(v||"").toLowerCase());
-    const hasCompleted = allVals.some(v=>v==="completed"||v==="complete");
-    const hasNoShow    = allVals.some(v=>v==="no show"||v==="no-show"||v==="noshow");
-    const hasCancelled = allVals.some(v=>v==="cancelled"||v==="canceled"||v==="cancellation");
-    const apptStatus = String(r["Appointment Status"]||r["Status"]||r["status"]||"").toLowerCase().trim();
-    const isCompleted  = apptStatus.includes("complet") || hasCompleted;
-    const isNoShow     = (apptStatus.includes("no show")||apptStatus.includes("no-show")||apptStatus.includes("noshow")) || hasNoShow;
-    const isCancelled  = (apptStatus.includes("cancel")) || hasCancelled;
-    // Also support pre-aggregated format (manual entry with completed/no_show columns)
+    // Resolve appointment status — Appointment Status column is authoritative
+    const apptStatus = String(r["Appointment Status"] || r["Status"] || r["status"] || "").toLowerCase().trim();
+    let statusKey = null;
+    if      (apptStatus.includes("complet"))                                                          statusKey = "completed";
+    else if (apptStatus.includes("no show") || apptStatus.includes("noshow") || apptStatus.includes("no-show")) statusKey = "no show";
+    else if (apptStatus.includes("cancel"))                                                           statusKey = "cancelled";
+    else if (apptStatus.includes("schedul"))                                                          statusKey = "scheduled";
+
+    // Pre-aggregated manual entry rows (no Appointment Time, raw counts) — bypass dedup
     const preComp   = parseInt(r["completed"]||0);
     const preNoShow = parseInt(r["no_show"]||r["no show"]||0);
     const preCancel = parseInt(r["cancelled"]||r["canceled"]||0);
     const isPreAgg  = !r["Appointment Time"] && (preComp > 0 || preNoShow > 0 || preCancel > 0);
-    if (!isCompleted && !isNoShow && !isCancelled && !isPreAgg) return;
-
-    if (!by[csm]) by[csm] = {};
-    if (!by[csm][week]) by[csm][week] = {};
-    if (!by[csm][week][svc]) by[csm][week][svc] = {completed:0, noShow:0, cancelled:0};
 
     if (isPreAgg) {
-      by[csm][week][svc].completed  += preComp;
-      by[csm][week][svc].noShow     += preNoShow;
-      by[csm][week][svc].cancelled  += preCancel;
-    } else {
-      if (isCompleted) by[csm][week][svc].completed++;
-      if (isNoShow)    by[csm][week][svc].noShow++;
-      if (isCancelled) by[csm][week][svc].cancelled++;
+      if (!by[csm]) by[csm] = {};
+      if (!by[csm][dayKey]) by[csm][dayKey] = {};
+      if (!by[csm][dayKey][svc]) by[csm][dayKey][svc] = {completed:0, noShow:0, cancelled:0, scheduled:0};
+      by[csm][dayKey][svc].completed += preComp;
+      by[csm][dayKey][svc].noShow    += preNoShow;
+      by[csm][dayKey][svc].cancelled += preCancel;
+      return;
+    }
+
+    if (!statusKey) return; // unknown status — skip
+
+    // Dedup key: stable across uploads for the same booking
+    // Uses email when available (most reliable), falls back to svcRaw for older rows without email
+    const dedupKey = [apptTime, emailRaw || svcRaw, svc].join("|");
+    const priority = STATUS_PRIORITY[statusKey] || 0;
+    const existing = apptMap[dedupKey];
+
+    // Keep highest-priority status — terminal beats Scheduled
+    if (!existing || priority >= existing.priority) {
+      apptMap[dedupKey] = {csm, dayKey, svc, statusKey, priority};
     }
   });
 
-  console.log("[mapCalls] parsed", Object.keys(by).length, "CSMs");
+  // ── Pass 2: aggregate deduped appointments into by[csm][day][svc] ──
+  Object.values(apptMap).forEach(({csm, dayKey, svc, statusKey}) => {
+    if (!by[csm]) by[csm] = {};
+    if (!by[csm][dayKey]) by[csm][dayKey] = {};
+    if (!by[csm][dayKey][svc]) by[csm][dayKey][svc] = {completed:0, noShow:0, cancelled:0, scheduled:0};
+    if      (statusKey === "completed")  by[csm][dayKey][svc].completed++;
+    else if (statusKey === "no show")    by[csm][dayKey][svc].noShow++;
+    else if (statusKey === "cancelled")  by[csm][dayKey][svc].cancelled++;
+    else if (statusKey === "scheduled")  by[csm][dayKey][svc].scheduled++;
+  });
+
+  console.log("[mapCalls] parsed", Object.keys(by).length, "CSMs,",
+    Object.values(apptMap).filter(a=>a.statusKey==="scheduled").length, "scheduled appts");
   return by;
 }
 
@@ -3139,23 +3162,26 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
 
         // Aggregate for a specific set of weeks
         const aggForWeeks = (csmList, svcFilter, weeks) => {
-          const acc = {completed:0, noShow:0, cancelled:0, total:0, bySvc:{}, byCsm:{}};
+          const acc = {completed:0, noShow:0, cancelled:0, scheduled:0, total:0, bySvc:{}, byCsm:{}};
           csmList.forEach(n => {
             weeks.forEach(w => {
               const wData = (callData[resolveCSM(n)]||{})[w]||{};
               Object.entries(wData).forEach(([svc,d])=>{
                 if (svcFilter && svc!==svcFilter) return;
-                if (!acc.bySvc[svc]) acc.bySvc[svc]={completed:0,noShow:0,cancelled:0};
+                if (!acc.bySvc[svc]) acc.bySvc[svc]={completed:0,noShow:0,cancelled:0,scheduled:0};
                 acc.bySvc[svc].completed += d.completed;
                 acc.bySvc[svc].noShow    += d.noShow;
                 acc.bySvc[svc].cancelled += (d.cancelled||0);
-                if (!acc.byCsm[n]) acc.byCsm[n]={completed:0,noShow:0,cancelled:0};
+                acc.bySvc[svc].scheduled += (d.scheduled||0);
+                if (!acc.byCsm[n]) acc.byCsm[n]={completed:0,noShow:0,cancelled:0,scheduled:0};
                 acc.byCsm[n].completed   += d.completed;
                 acc.byCsm[n].noShow      += d.noShow;
                 acc.byCsm[n].cancelled   += (d.cancelled||0);
+                acc.byCsm[n].scheduled   += (d.scheduled||0);
                 acc.completed += d.completed;
                 acc.noShow    += d.noShow;
                 acc.cancelled += (d.cancelled||0);
+                acc.scheduled += (d.scheduled||0);
               });
             });
           });
@@ -3179,17 +3205,21 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
 
         // Aggregate totals across filtered weeks
         const aggTotals = (csmList, svcFilter) => {
-          const acc = {completed:0, noShow:0, total:0, bySvc:{}};
+          const acc = {completed:0, noShow:0, cancelled:0, scheduled:0, total:0, bySvc:{}};
           csmList.forEach(n => {
             callWeeks.forEach(w => {
               const wData = (callData[resolveCSM(n)]||{})[w]||{};
               Object.entries(wData).forEach(([svc,d])=>{
                 if (svcFilter && svc!==svcFilter) return;
-                if (!acc.bySvc[svc]) acc.bySvc[svc]={completed:0,noShow:0};
+                if (!acc.bySvc[svc]) acc.bySvc[svc]={completed:0,noShow:0,cancelled:0,scheduled:0};
                 acc.bySvc[svc].completed += d.completed;
                 acc.bySvc[svc].noShow    += d.noShow;
+                acc.bySvc[svc].cancelled += (d.cancelled||0);
+                acc.bySvc[svc].scheduled += (d.scheduled||0);
                 acc.completed += d.completed;
                 acc.noShow    += d.noShow;
+                acc.cancelled += (d.cancelled||0);
+                acc.scheduled += (d.scheduled||0);
               });
             });
           });
@@ -3240,22 +3270,23 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
             const dailyAvg = (t.total/dailyDays).toFixed(2);
 
             const svcTotalsRow = {};
-            svcs.forEach(s => { svcTotalsRow[s] = {completed:0,noShow:0,cancelled:0,total:0}; });
+            svcs.forEach(s => { svcTotalsRow[s] = {completed:0,noShow:0,cancelled:0,scheduled:0,total:0}; });
             callWeeks.forEach(w => {
               const wData = (callData[resolveCSM(n)]||{})[w]||{};
               Object.entries(wData).forEach(([s,d]) => {
                 if (svcTotalsRow[s]) {
-                  svcTotalsRow[s].completed += d.completed;
-                  svcTotalsRow[s].noShow    += d.noShow;
-                  svcTotalsRow[s].cancelled += (d.cancelled||0);
-                  svcTotalsRow[s].total     += d.completed+d.noShow+(d.cancelled||0);
+                  svcTotalsRow[s].completed  += d.completed;
+                  svcTotalsRow[s].noShow     += d.noShow;
+                  svcTotalsRow[s].cancelled  += (d.cancelled||0);
+                  svcTotalsRow[s].scheduled  += (d.scheduled||0);
+                  svcTotalsRow[s].total      += d.completed+d.noShow+(d.cancelled||0);
                 }
               });
             });
 
             const row = [
               dispName(n), coach?coach.n:"", info?(info.reg||""):"",
-              t.total, t.completed, compRate+"%", t.noShow, t.cancelled||0,
+              t.total, t.scheduled||0, t.completed, compRate+"%", t.noShow, t.cancelled||0,
               dailyAvg,
               callWeeks.length>0?callWeeks[0]:"", lastCW||"", dailyDays,
             ];
@@ -3268,10 +3299,10 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
 
           if (!dataRows.length) return;
 
-          const baseHeaders = ["CSM","Coach","Region","Booked","Completed","Completion Rate",
+          const baseHeaders = ["CSM","Coach","Region","Booked","Scheduled","Completed","Completion Rate",
             "No Shows","Cancelled","Daily Avg","Period Start","Period End","Days in Window"];
           const svcHeaders = svcs.flatMap(s=>[
-            s+" — Booked", s+" — Completed", s+" — No Shows", s+" — Cancelled", s+" — Daily Avg"
+            s+" — Booked", s+" — Scheduled", s+" — Completed", s+" — No Shows", s+" — Cancelled", s+" — Daily Avg"
           ]);
           const esc = v => { const s=String(v??"").replace(/"/g,'""'); return s.includes(",")||s.includes('"')||s.includes("\n")?'"'+s+'"':s; };
           const csv = [[...baseHeaders,...svcHeaders].map(esc).join(","), ...dataRows.map(r=>r.map(esc).join(","))].join("\n");
@@ -3352,18 +3383,19 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
               const compColor = compRate>=0.85?"#16a34a":compRate>=0.70?"#d97706":"#dc2626";
               const priorCompRate = priorTotals&&priorTotals.total>0 ? priorTotals.completed/priorTotals.total : null;
               const tiles = [
+                {l:"Total booked", val:orgTotals.total, col:"#29355D", priorVal:priorTotals?.total,
+                  pills:[
+                    {label:(compRate*100).toFixed(0)+"% kept",        bg:"#dcfce7", fg:"#166534"},
+                    {label:(cancelRate*100).toFixed(0)+"% cancelled",  bg:"#fef9c3", fg:"#854d0e"},
+                    {label:((orgRate)*100).toFixed(0)+"% no-show",     bg:"#fee2e2", fg:"#991b1b"},
+                  ]},
+                {l:"Scheduled", val:orgTotals.scheduled||0, sub:"upcoming — not yet completed", col:"#5378FC", bar:null, priorVal:null},
                 {l:"Completed", val:orgTotals.completed, sub:(compRate*100).toFixed(1)+"% completion rate", col:compColor, bar:compRate, priorVal:priorTotals?.completed},
                 {l:"Cancelled",  val:orgTotals.cancelled||0, sub:(cancelRate*100).toFixed(1)+"% of total booked", col:"#d97706", bar:cancelRate, priorVal:priorTotals?.cancelled},
                 {l:"No shows",  val:orgTotals.noShow, sub:(orgRate*100).toFixed(1)+"% — goal <8%", col:rateColor(orgRate), bar:orgRate, priorVal:priorTotals?.noShow},
-                {l:"Total booked", val:orgTotals.total, col:"#29355D", priorVal:priorTotals?.total,
-                  pills:[
-                    {label:(compRate*100).toFixed(0)+"% kept",   bg:"#dcfce7", fg:"#166534"},
-                    {label:(cancelRate*100).toFixed(0)+"% cancelled", bg:"#fef9c3", fg:"#854d0e"},
-                    {label:((orgRate)*100).toFixed(0)+"% no-show", bg:"#fee2e2", fg:"#991b1b"},
-                  ]},
               ];
               return (
-                <div style={{display:"grid",gridTemplateColumns:"repeat(4,minmax(0,1fr))",gap:10,marginBottom:18}}>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(5,minmax(0,1fr))",gap:10,marginBottom:18}}>
                   {tiles.map(t=>{
                     const dVal = hasPrior&&t.priorVal!=null ? t.val - t.priorVal : null;
                     return (
@@ -3444,6 +3476,7 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
               <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
                 <thead><tr>
                   {[["name","CSM","left","#808080"],["total","Booked","right","#808080"],
+                    ["scheduled","Scheduled","right","#5378FC"],
                     ["completed","Completed","right","#16a34a"],["compRate","Completion rate","left","#808080"],
                     ["noShow","No shows","right","#808080"],["cancelled","Cancelled","right","#d97706"]
                   ].map(([col,label,align,baseColor])=>(
@@ -3485,6 +3518,7 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
                       const cB=tb.total>0?tb.completed/tb.total:0;
                       return dir * (cA - cB);
                     }
+                    if (callSortCol==="scheduled") return dir * ((ta.scheduled||0) - (tb.scheduled||0));
                     if (callSortCol==="noShow")   return dir * (ta.noShow - tb.noShow);
                     if (callSortCol==="cancelled") return dir * ((ta.cancelled||0) - (tb.cancelled||0));
                     if (callSortCol==="dailyAvg") return dir * (ta.total - tb.total); // same as booked scaled same
@@ -3533,6 +3567,11 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
                         style={{cursor:"pointer",background:isSelected?"rgba(41,53,93,.04)":"transparent"}}>
                         <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",fontWeight:isSelected?700:500,color:isSelected?"#29355D":"inherit"}}>{dispName(n)}</td>
                         <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#808080"}}>{t.total}</td>
+                        <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right"}}>
+                          {(t.scheduled||0)>0
+                            ? <span style={{color:"#5378FC",fontWeight:600}}>{t.scheduled}</span>
+                            : <span style={{color:"#ccc"}}>—</span>}
+                        </td>
                         <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#16a34a",fontWeight:500}}>{t.completed}</td>
                         <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)"}}>
                           {(()=>{
@@ -3580,10 +3619,11 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
                         callWeeks.forEach(w => {
                           const wData = (callData[resolveCSM(n)]||{})[w]||{};
                           Object.entries(wData).forEach(([svc,d]) => {
-                            if (!svcBreakdown[svc]) svcBreakdown[svc]={completed:0,noShow:0,cancelled:0,total:0};
+                            if (!svcBreakdown[svc]) svcBreakdown[svc]={completed:0,noShow:0,cancelled:0,scheduled:0,total:0};
                             svcBreakdown[svc].completed  += d.completed;
                             svcBreakdown[svc].noShow     += d.noShow;
                             svcBreakdown[svc].cancelled  += (d.cancelled||0);
+                            svcBreakdown[svc].scheduled  += (d.scheduled||0);
                             svcBreakdown[svc].total      += d.completed+d.noShow+(d.cancelled||0);
                           });
                         });
@@ -3609,6 +3649,7 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
                                           <span style={{fontSize:13,fontWeight:700,color:"#29355D",marginLeft:10}}>{avg.toFixed(1)}<span style={{fontSize:9,color:"#808080",fontWeight:400}}>/day</span></span>
                                         </div>
                                         <div style={{fontSize:10,color:"#808080",marginBottom:3}}>
+                                          {(d.scheduled||0)>0&&<span style={{color:"#5378FC",fontWeight:500}}>{d.scheduled} scheduled · </span>}
                                           {d.completed} done · {d.noShow} no-show · {d.cancelled} cancel
                                         </div>
                                         <div style={{height:3,background:"rgba(0,0,0,.07)",borderRadius:2,overflow:"hidden"}}>
