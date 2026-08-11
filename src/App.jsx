@@ -6472,7 +6472,7 @@ function PinLock({onUnlock}) {
 // MY DASHBOARD — self-contained. To revert: remove this block + 3 lines below.
 // ═══════════════════════════════════════════════════════════════════════════
 function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
-  churnAlerts=[], qamc=[], qass=[], domoBoq=[], q3BobCur=[], q3Supp=[]}) {
+  churnAlerts=[], qamc=[], qass=[], domoBoq=[], q3BobCur=[], q3Supp=[], rawRev=[]}) {
 
   const pad  = n => String(n).padStart(2,"0");
   const pp   = p => p!=null?(p*100).toFixed(1)+"%":"--";
@@ -6581,9 +6581,29 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
   const cadPct=cadTotal>0?cadDone/cadTotal:null;
   const overdueCSMs=csms.filter(c=>(c.overdueCount||0)>0).sort((a,b)=>(b.overdueCount||0)-(a.overdueCount||0));
 
-  // Revenue: prefer Q3 BoB current MRR (totalCur), fall back to history mrr
-  const historyMrr=csms.reduce((s,c)=>s+(c.mrr||0),0);
-  const totalRevMrr=totalCur>0?totalCur:historyMrr;
+  // Revenue: same logic as Revenue tab — filter rawRev by CSM, compute Q3 totals
+  const revRows = rawRev.map(r => {
+    const csmRaw = String(r["CSM Name"]||r["csm_name"]||r["Staff Name"]||"").trim();
+    const csm = norm(csmRaw)||csmRaw;
+    const mrr = parseFloat(String(r["MRR $ Added"]||r["MRR $"]||r["MRR"]||0).replace(/[$,]/g,""))||0;
+    const otr = parseFloat(String(r["OTR $ Added"]||r["OTR $"]||r["OTR"]||0).replace(/[$,]/g,""))||0;
+    const tot = parseFloat(String(r["Total Revenue Added"]||r["Total Revenue"]||r["Revenue"]||0).replace(/[$,]/g,""))||0;
+    const nr  = (r["Non-Revenue Integrations"]||"").trim();
+    const qtr = (r["Quarter for Consideration"]||r["Quarter"]||"").trim();
+    return {csm, mrr, otr, tot, nr, qtr};
+  }).filter(r => {
+    if (!r.csm) return false;
+    // Filter to Q3 2026
+    if (r.qtr && !r.qtr.includes("Q3") && !r.qtr.includes("q3")) return false;
+    return csmNorms.has(r.csm) || csmNorms.has(norm(r.csm));
+  });
+  const totalRevMrr = revRows.reduce((s,r)=>s+r.mrr,0);
+  const totalRevOtr = revRows.reduce((s,r)=>s+r.otr,0);
+  const totalRevTot = revRows.reduce((s,r)=>s+r.tot,0);
+  const totalRevSubs = revRows.length;
+  const mrrSubs = revRows.filter(r=>r.mrr>0).length;
+  const otrSubs = revRows.filter(r=>r.otr>0).length;
+  const nonRevSubs = revRows.filter(r=>r.nr).length;
 
   const card={background:"#fff",borderRadius:12,padding:"20px 24px",boxShadow:"0 1px 4px rgba(41,53,93,.07)",marginBottom:16};
   const lbl={fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:600,letterSpacing:"0.05em",marginBottom:8,display:"block"};
@@ -6653,14 +6673,23 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
         </div>
 
         <div style={card}>
-          <span style={lbl}>💰 Revenue</span>
-          <div style={{fontSize:28,fontWeight:700,color:"#29355D",marginTop:4,marginBottom:4}}>{fk(totalRevMrr)}</div>
-          <div style={{fontSize:11,color:"#808080",marginBottom:14}}>current MRR{csms.length>1?` · ${fk(Math.round(totalRevMrr/Math.max(csms.length,1)))} avg/CSM`:""}</div>
-          {totalBoq>0&&<div style={{padding:"10px 12px",background:"rgba(41,53,93,.03)",borderRadius:8,border:"0.5px solid rgba(41,53,93,.1)"}}>
-            <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}><span style={{fontSize:10,color:"#808080"}}>BOQ</span><span style={{fontSize:11,fontWeight:600,color:"#5378FC"}}>{fk(totalBoq)}</span></div>
-            <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}><span style={{fontSize:10,color:"#808080"}}>Current</span><span style={{fontSize:11,fontWeight:600,color:"#29355D"}}>{fk(totalCur)}</span></div>
-            <div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:10,color:"#808080"}}>Net change</span><span style={{fontSize:11,fontWeight:600,color:totalCur>=totalBoq?"#16a34a":"#dc2626"}}>{totalCur>=totalBoq?"+":""}{fk(totalCur-totalBoq)}</span></div>
-          </div>}
+          <span style={lbl}>💰 Revenue Added — Q3</span>
+          <div style={{fontSize:28,fontWeight:700,color:"#FF5000",marginTop:4,marginBottom:4}}>{fd(totalRevTot)}</div>
+          <div style={{fontSize:11,color:"#808080",marginBottom:12}}>{totalRevSubs} submission{totalRevSubs!==1?"s":""}</div>
+          <div style={{padding:"10px 12px",background:"rgba(41,53,93,.03)",borderRadius:8,border:"0.5px solid rgba(41,53,93,.1)"}}>
+            <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+              <span style={{fontSize:10,color:"#808080"}}>MRR Added</span>
+              <span style={{fontSize:11,fontWeight:600,color:"#29355D"}}>{fd(totalRevMrr)}<span style={{fontSize:10,color:"#808080",fontWeight:400}}> · {mrrSubs} sub{mrrSubs!==1?"s":""}</span></span>
+            </div>
+            <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+              <span style={{fontSize:10,color:"#808080"}}>One-Time</span>
+              <span style={{fontSize:11,fontWeight:600,color:"#5378FC"}}>{fd(totalRevOtr)}<span style={{fontSize:10,color:"#808080",fontWeight:400}}> · {otrSubs} sub{otrSubs!==1?"s":""}</span></span>
+            </div>
+            <div style={{display:"flex",justifyContent:"space-between"}}>
+              <span style={{fontSize:10,color:"#808080"}}>Non-Revenue</span>
+              <span style={{fontSize:11,fontWeight:600,color:"#808080"}}>{nonRevSubs} sub{nonRevSubs!==1?"s":""}</span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -7254,7 +7283,7 @@ My question: ${aiCustom}`,
           {tab==="revenue"&&<RevenueView rawRev={rawRev} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches}/>}
           {tab==="bob"&&<BobView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} churnAlerts={churnAlerts} onSelectCSM={selectCSMFn} liveBobDet={liveBobDet} bobAdj={bobAdj} q3BobCur={q3BobCur} domoBoq={domoBoq} q3Supp={q3Supp} q2DomoBoq={q2DomoBoq}/>}
           {tab==="trends"&&<TrendsView history={history} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} qamc={qamc} qass={qass}/>}
-          {tab==="mydash"&&<MyDashboard csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} churnAlerts={churnAlerts} qamc={qamc||[]} qass={qass||[]} domoBoq={domoBoq||[]} q3BobCur={q3BobCur||[]} q3Supp={q3Supp||[]}/>}
+          {tab==="mydash"&&<MyDashboard csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} churnAlerts={churnAlerts} qamc={qamc||[]} qass={qass||[]} domoBoq={domoBoq||[]} q3BobCur={q3BobCur||[]} q3Supp={q3Supp||[]} rawRev={rawRev||[]}/>}
         </div>
       )}
 
