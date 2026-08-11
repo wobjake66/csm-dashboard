@@ -6467,297 +6467,7 @@ function PinLock({onUnlock}) {
 }
 
 // ── MAIN APP ───────────────────────────────────────────────────────────────
-export default // ─────────────────────────────────────────────────────────────────────────────
-// MY DASHBOARD — CSM daily briefing view, responds to coach/CSM filter
-// ─────────────────────────────────────────────────────────────────────────────
-function MyDashboard({csms=[], filterCoach, filterCSM, callData={}, bobRaw, liveBobDet, q2DomoBoq=[], domoBoq=[], q3BobCur=[], q3Supp=[], churnAlerts=[], history=[], qamc=[], qass=[]}) {
-  const S2 = {
-    card: {background:"#fff",borderRadius:12,padding:"20px 24px",boxShadow:"0 1px 4px rgba(41,53,93,.07)",marginBottom:16},
-    label: {fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:600,letterSpacing:"0.05em",marginBottom:6},
-    val: {fontSize:28,fontWeight:700,color:"#29355D",lineHeight:1},
-    sub: {fontSize:11,color:"#808080",marginTop:4},
-  };
-
-  // ── Determine context: org / coach-team / individual CSM ──
-  const isCSM    = !!filterCSM;
-  const isCoach  = !!filterCoach && !filterCSM;
-  const isOrg    = !filterCoach && !filterCSM;
-
-  const contextLabel = isCSM
-    ? dispName(filterCSM)
-    : isCoach
-      ? (COACHES.find(c=>c.e===filterCoach)?.n||"Team") + "'s Team"
-      : "All Teams";
-
-  // ── Calls: today + this week (calendar) ──
-  const now = new Date();
-  const getMon = d => { const dt=new Date(d); dt.setHours(0,0,0,0); const dy=dt.getDay(); dt.setDate(dt.getDate()-(dy===0?6:dy-1)); return dt; };
-  const todayStr = now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0")+"-"+String(now.getDate()).padStart(2,"0");
-  const weekMon  = getMon(now);
-  const isThisWeek = d => { const dt=new Date(d+"T00:00:00"); const sun=new Date(weekMon); sun.setDate(weekMon.getDate()+6); return dt>=weekMon&&dt<=sun; };
-  const isTomorrow = d => { const dt=new Date(d+"T00:00:00"); const tmr=new Date(now); tmr.setDate(now.getDate()+1); return dt.toDateString()===tmr.toDateString(); };
-
-  // Resolve CSM names from callData
-  const csmNames = csms.map(c=>c.name);
-  const resolveKey = n => callData[n] ? n : Object.keys(callData).find(k=>norm(k)===n)||n;
-
-  // Aggregate calls for the filtered CSMs
-  const aggCallsForPeriod = (dayTest) => {
-    let completed=0, noShow=0, cancelled=0, scheduled=0;
-    csmNames.forEach(n => {
-      const key = resolveKey(n);
-      Object.entries(callData[key]||{}).forEach(([day, svcs]) => {
-        if (!dayTest(day)) return;
-        Object.values(svcs).forEach(d => {
-          completed  += d.completed;
-          noShow     += d.noShow;
-          cancelled  += (d.cancelled||0);
-          scheduled  += (d.scheduled||0);
-        });
-      });
-    });
-    return {completed, noShow, cancelled, scheduled, total: completed+noShow+cancelled+scheduled};
-  };
-
-  const todayCalls = aggCallsForPeriod(d => d===todayStr);
-  const tmrwCalls  = aggCallsForPeriod(isTomorrow);
-  const weekCalls  = aggCallsForPeriod(isThisWeek);
-  const weekResolved = weekCalls.completed + weekCalls.noShow;
-  const weekCompRate = weekResolved>0 ? weekCalls.completed/weekResolved : null;
-  const weekNsRate   = weekResolved>0 ? weekCalls.noShow/weekResolved : null;
-  const compColor = r => r==null?"#808080":r>=0.85?"#16a34a":r>=0.70?"#d97706":"#dc2626";
-  const nsColor   = r => r==null?"#808080":r<=0.05?"#16a34a":r<=0.10?"#d97706":"#dc2626";
-
-  // Per-CSM scheduled today (for team rollup table)
-  const csmTodayCalls = csmNames.map(n => {
-    const key = resolveKey(n);
-    const dayData = callData[key]?.[todayStr]||{};
-    let s=0,c=0,ns=0,can=0;
-    Object.values(dayData).forEach(d=>{s+=d.scheduled||0;c+=d.completed;ns+=d.noShow;can+=d.cancelled||0;});
-    return {name:n, scheduled:s, completed:c, noShow:ns, cancelled:can, total:s+c+ns+can};
-  }).filter(r=>r.total>0).sort((a,b)=>b.total-a.total);
-
-  // ── BoB: cancels + decreases from churnAlerts + bobRaw ──
-  const bobData = bobRaw?.bob||{};
-  const cancelAlerts = [];
-  const decreaseAlerts = [];
-
-  csmNames.forEach(n => {
-    const csmObj = csms.find(c=>c.name===n);
-    if (!csmObj) return;
-    // MC churned accounts
-    (csmObj.bobMch||[]).forEach(acct => {
-      cancelAlerts.push({csm:dispName(n), acct, type:"MC Cancel"});
-    });
-    // BC churned accounts
-    (csmObj.bobBch||[]).forEach(acct => {
-      cancelAlerts.push({csm:dispName(n), acct, type:"BC Cancel"});
-    });
-  });
-
-  // Also pull from churnAlerts (daily feed)
-  (churnAlerts||[]).forEach(a => {
-    const csmObj = csms.find(c => norm(c.name)===norm(a.csm||""));
-    if (csmObj) cancelAlerts.push({csm:dispName(csmObj.name), acct:a.acct||a.account||"", type:"Alert", mrr:a.mrr});
-  });
-
-  // ── Cadence coverage ──
-  const cadTotal   = csms.reduce((s,c)=>s+(c.cadCount||0),0);
-  const cadDone    = csms.reduce((s,c)=>s+Math.round((c.cadPct||0)*(c.cadCount||0)),0);
-  const cadPct     = cadTotal>0 ? cadDone/cadTotal : null;
-  const overdue    = csms.reduce((s,c)=>s+(c.overdueCount||0),0);
-  const skipped    = csms.reduce((s,c)=>s+(c.skippedCount||0),0);
-
-  // ── BoB health summary ──
-  const totalAccts = csms.reduce((s,c)=>s+(c.accts?.length||0),0);
-  const totalMcc   = csms.reduce((s,c)=>s+(c.bobMcc||0),0);
-  const totalBcc   = csms.reduce((s,c)=>s+(c.bobBcc||0),0);
-  const totalChurn = totalMcc+totalBcc;
-
-  // ── QA ──
-  const qaData = [...(Array.isArray(qamc)?qamc:[]),...(Array.isArray(qass)?qass:[])];
-  const filtQa = qaData.filter(q=>csmNames.some(n=>norm(n)===norm(q.name||"")));
-  const avgQa  = filtQa.length>0 ? filtQa.reduce((s,q)=>s+(q.score||0),0)/filtQa.length : null;
-
-  const fd = n => "$"+Number(n||0).toLocaleString("en-US",{minimumFractionDigits:0,maximumFractionDigits:0});
-  const pp = p => p!=null?(p*100).toFixed(1)+"%":"--";
-
-  return (
-    <div style={{maxWidth:1200,margin:"0 auto"}}>
-
-      {/* ── Context header ── */}
-      <div style={{marginBottom:20,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
-        <div>
-          <div style={{fontSize:22,fontWeight:700,color:"#29355D"}}>
-            {isCSM?"👤":isCoach?"👥":"🏢"} {contextLabel}
-          </div>
-          <div style={{fontSize:12,color:"#808080",marginTop:2}}>
-            {isOrg?"Org-wide view":isCoach?csms.length+" CSMs":""} · {csms.reduce((s,c)=>s+(c.accts?.length||0),0)} accounts · Updated {new Date().toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"})}
-          </div>
-        </div>
-        {!filterCoach&&!filterCSM&&(
-          <div style={{marginLeft:"auto",fontSize:12,color:"#808080",background:"rgba(41,53,93,.05)",borderRadius:8,padding:"6px 12px"}}>
-            Select a coach or CSM from the filter above to see their individual view
-          </div>
-        )}
-      </div>
-
-      {/* ── Row 1: Today at a glance ── */}
-      <div style={{marginBottom:8}}>
-        <div style={S2.label}>📅 Today — {now.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}</div>
-      </div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(5,minmax(0,1fr))",gap:12,marginBottom:20}}>
-        {[
-          {l:"On Calendar Today",  v:todayCalls.total,     sub:"total booked today",                       col:"#29355D"},
-          {l:"Scheduled",          v:todayCalls.scheduled, sub:"still upcoming",                            col:"#5378FC"},
-          {l:"Completed",          v:todayCalls.completed, sub:todayCalls.completed>0?(Math.round(todayCalls.completed/(todayCalls.completed+todayCalls.noShow||1)*100)+"% completion"):"no completed calls yet", col:"#16a34a"},
-          {l:"No Shows",           v:todayCalls.noShow,    sub:todayCalls.noShow>0?"follow up needed":"",  col:todayCalls.noShow>0?"#dc2626":"#808080"},
-          {l:"Tomorrow Scheduled", v:tmrwCalls.scheduled,  sub:"on deck for tomorrow",                     col:"#6366f1"},
-        ].map(t=>(
-          <div key={t.l} style={{...S2.card,marginBottom:0,borderTop:"3px solid "+t.col,padding:"14px 18px"}}>
-            <div style={S2.label}>{t.l}</div>
-            <div style={{...S2.val,color:t.col,fontSize:24}}>{t.v}</div>
-            {t.sub&&<div style={S2.sub}>{t.sub}</div>}
-          </div>
-        ))}
-      </div>
-
-      {/* ── Row 2: This week + Cadence + QA ── */}
-      <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr",gap:12,marginBottom:20}}>
-
-        {/* This week calls */}
-        <div style={{...S2.card,marginBottom:0}}>
-          <div style={S2.label}>📞 This Week's Calls</div>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginTop:8}}>
-            {[
-              {l:"Total Booked", v:weekCalls.total,     col:"#29355D"},
-              {l:"Completed",    v:weekCalls.completed, col:"#16a34a"},
-              {l:"No Shows",     v:weekCalls.noShow,    col:weekNsRate!=null&&weekNsRate>0.08?"#dc2626":"#808080"},
-              {l:"Cancelled",    v:weekCalls.cancelled, col:weekCalls.cancelled>0?"#d97706":"#808080"},
-            ].map(m=>(
-              <div key={m.l}>
-                <div style={{fontSize:10,color:"#808080",fontWeight:500,textTransform:"uppercase",marginBottom:4}}>{m.l}</div>
-                <div style={{fontSize:22,fontWeight:700,color:m.col}}>{m.v}</div>
-              </div>
-            ))}
-          </div>
-          {weekCompRate!=null&&(
-            <div style={{marginTop:12}}>
-              <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
-                <span style={{fontSize:11,color:"#808080"}}>Completion rate</span>
-                <span style={{fontSize:11,fontWeight:700,color:compColor(weekCompRate)}}>{pp(weekCompRate)}</span>
-              </div>
-              <div style={{height:6,background:"rgba(0,0,0,.08)",borderRadius:3,overflow:"hidden"}}>
-                <div style={{width:(weekCompRate*100).toFixed(1)+"%",height:"100%",background:compColor(weekCompRate),borderRadius:3}}/>
-              </div>
-              <div style={{display:"flex",justifyContent:"space-between",marginTop:6}}>
-                <span style={{fontSize:10,color:"#808080"}}>No-show rate: <span style={{color:nsColor(weekNsRate),fontWeight:600}}>{pp(weekNsRate)}</span></span>
-                <span style={{fontSize:10,color:"#808080"}}>Goal: &lt;8% no-show</span>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Cadence */}
-        <div style={{...S2.card,marginBottom:0}}>
-          <div style={S2.label}>🔄 Cadence Coverage</div>
-          <div style={{fontSize:28,fontWeight:700,color:cadPct!=null?(cadPct>=0.9?"#16a34a":cadPct>=0.7?"#d97706":"#dc2626"):"#808080",marginTop:8}}>
-            {cadPct!=null?pp(cadPct):"--"}
-          </div>
-          <div style={{fontSize:11,color:"#808080",marginTop:4}}>{cadDone} of {cadTotal} steps completed</div>
-          {cadTotal>0&&(
-            <div style={{height:5,background:"rgba(0,0,0,.08)",borderRadius:3,overflow:"hidden",marginTop:10}}>
-              <div style={{width:Math.min((cadPct||0)*100,100).toFixed(1)+"%",height:"100%",background:cadPct>=0.9?"#16a34a":cadPct>=0.7?"#d97706":"#dc2626",borderRadius:3}}/>
-            </div>
-          )}
-          <div style={{display:"flex",gap:8,marginTop:12,flexWrap:"wrap"}}>
-            {overdue>0&&<span style={{fontSize:10,fontWeight:600,padding:"2px 8px",borderRadius:20,background:"#fee2e2",color:"#991b1b"}}>{overdue} overdue</span>}
-            {skipped>0&&<span style={{fontSize:10,fontWeight:600,padding:"2px 8px",borderRadius:20,background:"rgba(139,0,0,.1)",color:"#7f1d1d"}}>🚩{skipped} flagged</span>}
-            {overdue===0&&skipped===0&&cadTotal>0&&<span style={{fontSize:10,fontWeight:600,padding:"2px 8px",borderRadius:20,background:"#dcfce7",color:"#166534"}}>All clear ✓</span>}
-          </div>
-        </div>
-
-        {/* BoB + Accounts */}
-        <div style={{...S2.card,marginBottom:0}}>
-          <div style={S2.label}>📋 Book of Business</div>
-          <div style={{fontSize:28,fontWeight:700,color:"#29355D",marginTop:8}}>{totalAccts}</div>
-          <div style={{fontSize:11,color:"#808080",marginTop:4}}>accounts assigned</div>
-          {totalChurn>0&&(
-            <div style={{marginTop:12,padding:"10px 12px",background:"#fef2f2",borderRadius:8,border:"0.5px solid rgba(220,38,38,.2)"}}>
-              <div style={{fontSize:11,fontWeight:600,color:"#dc2626",marginBottom:4}}>⚠ Churned this period</div>
-              {totalMcc>0&&<div style={{fontSize:11,color:"#808080"}}>{totalMcc} MC account{totalMcc!==1?"s":""}</div>}
-              {totalBcc>0&&<div style={{fontSize:11,color:"#808080"}}>{totalBcc} BC account{totalBcc!==1?"s":""}</div>}
-            </div>
-          )}
-          {totalChurn===0&&<div style={{marginTop:12,fontSize:11,color:"#16a34a",fontWeight:500}}>✓ No cancels on record</div>}
-        </div>
-      </div>
-
-      {/* ── Row 3: Cancel/Decrease Alerts ── */}
-      {cancelAlerts.length>0&&(
-        <div style={{...S2.card,borderLeft:"4px solid #dc2626",marginBottom:20}}>
-          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
-            <span style={{fontSize:16}}>🚨</span>
-            <div style={S2.label}>Account Cancels — Action Required</div>
-            <span style={{marginLeft:"auto",fontSize:11,color:"#dc2626",fontWeight:600,background:"#fee2e2",padding:"2px 8px",borderRadius:20}}>{cancelAlerts.length} account{cancelAlerts.length!==1?"s":""}</span>
-          </div>
-          <div style={{display:"flex",flexDirection:"column",gap:8}}>
-            {cancelAlerts.slice(0,20).map((a,i)=>(
-              <div key={i} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",background:"#fef2f2",borderRadius:8,border:"0.5px solid rgba(220,38,38,.15)"}}>
-                <div style={{flex:1}}>
-                  <div style={{fontSize:13,fontWeight:600,color:"#29355D"}}>{a.acct||"Unknown account"}</div>
-                  {!isCSM&&<div style={{fontSize:11,color:"#808080",marginTop:2}}>Owned by {a.csm}</div>}
-                </div>
-                <div style={{display:"flex",gap:6,alignItems:"center"}}>
-                  {a.mrr&&<span style={{fontSize:11,color:"#808080"}}>{fd(a.mrr)}/mo</span>}
-                  <span style={{fontSize:10,fontWeight:600,padding:"2px 8px",borderRadius:20,background:"#fee2e2",color:"#991b1b"}}>{a.type}</span>
-                </div>
-              </div>
-            ))}
-            {cancelAlerts.length>20&&<div style={{fontSize:11,color:"#808080",textAlign:"center",padding:"6px 0"}}>+{cancelAlerts.length-20} more accounts</div>}
-          </div>
-        </div>
-      )}
-
-      {/* ── Row 4: Today's call detail by CSM (team view) or per-CSM breakdown ── */}
-      {!isCSM&&csmTodayCalls.length>0&&(
-        <div style={S2.card}>
-          <div style={{...S2.label,marginBottom:12}}>📋 Today's Activity by CSM</div>
-          <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
-            <thead><tr>
-              {["CSM","Scheduled","Completed","No Shows","Cancelled"].map(h=>(
-                <th key={h} style={{padding:"0 8px 8px 0",textAlign:h==="CSM"?"left":"right",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>{h}</th>
-              ))}
-            </tr></thead>
-            <tbody>
-              {csmTodayCalls.map(r=>(
-                <tr key={r.name}>
-                  <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",fontWeight:500,color:"#29355D"}}>{dispName(r.name)}</td>
-                  <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#5378FC",fontWeight:r.scheduled>0?600:400}}>{r.scheduled||"—"}</td>
-                  <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#16a34a",fontWeight:r.completed>0?600:400}}>{r.completed||"—"}</td>
-                  <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:r.noShow>0?"#dc2626":"#808080"}}>{r.noShow||"—"}</td>
-                  <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:r.cancelled>0?"#d97706":"#808080"}}>{r.cancelled||"—"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* ── No data state ── */}
-      {!filterCoach&&!filterCSM&&csms.length===0&&(
-        <div style={{...S2.card,textAlign:"center",padding:40}}>
-          <div style={{fontSize:32,marginBottom:12}}>📊</div>
-          <div style={{fontSize:15,fontWeight:600,color:"#29355D",marginBottom:6}}>Select a coach or CSM to get started</div>
-          <div style={{fontSize:12,color:"#808080"}}>Use the filters above to drill into a team or individual view</div>
-        </div>
-      )}
-
-    </div>
-  );
-}
-
-function App() {
+export default function App() {
   const [unlocked, setUnlocked] = useState(false);
   const [userSession, setUserSession] = useState({role:"master",name:""});
   const isCsmView = userSession.role==="csm";
@@ -6768,7 +6478,7 @@ function App() {
     return next;
   });
   const [csms, setCSMs] = useState([]);
-  const [tab, setTab] = useState("mydash");
+  const [tab, setTab] = useState("coaching");
   const [filterManager, setFilterManager] = useState("");
   const [filterCoach, setFilterCoach] = useState("");
   const [filterCSM, setFilterCSM] = useState("");
@@ -7206,10 +6916,10 @@ My question: ${aiCustom}`,
           </div>
         </div>
         <div style={{display:"flex",alignItems:"stretch",padding:"0 24px"}}>
-          {["mydash","coaching","overview","digest","revenue","bob","leaderboard","trends"].filter(t=>!isCsmView||(t!=="leaderboard"&&t!=="trends")).map(t=>(
+          {["coaching","overview","digest","revenue","bob","leaderboard","trends"].filter(t=>!isCsmView||(t!=="leaderboard"&&t!=="trends")).map(t=>(
             <button key={t} onClick={()=>setTab(t)}
               style={{padding:"10px 18px",fontSize:13,fontWeight:500,color:tab===t?"#fff":"rgba(255,255,255,.55)",background:"transparent",border:"none",cursor:"pointer",borderBottom:tab===t?"3px solid #FF5000":"3px solid transparent",whiteSpace:"nowrap"}}>
-              {t==="mydash"?"🏠 My Dashboard":t==="coaching"?"Coaching":t==="digest"?"📋 Daily Digest":t==="trends"?"📈 Trends":t==="revenue"?"💰 Revenue":t==="bob"?"📋 Book of Business":t.charAt(0).toUpperCase()+t.slice(1)}
+              {t==="coaching"?"Coaching":t==="digest"?"📋 Daily Digest":t==="trends"?"📈 Trends":t==="revenue"?"💰 Revenue":t==="bob"?"📋 Book of Business":t.charAt(0).toUpperCase()+t.slice(1)}
             </button>
           ))}
         </div>
@@ -7278,7 +6988,6 @@ My question: ${aiCustom}`,
           {tab==="revenue"&&<RevenueView rawRev={rawRev} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches}/>}
           {tab==="bob"&&<BobView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} churnAlerts={churnAlerts} onSelectCSM={selectCSMFn} liveBobDet={liveBobDet} bobAdj={bobAdj} q3BobCur={q3BobCur} domoBoq={domoBoq} q3Supp={q3Supp} q2DomoBoq={q2DomoBoq}/>}
           {tab==="trends"&&<TrendsView history={history} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} qamc={qamc} qass={qass}/>}
-          {tab==="mydash"&&<MyDashboard csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} bobRaw={bobRaw} liveBobDet={liveBobDet} q2DomoBoq={q2DomoBoq} domoBoq={domoBoq} q3BobCur={q3BobCur} q3Supp={q3Supp} churnAlerts={churnAlerts} history={history} qamc={qamc} qass={qass}/>}
         </div>
       )}
 
@@ -7379,3 +7088,4 @@ My question: ${aiCustom}`,
     </div>
   );
 }
+  
