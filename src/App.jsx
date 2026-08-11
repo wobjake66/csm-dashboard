@@ -5275,7 +5275,11 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
         </div>
 
         {/* 7 tiles: Q2 Retention (reset), Beginning Book & Ending Book (info only), Increases/Decreases/Cancels/Adjustments (filters) */}
-        <div style={{display:"grid",gridTemplateColumns:"repeat(7,minmax(0,1fr))",gap:10,marginBottom:16}}>
+        {(()=>{
+          const totalAcctsQ2 = sortedCSMs.reduce((s,c)=>s+c.acctRows.length,0);
+          const avgAcctsQ2   = sortedCSMs.length>0 ? (totalAcctsQ2/sortedCSMs.length).toFixed(1) : "0";
+          return (
+        <div style={{display:"grid",gridTemplateColumns:"repeat(8,minmax(0,1fr))",gap:10,marginBottom:16}}>
           <div onClick={()=>{ setQ2TileFilter(null); setQ2CSMFilter(null); }}
             style={{background:!q2TileFilter?"#29355D":"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",
               borderTop:"3px solid #29355D",cursor:"pointer",transition:"all .15s"}}>
@@ -5293,11 +5297,18 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
             <div style={{fontSize:22,fontWeight:600,color:"#29355D",lineHeight:1,marginBottom:4}}>{fmt$(totalCurrent)}</div>
             <div style={{fontSize:10,color:"#808080"}}>current billing</div>
           </div>
+          <div style={{background:"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",borderTop:"3px solid #6366f1"}}>
+            <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Accounts Assigned</div>
+            <div style={{fontSize:22,fontWeight:600,color:"#6366f1",lineHeight:1,marginBottom:4}}>{totalAcctsQ2}</div>
+            <div style={{fontSize:10,color:"#808080"}}>{avgAcctsQ2} avg / CSM</div>
+          </div>
           {tileBtn2("Increases",fmt$(totalIncrease),q2Data.reduce((s,c)=>s+c.acctRows.filter(r=>r.status==="increase").length,0)+" accounts","#16a34a","increase")}
           {tileBtn2("Decreases",fmt$(totalDecrease),q2Data.reduce((s,c)=>s+c.decreaseCount,0)+" accounts","#dc2626","decrease")}
           {tileBtn2("Cancels",fmt$(totalCancelled),q2Data.reduce((s,c)=>s+c.cancelledCount,0)+" accounts","#d97706","cancelled")}
           {tileBtn2("Adjustments",fmt$(totalAdjustment),q2Data.reduce((s,c)=>s+c.adjustmentCount,0)+" accounts","#1e40af","adjustment")}
         </div>
+          );
+        })()}
 
         {/* Sortable CSM table with inline expand */}
         <div style={{...S.card}}>
@@ -5614,7 +5625,11 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
     return (
       <div>
         {/* 7 tiles: Retention (reset), Beginning/Current Book (info), Increases/Decreases/Cancelled/Adjustments (filters) */}
-        <div style={{display:"grid",gridTemplateColumns:"repeat(7,minmax(0,1fr))",gap:10,marginBottom:16}}>
+        {(()=>{
+          const totalAcctsQ2d = sortedCSMs.reduce((s,c)=>s+c.rows.length,0);
+          const avgAcctsQ2d   = sortedCSMs.length>0 ? (totalAcctsQ2d/sortedCSMs.length).toFixed(1) : "0";
+          return (
+        <div style={{display:"grid",gridTemplateColumns:"repeat(8,minmax(0,1fr))",gap:10,marginBottom:16}}>
           <div onClick={()=>{ setQ2dTileFilter(null); setQ2dCSMFilter(null); }}
             style={{background:!q2dTileFilter?"#29355D":"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",
               borderTop:"3px solid #29355D",cursor:"pointer",transition:"all .15s"}}>
@@ -5632,11 +5647,23 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
             <div style={{fontSize:22,fontWeight:600,color:"#29355D",lineHeight:1,marginBottom:4}}>{fmt$(totalCur)}</div>
             <div style={{fontSize:10,color:"#808080"}}>end of quarter</div>
           </div>
+          <div style={{background:"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",borderTop:"3px solid #6366f1"}}>
+            <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Accounts Assigned</div>
+            <div style={{fontSize:22,fontWeight:600,color:"#6366f1",lineHeight:1,marginBottom:4}}>{totalAcctsQ2d}</div>
+            <div style={{fontSize:10,color:"#808080"}}>{avgAcctsQ2d} avg / CSM</div>
+          </div>
+          <div style={{background:"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",borderTop:"3px solid #6366f1"}}>
+            <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Accounts Assigned</div>
+            <div style={{fontSize:22,fontWeight:600,color:"#6366f1",lineHeight:1,marginBottom:4}}>{totalAcctsDomo}</div>
+            <div style={{fontSize:10,color:"#808080"}}>{avgAcctsDomo} avg / CSM</div>
+          </div>
           {tileBtn("Increases",fmt$(totalIncrease),q2dData.reduce((s,c)=>s+c.increaseCount,0)+" accounts","#16a34a","increase")}
           {tileBtn("Decreases",fmt$(totalDecrease),q2dData.reduce((s,c)=>s+c.decreaseCount,0)+" accounts","#dc2626","decrease")}
           {tileBtn("Cancelled",fmt$(totalCancelled),q2dData.reduce((s,c)=>s+c.cancelledCount,0)+" accounts","#d97706","cancelled")}
           {tileBtn("Adjustments",fmt$(totalAdjustment),q2dData.reduce((s,c)=>s+c.adjustmentCount,0)+" accounts","#1e40af","adjustment")}
         </div>
+          );
+        })()}
 
         {/* Sortable CSM table with inline expand */}
         <div style={{...S.card}}>
@@ -5999,7 +6026,11 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
         </div>
 
         {/* 7 tiles: Retention (reset), Beginning/Combined Book (info), Increases/Decreases/Cancelled/No Data (filters) */}
-        <div style={{display:"grid",gridTemplateColumns:"repeat(7,minmax(0,1fr))",gap:10,marginBottom:16}}>
+        {(()=>{
+          const totalAcctsDomo = sortedCSMs.reduce((s,c)=>s+(c.rows||[]).length,0);
+          const avgAcctsDomo   = sortedCSMs.length>0 ? (totalAcctsDomo/sortedCSMs.length).toFixed(1) : "0";
+          return (
+        <div style={{display:"grid",gridTemplateColumns:"repeat(8,minmax(0,1fr))",gap:10,marginBottom:16}}>
           <div onClick={()=>{ setDomoTileFilter(null); setDomoCSMFilter(null); }}
             style={{background:!domoTileFilter?"#29355D":"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",
               borderTop:"3px solid #29355D",cursor:"pointer",transition:"all .15s"}}>
@@ -6017,13 +6048,18 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
             <div style={{fontSize:22,fontWeight:600,color:"#29355D",lineHeight:1,marginBottom:4}}>{fmt$(totalCur)}</div>
             <div style={{fontSize:10,color:"#808080"}}>SF + supplemental</div>
           </div>
+          <div style={{background:"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",borderTop:"3px solid #6366f1"}}>
+            <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Accounts Assigned</div>
+            <div style={{fontSize:22,fontWeight:600,color:"#6366f1",lineHeight:1,marginBottom:4}}>{totalAcctsDomo}</div>
+            <div style={{fontSize:10,color:"#808080"}}>{avgAcctsDomo} avg / CSM</div>
+          </div>
           {tileBtn("Increases",fmt$(totalIncrease),domoData.reduce((s,c)=>s+c.increaseCount,0)+" accounts","#16a34a","increase")}
           {tileBtn("Decreases",fmt$(totalDecrease),domoData.reduce((s,c)=>s+c.decreaseCount,0)+" accounts","#dc2626","decrease")}
           {tileBtn("Cancelled",fmt$(totalCancelled),domoData.reduce((s,c)=>s+c.cancelledCount,0)+" accounts","#d97706","cancelled")}
           {tileBtn("No Data",String(totalNoData),"accounts","#6b7280","no_data")}
         </div>
-
-        {/* Sortable CSM table with inline expand */}
+          );
+        })()}
         <div style={{...S.card}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
             <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500}}>
