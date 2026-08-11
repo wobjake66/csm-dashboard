@@ -74,7 +74,7 @@ const NAME_NORM = {
   "darling":"Darling Danais Santos Taveras","darling danais":"Darling Danais Santos Taveras","darling taveras":"Darling Danais Santos Taveras","darling danais santos taveras":"Darling Danais Santos Taveras","darling santos taveras":"Darling Danais Santos Taveras","darling santos":"Darling Danais Santos Taveras",
   "heidi":"Heidi Torres Uribe","heidi torres":"Heidi Torres Uribe","heidi uribe":"Heidi Torres Uribe","heidi torres uribe":"Heidi Torres Uribe",
   "irini":"Irina Larianni Molina Molina","irina larianni":"Irina Larianni Molina Molina","irina molina":"Irina Larianni Molina Molina","irina molina molina":"Irina Larianni Molina Molina","irina larianni molina molina":"Irina Larianni Molina Molina",
-  "jathzelyn elizabeth":"Jathzelyn Elizabeth Fortuna Paulino","jathzelyn fortuna":"Jathzelyn Elizabeth Fortuna Paulino","jathzelyn fortuna paulino":"Jathzelyn Elizabeth Fortuna Paulino","jathzelyn paulino":"Jathzelyn Elizabeth Fortuna Paulino","jazz fortuna":"Jathzelyn Elizabeth Fortuna Paulino","jazz fortuna paulino":"Jathzelyn Elizabeth Fortuna Paulino","jathzelyn elizabeth fortuna paulino":"Jathzelyn Elizabeth Fortuna Paulino",
+  "jathzelyn elizabeth":"Jathzelyn Elizabeth Fortuna Paulino","jathzelyn fortuna":"Jathzelyn Elizabeth Fortuna Paulino","jathzelyn fortuna paulino":"Jathzelyn Elizabeth Fortuna Paulino","jathzelyn paulino":"Jathzelyn Elizabeth Fortuna Paulino","jazz fortuna":"Jathzelyn Elizabeth Fortuna Paulino","jazz fortuna paulino":"Jathzelyn Elizabeth Fortuna Paulino","jathzelyn elizabeth fortuna paulino":"Jathzelyn Elizabeth Fortuna Paulino","jathzelynfortuna paulino":"Jathzelyn Elizabeth Fortuna Paulino","jathzelynfortuna":"Jathzelyn Elizabeth Fortuna Paulino",
   "johnny":"Johnny Cornielle","johnny cornielle montas":"Johnny Cornielle","johnny cornielle":"Johnny Cornielle",
   "joseph carmona":"Joseph Guillermo Carmona Garcia","joseph carmona garcia":"Joseph Guillermo Carmona Garcia","joseph garcia":"Joseph Guillermo Carmona Garcia","joseph guillermo":"Joseph Guillermo Carmona Garcia","joseph guillermo carmona garcia":"Joseph Guillermo Carmona Garcia",
   "sam":"Samuel Frias De Paula","samuel":"Samuel Frias De Paula","sam frias":"Samuel Frias De Paula","sam frias de paula":"Samuel Frias De Paula","samuel frias":"Samuel Frias De Paula","samuel frial":"Samuel Frias De Paula","samuel paula":"Samuel Frias De Paula","samuel frias de paula":"Samuel Frias De Paula",
@@ -818,7 +818,7 @@ function mapCalls(rows) {
   const by = {};
 
   // ── Status priority: terminal statuses beat Scheduled ──
-  const STATUS_PRIORITY = {completed:4, "no show":3, cancelled:2, scheduled:1};
+  const STATUS_PRIORITY = {completed:4, "no show":3, cancelled:2, scheduled:1, created:1};
 
   // ── Pass 1: parse every row into a keyed map for dedup ──
   // Dedup key = "apptTime|clientEmail|service" — unique per booking
@@ -846,7 +846,7 @@ function mapCalls(rows) {
     if      (apptStatus.includes("complet"))                                                          statusKey = "completed";
     else if (apptStatus.includes("no show") || apptStatus.includes("noshow") || apptStatus.includes("no-show")) statusKey = "no show";
     else if (apptStatus.includes("cancel"))                                                           statusKey = "cancelled";
-    else if (apptStatus.includes("schedul"))                                                          statusKey = "scheduled";
+    else if (apptStatus.includes("schedul") || apptStatus.includes("created"))                       statusKey = "scheduled";
 
     // Pre-aggregated manual entry rows (no Appointment Time, raw counts) — bypass dedup
     const preComp   = parseInt(r["completed"]||0);
@@ -3223,8 +3223,9 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
               });
             });
           });
-          acc.total = acc.completed + acc.noShow;
-          acc.rate  = acc.total>0 ? acc.noShow/acc.total : 0;
+          acc.total    = acc.completed + acc.noShow + acc.cancelled + acc.scheduled;
+          acc.resolved = acc.completed + acc.noShow; // for rate calculations — excludes scheduled/cancelled
+          acc.rate     = acc.resolved>0 ? acc.noShow/acc.resolved : 0;
           return acc;
         };
 
@@ -3266,7 +3267,7 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
             if (t.total === 0) return null;
             const info  = lk(n);
             const coach = info ? COACHES.find(c=>c.e===info.c) : null;
-            const compRate = t.total>0 ? (t.completed/t.total*100).toFixed(1) : "0.0";
+            const compRate = (t.resolved||0)>0 ? (t.completed/t.resolved*100).toFixed(1) : "0.0";
             const dailyAvg = (t.total/dailyDays).toFixed(2);
 
             const svcTotalsRow = {};
@@ -3378,14 +3379,15 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
 
             {/* Org summary tiles — completion-rate focused */}
             {(()=>{
-              const compRate = orgTotals.total>0 ? orgTotals.completed/orgTotals.total : 0;
+              const resolved = orgTotals.completed + orgTotals.noShow; // rates exclude scheduled
+              const compRate = resolved>0 ? orgTotals.completed/resolved : 0;
               const cancelRate = orgTotals.total>0 ? (orgTotals.cancelled||0)/orgTotals.total : 0;
               const compColor = compRate>=0.85?"#16a34a":compRate>=0.70?"#d97706":"#dc2626";
               const priorCompRate = priorTotals&&priorTotals.total>0 ? priorTotals.completed/priorTotals.total : null;
               const tiles = [
                 {l:"Total booked", val:orgTotals.total, col:"#29355D", priorVal:priorTotals?.total,
                   pills:[
-                    {label:(compRate*100).toFixed(0)+"% kept",        bg:"#dcfce7", fg:"#166534"},
+                    {label:(compRate*100).toFixed(0)+"% completion",  bg:"#dcfce7", fg:"#166534"},
                     {label:(cancelRate*100).toFixed(0)+"% cancelled",  bg:"#fef9c3", fg:"#854d0e"},
                     {label:((orgRate)*100).toFixed(0)+"% no-show",     bg:"#fee2e2", fg:"#991b1b"},
                   ]},
@@ -3514,8 +3516,8 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
                     if (callSortCol==="total")    return dir * (ta.total - tb.total);
                     if (callSortCol==="completed") return dir * (ta.completed - tb.completed);
                     if (callSortCol==="compRate") {
-                      const cA=ta.total>0?ta.completed/ta.total:0;
-                      const cB=tb.total>0?tb.completed/tb.total:0;
+                      const cA=(ta.resolved||ta.total)>0?ta.completed/(ta.resolved||ta.total):0;
+                      const cB=(tb.resolved||tb.total)>0?tb.completed/(tb.resolved||tb.total):0;
                       return dir * (cA - cB);
                     }
                     if (callSortCol==="scheduled") return dir * ((ta.scheduled||0) - (tb.scheduled||0));
@@ -3575,7 +3577,7 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
                         <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#16a34a",fontWeight:500}}>{t.completed}</td>
                         <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)"}}>
                           {(()=>{
-                            const compRate=t.total>0?t.completed/t.total:0;
+                            const compRate=(t.resolved||0)>0?t.completed/t.resolved:0;
                             const compCol=compRate>=0.85?"#16a34a":compRate>=0.70?"#d97706":"#dc2626";
                             return (
                               <div style={{display:"flex",alignItems:"center",gap:8}}>
