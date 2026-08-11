@@ -7163,7 +7163,9 @@ My question: ${aiCustom}`,
     setUserSession(user);
     // Check for deep link tab param (e.g. ?tab=digest from email)
     const _urlTab = new URLSearchParams(window.location.search).get("tab");
-    if (_urlTab) setTab(_urlTab);
+    const _validTabs = ["coaching","overview","digest","revenue","bob","leaderboard","trends","mydash"];
+    if (_urlTab && _validTabs.includes(_urlTab)) setTab(_urlTab);
+    else setTab("coaching");
     // Auto-filter to this CSM if role=csm
     if (user.role==="csm") setFilterCSM(user.name);
     // Auto-filter to coach's team if role=coach
