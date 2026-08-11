@@ -3092,29 +3092,37 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
           return new Date(d);
         };
         const latestDate = allCallWeeks.length > 0 ? toDate(allCallWeeks[allCallWeeks.length-1]) : new Date();
+
+        // ── Calendar-based filters (Mon–Sun weeks, full calendar months/quarters) ──
+        const getMondayOf = d => {
+          const dt = new Date(d); dt.setHours(0,0,0,0);
+          const day = dt.getDay();
+          dt.setDate(dt.getDate() - (day === 0 ? 6 : day - 1));
+          return dt;
+        };
+        const now = new Date();
+        // This week: Mon–Sun of current calendar week
+        const thisWeekMon = getMondayOf(now);
+        const thisWeekSun = new Date(thisWeekMon); thisWeekSun.setDate(thisWeekMon.getDate()+6); thisWeekSun.setHours(23,59,59,999);
+        // Last week: Mon–Sun of prior calendar week
+        const lastWeekMon = new Date(thisWeekMon); lastWeekMon.setDate(thisWeekMon.getDate()-7);
+        const lastWeekSun = new Date(thisWeekMon); lastWeekSun.setDate(thisWeekMon.getDate()-1); lastWeekSun.setHours(23,59,59,999);
+        // Last month: full prior calendar month
+        const lastMonthStart = new Date(now.getFullYear(), now.getMonth()-1, 1);
+        const lastMonthEnd   = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+        // Last quarter: full prior calendar quarter
+        const curQ = Math.floor(now.getMonth()/3);
+        const lastQStartMonth = curQ === 0 ? 9 : (curQ-1)*3;
+        const lastQStartYear  = curQ === 0 ? now.getFullYear()-1 : now.getFullYear();
+        const lastQStart = new Date(lastQStartYear, lastQStartMonth, 1);
+        const lastQEnd   = new Date(lastQStartYear, lastQStartMonth+3, 0, 23, 59, 59, 999);
+
         const filterWeek = w => {
           const wd = toDate(w);
-          if (callDateFilter==="this_week") {
-            // Monday of the week containing the latest date
-            const ld = new Date(latestDate);
-            const day = ld.getDay();
-            const diff = (day === 0) ? -6 : 1 - day;
-            const monday = new Date(ld); monday.setDate(ld.getDate() + diff);
-            monday.setHours(0,0,0,0);
-            return wd >= monday;
-          }
-          if (callDateFilter==="last_week") {
-            const wkAgo = new Date(latestDate); wkAgo.setDate(wkAgo.getDate()-7);
-            return wd >= wkAgo;
-          }
-          if (callDateFilter==="last_month") {
-            const moAgo = new Date(latestDate); moAgo.setMonth(moAgo.getMonth()-1);
-            return wd >= moAgo;
-          }
-          if (callDateFilter==="last_quarter") {
-            const qAgo = new Date(latestDate); qAgo.setMonth(qAgo.getMonth()-3);
-            return wd >= qAgo;
-          }
+          if (callDateFilter==="this_week")    return wd >= thisWeekMon  && wd <= thisWeekSun;
+          if (callDateFilter==="last_week")    return wd >= lastWeekMon  && wd <= lastWeekSun;
+          if (callDateFilter==="last_month")   return wd >= lastMonthStart && wd <= lastMonthEnd;
+          if (callDateFilter==="last_quarter") return wd >= lastQStart   && wd <= lastQEnd;
           if (callDateFilter==="custom" && callCustomFrom && callCustomTo) {
             return wd >= toDate(callCustomFrom) && wd <= toDate(callCustomTo);
           }
@@ -3124,26 +3132,32 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
         const lastCW  = callWeeks[callWeeks.length-1];
         const prevCW  = callWeeks[callWeeks.length-2];
 
-        // Daily average: calculate actual days in the filtered window
+        // Daily average: exact days in the calendar window
         const dailyDays = (() => {
           if (callWeeks.length === 0) return 7;
           if (callDateFilter === "this_week") {
-            // Days from Monday through the latest known day
-            const ld = new Date(latestDate);
-            const day = ld.getDay();
-            return day === 0 ? 7 : day; // Mon=1..Sat=6, Sun=7
+            // Days from Monday through today (or latest data day, whichever is earlier)
+            const cap = now < latestDate ? now : latestDate;
+            const diff = cap - thisWeekMon;
+            return Math.max(1, Math.floor(diff / (1000*60*60*24)) + 1);
           }
           if (callDateFilter === "last_week")    return 7;
-          if (callDateFilter === "last_month")   return 30;
-          if (callDateFilter === "last_quarter") return 91;
+          if (callDateFilter === "last_month") {
+            // Exact days in the prior month
+            return lastMonthEnd.getDate();
+          }
+          if (callDateFilter === "last_quarter") {
+            const diff = lastQEnd - lastQStart;
+            return Math.round(diff / (1000*60*60*24)) + 1;
+          }
           if (callDateFilter === "custom" && callCustomFrom && callCustomTo) {
             const diff = toDate(callCustomTo) - toDate(callCustomFrom);
             return Math.max(1, Math.round(diff / (1000*60*60*24)) + 1);
           }
-          // "all" — use span from first to last week + 7
+          // "all" — span of all data
           if (callWeeks.length > 0) {
             const diff = toDate(lastCW) - toDate(callWeeks[0]);
-            return Math.max(1, Math.round(diff / (1000*60*60*24)) + 7);
+            return Math.max(1, Math.round(diff / (1000*60*60*24)) + 1);
           }
           return 7;
         })();
@@ -3330,7 +3344,14 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
                   {callSelectedCSM&&<span style={{marginLeft:8,fontSize:12,color:"#FF5000"}}> — {dispName(callSelectedCSM)}</span>}
                   {callSelectedSvc&&<span style={{marginLeft:8,fontSize:12,color:"#FF5000"}}> — {callSelectedSvc}</span>}
                 </div>
-                <div style={{fontSize:11,color:"#808080"}}>{callWeeks.length} day{callWeeks.length!==1?"s":""} · Latest: {lastCW}</div>
+                <div style={{fontSize:11,color:"#808080"}}>{
+                  callDateFilter==="this_week"    ? `This week (${thisWeekMon.toLocaleDateString("en-US",{month:"short",day:"numeric"})} – ${thisWeekSun.toLocaleDateString("en-US",{month:"short",day:"numeric"})})` :
+                  callDateFilter==="last_week"    ? `Last week (${lastWeekMon.toLocaleDateString("en-US",{month:"short",day:"numeric"})} – ${lastWeekSun.toLocaleDateString("en-US",{month:"short",day:"numeric"})})` :
+                  callDateFilter==="last_month"   ? `${lastMonthStart.toLocaleDateString("en-US",{month:"long",year:"numeric"})}` :
+                  callDateFilter==="last_quarter" ? `Q${Math.floor(lastQStart.getMonth()/3)+1} ${lastQStart.getFullYear()} (${lastQStart.toLocaleDateString("en-US",{month:"short",day:"numeric"})} – ${lastQEnd.toLocaleDateString("en-US",{month:"short",day:"numeric"})})` :
+                  callDateFilter==="custom"&&callCustomFrom&&callCustomTo ? `${callCustomFrom} – ${callCustomTo}` :
+                  callWeeks.length>0 ? `${callWeeks[0]} – ${lastCW}` : "All data"
+                }</div>
               </div>
               <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
                 {/* Date filter pills */}
