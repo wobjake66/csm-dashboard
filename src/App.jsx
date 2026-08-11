@@ -6470,7 +6470,7 @@ function PinLock({onUnlock}) {
 export default // ─────────────────────────────────────────────────────────────────────────────
 // MY DASHBOARD — CSM daily briefing view, responds to coach/CSM filter
 // ─────────────────────────────────────────────────────────────────────────────
-function MyDashboard({csms, filterCoach, filterCSM, callData, bobRaw, liveBobDet, q2DomoBoq, domoBoq, q3BobCur, q3Supp, churnAlerts, history, qamc, qass}) {
+function MyDashboard({csms=[], filterCoach, filterCSM, callData={}, bobRaw, liveBobDet, q2DomoBoq=[], domoBoq=[], q3BobCur=[], q3Supp=[], churnAlerts=[], history=[], qamc=[], qass=[]}) {
   const S2 = {
     card: {background:"#fff",borderRadius:12,padding:"20px 24px",boxShadow:"0 1px 4px rgba(41,53,93,.07)",marginBottom:16},
     label: {fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:600,letterSpacing:"0.05em",marginBottom:6},
@@ -6575,7 +6575,7 @@ function MyDashboard({csms, filterCoach, filterCSM, callData, bobRaw, liveBobDet
   const totalChurn = totalMcc+totalBcc;
 
   // ── QA ──
-  const qaData = [...(qamc||[]),...(qass||[])];
+  const qaData = [...(Array.isArray(qamc)?qamc:[]),...(Array.isArray(qass)?qass:[])];
   const filtQa = qaData.filter(q=>csmNames.some(n=>norm(n)===norm(q.name||"")));
   const avgQa  = filtQa.length>0 ? filtQa.reduce((s,q)=>s+(q.score||0),0)/filtQa.length : null;
 
