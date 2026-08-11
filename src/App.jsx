@@ -6468,6 +6468,245 @@ function PinLock({onUnlock}) {
 
 // ── MAIN APP ───────────────────────────────────────────────────────────────
 export default 
+// ═══════════════════════════════════════════════════════════════════════════
+// MY DASHBOARD — self-contained view, responds to coach/CSM filter
+// Only 3 lines above touch the rest of the app. Delete this + those 3 to revert.
+// ═══════════════════════════════════════════════════════════════════════════
+function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={}, churnAlerts=[], qamc=[], qass=[]}) {
+
+  const pad = n => String(n).padStart(2,"0");
+  const now = new Date();
+  const todayStr = now.getFullYear()+"-"+pad(now.getMonth()+1)+"-"+pad(now.getDate());
+  const tmrDate  = new Date(now); tmrDate.setDate(now.getDate()+1);
+  const tmrStr   = tmrDate.getFullYear()+"-"+pad(tmrDate.getMonth()+1)+"-"+pad(tmrDate.getDate());
+  const getMon   = d => { const dt=new Date(d); dt.setHours(0,0,0,0); const dy=dt.getDay(); dt.setDate(dt.getDate()-(dy===0?6:dy-1)); return dt; };
+  const weekMon  = getMon(now);
+  const weekSun  = new Date(weekMon); weekSun.setDate(weekMon.getDate()+6); weekSun.setHours(23,59,59,999);
+  const inWeek   = d => { const dt=new Date(d+"T00:00:00"); return dt>=weekMon&&dt<=weekSun; };
+  const pp       = p => p!=null?(p*100).toFixed(1)+"%":"--";
+  const cc       = r => r==null?"#808080":r>=0.85?"#16a34a":r>=0.70?"#d97706":"#dc2626";
+  const nsc      = r => r==null?"#808080":r<=0.05?"#16a34a":r<=0.10?"#d97706":"#dc2626";
+  const fd       = n => "$"+Number(n||0).toLocaleString("en-US",{minimumFractionDigits:0,maximumFractionDigits:0});
+
+  const coachName    = filterCoach?(COACHES.find(c=>c.e===filterCoach)||{}).n||"Team":"";
+  const contextLabel = filterCSM?dispName(filterCSM):filterCoach?coachName+"'s Team":"All Teams";
+  const contextIcon  = filterCSM?"👤":filterCoach?"👥":"🏢";
+
+  const csmNames   = csms.map(c=>c.name);
+  const resolveKey = n => callData[n]?n:Object.keys(callData).find(k=>norm(k)===n)||n;
+
+  const aggCalls = (dayTest) => {
+    let completed=0,noShow=0,cancelled=0,scheduled=0;
+    csmNames.forEach(n=>{
+      Object.entries(callData[resolveKey(n)]||{}).forEach(([day,svcs])=>{
+        if(!dayTest(day)) return;
+        Object.values(svcs).forEach(d=>{
+          completed+=(d.completed||0); noShow+=(d.noShow||0);
+          cancelled+=(d.cancelled||0); scheduled+=(d.scheduled||0);
+        });
+      });
+    });
+    const resolved=completed+noShow;
+    return {completed,noShow,cancelled,scheduled,
+      total:completed+noShow+cancelled+scheduled,resolved,
+      compRate:resolved>0?completed/resolved:null,
+      nsRate:resolved>0?noShow/resolved:null};
+  };
+
+  const today = aggCalls(d=>d===todayStr);
+  const tmrw  = aggCalls(d=>d===tmrStr);
+  const week  = aggCalls(inWeek);
+
+  const csmToday = csmNames.map(n=>{
+    const key=resolveKey(n);
+    const dayData=(callData[key]||{})[todayStr]||{};
+    let s=0,c=0,ns=0,can=0;
+    Object.values(dayData).forEach(d=>{s+=d.scheduled||0;c+=d.completed||0;ns+=d.noShow||0;can+=d.cancelled||0;});
+    return {name:n,scheduled:s,completed:c,noShow:ns,cancelled:can,total:s+c+ns+can};
+  }).filter(r=>r.total>0).sort((a,b)=>b.total-a.total);
+
+  const cancelAlerts=[];
+  csmNames.forEach(n=>{
+    const c=csms.find(x=>x.name===n); if(!c) return;
+    (c.bobMch||[]).forEach(acct=>cancelAlerts.push({csm:dispName(n),acct,type:"MC"}));
+    (c.bobBch||[]).forEach(acct=>cancelAlerts.push({csm:dispName(n),acct,type:"BC"}));
+  });
+  (Array.isArray(churnAlerts)?churnAlerts:[]).forEach(a=>{
+    const matched=csms.find(c=>norm(c.name)===norm(a.csm||""));
+    if(matched) cancelAlerts.push({csm:dispName(matched.name),acct:a.acct||a.account||"",type:"Alert",mrr:a.mrr});
+  });
+
+  const cadTotal = csms.reduce((s,c)=>s+(c.cadCount||0),0);
+  const cadDone  = csms.reduce((s,c)=>s+Math.round((c.cadPct||0)*(c.cadCount||0)),0);
+  const cadPct   = cadTotal>0?cadDone/cadTotal:null;
+  const overdue  = csms.reduce((s,c)=>s+(c.overdueCount||0),0);
+  const flagged  = csms.reduce((s,c)=>s+(c.skippedCount||0),0);
+  const totalAccts = csms.reduce((s,c)=>s+(c.accts?.length||0),0);
+  const totalMcc   = csms.reduce((s,c)=>s+(c.bobMcc||0),0);
+  const totalBcc   = csms.reduce((s,c)=>s+(c.bobBcc||0),0);
+
+  const card = {background:"#fff",borderRadius:12,padding:"20px 24px",boxShadow:"0 1px 4px rgba(41,53,93,.07)",marginBottom:16};
+  const lbl  = {fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:600,letterSpacing:"0.05em",marginBottom:8,display:"block"};
+
+  const StatTile = ({label,value,sub,col="#29355D",bar=null}) => (
+    <div style={{background:"#fff",borderRadius:12,padding:"14px 18px",boxShadow:"0 1px 4px rgba(41,53,93,.07)",borderTop:"3px solid "+col}}>
+      <div style={lbl}>{label}</div>
+      <div style={{fontSize:24,fontWeight:700,color:col,lineHeight:1,marginBottom:4}}>{value}</div>
+      {bar!=null&&<div style={{height:5,background:"rgba(0,0,0,.08)",borderRadius:3,overflow:"hidden",margin:"6px 0"}}><div style={{width:Math.min(bar*100,100).toFixed(1)+"%",height:"100%",background:col,borderRadius:3}}/></div>}
+      {sub&&<div style={{fontSize:11,color:"#808080",marginTop:2}}>{sub}</div>}
+    </div>
+  );
+
+  return (
+    <div style={{maxWidth:1200,margin:"0 auto"}}>
+
+      {/* Header */}
+      <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:20,flexWrap:"wrap",gap:8}}>
+        <div>
+          <div style={{fontSize:22,fontWeight:700,color:"#29355D"}}>{contextIcon} {contextLabel}</div>
+          <div style={{fontSize:12,color:"#808080",marginTop:3}}>
+            {csms.length} CSM{csms.length!==1?"s":""} · {totalAccts} accounts · {now.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric",year:"numeric"})}
+          </div>
+        </div>
+        {!filterCoach&&!filterCSM&&(
+          <div style={{fontSize:12,color:"#808080",background:"rgba(41,53,93,.05)",borderRadius:8,padding:"8px 14px",border:"0.5px solid rgba(41,53,93,.1)"}}>
+            💡 Select a coach or CSM from the filters above to see their individual view
+          </div>
+        )}
+      </div>
+
+      {/* Today tiles */}
+      <div style={{...{},marginBottom:8}}><span style={lbl}>📅 Today — {now.toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"})}</span></div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(5,minmax(0,1fr))",gap:12,marginBottom:20}}>
+        <StatTile label="On Calendar Today"  value={today.total}      col="#29355D" sub={today.total===0?"no calls yet":"total booked"}/>
+        <StatTile label="Scheduled"          value={today.scheduled}  col="#5378FC" sub="still upcoming"/>
+        <StatTile label="Completed"          value={today.completed}  col="#16a34a" sub={today.resolved>0?(today.compRate*100).toFixed(0)+"% completion":""} bar={today.compRate}/>
+        <StatTile label="No Shows"           value={today.noShow}     col={today.noShow>0?"#dc2626":"#808080"} sub={today.noShow>0?"follow up needed":""}/>
+        <StatTile label="Tomorrow Scheduled" value={tmrw.scheduled}   col="#6366f1" sub="on deck"/>
+      </div>
+
+      {/* This week + Cadence + BoB */}
+      <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr",gap:12,marginBottom:16}}>
+
+        <div style={card}>
+          <span style={lbl}>📞 This Week&apos;s Calls</span>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:14}}>
+            {[{l:"Total Booked",v:week.total,c:"#29355D"},{l:"Completed",v:week.completed,c:"#16a34a"},
+              {l:"No Shows",v:week.noShow,c:week.nsRate!=null&&week.nsRate>0.08?"#dc2626":"#808080"},
+              {l:"Cancelled",v:week.cancelled,c:week.cancelled>0?"#d97706":"#808080"}].map(m=>(
+              <div key={m.l}>
+                <div style={{fontSize:10,color:"#808080",fontWeight:500,textTransform:"uppercase",marginBottom:4}}>{m.l}</div>
+                <div style={{fontSize:22,fontWeight:700,color:m.c}}>{m.v}</div>
+              </div>
+            ))}
+          </div>
+          {week.compRate!=null?(
+            <div>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                <span style={{fontSize:11,color:"#808080"}}>Completion rate</span>
+                <span style={{fontSize:11,fontWeight:700,color:cc(week.compRate)}}>{pp(week.compRate)}</span>
+              </div>
+              <div style={{height:6,background:"rgba(0,0,0,.08)",borderRadius:3,overflow:"hidden"}}>
+                <div style={{width:(week.compRate*100).toFixed(1)+"%",height:"100%",background:cc(week.compRate),borderRadius:3}}/>
+              </div>
+              <div style={{display:"flex",justifyContent:"space-between",marginTop:6}}>
+                <span style={{fontSize:10,color:"#808080"}}>No-show: <span style={{color:nsc(week.nsRate),fontWeight:600}}>{pp(week.nsRate)}</span></span>
+                <span style={{fontSize:10,color:"#808080"}}>Goal: &lt;8% no-show · &gt;85% completion</span>
+              </div>
+            </div>
+          ):<div style={{fontSize:12,color:"#808080",textAlign:"center",padding:"12px 0"}}>No call data for this week yet</div>}
+        </div>
+
+        <div style={card}>
+          <span style={lbl}>🔄 Cadence Coverage</span>
+          <div style={{fontSize:28,fontWeight:700,color:cadPct!=null?(cadPct>=0.9?"#16a34a":cadPct>=0.7?"#d97706":"#dc2626"):"#808080",marginTop:4}}>{cadPct!=null?pp(cadPct):"--"}</div>
+          <div style={{fontSize:11,color:"#808080",marginTop:4,marginBottom:10}}>{cadTotal>0?`${cadDone} of ${cadTotal} steps`:"No cadence data"}</div>
+          {cadTotal>0&&<div style={{height:5,background:"rgba(0,0,0,.08)",borderRadius:3,overflow:"hidden",marginBottom:12}}><div style={{width:Math.min((cadPct||0)*100,100).toFixed(1)+"%",height:"100%",background:cadPct>=0.9?"#16a34a":cadPct>=0.7?"#d97706":"#dc2626",borderRadius:3}}/></div>}
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {overdue>0&&<span style={{fontSize:10,fontWeight:600,padding:"2px 8px",borderRadius:20,background:"#fee2e2",color:"#991b1b"}}>{overdue} overdue</span>}
+            {flagged>0&&<span style={{fontSize:10,fontWeight:600,padding:"2px 8px",borderRadius:20,background:"rgba(139,0,0,.1)",color:"#7f1d1d"}}>🚩 {flagged} flagged</span>}
+            {overdue===0&&flagged===0&&cadTotal>0&&<span style={{fontSize:10,fontWeight:600,padding:"2px 8px",borderRadius:20,background:"#dcfce7",color:"#166534"}}>✓ All clear</span>}
+          </div>
+        </div>
+
+        <div style={card}>
+          <span style={lbl}>📋 Book of Business</span>
+          <div style={{fontSize:28,fontWeight:700,color:"#29355D",marginTop:4}}>{totalAccts}</div>
+          <div style={{fontSize:11,color:"#808080",marginTop:4,marginBottom:10}}>accounts assigned{csms.length>1?` · ${(totalAccts/csms.length).toFixed(1)} avg/CSM`:""}</div>
+          {(totalMcc+totalBcc)>0?(
+            <div style={{padding:"10px 12px",background:"#fef2f2",borderRadius:8,border:"0.5px solid rgba(220,38,38,.2)"}}>
+              <div style={{fontSize:11,fontWeight:700,color:"#dc2626",marginBottom:4}}>⚠ Churned this period</div>
+              {totalMcc>0&&<div style={{fontSize:11,color:"#808080"}}>{totalMcc} MC account{totalMcc!==1?"s":""}</div>}
+              {totalBcc>0&&<div style={{fontSize:11,color:"#808080"}}>{totalBcc} BC account{totalBcc!==1?"s":""}</div>}
+            </div>
+          ):<div style={{fontSize:11,color:"#16a34a",fontWeight:500}}>✓ No cancels on record</div>}
+        </div>
+      </div>
+
+      {/* Cancel alerts */}
+      {cancelAlerts.length>0&&(
+        <div style={{...card,borderLeft:"4px solid #dc2626"}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+            <span style={{fontSize:16}}>🚨</span>
+            <span style={lbl}>Account Cancels — Action Required</span>
+            <span style={{marginLeft:"auto",fontSize:11,color:"#dc2626",fontWeight:600,background:"#fee2e2",padding:"2px 10px",borderRadius:20}}>{cancelAlerts.length} account{cancelAlerts.length!==1?"s":""}</span>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {cancelAlerts.slice(0,25).map((a,i)=>(
+              <div key={i} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",background:"#fef2f2",borderRadius:8,border:"0.5px solid rgba(220,38,38,.12)"}}>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:13,fontWeight:600,color:"#29355D"}}>{a.acct||"Unknown account"}</div>
+                  {!filterCSM&&<div style={{fontSize:11,color:"#808080",marginTop:2}}>Owned by {a.csm}</div>}
+                </div>
+                <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                  {a.mrr&&<span style={{fontSize:11,color:"#808080"}}>{fd(a.mrr)}/mo</span>}
+                  <span style={{fontSize:10,fontWeight:600,padding:"2px 8px",borderRadius:20,background:"#fee2e2",color:"#991b1b"}}>{a.type}</span>
+                </div>
+              </div>
+            ))}
+            {cancelAlerts.length>25&&<div style={{fontSize:11,color:"#808080",textAlign:"center",padding:"4px 0"}}>+{cancelAlerts.length-25} more</div>}
+          </div>
+        </div>
+      )}
+
+      {/* Today by CSM table (team/org only) */}
+      {!filterCSM&&csmToday.length>0&&(
+        <div style={card}>
+          <span style={lbl}>📋 Today&apos;s Activity by CSM</span>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+            <thead><tr>
+              {[["CSM","left","#808080"],["Scheduled","right","#5378FC"],["Completed","right","#16a34a"],["No Shows","right","#dc2626"],["Cancelled","right","#d97706"]].map(([h,a,c])=>(
+                <th key={h} style={{padding:"0 8px 8px 0",textAlign:a,fontSize:10,textTransform:"uppercase",color:c,fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>{h}</th>
+              ))}
+            </tr></thead>
+            <tbody>
+              {csmToday.map(r=>(
+                <tr key={r.name}>
+                  <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",fontWeight:500,color:"#29355D"}}>{dispName(r.name)}</td>
+                  <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:r.scheduled>0?"#5378FC":"#ccc",fontWeight:r.scheduled>0?600:400}}>{r.scheduled||"—"}</td>
+                  <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:r.completed>0?"#16a34a":"#ccc",fontWeight:r.completed>0?600:400}}>{r.completed||"—"}</td>
+                  <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:r.noShow>0?"#dc2626":"#ccc"}}>{r.noShow||"—"}</td>
+                  <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:r.cancelled>0?"#d97706":"#ccc"}}>{r.cancelled||"—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Empty state */}
+      {today.total===0&&csmToday.length===0&&cancelAlerts.length===0&&(
+        <div style={{...card,textAlign:"center",padding:"40px 24px",color:"#808080"}}>
+          <div style={{fontSize:32,marginBottom:12}}>📭</div>
+          <div style={{fontSize:14,fontWeight:600,color:"#29355D",marginBottom:6}}>No activity data for today yet</div>
+          <div style={{fontSize:12}}>Check back once calls have been uploaded or scheduled</div>
+        </div>
+      )}
+    </div>
+  );
+}
+// ═══════════════════════════════════════════════════════════════════════════
+
 function App() {
   const [unlocked, setUnlocked] = useState(false);
   const [userSession, setUserSession] = useState({role:"master",name:""});
@@ -6864,7 +7103,7 @@ My question: ${aiCustom}`,
     setUserSession(user);
     // Check for deep link tab param (e.g. ?tab=digest from email)
     const _urlTab = new URLSearchParams(window.location.search).get("tab");
-    const _validTabs = ["coaching","overview","digest","revenue","bob","leaderboard","trends"];
+    const _validTabs = ["coaching","overview","digest","revenue","bob","leaderboard","trends","mydash"];
     if (_urlTab && _validTabs.includes(_urlTab)) setTab(_urlTab);
     else setTab("coaching");
     // Auto-filter to this CSM if role=csm
@@ -6919,10 +7158,10 @@ My question: ${aiCustom}`,
           </div>
         </div>
         <div style={{display:"flex",alignItems:"stretch",padding:"0 24px"}}>
-          {["coaching","overview","digest","revenue","bob","leaderboard","trends"].filter(t=>!isCsmView||(t!=="leaderboard"&&t!=="trends")).map(t=>(
+          {["coaching","overview","digest","revenue","bob","leaderboard","trends","mydash"].filter(t=>!isCsmView||(t!=="leaderboard"&&t!=="trends")).map(t=>(
             <button key={t} onClick={()=>setTab(t)}
               style={{padding:"10px 18px",fontSize:13,fontWeight:500,color:tab===t?"#fff":"rgba(255,255,255,.55)",background:"transparent",border:"none",cursor:"pointer",borderBottom:tab===t?"3px solid #FF5000":"3px solid transparent",whiteSpace:"nowrap"}}>
-              {t==="coaching"?"Coaching":t==="digest"?"📋 Daily Digest":t==="trends"?"📈 Trends":t==="revenue"?"💰 Revenue":t==="bob"?"📋 Book of Business":t.charAt(0).toUpperCase()+t.slice(1)}
+              {t==="mydash"?"🏠 My Dashboard":t==="coaching"?"Coaching":t==="digest"?"📋 Daily Digest":t==="trends"?"📈 Trends":t==="revenue"?"💰 Revenue":t==="bob"?"📋 Book of Business":t.charAt(0).toUpperCase()+t.slice(1)}
             </button>
           ))}
         </div>
@@ -6991,6 +7230,7 @@ My question: ${aiCustom}`,
           {tab==="revenue"&&<RevenueView rawRev={rawRev} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches}/>}
           {tab==="bob"&&<BobView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} churnAlerts={churnAlerts} onSelectCSM={selectCSMFn} liveBobDet={liveBobDet} bobAdj={bobAdj} q3BobCur={q3BobCur} domoBoq={domoBoq} q3Supp={q3Supp} q2DomoBoq={q2DomoBoq}/>}
           {tab==="trends"&&<TrendsView history={history} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} qamc={qamc} qass={qass}/>}
+          {tab==="mydash"&&<MyDashboard csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} churnAlerts={churnAlerts} qamc={qamc||[]} qass={qass||[]}/>}
         </div>
       )}
 
