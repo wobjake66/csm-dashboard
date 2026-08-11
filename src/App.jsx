@@ -5652,11 +5652,6 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
             <div style={{fontSize:22,fontWeight:600,color:"#6366f1",lineHeight:1,marginBottom:4}}>{totalAcctsQ2d}</div>
             <div style={{fontSize:10,color:"#808080"}}>{avgAcctsQ2d} avg / CSM</div>
           </div>
-          <div style={{background:"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",borderTop:"3px solid #6366f1"}}>
-            <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Accounts Assigned</div>
-            <div style={{fontSize:22,fontWeight:600,color:"#6366f1",lineHeight:1,marginBottom:4}}>{totalAcctsDomo}</div>
-            <div style={{fontSize:10,color:"#808080"}}>{avgAcctsDomo} avg / CSM</div>
-          </div>
           {tileBtn("Increases",fmt$(totalIncrease),q2dData.reduce((s,c)=>s+c.increaseCount,0)+" accounts","#16a34a","increase")}
           {tileBtn("Decreases",fmt$(totalDecrease),q2dData.reduce((s,c)=>s+c.decreaseCount,0)+" accounts","#dc2626","decrease")}
           {tileBtn("Cancelled",fmt$(totalCancelled),q2dData.reduce((s,c)=>s+c.cancelledCount,0)+" accounts","#d97706","cancelled")}
