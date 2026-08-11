@@ -3199,7 +3199,7 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
               });
             });
           });
-          acc.total = acc.completed + acc.noShow + acc.cancelled;
+          acc.total = acc.completed + acc.noShow + acc.cancelled + acc.scheduled;
           acc.rate  = acc.completed+acc.noShow>0 ? acc.noShow/(acc.completed+acc.noShow) : 0;
           return acc;
         };
