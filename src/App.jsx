@@ -6896,32 +6896,60 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
       {/* Cancel/decrease alerts */}
       {cancelAlerts.length>0&&(
         <div style={{...card,borderLeft:"4px solid #dc2626"}}>
-          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
             <span style={{fontSize:16}}>🚨</span>
-            <span style={lbl}>Account Cancels &amp; Decreases</span>
+            <span style={lbl}>Account Increases, Decreases, &amp; Cancels</span>
             <span style={{marginLeft:"auto",fontSize:11,color:"#991b1b",fontWeight:600,background:"rgba(220,38,38,.1)",padding:"2px 10px",borderRadius:20}}>{cancelAlerts.length} account{cancelAlerts.length!==1?"s":""}</span>
           </div>
-          <div style={{display:"flex",flexDirection:"column",gap:8}}>
-            {cancelAlerts.slice(0,30).map((a,i)=>{
-              const isInc = a.type==="Increase";
-              const isDec = a.type==="Decrease";
-              const isCan = a.type==="Cancel"||a.type==="MC"||a.type==="BC"||a.type==="Alert";
-              const bg    = isInc?"rgba(22,163,74,.06)":isDec?"rgba(217,119,6,.06)":"rgba(220,38,38,.06)";
-              const bdr   = isInc?"rgba(22,163,74,.25)":isDec?"rgba(217,119,6,.25)":"rgba(220,38,38,.2)";
-              const badgeBg  = isInc?"rgba(22,163,74,.12)":isDec?"rgba(217,119,6,.12)":"rgba(220,38,38,.12)";
-              const badgeCol = isInc?"#15803d":isDec?"#b45309":"#991b1b";
-              return (
-                <div key={i} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",background:bg,borderRadius:8,border:"0.5px solid "+bdr}}>
-                  <div style={{flex:1}}>
-                    <div style={{fontSize:13,fontWeight:600,color:"#29355D"}}>{a.acct||"Unknown account"}</div>
-                    <div style={{fontSize:11,color:"#808080",marginTop:2}}>{!filterCSM&&`${dispName(a.csm)} · `}{a.boq!=null&&`BOQ: ${fk(a.boq)}`}{a.cur!=null&&a.cur>0&&` → ${fk(a.cur)}`}{a.mrr&&`${fk(a.mrr)}/mo`}</div>
-                  </div>
-                  <span style={{fontSize:10,fontWeight:600,padding:"2px 8px",borderRadius:20,background:badgeBg,color:badgeCol}}>{a.type}</span>
-                </div>
-              );
-            })}
-            {cancelAlerts.length>30&&<div style={{fontSize:11,color:"#808080",textAlign:"center"}}>+{cancelAlerts.length-30} more</div>}
-          </div>
+          {(()=>{
+            const [alertFilter, setAlertFilter] = React.useState("all");
+            const filtered = alertFilter==="all" ? cancelAlerts :
+              cancelAlerts.filter(a => {
+                if (alertFilter==="increase") return a.type==="Increase";
+                if (alertFilter==="decrease") return a.type==="Decrease";
+                if (alertFilter==="cancel")   return a.type==="Cancel"||a.type==="MC"||a.type==="BC"||a.type==="Alert";
+                return true;
+              });
+            return (<>
+              <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
+                {[["all","All"],["increase","Increases"],["decrease","Decreases"],["cancel","Cancels"]].map(([v,l])=>(
+                  <button key={v} onClick={()=>setAlertFilter(v)}
+                    style={{padding:"3px 12px",borderRadius:20,border:"0.5px solid "+(
+                      v==="increase"?"rgba(22,163,74,.4)":v==="decrease"?"rgba(217,119,6,.4)":v==="cancel"?"rgba(220,38,38,.4)":"rgba(41,53,93,.2)"
+                    ),background:alertFilter===v?(
+                      v==="increase"?"rgba(22,163,74,.12)":v==="decrease"?"rgba(217,119,6,.12)":v==="cancel"?"rgba(220,38,38,.12)":"#29355D"
+                    ):"#fff",
+                    color:alertFilter===v?(
+                      v==="increase"?"#15803d":v==="decrease"?"#b45309":v==="cancel"?"#991b1b":"#fff"
+                    ):(v==="increase"?"#15803d":v==="decrease"?"#b45309":v==="cancel"?"#991b1b":"#808080"),
+                    fontSize:11,fontWeight:alertFilter===v?600:400,cursor:"pointer"}}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                {filtered.slice(0,30).map((a,i)=>{
+                  const isInc = a.type==="Increase";
+                  const isDec = a.type==="Decrease";
+                  const bg    = isInc?"rgba(22,163,74,.06)":isDec?"rgba(217,119,6,.06)":"rgba(220,38,38,.06)";
+                  const bdr   = isInc?"rgba(22,163,74,.25)":isDec?"rgba(217,119,6,.25)":"rgba(220,38,38,.2)";
+                  const badgeBg  = isInc?"rgba(22,163,74,.12)":isDec?"rgba(217,119,6,.12)":"rgba(220,38,38,.12)";
+                  const badgeCol = isInc?"#15803d":isDec?"#b45309":"#991b1b";
+                  return (
+                    <div key={i} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",background:bg,borderRadius:8,border:"0.5px solid "+bdr}}>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:13,fontWeight:600,color:"#29355D"}}>{a.acct||"Unknown account"}</div>
+                        <div style={{fontSize:11,color:"#808080",marginTop:2}}>{!filterCSM&&`${dispName(a.csm)} · `}{a.boq!=null&&`BOQ: ${fk(a.boq)}`}{a.cur!=null&&a.cur>0&&` → ${fk(a.cur)}`}{a.mrr&&`${fk(a.mrr)}/mo`}</div>
+                      </div>
+                      <span style={{fontSize:10,fontWeight:600,padding:"2px 8px",borderRadius:20,background:badgeBg,color:badgeCol}}>{a.type}</span>
+                    </div>
+                  );
+                })}
+                {filtered.length>30&&<div style={{fontSize:11,color:"#808080",textAlign:"center"}}>+{filtered.length-30} more</div>}
+                {filtered.length===0&&<div style={{fontSize:12,color:"#808080",textAlign:"center",padding:"8px 0"}}>No {alertFilter} accounts</div>}
+              </div>
+            </>);
+          })()}
         </div>
       )}
 
