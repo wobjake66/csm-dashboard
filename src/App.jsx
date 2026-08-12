@@ -5902,6 +5902,10 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
       const acct = String(r["Account Name"]||"").trim();
       const boq  = pf(r["Beginning of Quarter"]);
       const net  = pf(r["MTD Net Billing"]);
+      if (net !== 0 && Object.keys(eidMap).length < 5) {
+        const raw = r["MTD Net Billing"];
+        console.log("[raw net]", JSON.stringify(raw), "chars:", [...String(raw)].map(c=>c.charCodeAt(0)), "parsed:", net);
+      }
       const csmName = norm(lfSwap(csmRaw)) || lfSwap(csmRaw);
       if (!eidMap[eid]) eidMap[eid] = {eid, csm:csmName, acct, boq:0, net:0};
       eidMap[eid].boq += boq;
