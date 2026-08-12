@@ -5,7 +5,7 @@ const imgNeedsLove   = "https://raw.githubusercontent.com/wobjake66/csm-dashboar
 const imgLegend      = "https://raw.githubusercontent.com/wobjake66/csm-dashboard/main/legend_status.png";
 import * as XLSX from "xlsx";
 
-const PIN = "thryv2025";
+const PIN = "thryv2026";
 const PIN_KEY  = "csm_pin_v1";
 const FONT_KEY = "csm_font_v1";
 
@@ -5920,6 +5920,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
     });
 
     const orphanCount = 0; // no orphans with single-source
+    console.log("[renderDomoBoB] allRows:", allRows.length, "totalBoq:", Object.values(boqMap).reduce((s,b)=>s+b.boq,0).toFixed(0), "totalNet:", Object.values(boqMap).reduce((s,b)=>s+b.net,0).toFixed(0));
 
     // ── Scope by coach/manager/CSM filters from the top of the page ──────────
     const scopedRows = allRows.filter(r => {
