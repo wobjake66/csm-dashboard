@@ -5852,7 +5852,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
   // bob_q3_supplemental, joined by Enterprise ID and summed together. CSM
   // attribution always comes from the Domo BOQ file, never from the SF files.
   const renderDomoBoB = () => {
-    const pf = v => { const s=String(v||"0").trim(); const neg=s.startsWith("(")&&s.endsWith(")"); const x=parseFloat(s.replace(/[$,%()]/g,"")); return isNaN(x)?0:(neg?-x:x); };
+    const pf = v => { let s=String(v||"0").trim().replace(/\u2212/g,"-").replace(/\u2013/g,"-"); const neg=s.startsWith("(")&&s.endsWith(")"); s=s.replace(/[$,%()]/g,""); const x=parseFloat(s); return isNaN(x)?0:(neg?-x:x); };
     const getCol = (row, ...names) => {
       for (const n of names) {
         const k = Object.keys(row).find(k => k.toLowerCase().replace(/[^a-z]/g,"") === n.toLowerCase().replace(/[^a-z]/g,""));
@@ -5890,6 +5890,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
       const acct = String(getCol(r,"Account Name")||"").trim();
       const boq  = pf(getCol(r,"Beginning of Quarter"));
       const net  = pf(getCol(r,"MTD Net Billing","Net Billing"));
+      if (Object.keys(eidMap).length < 3) console.log("[domoBoB row]", csmRaw, eid, "net raw:", getCol(r,"MTD Net Billing","Net Billing"), "net parsed:", net);
       const csmName = norm(lfSwap(csmRaw)) || lfSwap(csmRaw);
       if (!eidMap[eid]) eidMap[eid] = {eid, csm:csmName, acct, boq:0, net:0};
       eidMap[eid].boq += boq;
