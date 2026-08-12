@@ -14,6 +14,8 @@ const CSV_EMAIL   = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGw
 const CSV_CAD     = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=1973544046&single=true&output=csv";
 const CSV_DUE     = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=341836664&single=true&output=csv";
 const CSV_ONTIME  = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=459845057&single=true&output=csv";
+const CSV_CER_ASSIGNED  = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=35918390&single=true&output=csv";
+const CSV_CER_COMPLETED = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=971524149&single=true&output=csv";
 const CSV_CADENCE_FULL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=238173739&single=true&output=csv";
 const CSV_SKIPPED = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=1238903633&single=true&output=csv"; // prior-day skipped cadences
 const CSV_HISTORY = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=162960918&single=true&output=csv";
@@ -6468,7 +6470,7 @@ function PinLock({onUnlock}) {
 // MY DASHBOARD — self-contained. To revert: remove this block + 3 lines below.
 // ═══════════════════════════════════════════════════════════════════════════
 function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
-  churnAlerts=[], qamc=[], qass=[], domoBoq=[], q3BobCur=[], q3Supp=[], rawRev=[], cadenceFull=[], onNavigate=()=>{}, onSetTrendsTab=()=>{}, onSetBobTab=()=>{}}) {
+  churnAlerts=[], qamc=[], qass=[], domoBoq=[], q3BobCur=[], q3Supp=[], rawRev=[], cadenceFull=[], onNavigate=()=>{}, onSetTrendsTab=()=>{}, onSetBobTab=()=>{}, cerAssigned=[], cerCompleted=[]}) {
   const [dashDateFilter, setDashDateFilter] = React.useState("today");
   const [dashCustomFrom, setDashCustomFrom] = React.useState("");
   const [dashCustomTo,   setDashCustomTo]   = React.useState("");
@@ -6589,6 +6591,38 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
   const sfD=parseRev(q3BobCur), supD=parseRev(q3Supp);
   // Build a set of all normalized name variants for the filtered CSMs
   const csmNorms=new Set(csmNames.flatMap(n=>[norm(n),n.toLowerCase()].filter(Boolean)));
+
+  // ── CER processing — Q3 calendar quarter (Jul 1 – Sep 30) ──────────────────
+  const cerQStart = new Date(now.getFullYear(), 6, 1);   // Jul 1
+  const cerQEnd   = new Date(now.getFullYear(), 8, 30, 23, 59, 59); // Sep 30
+  const inCerQ    = d => d instanceof Date && !isNaN(d) && d>=cerQStart && d<=cerQEnd;
+  const parseDate = s => { if(!s) return null; const d=new Date(s); return isNaN(d)?null:d; };
+  // Normalize coach name: strip spaces, lowercase
+  const normCoach = n => String(n||"").replace(/\s/g,"").toLowerCase();
+  const coachKeys = filterCoach ? new Set([normCoach(COACHES.find(c=>c.e===filterCoach)?.n||"")]) : null;
+  const csmNameSet = new Set(csmNames.map(n=>norm(n)));
+
+  const filterCER = (rows, dateField) => rows.filter(r => {
+    const d = parseDate(r[dateField]||r["Form Start Date"]||r["Form End Date"]||"");
+    if (!inCerQ(d)) return false;
+    // Match by CSM owner first
+    const owner = norm(String(r["Client Engagement Roadmap: Owner Name"]||r["Owner Name"]||"").trim());
+    if (owner && csmNameSet.has(owner)) return true;
+    // Fall back to coach name match
+    const coach = normCoach(r["CSM Coach Name"]||r["Coach"]||"");
+    if (coachKeys && coachKeys.has(coach)) return true;
+    if (!filterCoach && !filterCSM) return true; // org view: include all
+    return false;
+  });
+
+  const cerAssignedQ  = filterCER(cerAssigned,  "Form Start Date");
+  const cerCompletedQ = filterCER(cerCompleted, "Form End Date");
+
+  // Status breakdown from assigned rows (has full status field)
+  const cerInProgress = cerAssignedQ.filter(r=>r["Status"]==="In Progress").length;
+  const cerNew        = cerAssignedQ.filter(r=>r["Status"]==="New").length;
+  const cerOnHold     = cerAssignedQ.filter(r=>r["Status"]==="On Hold").length;
+  const cerCompRate   = cerAssignedQ.length>0 ? cerCompletedQ.length/cerAssignedQ.length : null;
 
   // ── Parse cadenceFull rows (needs csmNorms + dashDayTest, both defined above) ──
   const parseCadRow = r => {
@@ -6793,6 +6827,57 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
       </div>
 
 
+
+      {/* CER card */}
+      <div style={card}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <span style={{fontSize:13}}>📋</span>
+            <span style={lbl}>Client Engagement Roadmaps — Q3 {now.getFullYear()}</span>
+          </div>
+          <span style={{fontSize:11,color:"var(--text-secondary)",background:"var(--surface-1)",border:"0.5px solid var(--border)",padding:"2px 10px",borderRadius:20}}>
+            Jul 1 – Sep 30
+          </span>
+        </div>
+        {cerAssignedQ.length>0||cerCompletedQ.length>0?(
+          <>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(4,minmax(0,1fr))",gap:12,marginBottom:14}}>
+              <div style={{background:"var(--surface-1)",borderRadius:8,padding:"14px 16px"}}>
+                <div style={{fontSize:10,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:6}}>Assigned</div>
+                <div style={{fontSize:26,fontWeight:500,color:"var(--text-primary)",lineHeight:1,marginBottom:4}}>{cerAssignedQ.length}</div>
+                <div style={{fontSize:11,color:"var(--text-secondary)"}}>form start in Q3</div>
+              </div>
+              <div style={{background:"var(--surface-1)",borderRadius:8,padding:"14px 16px"}}>
+                <div style={{fontSize:10,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:6}}>Completed</div>
+                <div style={{fontSize:26,fontWeight:500,color:"#16a34a",lineHeight:1,marginBottom:4}}>{cerCompletedQ.length}</div>
+                <div style={{fontSize:11,color:"var(--text-secondary)"}}>form end in Q3</div>
+              </div>
+              <div style={{background:"var(--surface-1)",borderRadius:8,padding:"14px 16px"}}>
+                <div style={{fontSize:10,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:6}}>Completion rate</div>
+                <div style={{fontSize:26,fontWeight:500,color:cerCompRate!=null?(cerCompRate>=0.8?"#16a34a":cerCompRate>=0.6?"#d97706":"#dc2626"):"#808080",lineHeight:1,marginBottom:6}}>
+                  {cerCompRate!=null?pp(cerCompRate):"--"}
+                </div>
+                {cerCompRate!=null&&<div style={{height:5,background:"rgba(0,0,0,.08)",borderRadius:3,overflow:"hidden"}}>
+                  <div style={{width:(cerCompRate*100).toFixed(1)+"%",height:"100%",background:cerCompRate>=0.8?"#16a34a":cerCompRate>=0.6?"#d97706":"#dc2626",borderRadius:3}}/>
+                </div>}
+              </div>
+              <div style={{background:"var(--surface-1)",borderRadius:8,padding:"14px 16px"}}>
+                <div style={{fontSize:10,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:6}}>In progress</div>
+                <div style={{fontSize:26,fontWeight:500,color:"#d97706",lineHeight:1,marginBottom:4}}>{cerInProgress+cerNew+cerOnHold}</div>
+                <div style={{fontSize:11,color:"var(--text-secondary)"}}>open + on hold</div>
+              </div>
+            </div>
+            <div style={{borderTop:"0.5px solid rgba(41,53,93,.08)",paddingTop:12,display:"flex",gap:8,flexWrap:"wrap"}}>
+              {cerCompletedQ.length>0&&<span style={{display:"inline-flex",alignItems:"center",gap:4,fontSize:11,padding:"3px 10px",borderRadius:20,background:"rgba(22,163,74,.08)",color:"#15803d",border:"0.5px solid rgba(22,163,74,.2)"}}>✓ Completed {cerCompletedQ.length}</span>}
+              {cerInProgress>0&&<span style={{display:"inline-flex",alignItems:"center",gap:4,fontSize:11,padding:"3px 10px",borderRadius:20,background:"rgba(217,119,6,.08)",color:"#b45309",border:"0.5px solid rgba(217,119,6,.2)"}}>⟳ In progress {cerInProgress}</span>}
+              {cerNew>0&&<span style={{display:"inline-flex",alignItems:"center",gap:4,fontSize:11,padding:"3px 10px",borderRadius:20,background:"rgba(41,53,93,.06)",color:"#808080",border:"0.5px solid rgba(41,53,93,.15)"}}>◦ New {cerNew}</span>}
+              {cerOnHold>0&&<span style={{display:"inline-flex",alignItems:"center",gap:4,fontSize:11,padding:"3px 10px",borderRadius:20,background:"rgba(41,53,93,.06)",color:"#808080",border:"0.5px solid rgba(41,53,93,.15)"}}>⏸ On hold {cerOnHold}</span>}
+            </div>
+          </>
+        ):(
+          <div style={{fontSize:12,color:"var(--text-secondary)",textAlign:"center",padding:"16px 0"}}>No CER data loaded yet — add the Google Sheet tab and it will appear here</div>
+        )}
+      </div>
 
       {/* Q3 Book of Business */}
       <div style={{...card,marginBottom:16}}>
@@ -7064,7 +7149,9 @@ function App() {
         fetchCSV(CSV_Q3_SUPP).catch(()=>[]),
         fetchCSV(CSV_Q2_DOMO_BOQ).catch(()=>[]),
         fetchCSV(CSV_CADENCE_FULL).catch(()=>[]),
-      ]).then(([revRows, emailRows, cadRows, dueRows, ontimeRows, historyRows, skippedRows, bobRows, bobDetRows, bobAdjRows, callRows, qaMcRows, qaSSRows, mcRows, bcRows, churnAlertRows, q3BobCurRows, domoBoqRows, q3SuppRows, q2DomoBoqRows, cadenceFullRows]) => {
+        fetchCSV(CSV_CER_ASSIGNED).catch(()=>[]),
+        fetchCSV(CSV_CER_COMPLETED).catch(()=>[]),
+      ]).then(([revRows, emailRows, cadRows, dueRows, ontimeRows, historyRows, skippedRows, bobRows, bobDetRows, bobAdjRows, callRows, qaMcRows, qaSSRows, mcRows, bcRows, churnAlertRows, q3BobCurRows, domoBoqRows, q3SuppRows, q2DomoBoqRows, cadenceFullRows, cerAssignedRows, cerCompletedRows]) => {
         latestEmail   = emailRows;
         latestCad          = cadRows;
         latestDue          = dueRows;
@@ -7073,6 +7160,8 @@ function App() {
         latestSkipped      = skippedRows;
         latestCadenceFull  = cadenceFullRows||[];
         setCadenceFull(latestCadenceFull);
+        setCerAssigned(cerAssignedRows||[]);
+        setCerCompleted(cerCompletedRows||[]);
         latestBob         = bobRows;
         latestBobDet      = bobDetRows||[];
         latestBobAdj      = bobAdjRows||[];
@@ -7512,7 +7601,7 @@ My question: ${aiCustom}`,
           {tab==="bob"&&<BobView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} churnAlerts={churnAlerts} onSelectCSM={selectCSMFn} liveBobDet={liveBobDet} bobAdj={bobAdj} q3BobCur={q3BobCur} domoBoq={domoBoq} q3Supp={q3Supp} q2DomoBoq={q2DomoBoq} bobTab={bobTab} setBobTab={setBobTab}/>}
           {tab==="trends"&&<TrendsView history={history} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} qamc={qamc} qass={qass} trendsTab={trendsTab} setTrendsTab={setTrendsTab}/>}
           {tab==="calls"&&<TrendsView history={history} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} qamc={qamc} qass={qass} trendsTab="calls" setTrendsTab={()=>{}} hideSubTabs={true}/>}
-          {tab==="mydash"&&<MyDashboard csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} churnAlerts={churnAlerts} qamc={qamc||[]} qass={qass||[]} domoBoq={domoBoq||[]} q3BobCur={q3BobCur||[]} q3Supp={q3Supp||[]} rawRev={rawRev||[]} cadenceFull={cadenceFull||[]} onNavigate={setTab} onSetTrendsTab={setTrendsTab} onSetBobTab={setBobTab}/>}
+          {tab==="mydash"&&<MyDashboard csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} churnAlerts={churnAlerts} qamc={qamc||[]} qass={qass||[]} domoBoq={domoBoq||[]} q3BobCur={q3BobCur||[]} q3Supp={q3Supp||[]} rawRev={rawRev||[]} cadenceFull={cadenceFull||[]} onNavigate={setTab} onSetTrendsTab={setTrendsTab} onSetBobTab={setBobTab} cerAssigned={cerAssigned} cerCompleted={cerCompleted}/>}
         </div>
       )}
 
