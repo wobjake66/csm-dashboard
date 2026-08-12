@@ -5885,7 +5885,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
     const boqMap = {};
     domoBoq.forEach(r => {
       const csmRaw = String(getCol(r,"CSM Name")||"").trim();
-      if (!csmRaw || /TOTAL|GRAND/i.test(csmRaw)) return;
+      if (!csmRaw || /TOTAL|GRAND/i.test(csmRaw) || /\bTOTAL$/i.test(csmRaw)) return;
       const eid = String(getCol(r,"Enterprise ID","Enterprise Id")||"").trim().toUpperCase();
       if (!eid) return;
       const boqAmt = pf(getCol(r,"Beginning of Quarter"));
@@ -6561,7 +6561,7 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
   const boqMap = {};
   domoBoq.forEach(r => {
     const csmRaw=String(gC(r,"CSM Name")||"").trim();
-    if (!csmRaw||/TOTAL|GRAND/i.test(csmRaw)) return;
+    if (!csmRaw||/TOTAL|GRAND/i.test(csmRaw)||/\bTOTAL$/i.test(csmRaw)) return;
     const eid=String(gC(r,"Enterprise ID","Enterprise Id")||"").trim().toUpperCase();
     if (!eid) return;
     const csmKey=norm(lfSwap(csmRaw))||lfSwap(csmRaw);
