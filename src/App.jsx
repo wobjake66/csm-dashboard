@@ -6730,25 +6730,81 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
         <StatTile label="Tomorrow Scheduled" value={tmrw.scheduled}  col="#6366f1" sub="on deck"/>
       </div>
 
-      {/* Row 2: calls + BoB + revenue */}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 2fr",gap:12,marginBottom:16}}>
+      {/* Three activity cards: Calls | Cadence touchpoints | Clients worked */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:12,marginBottom:16}}>
+
+        {/* Calls */}
         <div style={card}>
           <span style={lbl}>📞 Calls — {dashLabel}</span>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:14}}>
-            {[{l:"Total Booked",v:week.total,c:"#29355D"},{l:"Completed",v:week.completed,c:"#16a34a"},
-              {l:"No Shows",v:week.noShow,c:week.nsRate!=null&&week.nsRate>0.08?"#dc2626":"#808080"},
-              {l:"Cancelled",v:week.cancelled,c:week.cancelled>0?"#d97706":"#808080"}].map(m=>(
-              <div key={m.l}><div style={{fontSize:10,color:"#808080",fontWeight:500,textTransform:"uppercase",marginBottom:4}}>{m.l}</div><div style={{fontSize:22,fontWeight:700,color:m.c}}>{m.v}</div></div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:10}}>
+            {[{l:"Booked",v:week.total,c:"var(--text-primary)"},{l:"Completed",v:week.completed,c:"#16a34a"},
+              {l:"No Shows",v:week.noShow,c:week.noShow>0?"#dc2626":"var(--text-secondary)"},
+              {l:"Cancelled",v:week.cancelled,c:week.cancelled>0?"#d97706":"var(--text-secondary)"}].map(m=>(
+              <div key={m.l}><div style={{fontSize:10,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>{m.l}</div><div style={{fontSize:20,fontWeight:500,color:m.c}}>{m.v}</div></div>
             ))}
           </div>
-          {week.compRate!=null?(<div>
-            <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{fontSize:11,color:"#808080"}}>Completion rate <span style={{fontSize:10,color:"#aaa",fontWeight:400}}>(of resolved calls)</span></span><span style={{fontSize:11,fontWeight:700,color:cc(week.compRate)}}>{pp(week.compRate)}</span></div>
-            <div style={{height:6,background:"rgba(0,0,0,.08)",borderRadius:3,overflow:"hidden"}}><div style={{width:(week.compRate*100).toFixed(1)+"%",height:"100%",background:cc(week.compRate),borderRadius:3}}/></div>
-            <div style={{display:"flex",justifyContent:"space-between",marginTop:6}}><span style={{fontSize:10,color:"#808080"}}>No-show: <span style={{color:nsc(week.nsRate),fontWeight:600}}>{pp(week.nsRate)}</span>{week.scheduled>0&&<span style={{color:"#5378FC",marginLeft:8}}>{week.scheduled} still scheduled</span>}</span><span style={{fontSize:10,color:"#808080"}}>Goal: &lt;8% · &gt;85% completion</span></div>
-          </div>):<div style={{fontSize:12,color:"#808080",textAlign:"center",padding:"12px 0"}}>No call data for this week yet</div>}
+          {week.compRate!=null&&<>
+            <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+              <span style={{fontSize:11,color:"var(--text-secondary)"}}>Completion rate <span style={{fontSize:10,color:"var(--text-muted)",fontWeight:400}}>(of resolved)</span></span>
+              <span style={{fontSize:11,fontWeight:500,color:cc(week.compRate)}}>{pp(week.compRate)}</span>
+            </div>
+            <div style={{height:5,background:"rgba(0,0,0,.08)",borderRadius:3,overflow:"hidden"}}>
+              <div style={{width:(week.compRate*100).toFixed(1)+"%",height:"100%",background:cc(week.compRate),borderRadius:3}}/>
+            </div>
+            <div style={{fontSize:10,color:"var(--text-secondary)",marginTop:5}}>
+              No-show: <span style={{color:nsc(week.nsRate),fontWeight:500}}>{pp(week.nsRate)}</span>
+              {week.scheduled>0&&<span style={{color:"#5378FC",marginLeft:8}}>{week.scheduled} scheduled</span>}
+            </div>
+          </>}
+          {week.total===0&&<div style={{fontSize:12,color:"var(--text-secondary)",textAlign:"center",padding:"8px 0"}}>No call data for this period</div>}
         </div>
 
-        <div style={{...card,gridColumn:"span 2"}}>
+        {/* Cadence touchpoints */}
+        <div style={card}>
+          <span style={lbl}>✅ Cadence touchpoints — {dashLabel}</span>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
+            <div>
+              <div style={{fontSize:10,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Due</div>
+              <div style={{fontSize:20,fontWeight:500,color:"var(--text-primary)"}}>{cadDueInWindow.length}</div>
+            </div>
+            <div>
+              <div style={{fontSize:10,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Completed</div>
+              <div style={{fontSize:20,fontWeight:500,color:"#16a34a"}}>{cadCompleted.length}</div>
+            </div>
+            <div>
+              <div style={{fontSize:10,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Open</div>
+              <div style={{fontSize:20,fontWeight:500,color:"var(--text-primary)"}}>{cadOpenAll.length}</div>
+            </div>
+          </div>
+          {cadTotal===0&&<div style={{fontSize:12,color:"var(--text-secondary)",textAlign:"center",padding:"8px 0",marginTop:8}}>No cadence data loaded yet</div>}
+        </div>
+
+        {/* Clients touched */}
+        <div style={card}>
+          <span style={lbl}>👥 Clients touched — {dashLabel}</span>
+          <div style={{marginBottom:8}}>
+            <div style={{fontSize:10,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Total touchpoints</div>
+            <div style={{fontSize:32,fontWeight:500,color:"var(--text-primary)"}}>{week.total + cadDueInWindow.length}</div>
+            <div style={{fontSize:11,color:"var(--text-secondary)",marginTop:4}}>calls + cadence due</div>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginTop:10,paddingTop:10,borderTop:"0.5px solid var(--border)"}}>
+            <div>
+              <div style={{fontSize:10,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Calls</div>
+              <div style={{fontSize:18,fontWeight:500,color:"#5378FC"}}>{week.total}</div>
+            </div>
+            <div>
+              <div style={{fontSize:10,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Cadence due</div>
+              <div style={{fontSize:18,fontWeight:500,color:"#6366f1"}}>{cadDueInWindow.length}</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+
+
+      {/* Q3 Book of Business */}
+      <div style={{...card,marginBottom:16}}>
           <span style={lbl}>📋 Q3 Book of Business</span>
           {totalAccts>0?(<>
             {/* Top row: key metrics */}
@@ -6805,106 +6861,6 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
             </div>
           </>):<div style={{fontSize:12,color:"#808080",textAlign:"center",padding:"12px 0"}}>No Q3 BoB data loaded yet</div>}
         </div>
-      </div>
-
-      {/* Three activity cards: Calls | Cadence touchpoints | Clients worked */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:12,marginBottom:16}}>
-
-        {/* Calls */}
-        <div style={card}>
-          <span style={lbl}>📞 Calls — {dashLabel}</span>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:10}}>
-            {[{l:"Booked",v:week.total,c:"var(--text-primary)"},{l:"Completed",v:week.completed,c:"#16a34a"},
-              {l:"No Shows",v:week.noShow,c:week.noShow>0?"#dc2626":"var(--text-secondary)"},
-              {l:"Cancelled",v:week.cancelled,c:week.cancelled>0?"#d97706":"var(--text-secondary)"}].map(m=>(
-              <div key={m.l}><div style={{fontSize:10,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>{m.l}</div><div style={{fontSize:20,fontWeight:500,color:m.c}}>{m.v}</div></div>
-            ))}
-          </div>
-          {week.compRate!=null&&<>
-            <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
-              <span style={{fontSize:11,color:"var(--text-secondary)"}}>Completion rate <span style={{fontSize:10,color:"var(--text-muted)",fontWeight:400}}>(of resolved)</span></span>
-              <span style={{fontSize:11,fontWeight:500,color:cc(week.compRate)}}>{pp(week.compRate)}</span>
-            </div>
-            <div style={{height:5,background:"rgba(0,0,0,.08)",borderRadius:3,overflow:"hidden"}}>
-              <div style={{width:(week.compRate*100).toFixed(1)+"%",height:"100%",background:cc(week.compRate),borderRadius:3}}/>
-            </div>
-            <div style={{fontSize:10,color:"var(--text-secondary)",marginTop:5}}>
-              No-show: <span style={{color:nsc(week.nsRate),fontWeight:500}}>{pp(week.nsRate)}</span>
-              {week.scheduled>0&&<span style={{color:"#5378FC",marginLeft:8}}>{week.scheduled} scheduled</span>}
-            </div>
-          </>}
-          {week.total===0&&<div style={{fontSize:12,color:"var(--text-secondary)",textAlign:"center",padding:"8px 0"}}>No call data for this period</div>}
-        </div>
-
-        {/* Cadence touchpoints */}
-        <div style={card}>
-          <span style={lbl}>✅ Cadence touchpoints — {dashLabel}</span>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:10}}>
-            <div>
-              <div style={{fontSize:10,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Due {dashDateFilter==="today"?"today":dashDateFilter==="next_week"?"next wk":"this wk"}</div>
-              <div style={{fontSize:20,fontWeight:500,color:"var(--text-primary)"}}>{cadDueInWindow.length}</div>
-            </div>
-            <div>
-              <div style={{fontSize:10,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Completed</div>
-              <div style={{fontSize:20,fontWeight:500,color:"#16a34a"}}>{cadCompleted.length}</div>
-            </div>
-            <div>
-              <div style={{fontSize:10,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Open</div>
-              <div style={{fontSize:20,fontWeight:500,color:"var(--text-primary)"}}>{cadOpenAll.length}</div>
-            </div>
-          </div>
-          {cadTotal>0&&<>
-            <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
-              <span style={{fontSize:11,color:"var(--text-secondary)"}}>Overall completion</span>
-              <span style={{fontSize:11,fontWeight:500,color:cadPct>=0.9?"#16a34a":cadPct>=0.7?"#d97706":"#dc2626"}}>{pp(cadPct)}</span>
-            </div>
-            <div style={{height:5,background:"rgba(0,0,0,.08)",borderRadius:3,overflow:"hidden",marginBottom:6}}>
-              <div style={{width:Math.min((cadPct||0)*100,100).toFixed(1)+"%",height:"100%",background:cadPct>=0.9?"#16a34a":cadPct>=0.7?"#d97706":"#dc2626",borderRadius:3}}/>
-            </div>
-          </>}
-          {cadSkipped.length>0&&<div style={{fontSize:11,color:"#d97706",fontWeight:500,marginBottom:4}}>{cadSkipped.length} skipped</div>}
-          {overdueCSMs.length>0&&(
-            <div style={{marginTop:4}}>
-              <div style={{fontSize:10,fontWeight:600,color:"#dc2626",marginBottom:4}}>Overdue by CSM</div>
-              <div style={{display:"flex",flexDirection:"column",gap:3,maxHeight:72,overflowY:"auto"}}>
-                {overdueCSMs.slice(0,5).map(c=>(
-                  <div key={c.name} style={{display:"flex",justifyContent:"space-between",fontSize:11}}>
-                    <span style={{color:"var(--text-primary)"}}>{dispName(c.name)}</span>
-                    <span style={{color:"#dc2626",fontWeight:500}}>{c.overdueCount}</span>
-                  </div>
-                ))}
-                {overdueCSMs.length>5&&<div style={{fontSize:10,color:"var(--text-secondary)"}}>+{overdueCSMs.length-5} more</div>}
-              </div>
-            </div>
-          )}
-          {cadTotal===0&&<div style={{fontSize:12,color:"var(--text-secondary)",textAlign:"center",padding:"8px 0"}}>No cadence data loaded yet</div>}
-        </div>
-
-        {/* Clients worked */}
-        <div style={card}>
-          <span style={lbl}>👥 Clients worked — {dashLabel}</span>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
-            <div>
-              <div style={{fontSize:10,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Via cadence</div>
-              <div style={{fontSize:20,fontWeight:500,color:"#6366f1"}}>{cadAccountsInWindow.size}</div>
-            </div>
-            <div>
-              <div style={{fontSize:10,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Total accounts</div>
-              <div style={{fontSize:20,fontWeight:500,color:"var(--text-primary)"}}>{totalAccts}</div>
-            </div>
-          </div>
-          <div style={{height:5,background:"rgba(0,0,0,.08)",borderRadius:3,overflow:"hidden",marginBottom:6}}>
-            <div style={{width:totalAccts>0?(cadAccountsInWindow.size/totalAccts*100).toFixed(1)+"%":"0%",height:"100%",background:"#6366f1",borderRadius:3}}/>
-          </div>
-          <div style={{fontSize:11,color:"var(--text-secondary)"}}>
-            {totalAccts>0?(cadAccountsInWindow.size/totalAccts*100).toFixed(1):0}% of book touched
-          </div>
-          <div style={{marginTop:10,padding:"8px 10px",background:"rgba(99,102,241,.05)",borderRadius:8,border:"0.5px solid rgba(99,102,241,.15)",fontSize:10,color:"var(--text-secondary)"}}>
-            Call + account data bridge coming — will show full unique client count once client emails are added to BoB
-          </div>
-        </div>
-
-      </div>
 
       {/* Cancel/decrease alerts */}
       {cancelAlerts.length>0&&(
