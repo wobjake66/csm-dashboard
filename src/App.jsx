@@ -6473,7 +6473,7 @@ function PinLock({onUnlock}) {
 // MY DASHBOARD — self-contained. To revert: remove this block + 3 lines below.
 // ═══════════════════════════════════════════════════════════════════════════
 function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
-  churnAlerts=[], qamc=[], qass=[], domoBoq=[], q3BobCur=[], q3Supp=[], rawRev=[], cadenceFull=[]}) {
+  churnAlerts=[], qamc=[], qass=[], domoBoq=[], q3BobCur=[], q3Supp=[], rawRev=[], cadenceFull=[], onNavigate=()=>{}}) {
   const [dashDateFilter, setDashDateFilter] = React.useState("today");
   const [dashCustomFrom, setDashCustomFrom] = React.useState("");
   const [dashCustomTo,   setDashCustomTo]   = React.useState("");
@@ -6720,22 +6720,17 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
         <span style={{fontSize:11,color:"#808080",marginLeft:4}}>{dashLabel}</span>
       </div>
 
-      {/* Today */}
-      <span style={lbl}>📅 Today — {now.toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"})}</span>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(5,minmax(0,1fr))",gap:12,marginBottom:20}}>
-        <StatTile label="On Calendar Today"  value={today.total}     col="#29355D" sub={today.total===0?"no calls yet":"total booked"}/>
-        <StatTile label="Scheduled"          value={today.scheduled} col="#5378FC" sub="still upcoming"/>
-        <StatTile label="Completed"          value={today.completed} col="#16a34a" sub={today.resolved>0?(today.compRate*100).toFixed(0)+"% completion":""} bar={today.compRate}/>
-        <StatTile label="No Shows"           value={today.noShow}    col={today.noShow>0?"#dc2626":"#808080"} sub={today.noShow>0?"follow up needed":""}/>
-        <StatTile label="Tomorrow Scheduled" value={tmrw.scheduled}  col="#6366f1" sub="on deck"/>
-      </div>
+
 
       {/* Three activity cards: Calls | Cadence touchpoints | Clients worked */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:12,marginBottom:16}}>
 
         {/* Calls */}
         <div style={card}>
-          <span style={lbl}>📞 Calls — {dashLabel}</span>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8,cursor:"pointer"}} onClick={()=>onNavigate("trends")}>
+            <span style={lbl}>📞 Calls — {dashLabel}</span>
+            <span style={{fontSize:10,color:"#5378FC",fontWeight:500}}>View details →</span>
+          </div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:10}}>
             {[{l:"Booked",v:week.total,c:"var(--text-primary)"},{l:"Completed",v:week.completed,c:"#16a34a"},
               {l:"No Shows",v:week.noShow,c:week.noShow>0?"#dc2626":"var(--text-secondary)"},
@@ -6805,7 +6800,10 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
 
       {/* Q3 Book of Business */}
       <div style={{...card,marginBottom:16}}>
-          <span style={lbl}>📋 Q3 Book of Business</span>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8,cursor:"pointer"}} onClick={()=>onNavigate("bob")}>
+            <span style={lbl}>📋 Q3 Book of Business</span>
+            <span style={{fontSize:10,color:"#5378FC",fontWeight:500}}>View details →</span>
+          </div>
           {totalAccts>0?(<>
             {/* Top row: key metrics */}
             <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:14}}>
@@ -6978,7 +6976,8 @@ export default
 function App() {
   const [unlocked, setUnlocked] = useState(false);
   const [userSession, setUserSession] = useState({role:"master",name:""});
-  const isCsmView = userSession.role==="csm";
+  const isCsmView   = userSession.role==="csm";
+  const isCoachView = userSession.role==="coach";
   const [fontScale, setFontScale] = useState(()=>{try{return parseFloat(sessionStorage.getItem(FONT_KEY)||"1");}catch(e){return 1;}});
   const changeFontScale = (delta) => setFontScale(s=>{
     const next = Math.min(1.4, Math.max(0.8, Math.round((s+delta)*10)/10));
@@ -7383,7 +7382,7 @@ My question: ${aiCustom}`,
     // Auto-filter to coach's team if role=coach
     if (user.role==="coach") {
       const c = COACHES.find(c=>c.n===user.name);
-      if (c) setFilterCoach(c.e);
+      if (c) { setFilterCoach(c.e); setTab("mydash"); }
     }
   }}/>;
 
@@ -7442,17 +7441,17 @@ My question: ${aiCustom}`,
       {/* FILTERS */}
       {hasData&&(
         <div style={{background:"#fff",borderBottom:"0.5px solid rgba(41,53,93,.08)",padding:"8px 24px",display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-          {!isCsmView&&<select value={filterManager} onChange={e=>{setFilterManager(e.target.value);setFilterCoach("");setFilterCSM("");}}
+          {!isCsmView&&!isCoachView&&<select value={filterManager} onChange={e=>{setFilterManager(e.target.value);setFilterCoach("");setFilterCSM("");}}
             style={{fontSize:12,fontWeight:500,padding:"5px 10px",borderRadius:8,border:"0.5px solid "+(filterManager?"#FF5000":"rgba(41,53,93,.15)"),background:"#F4F6FB",color:filterManager?"#FF5000":"#29355D",cursor:"pointer"}}>
             <option value="">All managers</option>
             {MANAGERS.map(m=><option key={m.id} value={m.id}>{m.n}</option>)}
           </select>}
-          {!isCsmView&&<select value={filterCoach} onChange={e=>{setFilterCoach(e.target.value);setFilterCSM("");setFilterManager("");}}
+          {!isCsmView&&!isCoachView&&<select value={filterCoach} onChange={e=>{setFilterCoach(e.target.value);setFilterCSM("");setFilterManager("");}}
             style={{fontSize:12,fontWeight:500,padding:"5px 10px",borderRadius:8,border:"0.5px solid "+(filterCoach?"#FF5000":"rgba(41,53,93,.15)"),background:"#F4F6FB",color:filterCoach?"#FF5000":"#29355D",cursor:"pointer"}}>
             <option value="">All coaches</option>
             {(managerCoaches?COACHES.filter(c=>managerCoaches.includes(c.e)):COACHES).map(c=><option key={c.e} value={c.e}>{c.n}</option>)}
           </select>}
-          {!isCsmView&&<select value={filterCSM} onChange={e=>{setFilterCSM(e.target.value);setFilterCoach("");setFilterManager("");}}
+          {!isCsmView&&!isCoachView&&<select value={filterCSM} onChange={e=>{setFilterCSM(e.target.value);setFilterCoach("");setFilterManager("");}}
             style={{fontSize:12,fontWeight:500,padding:"5px 10px",borderRadius:8,border:"0.5px solid "+(filterCSM?"#FF5000":"rgba(41,53,93,.15)"),background:"#F4F6FB",color:filterCSM?"#FF5000":"#29355D",cursor:"pointer"}}>
             <option value="">All CSMs</option>
             {allCSMNames.filter(n=>{
@@ -7463,11 +7462,25 @@ My question: ${aiCustom}`,
               return true;
             }).map(n=><option key={n} value={n}>{n}</option>)}
           </select>}
+          {isCoachView&&(
+            <>
+              <div style={{fontSize:13,fontWeight:600,color:"#29355D",padding:"4px 10px",borderRadius:8,background:"#F4F6FB",border:"0.5px solid rgba(41,53,93,.15)"}}>{userSession.name}'s Team</div>
+              <select value={filterCSM} onChange={e=>setFilterCSM(e.target.value)}
+                style={{fontSize:12,fontWeight:500,padding:"5px 10px",borderRadius:8,border:"0.5px solid "+(filterCSM?"#FF5000":"rgba(41,53,93,.15)"),background:"#F4F6FB",color:filterCSM?"#FF5000":"#29355D",cursor:"pointer"}}>
+                <option value="">All my CSMs</option>
+                {allCSMNames.filter(n=>{const i=lk(n);return i&&i.c===filterCoach;}).map(n=><option key={n} value={n}>{n}</option>)}
+              </select>
+              {filterCSM&&<span style={{background:"#FF5000",color:"#fff",fontSize:11,fontWeight:500,padding:"4px 10px",borderRadius:20,display:"inline-flex",alignItems:"center",gap:6}}>
+                {dispName(filterCSM)}
+                <button onClick={()=>setFilterCSM("")} style={{background:"none",border:"none",color:"rgba(255,255,255,.8)",cursor:"pointer",fontSize:14,lineHeight:1,padding:0}}>✕</button>
+              </span>}
+            </>
+          )}
           {isCsmView&&<div style={{fontSize:13,fontWeight:600,color:"#29355D",padding:"4px 10px",borderRadius:8,background:"#F4F6FB",border:"0.5px solid rgba(41,53,93,.15)"}}>{dispName(userSession.name)}</div>}
-          {(filterManager||filterCoach||filterCSM)&&(
+          {!isCoachView&&!isCsmView&&(filterManager||filterCoach||filterCSM)&&(
             <span style={{background:"#FF5000",color:"#fff",fontSize:11,fontWeight:500,padding:"4px 10px",borderRadius:20,display:"inline-flex",alignItems:"center",gap:6}}>
               {dispName(filterCSM)||filterCoach&&COACHES.find(c=>c.e===filterCoach)?.n||filterManager&&MANAGERS.find(m=>m.id===filterManager)?.n}
-              {!isCsmView&&<button onClick={()=>{setFilterManager("");setFilterCoach("");setFilterCSM("");}} style={{background:"none",border:"none",color:"rgba(255,255,255,.8)",cursor:"pointer",fontSize:14,lineHeight:1,padding:0}}>✕</button>}
+              <button onClick={()=>{setFilterManager("");setFilterCoach("");setFilterCSM("");}} style={{background:"none",border:"none",color:"rgba(255,255,255,.8)",cursor:"pointer",fontSize:14,lineHeight:1,padding:0}}>✕</button>
             </span>
           )}
         </div>
@@ -7501,7 +7514,7 @@ My question: ${aiCustom}`,
           {tab==="revenue"&&<RevenueView rawRev={rawRev} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches}/>}
           {tab==="bob"&&<BobView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} churnAlerts={churnAlerts} onSelectCSM={selectCSMFn} liveBobDet={liveBobDet} bobAdj={bobAdj} q3BobCur={q3BobCur} domoBoq={domoBoq} q3Supp={q3Supp} q2DomoBoq={q2DomoBoq}/>}
           {tab==="trends"&&<TrendsView history={history} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} qamc={qamc} qass={qass}/>}
-          {tab==="mydash"&&<MyDashboard csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} churnAlerts={churnAlerts} qamc={qamc||[]} qass={qass||[]} domoBoq={domoBoq||[]} q3BobCur={q3BobCur||[]} q3Supp={q3Supp||[]} rawRev={rawRev||[]} cadenceFull={cadenceFull||[]}/>}
+          {tab==="mydash"&&<MyDashboard csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} churnAlerts={churnAlerts} qamc={qamc||[]} qass={qass||[]} domoBoq={domoBoq||[]} q3BobCur={q3BobCur||[]} q3Supp={q3Supp||[]} rawRev={rawRev||[]} cadenceFull={cadenceFull||[]} onNavigate={setTab}/>}
         </div>
       )}
 
