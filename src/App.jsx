@@ -5883,6 +5883,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
     //    Current MRR = BOQ + MTD Net Billing
     //    Then apply Q3 adjustments on top. ──────────────────────────────────────
     const boqMap = {};
+    let _debugNet = 0, _debugBoq = 0, _debugCount = 0;
     domoBoq.forEach(r => {
       const csmRaw = String(getCol(r,"CSM Name")||"").trim();
       if (!csmRaw || /TOTAL|GRAND/i.test(csmRaw) || /\bTOTAL$/i.test(csmRaw)) return;
@@ -5895,8 +5896,10 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
       if (!boqMap[eid]) boqMap[eid] = {eid, csm:csmName, acct, boq:0, net:0};
       boqMap[eid].boq += boqAmt;
       boqMap[eid].net += netAmt;
+      _debugBoq += boqAmt; _debugNet += netAmt; _debugCount++;
       if (!boqMap[eid].acct && acct) boqMap[eid].acct = acct;
     });
+    console.log("[domoBoB] rows processed:", _debugCount, "BOQ:", _debugBoq.toFixed(0), "Net:", _debugNet.toFixed(0), "cur:", (_debugBoq+_debugNet).toFixed(0));
 
     // ── Apply Q3 adjustments (add to current MRR as positive credits) ────────
     const adjMap = bobAdj || {};
