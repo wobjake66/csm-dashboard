@@ -5054,6 +5054,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
   const [domoAcctSort,   setDomoAcctSort]   = useState({col:"acct", dir:"asc"});
   const [domoCSMFilter,  setDomoCSMFilter]  = useState(null);   // expanded CSM
   const [domoTileFilter, setDomoTileFilter] = useState(null);   // clicked tile: increase/decrease/cancelled/no_data
+  const [domoExpanded, setDomoExpanded]     = useState(null);
   const [q2dSort,       setQ2dSort]       = useState({col:"retPct", dir:"asc"});
   const [q2dAcctSort,   setQ2dAcctSort]   = useState({col:"acct", dir:"asc"});
   const [q2dCSMFilter,  setQ2dCSMFilter]  = useState(null);
@@ -5946,10 +5947,6 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
     const totalDecrease = domoData.reduce((s,c)=>s+c.decreaseMrr, 0);
     const totalCancelled= domoData.reduce((s,c)=>s+c.cancelledMrr, 0);
     const overallRet    = totalBoq > 0 ? totalCur/totalBoq : null;
-
-    const [domoTileFilter, setDomoTileFilter] = React.useState(null);
-    const [domoSort, setDomoSort] = React.useState({col:"ret", dir:"asc"});
-    const [domoExpanded, setDomoExpanded] = React.useState(null);
 
     const retCol = r => r==null?"#808080":r>=0.91?"#16a34a":r>=0.85?"#d97706":"#dc2626";
     const retBg  = r => r==null?"transparent":r>=0.91?"rgba(22,163,74,.07)":r>=0.85?"rgba(217,119,6,.07)":"rgba(220,38,38,.07)";
