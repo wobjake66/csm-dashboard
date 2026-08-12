@@ -7435,6 +7435,12 @@ function App() {
         if (domoBoqRows&&domoBoqRows.length>0) {
           console.log("[domoBoq] columns:", Object.keys(domoBoqRows[0]));
           console.log("[domoBoq] sample row:", domoBoqRows[1]);
+          // Debug totals
+          const pfd = v => { const x=parseFloat(String(v||"0").replace(/[$,%]/g,"")); return isNaN(x)?0:x; };
+          const totalBoqD = domoBoqRows.reduce((s,r)=>s+pfd(r["Beginning of Quarter"]),0);
+          const totalNetD = domoBoqRows.reduce((s,r)=>s+pfd(r["MTD Net Billing"]),0);
+          const totalRevD = domoBoqRows.reduce((s,r)=>s+pfd(r["MTD Revenue"]),0);
+          console.log("[domoBoq] totals — BOQ:", totalBoqD.toFixed(0), "Net:", totalNetD.toFixed(0), "Rev:", totalRevD.toFixed(0), "Implied cur:", (totalBoqD+totalNetD).toFixed(0));
           setDomoBoq(domoBoqRows);
         }
         if (q3SuppRows&&q3SuppRows.length>0) setQ3Supp(q3SuppRows);
