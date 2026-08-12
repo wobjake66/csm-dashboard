@@ -14,6 +14,7 @@ const CSV_EMAIL   = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGw
 const CSV_CAD     = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=1973544046&single=true&output=csv";
 const CSV_DUE     = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=341836664&single=true&output=csv";
 const CSV_ONTIME  = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=459845057&single=true&output=csv";
+const CSV_CADENCE_FULL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=238173739&single=true&output=csv";
 const CSV_SKIPPED = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=1238903633&single=true&output=csv"; // prior-day skipped cadences
 const CSV_HISTORY = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=162960918&single=true&output=csv";
 const CSV_BOB     = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=729347262&single=true&output=csv"; // book of business billing
@@ -6472,7 +6473,7 @@ function PinLock({onUnlock}) {
 // MY DASHBOARD — self-contained. To revert: remove this block + 3 lines below.
 // ═══════════════════════════════════════════════════════════════════════════
 function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
-  churnAlerts=[], qamc=[], qass=[], domoBoq=[], q3BobCur=[], q3Supp=[], rawRev=[]}) {
+  churnAlerts=[], qamc=[], qass=[], domoBoq=[], q3BobCur=[], q3Supp=[], rawRev=[], cadenceFull=[]}) {
   const [dashDateFilter, setDashDateFilter] = React.useState("today");
   const [dashCustomFrom, setDashCustomFrom] = React.useState("");
   const [dashCustomTo,   setDashCustomTo]   = React.useState("");
@@ -6536,6 +6537,29 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
   const inWeek       = d => { const dt=new Date(d+"T00:00:00"); return dt>=weekMon&&dt<=weekSun; };
 
   const resolveKey = n => callData[n]?n:Object.keys(callData).find(k=>norm(k)===n)||n;
+
+  // ── Parse cadenceFull rows ────────────────────────────────────────────────
+  const parseCadRow = r => {
+    const assigned = String(r["Cadence Member: Assigned"]||r["Assigned"]||"").trim();
+    const account  = String(r["Cadence Member: Account"]||r["Account"]||"").trim();
+    const status   = String(r["Status"]||"").trim();
+    const overdue  = String(r["Overdue"]||"").trim()==="1";
+    const dateRaw  = String(r["Due Date/Time"]||r["Due Date"]||"").trim();
+    let dueDate = null;
+    if (dateRaw) { const d=new Date(dateRaw); if (!isNaN(d)) dueDate=d; }
+    return {assigned:norm(assigned)||assigned, account, status, overdue, dueDate};
+  };
+  const myCadRows = (Array.isArray(cadenceFull)?cadenceFull:[]).map(parseCadRow).filter(r => {
+    if (!r.assigned) return false;
+    return csmNorms.has(r.assigned)||csmNorms.has(norm(r.assigned));
+  });
+  const toDayKey = d => d?d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"):null;
+  const cadDueInWindow = myCadRows.filter(r=>r.status==="Open"&&r.dueDate&&dashDayTest(toDayKey(r.dueDate)));
+  const cadCompleted   = myCadRows.filter(r=>r.status==="Completed");
+  const cadSkipped     = myCadRows.filter(r=>r.status==="Skipped");
+  const cadOpenAll     = myCadRows.filter(r=>r.status==="Open");
+  const cadAccountsInWindow = new Set(cadDueInWindow.map(r=>r.account).filter(Boolean));
+
   const aggCalls = (dayTest) => {
     let completed=0,noShow=0,cancelled=0,scheduled=0;
     csmNames.forEach(n => {
@@ -6624,11 +6648,15 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
       cancelAlerts.push({csm:dispName(matched.name),acct:a.acct||a.account||"",type:"Alert",mrr:a.mrr});
   });
 
-  // Cadence
-  const cadTotal=csms.reduce((s,c)=>s+(c.cadCount||0),0);
-  const cadDone=csms.reduce((s,c)=>s+Math.round((c.cadPct||0)*(c.cadCount||0)),0);
-  const cadPct=cadTotal>0?cadDone/cadTotal:null;
-  const overdueCSMs=csms.filter(c=>(c.overdueCount||0)>0).sort((a,b)=>(b.overdueCount||0)-(a.overdueCount||0));
+  // Cadence summary from cadenceFull (replaces old csms[].cadCount)
+  const cadTotal    = myCadRows.length;
+  const cadDone     = cadCompleted.length;
+  const cadPct      = cadTotal>0 ? cadDone/cadTotal : null;
+  const overdueCSMs = csmNames.map(n => {
+    const nNorm = norm(n)||n;
+    const myOver = myCadRows.filter(r=>(r.assigned===nNorm||norm(r.assigned)===nNorm) && r.status==="Open" && r.overdue);
+    return {name:n, overdueCount:myOver.length};
+  }).filter(c=>c.overdueCount>0).sort((a,b)=>b.overdueCount-a.overdueCount);
 
   // Revenue: same logic as Revenue tab — filter rawRev by CSM, compute Q3 totals
   const revRows = rawRev.map(r => {
@@ -6778,26 +6806,103 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
         </div>
       </div>
 
-      {/* Cadence */}
-      <div style={card}>
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,flexWrap:"wrap",gap:8}}>
-          <span style={lbl}>🔄 Cadence Coverage</span>
-          {cadTotal>0&&<div style={{display:"flex",alignItems:"center",gap:12}}>
-            <div style={{textAlign:"right"}}><div style={{fontSize:22,fontWeight:700,color:cadPct!=null?(cadPct>=0.9?"#16a34a":cadPct>=0.7?"#d97706":"#dc2626"):"#808080"}}>{cadPct!=null?pp(cadPct):"--"}</div><div style={{fontSize:11,color:"#808080"}}>{cadDone} of {cadTotal} steps</div></div>
-            <div style={{width:100,height:8,background:"rgba(0,0,0,.08)",borderRadius:4,overflow:"hidden"}}><div style={{width:Math.min((cadPct||0)*100,100).toFixed(1)+"%",height:"100%",background:cadPct>=0.9?"#16a34a":cadPct>=0.7?"#d97706":"#dc2626",borderRadius:4}}/></div>
-          </div>}
-        </div>
-        {overdueCSMs.length>0?(<>
-          <div style={{fontSize:11,fontWeight:600,color:"#dc2626",marginBottom:8}}>⚠ Overdue tasks by CSM</div>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:8}}>
-            {overdueCSMs.map(c=>(
-              <div key={c.name} style={{padding:"8px 12px",background:"#fef2f2",borderRadius:8,border:"0.5px solid rgba(220,38,38,.15)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                <div><div style={{fontSize:12,fontWeight:600,color:"#29355D"}}>{dispName(c.name)}</div><div style={{fontSize:10,color:"#808080"}}>{c.cadCount>0?pp(c.cadPct)+" done":""}</div></div>
-                <span style={{fontSize:13,fontWeight:700,color:"#dc2626"}}>{c.overdueCount}</span>
-              </div>
+      {/* Three activity cards: Calls | Cadence touchpoints | Clients worked */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:12,marginBottom:16}}>
+
+        {/* Calls */}
+        <div style={card}>
+          <span style={lbl}>📞 Calls — {dashLabel}</span>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:10}}>
+            {[{l:"Booked",v:week.total,c:"var(--text-primary)"},{l:"Completed",v:week.completed,c:"#16a34a"},
+              {l:"No Shows",v:week.noShow,c:week.noShow>0?"#dc2626":"var(--text-secondary)"},
+              {l:"Cancelled",v:week.cancelled,c:week.cancelled>0?"#d97706":"var(--text-secondary)"}].map(m=>(
+              <div key={m.l}><div style={{fontSize:10,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>{m.l}</div><div style={{fontSize:20,fontWeight:500,color:m.c}}>{m.v}</div></div>
             ))}
           </div>
-        </>):<div style={{fontSize:11,color:cadTotal>0?"#16a34a":"#808080",fontWeight:cadTotal>0?500:400}}>{cadTotal>0?"✓ No overdue cadence tasks":"No cadence data available"}</div>}
+          {week.compRate!=null&&<>
+            <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+              <span style={{fontSize:11,color:"var(--text-secondary)"}}>Completion rate <span style={{fontSize:10,color:"var(--text-muted)",fontWeight:400}}>(of resolved)</span></span>
+              <span style={{fontSize:11,fontWeight:500,color:cc(week.compRate)}}>{pp(week.compRate)}</span>
+            </div>
+            <div style={{height:5,background:"rgba(0,0,0,.08)",borderRadius:3,overflow:"hidden"}}>
+              <div style={{width:(week.compRate*100).toFixed(1)+"%",height:"100%",background:cc(week.compRate),borderRadius:3}}/>
+            </div>
+            <div style={{fontSize:10,color:"var(--text-secondary)",marginTop:5}}>
+              No-show: <span style={{color:nsc(week.nsRate),fontWeight:500}}>{pp(week.nsRate)}</span>
+              {week.scheduled>0&&<span style={{color:"#5378FC",marginLeft:8}}>{week.scheduled} scheduled</span>}
+            </div>
+          </>}
+          {week.total===0&&<div style={{fontSize:12,color:"var(--text-secondary)",textAlign:"center",padding:"8px 0"}}>No call data for this period</div>}
+        </div>
+
+        {/* Cadence touchpoints */}
+        <div style={card}>
+          <span style={lbl}>✅ Cadence touchpoints — {dashLabel}</span>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:10}}>
+            <div>
+              <div style={{fontSize:10,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Due {dashDateFilter==="today"?"today":dashDateFilter==="next_week"?"next wk":"this wk"}</div>
+              <div style={{fontSize:20,fontWeight:500,color:"var(--text-primary)"}}>{cadDueInWindow.length}</div>
+            </div>
+            <div>
+              <div style={{fontSize:10,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Completed</div>
+              <div style={{fontSize:20,fontWeight:500,color:"#16a34a"}}>{cadCompleted.length}</div>
+            </div>
+            <div>
+              <div style={{fontSize:10,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Open</div>
+              <div style={{fontSize:20,fontWeight:500,color:"var(--text-primary)"}}>{cadOpenAll.length}</div>
+            </div>
+          </div>
+          {cadTotal>0&&<>
+            <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+              <span style={{fontSize:11,color:"var(--text-secondary)"}}>Overall completion</span>
+              <span style={{fontSize:11,fontWeight:500,color:cadPct>=0.9?"#16a34a":cadPct>=0.7?"#d97706":"#dc2626"}}>{pp(cadPct)}</span>
+            </div>
+            <div style={{height:5,background:"rgba(0,0,0,.08)",borderRadius:3,overflow:"hidden",marginBottom:6}}>
+              <div style={{width:Math.min((cadPct||0)*100,100).toFixed(1)+"%",height:"100%",background:cadPct>=0.9?"#16a34a":cadPct>=0.7?"#d97706":"#dc2626",borderRadius:3}}/>
+            </div>
+          </>}
+          {cadSkipped.length>0&&<div style={{fontSize:11,color:"#d97706",fontWeight:500,marginBottom:4}}>{cadSkipped.length} skipped</div>}
+          {overdueCSMs.length>0&&(
+            <div style={{marginTop:4}}>
+              <div style={{fontSize:10,fontWeight:600,color:"#dc2626",marginBottom:4}}>Overdue by CSM</div>
+              <div style={{display:"flex",flexDirection:"column",gap:3,maxHeight:72,overflowY:"auto"}}>
+                {overdueCSMs.slice(0,5).map(c=>(
+                  <div key={c.name} style={{display:"flex",justifyContent:"space-between",fontSize:11}}>
+                    <span style={{color:"var(--text-primary)"}}>{dispName(c.name)}</span>
+                    <span style={{color:"#dc2626",fontWeight:500}}>{c.overdueCount}</span>
+                  </div>
+                ))}
+                {overdueCSMs.length>5&&<div style={{fontSize:10,color:"var(--text-secondary)"}}>+{overdueCSMs.length-5} more</div>}
+              </div>
+            </div>
+          )}
+          {cadTotal===0&&<div style={{fontSize:12,color:"var(--text-secondary)",textAlign:"center",padding:"8px 0"}}>No cadence data loaded yet</div>}
+        </div>
+
+        {/* Clients worked */}
+        <div style={card}>
+          <span style={lbl}>👥 Clients worked — {dashLabel}</span>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
+            <div>
+              <div style={{fontSize:10,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Via cadence</div>
+              <div style={{fontSize:20,fontWeight:500,color:"#6366f1"}}>{cadAccountsInWindow.size}</div>
+            </div>
+            <div>
+              <div style={{fontSize:10,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Total accounts</div>
+              <div style={{fontSize:20,fontWeight:500,color:"var(--text-primary)"}}>{totalAccts}</div>
+            </div>
+          </div>
+          <div style={{height:5,background:"rgba(0,0,0,.08)",borderRadius:3,overflow:"hidden",marginBottom:6}}>
+            <div style={{width:totalAccts>0?(cadAccountsInWindow.size/totalAccts*100).toFixed(1)+"%":"0%",height:"100%",background:"#6366f1",borderRadius:3}}/>
+          </div>
+          <div style={{fontSize:11,color:"var(--text-secondary)"}}>
+            {totalAccts>0?(cadAccountsInWindow.size/totalAccts*100).toFixed(1):0}% of book touched
+          </div>
+          <div style={{marginTop:10,padding:"8px 10px",background:"rgba(99,102,241,.05)",borderRadius:8,border:"0.5px solid rgba(99,102,241,.15)",fontSize:10,color:"var(--text-secondary)"}}>
+            Call + account data bridge coming — will show full unique client count once client emails are added to BoB
+          </div>
+        </div>
+
       </div>
 
       {/* Cancel/decrease alerts */}
@@ -6912,7 +7017,7 @@ function App() {
     setStatus("loading");
 
     // Store non-revenue data so revenue polls can reuse it
-    let latestEmail=[], latestCad=[], latestDue=[], latestOntime=[], latestHistory=[], latestSkipped=[], latestBob=[], latestBobDet=[], latestBobAdj=[], latestCalls=[], latestQaMc=[], latestQaSs=[], latestMcChurn=[], latestBcChurn=[], latestChurnAlerts=[];
+    let latestEmail=[], latestCad=[], latestDue=[], latestOntime=[], latestHistory=[], latestSkipped=[], latestCadenceFull=[], latestBob=[], latestBobDet=[], latestBobAdj=[], latestCalls=[], latestQaMc=[], latestQaSs=[], latestMcChurn=[], latestBcChurn=[], latestChurnAlerts=[];
 
     function loadAll() {
       return Promise.all([
@@ -6936,13 +7041,16 @@ function App() {
         fetchCSV(CSV_DOMO_BOQ).catch(()=>[]),
         fetchCSV(CSV_Q3_SUPP).catch(()=>[]),
         fetchCSV(CSV_Q2_DOMO_BOQ).catch(()=>[]),
-      ]).then(([revRows, emailRows, cadRows, dueRows, ontimeRows, historyRows, skippedRows, bobRows, bobDetRows, bobAdjRows, callRows, qaMcRows, qaSSRows, mcRows, bcRows, churnAlertRows, q3BobCurRows, domoBoqRows, q3SuppRows, q2DomoBoqRows]) => {
+        fetchCSV(CSV_CADENCE_FULL).catch(()=>[]),
+      ]).then(([revRows, emailRows, cadRows, dueRows, ontimeRows, historyRows, skippedRows, bobRows, bobDetRows, bobAdjRows, callRows, qaMcRows, qaSSRows, mcRows, bcRows, churnAlertRows, q3BobCurRows, domoBoqRows, q3SuppRows, q2DomoBoqRows, cadenceFullRows]) => {
         latestEmail   = emailRows;
-        latestCad     = cadRows;
-        latestDue     = dueRows;
-        latestOntime  = ontimeRows;
-        latestHistory = historyRows;
-        latestSkipped = skippedRows;
+        latestCad          = cadRows;
+        latestDue          = dueRows;
+        latestOntime       = ontimeRows;
+        latestHistory      = historyRows;
+        latestSkipped      = skippedRows;
+        latestCadenceFull  = cadenceFullRows||[];
+        setCadenceFull(latestCadenceFull);
         latestBob         = bobRows;
         latestBobDet      = bobDetRows||[];
         latestBobAdj      = bobAdjRows||[];
@@ -7367,7 +7475,7 @@ My question: ${aiCustom}`,
           {tab==="revenue"&&<RevenueView rawRev={rawRev} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches}/>}
           {tab==="bob"&&<BobView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} churnAlerts={churnAlerts} onSelectCSM={selectCSMFn} liveBobDet={liveBobDet} bobAdj={bobAdj} q3BobCur={q3BobCur} domoBoq={domoBoq} q3Supp={q3Supp} q2DomoBoq={q2DomoBoq}/>}
           {tab==="trends"&&<TrendsView history={history} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} qamc={qamc} qass={qass}/>}
-          {tab==="mydash"&&<MyDashboard csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} churnAlerts={churnAlerts} qamc={qamc||[]} qass={qass||[]} domoBoq={domoBoq||[]} q3BobCur={q3BobCur||[]} q3Supp={q3Supp||[]} rawRev={rawRev||[]}/>}
+          {tab==="mydash"&&<MyDashboard csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} churnAlerts={churnAlerts} qamc={qamc||[]} qass={qass||[]} domoBoq={domoBoq||[]} q3BobCur={q3BobCur||[]} q3Supp={q3Supp||[]} rawRev={rawRev||[]} cadenceFull={cadenceFull||[]}/>}
         </div>
       )}
 
