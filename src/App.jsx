@@ -6035,13 +6035,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
 
     return (
       <div>
-        {/* Test tab disclaimer */}
-        <div style={{display:"flex",alignItems:"center",gap:8,background:"#EFF6FF",border:"0.5px solid rgba(30,64,175,.2)",
-          borderRadius:8,padding:"9px 14px",marginBottom:14,fontSize:12,color:"#1e40af"}}>
-          <span style={{fontSize:14}}>🧪</span>
-          <span><strong>Test tab.</strong> Beginning Book comes from a fresh Domo export (separate from the locked Q3 BOQ).
-            Current Revenue combines bob_q3_current + bob_q3_supplemental. This does not affect Q2 or Q3 Tracking.</span>
-        </div>
+
 
         {/* 7 tiles: Retention (reset), Beginning/Combined Book (info), Increases/Decreases/Cancelled/No Data (filters) */}
         {(()=>{
@@ -6064,7 +6058,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
           <div style={{background:"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",borderTop:"3px solid #29355D"}}>
             <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Current MRR</div>
             <div style={{fontSize:22,fontWeight:600,color:"#29355D",lineHeight:1,marginBottom:4}}>{fmt$(totalCur)}</div>
-            <div style={{fontSize:10,color:"#808080"}}>SF + supplemental</div>
+            <div style={{fontSize:10,color:"#808080"}}>BOQ + MTD Net Billing</div>
           </div>
           <div style={{background:"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",borderTop:"3px solid #6366f1"}}>
             <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Accounts Assigned</div>
@@ -7432,17 +7426,7 @@ function App() {
         setChurnAlerts(mapChurnAlerts(churnAlertRows));
         setHistory(mapHistory(historyRows));
         if (q3BobCurRows&&q3BobCurRows.length>0) setQ3BobCur(q3BobCurRows);
-        if (domoBoqRows&&domoBoqRows.length>0) {
-          console.log("[domoBoq] columns:", Object.keys(domoBoqRows[0]));
-          console.log("[domoBoq] sample row:", domoBoqRows[1]);
-          // Debug totals
-          const pfd = v => { const x=parseFloat(String(v||"0").replace(/[$,%]/g,"")); return isNaN(x)?0:x; };
-          const totalBoqD = domoBoqRows.reduce((s,r)=>s+pfd(r["Beginning of Quarter"]),0);
-          const totalNetD = domoBoqRows.reduce((s,r)=>s+pfd(r["MTD Net Billing"]),0);
-          const totalRevD = domoBoqRows.reduce((s,r)=>s+pfd(r["MTD Revenue"]),0);
-          console.log("[domoBoq] totals — BOQ:", totalBoqD.toFixed(0), "Net:", totalNetD.toFixed(0), "Rev:", totalRevD.toFixed(0), "Implied cur:", (totalBoqD+totalNetD).toFixed(0));
-          setDomoBoq(domoBoqRows);
-        }
+        if (domoBoqRows&&domoBoqRows.length>0) setDomoBoq(domoBoqRows);
         if (q3SuppRows&&q3SuppRows.length>0) setQ3Supp(q3SuppRows);
         if (q2DomoBoqRows&&q2DomoBoqRows.length>0) setQ2DomoBoq(q2DomoBoqRows);
         setUpdatedAt(new Date().toLocaleTimeString());
