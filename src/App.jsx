@@ -7052,6 +7052,270 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
 }
 // ═══════════════════════════════════════════════════════════════════════════
 
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CER VIEW — Client Engagement Roadmaps tab
+// ═══════════════════════════════════════════════════════════════════════════
+function CERView({cerAssigned=[], filterCoach="", filterCSM=""}) {
+  const [cerDateFilter, setCerDateFilter] = React.useState("quarter");
+  const [cerStatusFilter, setCerStatusFilter] = React.useState("all");
+  const [cerSort, setCerSort] = React.useState({col:"assigned", dir:"desc"});
+  const [cerExpanded, setCerExpanded] = React.useState(null);
+  const [cerAcctSort, setCerAcctSort] = React.useState({col:"date", dir:"desc"});
+
+  const now = new Date();
+
+  // ── Date boundaries ──
+  const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const thisMonthEnd   = new Date(now.getFullYear(), now.getMonth()+1, 0, 23, 59, 59);
+  const thisQtrM       = Math.floor(now.getMonth()/3)*3;
+  const thisQtrStart   = new Date(now.getFullYear(), thisQtrM, 1);
+  const thisQtrEnd     = new Date(now.getFullYear(), thisQtrM+3, 0, 23, 59, 59);
+  const thisYearStart  = new Date(now.getFullYear(), 0, 1);
+  const thisYearEnd    = new Date(now.getFullYear(), 11, 31, 23, 59, 59);
+
+  const dateRange = cerDateFilter==="month"  ? [thisMonthStart, thisMonthEnd]
+                  : cerDateFilter==="quarter" ? [thisQtrStart,   thisQtrEnd]
+                  :                             [thisYearStart,  thisYearEnd];
+
+  const dateLabel = cerDateFilter==="month"
+    ? now.toLocaleDateString("en-US",{month:"long",year:"numeric"})
+    : cerDateFilter==="quarter"
+      ? `Q${Math.floor(now.getMonth()/3)+1} ${now.getFullYear()} (${thisQtrStart.toLocaleDateString("en-US",{month:"short",day:"numeric"})} – ${thisQtrEnd.toLocaleDateString("en-US",{month:"short",day:"numeric"})})`
+      : `${now.getFullYear()}`;
+
+  const parseD = s => { if(!s) return null; const d=new Date(s); return isNaN(d)?null:d; };
+  const inRange = d => d && d>=dateRange[0] && d<=dateRange[1];
+
+  // ── Filter rows by date (Form Start Date) + coach/CSM ──
+  const lk2 = n => { const nn=norm(n); return ROSTER[nn]||null; };
+  const filteredRows = cerAssigned.filter(r => {
+    const d = parseD(r["Form Start Date"]);
+    if (!inRange(d)) return false;
+    const owner = String(r["Client Engagement Roadmap: Owner Name"]||"").trim();
+    if (filterCSM) return norm(owner)===norm(filterCSM);
+    if (filterCoach) {
+      const info = lk2(owner);
+      return info && info.c === filterCoach;
+    }
+    return true;
+  });
+
+  // Status helper
+  const getStatus = r => {
+    const s = String(r["Status"]||"").trim();
+    if (s==="Completed") return "completed";
+    if (s==="In Progress") return "inprogress";
+    return "new";
+  };
+
+  // Apply status filter
+  const visibleRows = cerStatusFilter==="all" ? filteredRows
+    : filteredRows.filter(r => getStatus(r)===cerStatusFilter);
+
+  // ── Summary counts from filteredRows (not status-filtered) ──
+  const totalAssigned   = filteredRows.length;
+  const totalCompleted  = filteredRows.filter(r=>getStatus(r)==="completed").length;
+  const totalInProgress = filteredRows.filter(r=>getStatus(r)==="inprogress").length;
+  const totalNew        = filteredRows.filter(r=>getStatus(r)==="new").length;
+
+  // ── Group by CSM ──
+  const byCSM = {};
+  visibleRows.forEach(r => {
+    const csm = String(r["Client Engagement Roadmap: Owner Name"]||"").trim();
+    if (!byCSM[csm]) byCSM[csm] = {name:csm, rows:[], assigned:0, completed:0, inprogress:0, newCount:0};
+    byCSM[csm].rows.push(r);
+    byCSM[csm].assigned++;
+    const s = getStatus(r);
+    if (s==="completed")  byCSM[csm].completed++;
+    if (s==="inprogress") byCSM[csm].inprogress++;
+    if (s==="new")        byCSM[csm].newCount++;
+  });
+
+  // ── Sort CSM rows ──
+  const csmRows = Object.values(byCSM).sort((a,b) => {
+    const dir = cerSort.dir==="asc" ? 1 : -1;
+    if (cerSort.col==="csm")        return dir*(a.name.localeCompare(b.name));
+    if (cerSort.col==="assigned")   return dir*(a.assigned-b.assigned);
+    if (cerSort.col==="completed")  return dir*(a.completed-b.completed);
+    if (cerSort.col==="inprogress") return dir*(a.inprogress-b.inprogress);
+    if (cerSort.col==="new")        return dir*(a.newCount-b.newCount);
+    return 0;
+  });
+
+  const sortCol = (col) => {
+    setCerSort(s => s.col===col ? {col, dir:s.dir==="asc"?"desc":"asc"} : {col, dir:"desc"});
+  };
+
+  const sortIcon = col => cerSort.col===col ? (cerSort.dir==="desc"?"↓":"↑") : "↕";
+
+  // ── Sort account rows ──
+  const sortAccts = (rows) => [...rows].sort((a,b) => {
+    const dir = cerAcctSort.dir==="asc" ? 1 : -1;
+    if (cerAcctSort.col==="date") {
+      const da = parseD(a["Form Start Date"])||new Date(0);
+      const db = parseD(b["Form Start Date"])||new Date(0);
+      return dir*(da-db);
+    }
+    if (cerAcctSort.col==="acct") return dir*(String(a["Account"]||"").localeCompare(String(b["Account"]||"")));
+    if (cerAcctSort.col==="status") return dir*(getStatus(a).localeCompare(getStatus(b)));
+    return 0;
+  });
+
+  const sortAcct = col => setCerAcctSort(s => s.col===col ? {col, dir:s.dir==="asc"?"desc":"asc"} : {col, dir:"desc"});
+  const sortAcctIcon = col => cerAcctSort.col===col ? (cerAcctSort.dir==="desc"?"↓":"↑") : "↕";
+
+  const fmtDate = s => {
+    const d = parseD(s); if(!d) return "—";
+    return d.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});
+  };
+
+  const statusPill = s => {
+    if (s==="completed")  return <span style={{fontSize:10,padding:"2px 8px",borderRadius:20,background:"rgba(22,163,74,.08)",color:"#15803d",border:"0.5px solid rgba(22,163,74,.2)",fontWeight:500}}>Completed</span>;
+    if (s==="inprogress") return <span style={{fontSize:10,padding:"2px 8px",borderRadius:20,background:"rgba(217,119,6,.08)",color:"#b45309",border:"0.5px solid rgba(217,119,6,.2)",fontWeight:500}}>In progress</span>;
+    return <span style={{fontSize:10,padding:"2px 8px",borderRadius:20,background:"rgba(41,53,93,.06)",color:"#808080",border:"0.5px solid rgba(41,53,93,.15)",fontWeight:500}}>New</span>;
+  };
+
+  const S = {
+    card:{background:"#fff",borderRadius:12,padding:"20px 24px",boxShadow:"0 1px 4px rgba(41,53,93,.07)",marginBottom:16},
+    th:{padding:"9px 12px",textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,letterSpacing:"0.05em",borderBottom:"0.5px solid rgba(41,53,93,.08)",cursor:"pointer",whiteSpace:"nowrap",userSelect:"none"},
+    td:{padding:"10px 12px",borderBottom:"0.5px solid rgba(41,53,93,.05)",color:"#29355D"},
+  };
+
+  // ── Export CSV ──
+  const exportCSV = () => {
+    const rows = [["CSM","Account","Form Start Date","Status"]];
+    csmRows.forEach(g => sortAccts(g.rows).forEach(r => {
+      rows.push([g.name, r["Account"]||"", fmtDate(r["Form Start Date"]), r["Status"]||""]);
+    }));
+    const csv = rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(",")).join("\n");
+    const a = document.createElement("a");
+    a.href = "data:text/csv;charset=utf-8,"+encodeURIComponent(csv);
+    a.download = `CERs_${dateLabel.replace(/\s/g,"_")}.csv`;
+    a.click();
+  };
+
+  return (
+    <div style={{maxWidth:1200,margin:"0 auto"}}>
+
+      {/* Header */}
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16,flexWrap:"wrap",gap:8}}>
+        <div>
+          <div style={{fontSize:18,fontWeight:600,color:"#29355D"}}>📋 Client Engagement Roadmaps</div>
+          <div style={{fontSize:12,color:"#808080",marginTop:2}}>{dateLabel} · {totalAssigned} assigned</div>
+        </div>
+        <button onClick={exportCSV} style={{fontSize:12,padding:"6px 14px",borderRadius:8,border:"0.5px solid rgba(41,53,93,.2)",background:"#fff",color:"#29355D",cursor:"pointer",fontWeight:500}}>↓ Export CSV</button>
+      </div>
+
+      {/* Summary tiles */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(4,minmax(0,1fr))",gap:10,marginBottom:16}}>
+        {[
+          {l:"Assigned",   v:totalAssigned,   col:"#29355D", sub:"form start date"},
+          {l:"Completed",  v:totalCompleted,  col:"#16a34a", sub:"status completed"},
+          {l:"In progress",v:totalInProgress, col:"#d97706", sub:"open + on hold"},
+          {l:"New",        v:totalNew,        col:"#808080", sub:"not yet started"},
+        ].map(t=>(
+          <div key={t.l} style={{background:"#fff",border:"0.5px solid rgba(41,53,93,.1)",borderTop:"3px solid "+t.col,borderRadius:12,padding:"12px 16px",boxShadow:"0 1px 4px rgba(41,53,93,.05)"}}>
+            <div style={{fontSize:10,color:"#808080",textTransform:"uppercase",fontWeight:500,marginBottom:4}}>{t.l}</div>
+            <div style={{fontSize:24,fontWeight:700,color:t.col,marginBottom:3}}>{t.v}</div>
+            <div style={{fontSize:10,color:"#aaa"}}>{t.sub}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Date + status filters */}
+      <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap",alignItems:"center"}}>
+        {[["month","This month"],["quarter","This quarter"],["year","This year"]].map(([v,l])=>(
+          <button key={v} onClick={()=>setCerDateFilter(v)}
+            style={{padding:"4px 14px",borderRadius:20,border:"0.5px solid "+(cerDateFilter===v?"#29355D":"rgba(41,53,93,.2)"),
+              background:cerDateFilter===v?"#29355D":"#fff",color:cerDateFilter===v?"#fff":"#808080",
+              fontSize:12,fontWeight:cerDateFilter===v?500:400,cursor:"pointer"}}>
+            {l}
+          </button>
+        ))}
+        <div style={{width:1,height:20,background:"rgba(41,53,93,.15)",margin:"0 4px"}}/>
+        {[["all","All"],["completed","Completed"],["inprogress","In progress"],["new","New"]].map(([v,l])=>(
+          <button key={v} onClick={()=>setCerStatusFilter(v)}
+            style={{padding:"4px 12px",borderRadius:20,cursor:"pointer",fontSize:12,fontWeight:cerStatusFilter===v?500:400,
+              border:"0.5px solid "+(v==="completed"?"rgba(22,163,74,.35)":v==="inprogress"?"rgba(217,119,6,.35)":v==="new"?"rgba(41,53,93,.2)":"rgba(41,53,93,.25)"),
+              background:cerStatusFilter===v?(v==="completed"?"rgba(22,163,74,.1)":v==="inprogress"?"rgba(217,119,6,.1)":v==="new"?"rgba(41,53,93,.08)":"#29355D"):"#fff",
+              color:cerStatusFilter===v?(v==="completed"?"#15803d":v==="inprogress"?"#b45309":v==="new"?"#29355D":"#fff"):(v==="completed"?"#15803d":v==="inprogress"?"#b45309":"#808080")}}>
+            {l}
+          </button>
+        ))}
+      </div>
+
+      {/* Table */}
+      {csmRows.length===0 ? (
+        <div style={{...S.card,textAlign:"center",padding:"40px 24px",color:"#808080"}}>
+          <div style={{fontSize:28,marginBottom:10}}>📋</div>
+          <div style={{fontSize:14,fontWeight:600,color:"#29355D",marginBottom:6}}>No CER data for this period</div>
+          <div style={{fontSize:12}}>Try a different date range or check that the Google Sheet is published</div>
+        </div>
+      ) : (
+        <div style={{background:"#fff",border:"0.5px solid rgba(41,53,93,.1)",borderRadius:12,overflow:"hidden",boxShadow:"0 1px 4px rgba(41,53,93,.05)"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+            <thead>
+              <tr>
+                <th style={{...S.th,width:28}}></th>
+                <th style={S.th} onClick={()=>sortCol("csm")}>CSM <span style={{fontSize:9,opacity:.6}}>{sortIcon("csm")}</span></th>
+                <th style={{...S.th,textAlign:"right"}} onClick={()=>sortCol("assigned")}>Assigned <span style={{fontSize:9,opacity:.6}}>{sortIcon("assigned")}</span></th>
+                <th style={{...S.th,textAlign:"right"}} onClick={()=>sortCol("completed")}>Completed <span style={{fontSize:9,opacity:.6}}>{sortIcon("completed")}</span></th>
+                <th style={{...S.th,textAlign:"right"}} onClick={()=>sortCol("inprogress")}>In progress <span style={{fontSize:9,opacity:.6}}>{sortIcon("inprogress")}</span></th>
+                <th style={{...S.th,textAlign:"right"}} onClick={()=>sortCol("new")}>New <span style={{fontSize:9,opacity:.6}}>{sortIcon("new")}</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {csmRows.map(g => {
+                const isExp = cerExpanded===g.name;
+                const acctRows = sortAccts(g.rows);
+                return (
+                  <React.Fragment key={g.name}>
+                    <tr onClick={()=>setCerExpanded(isExp?null:g.name)}
+                      style={{cursor:"pointer",background:isExp?"rgba(41,53,93,.03)":"#fff",transition:"background .1s"}}>
+                      <td style={{...S.td,color:"#808080",fontSize:11,paddingLeft:14}}>{isExp?"▼":"▶"}</td>
+                      <td style={{...S.td,fontWeight:600,color:"#29355D"}}>{dispName(g.name)}</td>
+                      <td style={{...S.td,textAlign:"right"}}>{g.assigned}</td>
+                      <td style={{...S.td,textAlign:"right",color:"#16a34a",fontWeight:g.completed>0?600:400}}>{g.completed||"—"}</td>
+                      <td style={{...S.td,textAlign:"right",color:g.inprogress>0?"#d97706":"#ccc"}}>{g.inprogress||"—"}</td>
+                      <td style={{...S.td,textAlign:"right",color:"#808080"}}>{g.newCount||"—"}</td>
+                    </tr>
+                    {isExp&&(
+                      <tr>
+                        <td colSpan={6} style={{padding:0,background:"rgba(41,53,93,.02)"}}>
+                          <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+                            <thead>
+                              <tr style={{borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>
+                                <th style={{...S.th,paddingLeft:44,fontSize:9}} onClick={()=>sortAcct("acct")}>Account <span style={{fontSize:8,opacity:.6}}>{sortAcctIcon("acct")}</span></th>
+                                <th style={{...S.th,fontSize:9}} onClick={()=>sortAcct("date")}>Form start date <span style={{fontSize:8,opacity:.6}}>{sortAcctIcon("date")}</span></th>
+                                <th style={{...S.th,fontSize:9}} onClick={()=>sortAcct("status")}>Status <span style={{fontSize:8,opacity:.6}}>{sortAcctIcon("status")}</span></th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {acctRows.map((r,i)=>(
+                                <tr key={i} style={{borderBottom:"0.5px solid rgba(41,53,93,.04)"}}>
+                                  <td style={{padding:"7px 12px 7px 44px",color:"#29355D"}}>{r["Account"]||"—"}</td>
+                                  <td style={{padding:"7px 12px",color:"#808080"}}>{fmtDate(r["Form Start Date"])}</td>
+                                  <td style={{padding:"7px 12px"}}>{statusPill(getStatus(r))}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+// ═══════════════════════════════════════════════════════════════════════════
+
 export default 
 function App() {
   const [unlocked, setUnlocked] = useState(false);
@@ -7462,7 +7726,7 @@ My question: ${aiCustom}`,
     setUserSession(user);
     // Check for deep link tab param (e.g. ?tab=digest from email)
     const _urlTab = new URLSearchParams(window.location.search).get("tab");
-    const _validTabs = ["coaching","digest","revenue","bob","leaderboard","calls","trends","mydash"];
+    const _validTabs = ["coaching","digest","revenue","bob","leaderboard","calls","cers","trends","mydash"];
     if (_urlTab && _validTabs.includes(_urlTab)) setTab(_urlTab);
     else setTab("coaching");
     // Auto-filter to this CSM if role=csm
@@ -7517,10 +7781,10 @@ My question: ${aiCustom}`,
           </div>
         </div>
         <div style={{display:"flex",alignItems:"stretch",padding:"0 24px"}}>
-          {["coaching","digest","revenue","bob","leaderboard","calls","trends","mydash"].filter(t=>!isCsmView||(t==="mydash"||t==="bob")).map(t=>(
+          {["coaching","digest","revenue","bob","leaderboard","calls","cers","trends","mydash"].filter(t=>!isCsmView||(t==="mydash"||t==="bob")).map(t=>(
             <button key={t} onClick={()=>setTab(t)}
               style={{padding:"10px 18px",fontSize:13,fontWeight:500,color:tab===t?"#fff":"rgba(255,255,255,.55)",background:"transparent",border:"none",cursor:"pointer",borderBottom:tab===t?"3px solid #FF5000":"3px solid transparent",whiteSpace:"nowrap"}}>
-              {t==="mydash"?"🏠 My Dashboard":t==="coaching"?"Coaching":t==="digest"?"📋 Daily Digest":t==="trends"?"📈 Trends":t==="calls"?"📞 Calls":t==="revenue"?"💰 Revenue":t==="bob"?"📋 Book of Business":t.charAt(0).toUpperCase()+t.slice(1)}
+              {t==="mydash"?"🏠 My Dashboard":t==="coaching"?"Coaching":t==="digest"?"📋 Daily Digest":t==="trends"?"📈 Trends":t==="calls"?"📞 Calls":t==="cers"?"📋 CERs":t==="revenue"?"💰 Revenue":t==="bob"?"📋 Book of Business":t.charAt(0).toUpperCase()+t.slice(1)}
             </button>
           ))}
         </div>
@@ -7602,6 +7866,7 @@ My question: ${aiCustom}`,
           {tab==="revenue"&&<RevenueView rawRev={rawRev} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches}/>}
           {tab==="bob"&&<BobView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} churnAlerts={churnAlerts} onSelectCSM={selectCSMFn} liveBobDet={liveBobDet} bobAdj={bobAdj} q3BobCur={q3BobCur} domoBoq={domoBoq} q3Supp={q3Supp} q2DomoBoq={q2DomoBoq} bobTab={bobTab} setBobTab={setBobTab}/>}
           {tab==="trends"&&<TrendsView history={history} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} qamc={qamc} qass={qass} trendsTab={trendsTab} setTrendsTab={setTrendsTab}/>}
+          {tab==="cers"&&<CERView cerAssigned={cerAssigned} filterCoach={filterCoach} filterCSM={filterCSM}/>}
           {tab==="calls"&&<TrendsView history={history} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} qamc={qamc} qass={qass} trendsTab="calls" setTrendsTab={()=>{}} hideSubTabs={true}/>}
           {tab==="mydash"&&<MyDashboard csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} churnAlerts={churnAlerts} qamc={qamc||[]} qass={qass||[]} domoBoq={domoBoq||[]} q3BobCur={q3BobCur||[]} q3Supp={q3Supp||[]} rawRev={rawRev||[]} cadenceFull={cadenceFull||[]} onNavigate={setTab} onSetTrendsTab={setTrendsTab} onSetBobTab={setBobTab} cerAssigned={cerAssigned} cerCompleted={cerCompleted}/>}
         </div>
