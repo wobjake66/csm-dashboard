@@ -6984,6 +6984,7 @@ function App() {
   const [mcChurn, setMcChurn] = useState({});
   const [bcChurn, setBcChurn] = useState({});
   const [churnAlerts, setChurnAlerts] = useState([]);
+  const [cadenceFull, setCadenceFull] = useState([]);
 
   // AI Coach panel state
   const [aiOpen,     setAiOpen]     = useState(false);
