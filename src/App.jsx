@@ -5877,7 +5877,11 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
       </div>
     );
 
-    // ── Parse Domo BOQ: group by EID, sum "Beginning of Quarter" across all L2 lines ──
+    // ── Parse new single-source format: CSM Name, EID, Account Name, L2,
+    //    Beginning of Quarter, MTD Revenue, MTD Net Billing, MTD Retention %
+    //    Group by EID, sum BOQ and MTD Net Billing across all L2 lines.
+    //    Current MRR = BOQ + MTD Net Billing
+    //    Then apply Q3 adjustments on top. ──────────────────────────────────────
     const boqMap = {};
     domoBoq.forEach(r => {
       const csmRaw = String(getCol(r,"CSM Name")||"").trim();
@@ -5885,49 +5889,34 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
       const eid = String(getCol(r,"Enterprise ID","Enterprise Id")||"").trim().toUpperCase();
       if (!eid) return;
       const boqAmt = pf(getCol(r,"Beginning of Quarter"));
-      const acct = String(getCol(r,"Account Name")||"").trim();
+      const netAmt = pf(getCol(r,"MTD Net Billing","Net Billing","Net"));
+      const acct   = String(getCol(r,"Account Name")||"").trim();
       const csmName = norm(lfSwap(csmRaw)) || lfSwap(csmRaw);
-      if (!boqMap[eid]) boqMap[eid] = {eid, csm:csmName, acct, boq:0};
+      if (!boqMap[eid]) boqMap[eid] = {eid, csm:csmName, acct, boq:0, net:0};
       boqMap[eid].boq += boqAmt;
+      boqMap[eid].net += netAmt;
       if (!boqMap[eid].acct && acct) boqMap[eid].acct = acct;
     });
 
-    // ── Parse revenue sources, tracking presence separately from value ────────
-    const parseRevenueByEid = (rows) => {
-      const map = {}; const seen = new Set();
-      rows.forEach(r => {
-        const eid = String(getCol(r,"Enterprise Id","Enterprise ID")||"").trim().toUpperCase();
-        if (!eid) return;
-        seen.add(eid);
-        map[eid] = (map[eid]||0) + pf(getCol(r,"SaaS Revenue"));
-      });
-      return {map, seen};
-    };
-    const sfData   = parseRevenueByEid(q3BobCur);
-    const suppData = parseRevenueByEid(q3Supp);
+    // ── Apply Q3 adjustments (add to current MRR as positive credits) ────────
+    const adjMap = bobAdj || {};
 
-    // ── Join: BOQ is the authoritative account list ──────────────────────────
+    // ── Build allRows: current MRR = BOQ + Net Billing + adjustments ─────────
     const allRows = Object.values(boqMap).map(b => {
-      const sfRev   = sfData.map[b.eid]   || 0;
-      const suppRev = suppData.map[b.eid] || 0;
-      const cur = sfRev + suppRev;
-      const delta = cur - b.boq;
-      const ret = b.boq > 0 ? cur / b.boq : null;
-      const seenAnywhere = sfData.seen.has(b.eid) || suppData.seen.has(b.eid);
-      let src = (sfRev>0 && suppRev>0) ? "both" : sfRev>0 ? "sf" : suppRev>0 ? "supp" : "none";
+      const adjKey = Object.keys(adjMap).find(k => norm(k)===b.csm || k===b.csm);
+      const adjAmt = adjKey ? (adjMap[adjKey].lcmDelta||0) : 0;
+      const cur    = b.boq + b.net + adjAmt;
+      const delta  = cur - b.boq;
+      const ret    = b.boq > 0 ? cur / b.boq : null;
       let status;
-      if (!seenAnywhere) status = "no_data";
-      else if (b.boq > 0 && cur === 0) status = "cancelled";
-      else if (Math.abs(delta) < 0.5) status = "unchanged";
-      else if (delta > 0) status = "increase";
-      else status = "decrease";
-      return {eid:b.eid, csm:b.csm, acct:b.acct, boq:b.boq, sfRev, suppRev, cur, delta, ret, status, src};
+      if (b.boq > 0 && cur <= 0)      status = "cancelled";
+      else if (Math.abs(delta) < 0.5)  status = "unchanged";
+      else if (delta > 0)              status = "increase";
+      else                             status = "decrease";
+      return {eid:b.eid, csm:b.csm, acct:b.acct, boq:b.boq, net:b.net, adjAmt, cur, delta, ret, status, src:"single"};
     });
 
-    // ── Orphans: in SF/Supp but not in BOQ at all ─────────────────────────────
-    const boqEids = new Set(Object.keys(boqMap));
-    const orphanEids = new Set([...Object.keys(sfData.map), ...Object.keys(suppData.map)].filter(e=>!boqEids.has(e)));
-    const orphanCount = orphanEids.size;
+    const orphanCount = 0; // no orphans with single-source
 
     // ── Scope by coach/manager/CSM filters from the top of the page ──────────
     const scopedRows = allRows.filter(r => {
@@ -6568,7 +6557,7 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
     return {name:n,scheduled:s,completed:c,noShow:ns,cancelled:can,total:s+c+ns+can};
   }).filter(r=>r.total>0).sort((a,b)=>b.total-a.total);
 
-  // Q3 Domo BoB
+  // Q3 Domo BoB — single source: BOQ + MTD Net Billing = Current MRR
   const boqMap = {};
   domoBoq.forEach(r => {
     const csmRaw=String(gC(r,"CSM Name")||"").trim();
@@ -6576,19 +6565,11 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
     const eid=String(gC(r,"Enterprise ID","Enterprise Id")||"").trim().toUpperCase();
     if (!eid) return;
     const csmKey=norm(lfSwap(csmRaw))||lfSwap(csmRaw);
-    if (!boqMap[eid]) boqMap[eid]={eid,csm:csmKey,acct:String(gC(r,"Account Name")||"").trim(),boq:0};
+    if (!boqMap[eid]) boqMap[eid]={eid,csm:csmKey,acct:String(gC(r,"Account Name")||"").trim(),boq:0,net:0};
     boqMap[eid].boq+=pf(gC(r,"Beginning of Quarter"));
+    boqMap[eid].net+=pf(gC(r,"MTD Net Billing","Net Billing","Net"));
     if (!boqMap[eid].acct) boqMap[eid].acct=String(gC(r,"Account Name")||"").trim();
   });
-  const parseRev = rows => {
-    const map={}; const seen=new Set();
-    rows.forEach(r=>{
-      const eid=String(gC(r,"Enterprise Id","Enterprise ID")||"").trim().toUpperCase();
-      if(!eid) return; seen.add(eid); map[eid]=(map[eid]||0)+pf(gC(r,"SaaS Revenue"));
-    });
-    return {map,seen};
-  };
-  const sfD=parseRev(q3BobCur), supD=parseRev(q3Supp);
   // Build a set of all normalized name variants for the filtered CSMs
   const csmNorms=new Set(csmNames.flatMap(n=>[norm(n),n.toLowerCase()].filter(Boolean)));
 
@@ -6647,24 +6628,23 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
   const cadAccountsInWindow = new Set(cadDueInWindow.map(r=>r.account).filter(Boolean));
 
   const bobRows=Object.values(boqMap).filter(b=>{
-    const bNorm=b.csm; // already norm(lfSwap(...)) from boqMap building
+    const bNorm=b.csm;
     return csmNorms.has(bNorm)||csmNorms.has(norm(bNorm));
   });
   const totalAccts=bobRows.length;
   const totalBoq=bobRows.reduce((s,b)=>s+b.boq,0);
-  const totalCur=bobRows.reduce((s,b)=>s+(sfD.map[b.eid]||0)+(supD.map[b.eid]||0),0);
+  const totalCur=bobRows.reduce((s,b)=>s+b.boq+b.net,0);
   const totalRet=totalBoq>0?totalCur/totalBoq:null;
   const retColor=r=>r==null?"#808080":r>=0.9095?"#16a34a":r>=0.845?"#d97706":"#dc2626";
 
   const bobAlerts=[];
   let totalIncreaseCount=0, totalIncreaseMrr=0, totalDecreaseMrr=0, totalCancelMrr=0;
   bobRows.forEach(b=>{
-    const sf=sfD.map[b.eid]||0, sup=supD.map[b.eid]||0, cur=sf+sup;
-    const seen=sfD.seen.has(b.eid)||supD.seen.has(b.eid);
-    if (!seen) return;
-    if (b.boq>0&&cur===0) { bobAlerts.push({csm:b.csm,acct:b.acct,type:"Cancel",boq:b.boq,cur:0}); totalCancelMrr+=b.boq; }
-    else if (cur<b.boq&&cur>0 && Math.abs(cur-b.boq)>=0.5) { bobAlerts.push({csm:b.csm,acct:b.acct,type:"Decrease",boq:b.boq,cur}); totalDecreaseMrr+=(b.boq-cur); }
-    else if (cur>b.boq && Math.abs(cur-b.boq)>=0.5) { bobAlerts.push({csm:b.csm,acct:b.acct,type:"Increase",boq:b.boq,cur}); totalIncreaseCount++; totalIncreaseMrr+=(cur-b.boq); }
+    const cur=b.boq+b.net;
+    const delta=cur-b.boq;
+    if (b.boq>0&&cur<=0) { bobAlerts.push({csm:b.csm,acct:b.acct,type:"Cancel",boq:b.boq,cur:0}); totalCancelMrr+=b.boq; }
+    else if (delta<0&&cur>0&&Math.abs(delta)>=0.5) { bobAlerts.push({csm:b.csm,acct:b.acct,type:"Decrease",boq:b.boq,cur}); totalDecreaseMrr+=Math.abs(delta); }
+    else if (delta>0&&Math.abs(delta)>=0.5) { bobAlerts.push({csm:b.csm,acct:b.acct,type:"Increase",boq:b.boq,cur}); totalIncreaseCount++; totalIncreaseMrr+=delta; }
   });
 
   const cancelAlerts=[...bobAlerts];
@@ -7402,9 +7382,9 @@ function App() {
         fetchCSV(CSV_MC_CHURN).catch(()=>[]),
         fetchCSV(CSV_BC_CHURN).catch(()=>[]),
         fetchCSV(CSV_CHURN_ALERTS).catch(()=>[]),
-        fetchCSV(CSV_Q3_CUR).catch(()=>[]),
+        Promise.resolve([]),          // CSV_Q3_CUR — retired, single source now
         fetchCSV(CSV_DOMO_BOQ).catch(()=>[]),
-        fetchCSV(CSV_Q3_SUPP).catch(()=>[]),
+        Promise.resolve([]),          // CSV_Q3_SUPP — retired, single source now
         fetchCSV(CSV_Q2_DOMO_BOQ).catch(()=>[]),
         fetchCSV(CSV_CADENCE_FULL).catch(()=>[]),
         fetchCSV(CSV_CER_ASSIGNED).catch(()=>[]),
