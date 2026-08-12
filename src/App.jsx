@@ -5,7 +5,7 @@ const imgNeedsLove   = "https://raw.githubusercontent.com/wobjake66/csm-dashboar
 const imgLegend      = "https://raw.githubusercontent.com/wobjake66/csm-dashboard/main/legend_status.png";
 import * as XLSX from "xlsx";
 
-const PIN = "thryv2026";
+const PIN = "thryv2025";
 const PIN_KEY  = "csm_pin_v1";
 const FONT_KEY = "csm_font_v1";
 
@@ -7773,7 +7773,7 @@ My question: ${aiCustom}`,
           </div>
         </div>
         <div style={{display:"flex",alignItems:"stretch",padding:"0 24px"}}>
-          {["coaching","digest","revenue","bob","leaderboard","calls","cers","trends","mydash"].filter(t=>!isCsmView||(t==="mydash"||t==="bob")).map(t=>(
+          {["coaching","digest","revenue","bob","leaderboard","calls","cers","trends","mydash"].filter(t=>!isCsmView||(t==="mydash")).map(t=>(
             <button key={t} onClick={()=>setTab(t)}
               style={{padding:"10px 18px",fontSize:13,fontWeight:500,color:tab===t?"#fff":"rgba(255,255,255,.55)",background:"transparent",border:"none",cursor:"pointer",borderBottom:tab===t?"3px solid #FF5000":"3px solid transparent",whiteSpace:"nowrap"}}>
               {t==="mydash"?"🏠 My Dashboard":t==="coaching"?"Coaching":t==="digest"?"📋 Daily Digest":t==="trends"?"📈 Trends":t==="calls"?"📞 Calls":t==="cers"?"📋 CERs":t==="revenue"?"💰 Revenue":t==="bob"?"📋 Book of Business":t.charAt(0).toUpperCase()+t.slice(1)}
