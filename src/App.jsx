@@ -6476,6 +6476,7 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
   const [dashDateFilter, setDashDateFilter] = React.useState("today");
   const [dashCustomFrom, setDashCustomFrom] = React.useState("");
   const [dashCustomTo,   setDashCustomTo]   = React.useState("");
+  const [alertFilter, setAlertFilter]       = React.useState("all");
 
   const pad  = n => String(n).padStart(2,"0");
   const pp   = p => p!=null?(p*100).toFixed(1)+"%":"--";
@@ -6899,7 +6900,6 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
             <span style={{marginLeft:"auto",fontSize:11,color:"#991b1b",fontWeight:600,background:"rgba(220,38,38,.1)",padding:"2px 10px",borderRadius:20}}>{cancelAlerts.length} account{cancelAlerts.length!==1?"s":""}</span>
           </div>
           {(()=>{
-            const [alertFilter, setAlertFilter] = React.useState("all");
             const filtered = alertFilter==="all" ? cancelAlerts :
               cancelAlerts.filter(a => {
                 if (alertFilter==="increase") return a.type==="Increase";
