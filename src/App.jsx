@@ -5852,7 +5852,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
   // bob_q3_supplemental, joined by Enterprise ID and summed together. CSM
   // attribution always comes from the Domo BOQ file, never from the SF files.
   const renderDomoBoB = () => {
-    const pf = v => { const x = parseFloat(String(v||"0").replace(/[$,%]/g,"")); return isNaN(x)?0:x; };
+    const pf = v => { const s=String(v||"0").trim(); const neg=s.startsWith("(")&&s.endsWith(")"); const x=parseFloat(s.replace(/[$,%()]/g,"")); return isNaN(x)?0:(neg?-x:x); };
     const getCol = (row, ...names) => {
       for (const n of names) {
         const k = Object.keys(row).find(k => k.toLowerCase().replace(/[^a-z]/g,"") === n.toLowerCase().replace(/[^a-z]/g,""));
