@@ -6473,6 +6473,9 @@ function PinLock({onUnlock}) {
 // ═══════════════════════════════════════════════════════════════════════════
 function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
   churnAlerts=[], qamc=[], qass=[], domoBoq=[], q3BobCur=[], q3Supp=[], rawRev=[]}) {
+  const [dashDateFilter, setDashDateFilter] = React.useState("this_week");
+  const [dashCustomFrom, setDashCustomFrom] = React.useState("");
+  const [dashCustomTo,   setDashCustomTo]   = React.useState("");
 
   const pad  = n => String(n).padStart(2,"0");
   const pp   = p => p!=null?(p*100).toFixed(1)+"%":"--";
@@ -6485,6 +6488,51 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
   const lfSwap = n => { if(!n)return n; const p=n.split(","); return p.length===2?p[1].trim()+" "+p[0].trim():n; };
 
   const now          = new Date();
+
+  // ── Calendar date boundaries (same logic as Calls tab) ────────────────────
+  const getMon2  = d => { const dt=new Date(d); dt.setHours(0,0,0,0); const dy=dt.getDay(); dt.setDate(dt.getDate()-(dy===0?6:dy-1)); return dt; };
+  const thisWkMon = getMon2(now);
+  const thisWkSun = new Date(thisWkMon); thisWkSun.setDate(thisWkMon.getDate()+6); thisWkSun.setHours(23,59,59,999);
+  const lastWkMon = new Date(thisWkMon); lastWkMon.setDate(thisWkMon.getDate()-7);
+  const lastWkSun = new Date(thisWkMon); lastWkSun.setDate(thisWkMon.getDate()-1); lastWkSun.setHours(23,59,59,999);
+  const lastMoStart = new Date(now.getFullYear(), now.getMonth()-1, 1);
+  const lastMoEnd   = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+  const curQ2   = Math.floor(now.getMonth()/3);
+  const lastQSM = curQ2===0?9:(curQ2-1)*3;
+  const lastQSY = curQ2===0?now.getFullYear()-1:now.getFullYear();
+  const lastQStart = new Date(lastQSY, lastQSM, 1);
+  const lastQEnd   = new Date(lastQSY, lastQSM+3, 0, 23, 59, 59, 999);
+  const toD = s => { if(!s)return new Date(NaN); const p=String(s).split("-"); return p.length===3?new Date(+p[0],+p[1]-1,+p[2]):new Date(NaN); };
+
+  const dashDayTest = d => {
+    const wd = toD(d);
+    const tS = new Date(now.getFullYear(),now.getMonth(),now.getDate(),0,0,0);
+    const tE = new Date(now.getFullYear(),now.getMonth(),now.getDate(),23,59,59);
+    const yS = new Date(tS); yS.setDate(tS.getDate()-1);
+    const yE = new Date(tE); yE.setDate(tE.getDate()-1);
+    const tmS= new Date(tS); tmS.setDate(tS.getDate()+1);
+    const tmE= new Date(tE); tmE.setDate(tE.getDate()+1);
+    if (dashDateFilter==="today")        return wd>=tS  && wd<=tE;
+    if (dashDateFilter==="yesterday")    return wd>=yS  && wd<=yE;
+    if (dashDateFilter==="tomorrow")     return wd>=tmS && wd<=tmE;
+    if (dashDateFilter==="this_week")    return wd>=thisWkMon && wd<=thisWkSun;
+    if (dashDateFilter==="last_week")    return wd>=lastWkMon && wd<=lastWkSun;
+    if (dashDateFilter==="last_month")   return wd>=lastMoStart && wd<=lastMoEnd;
+    if (dashDateFilter==="last_quarter") return wd>=lastQStart && wd<=lastQEnd;
+    if (dashDateFilter==="custom" && dashCustomFrom && dashCustomTo) return wd>=toD(dashCustomFrom) && wd<=toD(dashCustomTo);
+    return true;
+  };
+
+  const dashLabel =
+    dashDateFilter==="today"        ? `Today — ${now.toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"})}` :
+    dashDateFilter==="yesterday"    ? `Yesterday` :
+    dashDateFilter==="tomorrow"     ? `Tomorrow` :
+    dashDateFilter==="this_week"    ? `This week (${thisWkMon.toLocaleDateString("en-US",{month:"short",day:"numeric"})} – ${thisWkSun.toLocaleDateString("en-US",{month:"short",day:"numeric"})})` :
+    dashDateFilter==="last_week"    ? `Last week (${lastWkMon.toLocaleDateString("en-US",{month:"short",day:"numeric"})} – ${lastWkSun.toLocaleDateString("en-US",{month:"short",day:"numeric"})})` :
+    dashDateFilter==="last_month"   ? lastMoStart.toLocaleDateString("en-US",{month:"long",year:"numeric"}) :
+    dashDateFilter==="last_quarter" ? `Q${Math.floor(lastQStart.getMonth()/3)+1} ${lastQStart.getFullYear()}` :
+    dashDateFilter==="custom"&&dashCustomFrom&&dashCustomTo ? `${dashCustomFrom} – ${dashCustomTo}` : "All time";
+
   const coachName    = filterCoach?(COACHES.find(c=>c.e===filterCoach)||{}).n||"Team":"";
   const contextLabel = filterCSM?dispName(filterCSM):filterCoach?coachName+"'s Team":"All Teams";
   const contextIcon  = filterCSM?"👤":filterCoach?"👥":"🏢";
@@ -6498,7 +6546,7 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
   const inWeek       = d => { const dt=new Date(d+"T00:00:00"); return dt>=weekMon&&dt<=weekSun; };
 
   const resolveKey = n => callData[n]?n:Object.keys(callData).find(k=>norm(k)===n)||n;
-  const aggCalls = dayTest => {
+  const aggCalls = (dayTest) => {
     let completed=0,noShow=0,cancelled=0,scheduled=0;
     csmNames.forEach(n => {
       Object.entries(callData[resolveKey(n)]||{}).forEach(([day,svcs]) => {
@@ -6512,8 +6560,17 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
   };
   const today = aggCalls(d=>d===todayStr);
   const tmrw  = aggCalls(d=>d===tmrStr);
-  const week  = aggCalls(inWeek);
+  const week  = aggCalls(dashDayTest);  // uses selected date filter
 
+  const csmFiltered = csmNames.map(n => {
+    const key=resolveKey(n);
+    let s=0,c=0,ns=0,can=0;
+    Object.entries(callData[key]||{}).forEach(([day,svcs])=>{
+      if(!dashDayTest(day)) return;
+      Object.values(svcs).forEach(d=>{s+=d.scheduled||0;c+=d.completed||0;ns+=d.noShow||0;can+=d.cancelled||0;});
+    });
+    return {name:n,scheduled:s,completed:c,noShow:ns,cancelled:can,total:s+c+ns+can};
+  }).filter(r=>r.total>0).sort((a,b)=>b.total-a.total);
   const csmToday = csmNames.map(n => {
     const key=resolveKey(n); const dd=(callData[key]||{})[todayStr]||{};
     let s=0,c=0,ns=0,can=0;
@@ -6627,6 +6684,30 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
         {!filterCoach&&!filterCSM&&<div style={{fontSize:12,color:"#808080",background:"rgba(41,53,93,.05)",borderRadius:8,padding:"8px 14px",border:"0.5px solid rgba(41,53,93,.1)"}}>💡 Select a coach or CSM from the filters above to see their individual view</div>}
       </div>
 
+      {/* Date filter pills */}
+      <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:16,flexWrap:"wrap"}}>
+        {[["today","Today"],["yesterday","Yesterday"],["tomorrow","Tomorrow"],["this_week","This week"],
+          ["last_week","Last week"],["last_month","Last month"],["last_quarter","Last quarter"],["all","All"],["custom","Custom"]
+        ].map(([v,l])=>(
+          <button key={v} onClick={()=>setDashDateFilter(v)}
+            style={{padding:"5px 12px",borderRadius:20,border:"0.5px solid "+(dashDateFilter===v?"#29355D":"rgba(41,53,93,.2)"),
+              background:dashDateFilter===v?"#29355D":"#fff",color:dashDateFilter===v?"#fff":"#808080",
+              fontSize:12,fontWeight:dashDateFilter===v?600:400,cursor:"pointer",whiteSpace:"nowrap"}}>
+            {l}
+          </button>
+        ))}
+        {dashDateFilter==="custom"&&(
+          <div style={{display:"flex",gap:6,alignItems:"center"}}>
+            <input type="date" value={dashCustomFrom} onChange={e=>setDashCustomFrom(e.target.value)}
+              style={{fontSize:12,padding:"4px 8px",borderRadius:8,border:"0.5px solid rgba(41,53,93,.2)"}}/>
+            <span style={{fontSize:12,color:"#808080"}}>–</span>
+            <input type="date" value={dashCustomTo} onChange={e=>setDashCustomTo(e.target.value)}
+              style={{fontSize:12,padding:"4px 8px",borderRadius:8,border:"0.5px solid rgba(41,53,93,.2)"}}/>
+          </div>
+        )}
+        <span style={{fontSize:11,color:"#808080",marginLeft:4}}>{dashLabel}</span>
+      </div>
+
       {/* Today */}
       <span style={lbl}>📅 Today — {now.toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"})}</span>
       <div style={{display:"grid",gridTemplateColumns:"repeat(5,minmax(0,1fr))",gap:12,marginBottom:20}}>
@@ -6640,7 +6721,7 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
       {/* Row 2: calls + BoB + revenue */}
       <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr",gap:12,marginBottom:16}}>
         <div style={card}>
-          <span style={lbl}>📞 This Week's Calls</span>
+          <span style={lbl}>📞 Calls — {dashLabel}</span>
           <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:14}}>
             {[{l:"Total Booked",v:week.total,c:"#29355D"},{l:"Completed",v:week.completed,c:"#16a34a"},
               {l:"No Shows",v:week.noShow,c:week.nsRate!=null&&week.nsRate>0.08?"#dc2626":"#808080"},
@@ -6739,12 +6820,12 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
       )}
 
       {/* Today by CSM */}
-      {!filterCSM&&csmToday.length>0&&(
+      {!filterCSM&&csmFiltered.length>0&&(
         <div style={card}>
-          <span style={lbl}>📋 Today's Activity by CSM</span>
+          <span style={lbl}>📋 Activity by CSM — {dashLabel}</span>
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
             <thead><tr>{[["CSM","left","#808080"],["Scheduled","right","#5378FC"],["Completed","right","#16a34a"],["No Shows","right","#dc2626"],["Cancelled","right","#d97706"]].map(([h,a,c])=>(<th key={h} style={{padding:"0 8px 8px 0",textAlign:a,fontSize:10,textTransform:"uppercase",color:c,fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>{h}</th>))}</tr></thead>
-            <tbody>{csmToday.map(r=>(<tr key={r.name}>
+            <tbody>{csmFiltered.map(r=>(<tr key={r.name}>
               <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",fontWeight:500,color:"#29355D"}}>{dispName(r.name)}</td>
               <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:r.scheduled>0?"#5378FC":"#ccc",fontWeight:r.scheduled>0?600:400}}>{r.scheduled||"—"}</td>
               <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:r.completed>0?"#16a34a":"#ccc",fontWeight:r.completed>0?600:400}}>{r.completed||"—"}</td>
