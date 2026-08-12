@@ -5900,12 +5900,13 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
       if (!eidRaw || /count/i.test(eidRaw)) return;
       const eid = eidRaw.toUpperCase();
       const acct = String(r["Account Name"]||"").trim();
+      // Log all keys from first row to verify column names
+      if (Object.keys(eidMap).length === 0) {
+        console.log("[domoBoB keys]", Object.keys(r));
+        console.log("[domoBoB first row]", JSON.stringify(r));
+      }
       const boq  = pf(r["Beginning of Quarter"]);
       const net  = pf(r["MTD Net Billing"]);
-      if (net !== 0 && Object.keys(eidMap).length < 5) {
-        const raw = r["MTD Net Billing"];
-        console.log("[raw net]", JSON.stringify(raw), "chars:", [...String(raw)].map(c=>c.charCodeAt(0)), "parsed:", net);
-      }
       const csmName = norm(lfSwap(csmRaw)) || lfSwap(csmRaw);
       if (!eidMap[eid]) eidMap[eid] = {eid, csm:csmName, acct, boq:0, net:0};
       eidMap[eid].boq += boq;
