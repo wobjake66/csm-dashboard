@@ -6899,18 +6899,27 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
           <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
             <span style={{fontSize:16}}>🚨</span>
             <span style={lbl}>Account Cancels &amp; Decreases</span>
-            <span style={{marginLeft:"auto",fontSize:11,color:"#dc2626",fontWeight:600,background:"#fee2e2",padding:"2px 10px",borderRadius:20}}>{cancelAlerts.length} account{cancelAlerts.length!==1?"s":""}</span>
+            <span style={{marginLeft:"auto",fontSize:11,color:"#991b1b",fontWeight:600,background:"rgba(220,38,38,.1)",padding:"2px 10px",borderRadius:20}}>{cancelAlerts.length} account{cancelAlerts.length!==1?"s":""}</span>
           </div>
           <div style={{display:"flex",flexDirection:"column",gap:8}}>
-            {cancelAlerts.slice(0,30).map((a,i)=>(
-              <div key={i} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",background:a.type==="Decrease"?"#fefce8":"#fef2f2",borderRadius:8,border:"0.5px solid "+(a.type==="Decrease"?"rgba(202,138,4,.2)":"rgba(220,38,38,.12)")}}>
-                <div style={{flex:1}}>
-                  <div style={{fontSize:13,fontWeight:600,color:"#29355D"}}>{a.acct||"Unknown account"}</div>
-                  <div style={{fontSize:11,color:"#808080",marginTop:2}}>{!filterCSM&&`${dispName(a.csm)} · `}{a.boq!=null&&`BOQ: ${fk(a.boq)}`}{a.cur!=null&&a.cur>0&&` → ${fk(a.cur)}`}{a.mrr&&`${fk(a.mrr)}/mo`}</div>
+            {cancelAlerts.slice(0,30).map((a,i)=>{
+              const isInc = a.type==="Increase";
+              const isDec = a.type==="Decrease";
+              const isCan = a.type==="Cancel"||a.type==="MC"||a.type==="BC"||a.type==="Alert";
+              const bg    = isInc?"rgba(22,163,74,.06)":isDec?"rgba(217,119,6,.06)":"rgba(220,38,38,.06)";
+              const bdr   = isInc?"rgba(22,163,74,.25)":isDec?"rgba(217,119,6,.25)":"rgba(220,38,38,.2)";
+              const badgeBg  = isInc?"rgba(22,163,74,.12)":isDec?"rgba(217,119,6,.12)":"rgba(220,38,38,.12)";
+              const badgeCol = isInc?"#15803d":isDec?"#b45309":"#991b1b";
+              return (
+                <div key={i} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",background:bg,borderRadius:8,border:"0.5px solid "+bdr}}>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:13,fontWeight:600,color:"#29355D"}}>{a.acct||"Unknown account"}</div>
+                    <div style={{fontSize:11,color:"#808080",marginTop:2}}>{!filterCSM&&`${dispName(a.csm)} · `}{a.boq!=null&&`BOQ: ${fk(a.boq)}`}{a.cur!=null&&a.cur>0&&` → ${fk(a.cur)}`}{a.mrr&&`${fk(a.mrr)}/mo`}</div>
+                  </div>
+                  <span style={{fontSize:10,fontWeight:600,padding:"2px 8px",borderRadius:20,background:badgeBg,color:badgeCol}}>{a.type}</span>
                 </div>
-                <span style={{fontSize:10,fontWeight:600,padding:"2px 8px",borderRadius:20,background:a.type==="Decrease"?"#fef9c3":"#fee2e2",color:a.type==="Decrease"?"#854d0e":"#991b1b"}}>{a.type}</span>
-              </div>
-            ))}
+              );
+            })}
             {cancelAlerts.length>30&&<div style={{fontSize:11,color:"#808080",textAlign:"center"}}>+{cancelAlerts.length-30} more</div>}
           </div>
         </div>
