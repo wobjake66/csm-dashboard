@@ -7091,6 +7091,8 @@ function App() {
   const [bcChurn, setBcChurn] = useState({});
   const [churnAlerts, setChurnAlerts] = useState([]);
   const [cadenceFull, setCadenceFull] = useState([]);
+  const [cerAssigned,  setCerAssigned]  = useState([]);
+  const [cerCompleted, setCerCompleted] = useState([]);
 
   // AI Coach panel state
   const [aiOpen,     setAiOpen]     = useState(false);
