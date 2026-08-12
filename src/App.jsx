@@ -6473,7 +6473,7 @@ function PinLock({onUnlock}) {
 // ═══════════════════════════════════════════════════════════════════════════
 function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
   churnAlerts=[], qamc=[], qass=[], domoBoq=[], q3BobCur=[], q3Supp=[], rawRev=[]}) {
-  const [dashDateFilter, setDashDateFilter] = React.useState("this_week");
+  const [dashDateFilter, setDashDateFilter] = React.useState("today");
   const [dashCustomFrom, setDashCustomFrom] = React.useState("");
   const [dashCustomTo,   setDashCustomTo]   = React.useState("");
 
@@ -6504,34 +6504,24 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
   const lastQEnd   = new Date(lastQSY, lastQSM+3, 0, 23, 59, 59, 999);
   const toD = s => { if(!s)return new Date(NaN); const p=String(s).split("-"); return p.length===3?new Date(+p[0],+p[1]-1,+p[2]):new Date(NaN); };
 
+  const nextWkMon = new Date(thisWkMon); nextWkMon.setDate(thisWkMon.getDate()+7);
+  const nextWkSun = new Date(nextWkMon); nextWkSun.setDate(nextWkMon.getDate()+6); nextWkSun.setHours(23,59,59,999);
+
   const dashDayTest = d => {
     const wd = toD(d);
     const tS = new Date(now.getFullYear(),now.getMonth(),now.getDate(),0,0,0);
     const tE = new Date(now.getFullYear(),now.getMonth(),now.getDate(),23,59,59);
-    const yS = new Date(tS); yS.setDate(tS.getDate()-1);
-    const yE = new Date(tE); yE.setDate(tE.getDate()-1);
-    const tmS= new Date(tS); tmS.setDate(tS.getDate()+1);
-    const tmE= new Date(tE); tmE.setDate(tE.getDate()+1);
-    if (dashDateFilter==="today")        return wd>=tS  && wd<=tE;
-    if (dashDateFilter==="yesterday")    return wd>=yS  && wd<=yE;
-    if (dashDateFilter==="tomorrow")     return wd>=tmS && wd<=tmE;
-    if (dashDateFilter==="this_week")    return wd>=thisWkMon && wd<=thisWkSun;
-    if (dashDateFilter==="last_week")    return wd>=lastWkMon && wd<=lastWkSun;
-    if (dashDateFilter==="last_month")   return wd>=lastMoStart && wd<=lastMoEnd;
-    if (dashDateFilter==="last_quarter") return wd>=lastQStart && wd<=lastQEnd;
-    if (dashDateFilter==="custom" && dashCustomFrom && dashCustomTo) return wd>=toD(dashCustomFrom) && wd<=toD(dashCustomTo);
-    return true;
+    if (dashDateFilter==="today")     return wd>=tS && wd<=tE;
+    if (dashDateFilter==="this_week") return wd>=thisWkMon && wd<=thisWkSun;
+    if (dashDateFilter==="next_week") return wd>=nextWkMon && wd<=nextWkSun;
+    return wd>=tS && wd<=tE; // default today
   };
 
   const dashLabel =
-    dashDateFilter==="today"        ? `Today — ${now.toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"})}` :
-    dashDateFilter==="yesterday"    ? `Yesterday` :
-    dashDateFilter==="tomorrow"     ? `Tomorrow` :
-    dashDateFilter==="this_week"    ? `This week (${thisWkMon.toLocaleDateString("en-US",{month:"short",day:"numeric"})} – ${thisWkSun.toLocaleDateString("en-US",{month:"short",day:"numeric"})})` :
-    dashDateFilter==="last_week"    ? `Last week (${lastWkMon.toLocaleDateString("en-US",{month:"short",day:"numeric"})} – ${lastWkSun.toLocaleDateString("en-US",{month:"short",day:"numeric"})})` :
-    dashDateFilter==="last_month"   ? lastMoStart.toLocaleDateString("en-US",{month:"long",year:"numeric"}) :
-    dashDateFilter==="last_quarter" ? `Q${Math.floor(lastQStart.getMonth()/3)+1} ${lastQStart.getFullYear()}` :
-    dashDateFilter==="custom"&&dashCustomFrom&&dashCustomTo ? `${dashCustomFrom} – ${dashCustomTo}` : "All time";
+    dashDateFilter==="today"     ? `Today — ${now.toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"})}` :
+    dashDateFilter==="this_week" ? `This week (${thisWkMon.toLocaleDateString("en-US",{month:"short",day:"numeric"})} – ${thisWkSun.toLocaleDateString("en-US",{month:"short",day:"numeric"})})` :
+    dashDateFilter==="next_week" ? `Next week (${nextWkMon.toLocaleDateString("en-US",{month:"short",day:"numeric"})} – ${nextWkSun.toLocaleDateString("en-US",{month:"short",day:"numeric"})})` :
+    `Today — ${now.toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"})}`;
 
   const coachName    = filterCoach?(COACHES.find(c=>c.e===filterCoach)||{}).n||"Team":"";
   const contextLabel = filterCSM?dispName(filterCSM):filterCoach?coachName+"'s Team":"All Teams";
@@ -6612,12 +6602,14 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
   const retColor=r=>r==null?"#808080":r>=0.9095?"#16a34a":r>=0.845?"#d97706":"#dc2626";
 
   const bobAlerts=[];
+  let totalIncreaseCount=0;
   bobRows.forEach(b=>{
     const sf=sfD.map[b.eid]||0, sup=supD.map[b.eid]||0, cur=sf+sup;
     const seen=sfD.seen.has(b.eid)||supD.seen.has(b.eid);
     if (!seen) return;
     if (b.boq>0&&cur===0) bobAlerts.push({csm:b.csm,acct:b.acct,type:"Cancel",boq:b.boq,cur:0});
     else if (cur<b.boq&&cur>0) bobAlerts.push({csm:b.csm,acct:b.acct,type:"Decrease",boq:b.boq,cur});
+    else if (cur>b.boq) { bobAlerts.push({csm:b.csm,acct:b.acct,type:"Increase",boq:b.boq,cur}); totalIncreaseCount++; }
   });
 
   const cancelAlerts=[...bobAlerts];
@@ -6686,8 +6678,7 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
 
       {/* Date filter pills */}
       <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:16,flexWrap:"wrap"}}>
-        {[["today","Today"],["yesterday","Yesterday"],["tomorrow","Tomorrow"],["this_week","This week"],
-          ["last_week","Last week"],["last_month","Last month"],["last_quarter","Last quarter"],["all","All"],["custom","Custom"]
+        {[["today","Today"],["this_week","This week"],["next_week","Next week"]
         ].map(([v,l])=>(
           <button key={v} onClick={()=>setDashDateFilter(v)}
             style={{padding:"5px 12px",borderRadius:20,border:"0.5px solid "+(dashDateFilter===v?"#29355D":"rgba(41,53,93,.2)"),
@@ -6696,15 +6687,7 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
             {l}
           </button>
         ))}
-        {dashDateFilter==="custom"&&(
-          <div style={{display:"flex",gap:6,alignItems:"center"}}>
-            <input type="date" value={dashCustomFrom} onChange={e=>setDashCustomFrom(e.target.value)}
-              style={{fontSize:12,padding:"4px 8px",borderRadius:8,border:"0.5px solid rgba(41,53,93,.2)"}}/>
-            <span style={{fontSize:12,color:"#808080"}}>–</span>
-            <input type="date" value={dashCustomTo} onChange={e=>setDashCustomTo(e.target.value)}
-              style={{fontSize:12,padding:"4px 8px",borderRadius:8,border:"0.5px solid rgba(41,53,93,.2)"}}/>
-          </div>
-        )}
+
         <span style={{fontSize:11,color:"#808080",marginLeft:4}}>{dashLabel}</span>
       </div>
 
@@ -6719,7 +6702,7 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
       </div>
 
       {/* Row 2: calls + BoB + revenue */}
-      <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr",gap:12,marginBottom:16}}>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 2fr",gap:12,marginBottom:16}}>
         <div style={card}>
           <span style={lbl}>📞 Calls — {dashLabel}</span>
           <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:14}}>
@@ -6736,41 +6719,62 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
           </div>):<div style={{fontSize:12,color:"#808080",textAlign:"center",padding:"12px 0"}}>No call data for this week yet</div>}
         </div>
 
-        <div style={card}>
+        <div style={{...card,gridColumn:"span 2"}}>
           <span style={lbl}>📋 Q3 Book of Business</span>
           {totalAccts>0?(<>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
-              <div><div style={{fontSize:10,color:"#808080",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Accounts</div><div style={{fontSize:22,fontWeight:700,color:"#29355D"}}>{totalAccts}</div>{csms.length>1&&<div style={{fontSize:10,color:"#808080"}}>{(totalAccts/csms.length).toFixed(1)} avg/CSM</div>}</div>
+            {/* Top row: key metrics */}
+            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:14}}>
+              <div><div style={{fontSize:10,color:"#808080",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Accounts</div><div style={{fontSize:22,fontWeight:700,color:"#29355D"}}>{totalAccts}</div></div>
               <div><div style={{fontSize:10,color:"#808080",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Retention</div><div style={{fontSize:22,fontWeight:700,color:retColor(totalRet)}}>{totalRet!=null?(totalRet*100).toFixed(1)+"%":"--"}</div><div style={{fontSize:10,color:"#808080"}}>goal 91%</div></div>
+              <div style={{padding:"8px 10px",background:"rgba(41,53,93,.04)",borderRadius:8}}><div style={{fontSize:10,color:"#808080",marginBottom:2}}>BOQ</div><div style={{fontSize:16,fontWeight:700,color:"#5378FC"}}>{fk(totalBoq)}</div></div>
+              <div style={{padding:"8px 10px",background:"rgba(41,53,93,.04)",borderRadius:8}}><div style={{fontSize:10,color:"#808080",marginBottom:2}}>Current MRR</div><div style={{fontSize:16,fontWeight:700,color:"#29355D"}}>{fk(totalCur)}</div></div>
             </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
-              <div style={{padding:"8px 10px",background:"rgba(41,53,93,.04)",borderRadius:8}}><div style={{fontSize:10,color:"#808080",marginBottom:2}}>BOQ</div><div style={{fontSize:13,fontWeight:700,color:"#5378FC"}}>{fk(totalBoq)}</div></div>
-              <div style={{padding:"8px 10px",background:"rgba(41,53,93,.04)",borderRadius:8}}><div style={{fontSize:10,color:"#808080",marginBottom:2}}>Current MRR</div><div style={{fontSize:13,fontWeight:700,color:"#29355D"}}>{fk(totalCur)}</div></div>
+            {/* Bottom row: increases / decreases / cancels + revenue breakdown */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
+              {/* Increases */}
+              <div style={{padding:"12px 14px",background:"rgba(22,163,74,.05)",borderRadius:8,border:"0.5px solid rgba(22,163,74,.2)"}}>
+                <div style={{fontSize:10,color:"#16a34a",fontWeight:600,textTransform:"uppercase",marginBottom:6}}>↑ Increases</div>
+                <div style={{fontSize:20,fontWeight:700,color:"#16a34a",marginBottom:4}}>{totalIncreaseCount}</div>
+                <div style={{fontSize:11,color:"#808080",marginBottom:8}}>accounts above BOQ</div>
+                {totalRevTot>0&&<div style={{paddingTop:8,borderTop:"0.5px solid rgba(22,163,74,.15)"}}>
+                  <div style={{fontSize:10,color:"#808080",marginBottom:4}}>📋 Revenue recommendations</div>
+                  <div style={{fontSize:11,fontWeight:600,color:"#FF5000"}}>{fd(totalRevTot)} added</div>
+                  <div style={{fontSize:10,color:"#808080",marginTop:2}}>
+                    {mrrSubs>0&&`${fd(totalRevMrr)} MRR · `}{otrSubs>0&&`${fd(totalRevOtr)} OTR · `}{nonRevSubs>0&&`${nonRevSubs} non-rev`}
+                    {totalRevSubs>0&&` (${totalRevSubs} sub${totalRevSubs!==1?"s":""})`}
+                  </div>
+                </div>}
+              </div>
+              {/* Decreases */}
+              <div style={{padding:"12px 14px",background:"rgba(220,38,38,.03)",borderRadius:8,border:"0.5px solid rgba(220,38,38,.15)"}}>
+                <div style={{fontSize:10,color:"#d97706",fontWeight:600,textTransform:"uppercase",marginBottom:6}}>↓ Decreases</div>
+                <div style={{fontSize:20,fontWeight:700,color:"#d97706",marginBottom:4}}>{bobAlerts.filter(a=>a.type==="Decrease").length}</div>
+                <div style={{fontSize:11,color:"#808080",marginBottom:8}}>accounts below BOQ</div>
+                {bobAlerts.filter(a=>a.type==="Decrease").length>0&&(
+                  <div style={{display:"flex",flexDirection:"column",gap:4,maxHeight:80,overflowY:"auto"}}>
+                    {bobAlerts.filter(a=>a.type==="Decrease").slice(0,4).map((a,i)=>(
+                      <div key={i} style={{fontSize:10,color:"#808080"}}>{a.acct} <span style={{color:"#d97706",fontWeight:600}}>{fk(a.boq)}→{fk(a.cur)}</span></div>
+                    ))}
+                    {bobAlerts.filter(a=>a.type==="Decrease").length>4&&<div style={{fontSize:10,color:"#808080"}}>+{bobAlerts.filter(a=>a.type==="Decrease").length-4} more</div>}
+                  </div>
+                )}
+              </div>
+              {/* Cancels */}
+              <div style={{padding:"12px 14px",background:"rgba(220,38,38,.05)",borderRadius:8,border:"0.5px solid rgba(220,38,38,.2)"}}>
+                <div style={{fontSize:10,color:"#dc2626",fontWeight:600,textTransform:"uppercase",marginBottom:6}}>✕ Cancels</div>
+                <div style={{fontSize:20,fontWeight:700,color:"#dc2626",marginBottom:4}}>{bobAlerts.filter(a=>a.type==="Cancel").length}</div>
+                <div style={{fontSize:11,color:"#808080",marginBottom:8}}>accounts churned</div>
+                {bobAlerts.filter(a=>a.type==="Cancel").length>0&&(
+                  <div style={{display:"flex",flexDirection:"column",gap:4,maxHeight:80,overflowY:"auto"}}>
+                    {bobAlerts.filter(a=>a.type==="Cancel").slice(0,4).map((a,i)=>(
+                      <div key={i} style={{fontSize:10,color:"#808080"}}>{a.acct} <span style={{color:"#dc2626",fontWeight:600}}>{fk(a.boq)}</span></div>
+                    ))}
+                    {bobAlerts.filter(a=>a.type==="Cancel").length>4&&<div style={{fontSize:10,color:"#808080"}}>+{bobAlerts.filter(a=>a.type==="Cancel").length-4} more</div>}
+                  </div>
+                )}
+              </div>
             </div>
-            {bobAlerts.filter(a=>a.type==="Cancel").length>0&&<span style={{fontSize:10,fontWeight:600,padding:"2px 8px",borderRadius:20,background:"#fee2e2",color:"#991b1b",marginRight:6}}>⚠ {bobAlerts.filter(a=>a.type==="Cancel").length} cancel{bobAlerts.filter(a=>a.type==="Cancel").length!==1?"s":""}</span>}
-            {bobAlerts.filter(a=>a.type==="Decrease").length>0&&<span style={{fontSize:10,fontWeight:600,padding:"2px 8px",borderRadius:20,background:"#fef9c3",color:"#854d0e"}}>{bobAlerts.filter(a=>a.type==="Decrease").length} decrease{bobAlerts.filter(a=>a.type==="Decrease").length!==1?"s":""}</span>}
-            {bobAlerts.length===0&&<div style={{fontSize:11,color:"#16a34a",fontWeight:500}}>✓ No cancels or decreases</div>}
           </>):<div style={{fontSize:12,color:"#808080",textAlign:"center",padding:"12px 0"}}>No Q3 BoB data loaded yet</div>}
-        </div>
-
-        <div style={card}>
-          <span style={lbl}>💰 Revenue Added — Q3</span>
-          <div style={{fontSize:28,fontWeight:700,color:"#FF5000",marginTop:4,marginBottom:4}}>{fd(totalRevTot)}</div>
-          <div style={{fontSize:11,color:"#808080",marginBottom:12}}>{totalRevSubs} submission{totalRevSubs!==1?"s":""}</div>
-          <div style={{padding:"10px 12px",background:"rgba(41,53,93,.03)",borderRadius:8,border:"0.5px solid rgba(41,53,93,.1)"}}>
-            <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
-              <span style={{fontSize:10,color:"#808080"}}>MRR Added</span>
-              <span style={{fontSize:11,fontWeight:600,color:"#29355D"}}>{fd(totalRevMrr)}<span style={{fontSize:10,color:"#808080",fontWeight:400}}> · {mrrSubs} sub{mrrSubs!==1?"s":""}</span></span>
-            </div>
-            <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
-              <span style={{fontSize:10,color:"#808080"}}>One-Time</span>
-              <span style={{fontSize:11,fontWeight:600,color:"#5378FC"}}>{fd(totalRevOtr)}<span style={{fontSize:10,color:"#808080",fontWeight:400}}> · {otrSubs} sub{otrSubs!==1?"s":""}</span></span>
-            </div>
-            <div style={{display:"flex",justifyContent:"space-between"}}>
-              <span style={{fontSize:10,color:"#808080"}}>Non-Revenue</span>
-              <span style={{fontSize:11,fontWeight:600,color:"#808080"}}>{nonRevSubs} sub{nonRevSubs!==1?"s":""}</span>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -7292,7 +7296,7 @@ My question: ${aiCustom}`,
           </div>
         </div>
         <div style={{display:"flex",alignItems:"stretch",padding:"0 24px"}}>
-          {["coaching","digest","revenue","bob","leaderboard","trends","mydash"].filter(t=>!isCsmView||(t!=="leaderboard"&&t!=="trends")).map(t=>(
+          {["coaching","digest","revenue","bob","leaderboard","trends","mydash"].filter(t=>!isCsmView||(t==="mydash"||t==="bob")).map(t=>(
             <button key={t} onClick={()=>setTab(t)}
               style={{padding:"10px 18px",fontSize:13,fontWeight:500,color:tab===t?"#fff":"rgba(255,255,255,.55)",background:"transparent",border:"none",cursor:"pointer",borderBottom:tab===t?"3px solid #FF5000":"3px solid transparent",whiteSpace:"nowrap"}}>
               {t==="mydash"?"🏠 My Dashboard":t==="coaching"?"Coaching":t==="digest"?"📋 Daily Digest":t==="trends"?"📈 Trends":t==="revenue"?"💰 Revenue":t==="bob"?"📋 Book of Business":t.charAt(0).toUpperCase()+t.slice(1)}
