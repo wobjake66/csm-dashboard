@@ -5888,9 +5888,10 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
       if (!eidRaw || /count/i.test(eidRaw)) return;
       const eid = eidRaw.toUpperCase();
       const acct = String(getCol(r,"Account Name")||"").trim();
-      const boq  = pf(getCol(r,"Beginning of Quarter"));
-      const net  = pf(getCol(r,"MTD Net Billing","Net Billing"));
-      if (net !== 0) console.log("[domoBoB nonzero]", csmRaw.slice(0,20), eid, "net raw:", getCol(r,"MTD Net Billing","Net Billing"), "net:", net);
+      // Col E = Beginning of Quarter (index 4), Col G = MTD Net Billing (index 6)
+      const _vals = Object.values(r);
+      const boq  = pf(_vals[4]);
+      const net  = pf(_vals[6]);
       const csmName = norm(lfSwap(csmRaw)) || lfSwap(csmRaw);
       if (!eidMap[eid]) eidMap[eid] = {eid, csm:csmName, acct, boq:0, net:0};
       eidMap[eid].boq += boq;
