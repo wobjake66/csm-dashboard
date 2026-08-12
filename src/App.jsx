@@ -5890,7 +5890,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
       const acct = String(getCol(r,"Account Name")||"").trim();
       const boq  = pf(getCol(r,"Beginning of Quarter"));
       const net  = pf(getCol(r,"MTD Net Billing","Net Billing"));
-      if (Object.keys(eidMap).length < 3) console.log("[domoBoB row]", csmRaw, eid, "net raw:", getCol(r,"MTD Net Billing","Net Billing"), "net parsed:", net);
+      if (net !== 0) console.log("[domoBoB nonzero]", csmRaw.slice(0,20), eid, "net raw:", getCol(r,"MTD Net Billing","Net Billing"), "net:", net);
       const csmName = norm(lfSwap(csmRaw)) || lfSwap(csmRaw);
       if (!eidMap[eid]) eidMap[eid] = {eid, csm:csmName, acct, boq:0, net:0};
       eidMap[eid].boq += boq;
