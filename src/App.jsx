@@ -6633,8 +6633,8 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
     const seen=sfD.seen.has(b.eid)||supD.seen.has(b.eid);
     if (!seen) return;
     if (b.boq>0&&cur===0) bobAlerts.push({csm:b.csm,acct:b.acct,type:"Cancel",boq:b.boq,cur:0});
-    else if (cur<b.boq&&cur>0) bobAlerts.push({csm:b.csm,acct:b.acct,type:"Decrease",boq:b.boq,cur});
-    else if (cur>b.boq) { bobAlerts.push({csm:b.csm,acct:b.acct,type:"Increase",boq:b.boq,cur}); totalIncreaseCount++; }
+    else if (cur<b.boq&&cur>0 && Math.abs(cur-b.boq)>=0.5) bobAlerts.push({csm:b.csm,acct:b.acct,type:"Decrease",boq:b.boq,cur});
+    else if (cur>b.boq && Math.abs(cur-b.boq)>=0.5) { bobAlerts.push({csm:b.csm,acct:b.acct,type:"Increase",boq:b.boq,cur}); totalIncreaseCount++; }
   });
 
   const cancelAlerts=[...bobAlerts];
