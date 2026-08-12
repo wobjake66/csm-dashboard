@@ -6814,54 +6814,82 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
               <div style={{padding:"8px 10px",background:"rgba(41,53,93,.04)",borderRadius:8}}><div style={{fontSize:10,color:"#808080",marginBottom:2}}>BOQ</div><div style={{fontSize:16,fontWeight:700,color:"#5378FC"}}>{fk(totalBoq)}</div></div>
               <div style={{padding:"8px 10px",background:"rgba(41,53,93,.04)",borderRadius:8}}><div style={{fontSize:10,color:"#808080",marginBottom:2}}>Current MRR</div><div style={{fontSize:16,fontWeight:700,color:"#29355D"}}>{fk(totalCur)}</div></div>
             </div>
-            {/* Bottom row: increases / decreases / cancels + revenue breakdown */}
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
-              {/* Increases */}
-              <div style={{padding:"12px 14px",background:"rgba(22,163,74,.05)",borderRadius:8,border:"0.5px solid rgba(22,163,74,.2)"}}>
-                <div style={{fontSize:10,color:"#16a34a",fontWeight:600,textTransform:"uppercase",marginBottom:6}}>↑ Increases</div>
-                <div style={{fontSize:20,fontWeight:700,color:"#16a34a",marginBottom:2}}>{totalIncreaseCount}</div>
-                <div style={{fontSize:13,fontWeight:600,color:"#16a34a",marginBottom:4}}>+{fk(totalIncreaseMrr)}</div>
-                <div style={{fontSize:11,color:"#808080",marginBottom:8}}>accounts above BOQ</div>
-                {totalRevTot>0&&<div style={{paddingTop:8,borderTop:"0.5px solid rgba(22,163,74,.15)"}}>
-                  <div style={{fontSize:10,color:"#808080",marginBottom:4}}>📋 Revenue recommendations</div>
-                  <div style={{fontSize:11,fontWeight:600,color:"#FF5000"}}>{fd(totalRevTot)} added</div>
-                  <div style={{fontSize:10,color:"#808080",marginTop:2}}>
-                    {mrrSubs>0&&`${fd(totalRevMrr)} MRR · `}{otrSubs>0&&`${fd(totalRevOtr)} OTR · `}{nonRevSubs>0&&`${nonRevSubs} non-rev`}
-                    {totalRevSubs>0&&` (${totalRevSubs} sub${totalRevSubs!==1?"s":""})`}
-                  </div>
-                </div>}
-              </div>
-              {/* Decreases */}
-              <div style={{padding:"12px 14px",background:"rgba(220,38,38,.03)",borderRadius:8,border:"0.5px solid rgba(220,38,38,.15)"}}>
-                <div style={{fontSize:10,color:"#d97706",fontWeight:600,textTransform:"uppercase",marginBottom:6}}>↓ Decreases</div>
-                <div style={{fontSize:20,fontWeight:700,color:"#d97706",marginBottom:2}}>{bobAlerts.filter(a=>a.type==="Decrease").length}</div>
-                <div style={{fontSize:13,fontWeight:600,color:"#d97706",marginBottom:4}}>-{fk(totalDecreaseMrr)}</div>
-                <div style={{fontSize:11,color:"#808080",marginBottom:8}}>accounts below BOQ</div>
-                {bobAlerts.filter(a=>a.type==="Decrease").length>0&&(
-                  <div style={{display:"flex",flexDirection:"column",gap:4,maxHeight:80,overflowY:"auto"}}>
-                    {bobAlerts.filter(a=>a.type==="Decrease").slice(0,4).map((a,i)=>(
-                      <div key={i} style={{fontSize:10,color:"#808080"}}>{a.acct} <span style={{color:"#d97706",fontWeight:600}}>{fk(a.boq)}→{fk(a.cur)}</span></div>
+            {/* Account Increases, Decreases & Cancels */}
+            <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:600,letterSpacing:"0.05em",marginBottom:8}}>Account Increases, Decreases, &amp; Cancels</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:12}}>
+              {/* Increases — green */}
+              <div style={{padding:"12px 14px",background:"rgba(22,163,74,.06)",borderRadius:8,border:"0.5px solid rgba(22,163,74,.25)"}}>
+                <div style={{fontSize:10,color:"#15803d",fontWeight:600,textTransform:"uppercase",marginBottom:6,letterSpacing:"0.04em"}}>↑ Account Increases</div>
+                <div style={{fontSize:22,fontWeight:700,color:"#15803d",marginBottom:2}}>{totalIncreaseCount}</div>
+                <div style={{fontSize:14,fontWeight:700,color:"#15803d",marginBottom:6}}>+{fk(totalIncreaseMrr)}</div>
+                <div style={{fontSize:10,color:"#166534"}}>accounts above BOQ</div>
+                {bobAlerts.filter(a=>a.type==="Increase").length>0&&(
+                  <div style={{display:"flex",flexDirection:"column",gap:3,maxHeight:72,overflowY:"auto",marginTop:8}}>
+                    {bobAlerts.filter(a=>a.type==="Increase").slice(0,4).map((a,i)=>(
+                      <div key={i} style={{fontSize:10,color:"#166534"}}>{a.acct} <span style={{fontWeight:600}}>{fk(a.boq)}→{fk(a.cur)}</span></div>
                     ))}
-                    {bobAlerts.filter(a=>a.type==="Decrease").length>4&&<div style={{fontSize:10,color:"#808080"}}>+{bobAlerts.filter(a=>a.type==="Decrease").length-4} more</div>}
+                    {bobAlerts.filter(a=>a.type==="Increase").length>4&&<div style={{fontSize:10,color:"#166534"}}>+{bobAlerts.filter(a=>a.type==="Increase").length-4} more</div>}
                   </div>
                 )}
               </div>
-              {/* Cancels */}
-              <div style={{padding:"12px 14px",background:"rgba(220,38,38,.05)",borderRadius:8,border:"0.5px solid rgba(220,38,38,.2)"}}>
-                <div style={{fontSize:10,color:"#dc2626",fontWeight:600,textTransform:"uppercase",marginBottom:6}}>✕ Cancels</div>
-                <div style={{fontSize:20,fontWeight:700,color:"#dc2626",marginBottom:2}}>{bobAlerts.filter(a=>a.type==="Cancel").length}</div>
-                <div style={{fontSize:13,fontWeight:600,color:"#dc2626",marginBottom:4}}>-{fk(totalCancelMrr)}</div>
-                <div style={{fontSize:11,color:"#808080",marginBottom:8}}>accounts churned</div>
-                {bobAlerts.filter(a=>a.type==="Cancel").length>0&&(
-                  <div style={{display:"flex",flexDirection:"column",gap:4,maxHeight:80,overflowY:"auto"}}>
-                    {bobAlerts.filter(a=>a.type==="Cancel").slice(0,4).map((a,i)=>(
-                      <div key={i} style={{fontSize:10,color:"#808080"}}>{a.acct} <span style={{color:"#dc2626",fontWeight:600}}>{fk(a.boq)}</span></div>
+              {/* Decreases — amber */}
+              <div style={{padding:"12px 14px",background:"rgba(217,119,6,.06)",borderRadius:8,border:"0.5px solid rgba(217,119,6,.25)"}}>
+                <div style={{fontSize:10,color:"#b45309",fontWeight:600,textTransform:"uppercase",marginBottom:6,letterSpacing:"0.04em"}}>↓ Account Decreases</div>
+                <div style={{fontSize:22,fontWeight:700,color:"#b45309",marginBottom:2}}>{bobAlerts.filter(a=>a.type==="Decrease").length}</div>
+                <div style={{fontSize:14,fontWeight:700,color:"#b45309",marginBottom:6}}>-{fk(totalDecreaseMrr)}</div>
+                <div style={{fontSize:10,color:"#92400e"}}>accounts below BOQ</div>
+                {bobAlerts.filter(a=>a.type==="Decrease").length>0&&(
+                  <div style={{display:"flex",flexDirection:"column",gap:3,maxHeight:72,overflowY:"auto",marginTop:8}}>
+                    {bobAlerts.filter(a=>a.type==="Decrease").slice(0,4).map((a,i)=>(
+                      <div key={i} style={{fontSize:10,color:"#92400e"}}>{a.acct} <span style={{fontWeight:600}}>{fk(a.boq)}→{fk(a.cur)}</span></div>
                     ))}
-                    {bobAlerts.filter(a=>a.type==="Cancel").length>4&&<div style={{fontSize:10,color:"#808080"}}>+{bobAlerts.filter(a=>a.type==="Cancel").length-4} more</div>}
+                    {bobAlerts.filter(a=>a.type==="Decrease").length>4&&<div style={{fontSize:10,color:"#92400e"}}>+{bobAlerts.filter(a=>a.type==="Decrease").length-4} more</div>}
+                  </div>
+                )}
+              </div>
+              {/* Cancels — red */}
+              <div style={{padding:"12px 14px",background:"rgba(220,38,38,.06)",borderRadius:8,border:"0.5px solid rgba(220,38,38,.25)"}}>
+                <div style={{fontSize:10,color:"#b91c1c",fontWeight:600,textTransform:"uppercase",marginBottom:6,letterSpacing:"0.04em"}}>✕ Account Cancels</div>
+                <div style={{fontSize:22,fontWeight:700,color:"#b91c1c",marginBottom:2}}>{bobAlerts.filter(a=>a.type==="Cancel").length}</div>
+                <div style={{fontSize:14,fontWeight:700,color:"#b91c1c",marginBottom:6}}>-{fk(totalCancelMrr)}</div>
+                <div style={{fontSize:10,color:"#991b1b"}}>accounts churned</div>
+                {bobAlerts.filter(a=>a.type==="Cancel").length>0&&(
+                  <div style={{display:"flex",flexDirection:"column",gap:3,maxHeight:72,overflowY:"auto",marginTop:8}}>
+                    {bobAlerts.filter(a=>a.type==="Cancel").slice(0,4).map((a,i)=>(
+                      <div key={i} style={{fontSize:10,color:"#991b1b"}}>{a.acct} <span style={{fontWeight:600}}>{fk(a.boq)}</span></div>
+                    ))}
+                    {bobAlerts.filter(a=>a.type==="Cancel").length>4&&<div style={{fontSize:10,color:"#991b1b"}}>+{bobAlerts.filter(a=>a.type==="Cancel").length-4} more</div>}
                   </div>
                 )}
               </div>
             </div>
+            {/* Revenue Recommendations — Q3 (no daily date available yet in source) */}
+            {totalRevTot>0&&(
+              <div style={{padding:"12px 14px",background:"rgba(255,80,0,.05)",borderRadius:8,border:"0.5px solid rgba(255,80,0,.2)"}}>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                  <div style={{fontSize:10,color:"#c2410c",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.04em"}}>💡 Revenue Recommendations — Q3</div>
+                  <div style={{fontSize:14,fontWeight:700,color:"#FF5000"}}>+{fd(totalRevTot)}</div>
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
+                  <div style={{padding:"6px 10px",background:"rgba(255,80,0,.07)",borderRadius:6}}>
+                    <div style={{fontSize:10,color:"#c2410c",marginBottom:2}}>MRR Added</div>
+                    <div style={{fontSize:13,fontWeight:700,color:"#FF5000"}}>{fd(totalRevMrr)}</div>
+                    <div style={{fontSize:10,color:"#9a3412"}}>{mrrSubs} sub{mrrSubs!==1?"s":""}</div>
+                  </div>
+                  <div style={{padding:"6px 10px",background:"rgba(255,80,0,.07)",borderRadius:6}}>
+                    <div style={{fontSize:10,color:"#c2410c",marginBottom:2}}>One-Time</div>
+                    <div style={{fontSize:13,fontWeight:700,color:"#FF5000"}}>{fd(totalRevOtr)}</div>
+                    <div style={{fontSize:10,color:"#9a3412"}}>{otrSubs} sub{otrSubs!==1?"s":""}</div>
+                  </div>
+                  <div style={{padding:"6px 10px",background:"rgba(255,80,0,.07)",borderRadius:6}}>
+                    <div style={{fontSize:10,color:"#c2410c",marginBottom:2}}>Non-Revenue</div>
+                    <div style={{fontSize:13,fontWeight:700,color:"#FF5000"}}>{nonRevSubs}</div>
+                    <div style={{fontSize:10,color:"#9a3412"}}>integrations</div>
+                  </div>
+                </div>
+                <div style={{fontSize:10,color:"#9a3412",marginTop:6}}>Daily breakdown available once a submission date is added to the revenue form</div>
+              </div>
+            )}
           </>):<div style={{fontSize:12,color:"#808080",textAlign:"center",padding:"12px 0"}}>No Q3 BoB data loaded yet</div>}
         </div>
 
