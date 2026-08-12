@@ -5001,7 +5001,7 @@ const BOB_COACH_TOTALS = {
 // BOB_DETAIL removed — stale data. Live detail comes from liveBobDet (Google Sheet).
 const BOB_DETAIL = {};
 
-function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChurn, churnAlerts, onSelectCSM, liveBobDet={}, bobAdj={}, q3BobCur=[], domoBoq=[], q3Supp=[], q2DomoBoq=[]}) {
+function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChurn, churnAlerts, onSelectCSM, liveBobDet={}, bobAdj={}, q3BobCur=[], domoBoq=[], q3Supp=[], q2DomoBoq=[], bobTab="overview", setBobTab=()=>{}}) {
   const [bobSubTab, setBobSubTab] = useState("current"); // "current" | "q3"
   const getDet = n => {
     const base = liveBobDet[n]||liveBobDet[norm(n)]||BOB_DETAIL[n]||BOB_DETAIL[norm(n)]||{};
@@ -5045,7 +5045,6 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
           hasAdj: lcmAdj!==0, adjAmount: lcmAdj};
       }).filter(c => c.boq > 0)
     : []; // No stale fallback — show nothing when live BOB data is absent
-  const [bobTab, setBobTab]         = useState("overview");
   const [q2Sort,       setQ2Sort]       = useState({col:"retPct", dir:"asc"});
   const [q2TileFilter, setQ2TileFilter] = useState(null);
   const [q2CSMFilter,  setQ2CSMFilter]  = useState(null);
@@ -6986,6 +6985,7 @@ function App() {
   const [csms, setCSMs] = useState([]);
   const [tab, setTab] = useState("coaching");
   const [trendsTab, setTrendsTab] = useState("performance");
+  const [bobTab, setBobTab] = useState("overview");
   const [filterManager, setFilterManager] = useState("");
   const [filterCoach, setFilterCoach] = useState("");
   const [filterCSM, setFilterCSM] = useState("");
@@ -7512,7 +7512,7 @@ My question: ${aiCustom}`,
           {tab==="leaderboard"&&<LeaderboardView csms={filteredCSMs} bobRaw={bobRaw} history={history} q2DomoBoq={q2DomoBoq} domoBoq={domoBoq} q3BobCur={q3BobCur} q3Supp={q3Supp} rawRev={rawRev}/>}
           
           {tab==="revenue"&&<RevenueView rawRev={rawRev} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches}/>}
-          {tab==="bob"&&<BobView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} churnAlerts={churnAlerts} onSelectCSM={selectCSMFn} liveBobDet={liveBobDet} bobAdj={bobAdj} q3BobCur={q3BobCur} domoBoq={domoBoq} q3Supp={q3Supp} q2DomoBoq={q2DomoBoq}/>}
+          {tab==="bob"&&<BobView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} churnAlerts={churnAlerts} onSelectCSM={selectCSMFn} liveBobDet={liveBobDet} bobAdj={bobAdj} q3BobCur={q3BobCur} domoBoq={domoBoq} q3Supp={q3Supp} q2DomoBoq={q2DomoBoq} bobTab={bobTab} setBobTab={setBobTab}/>}
           {tab==="trends"&&<TrendsView history={history} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} qamc={qamc} qass={qass} trendsTab={trendsTab} setTrendsTab={setTrendsTab}/>}
           {tab==="calls"&&<TrendsView history={history} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} qamc={qamc} qass={qass} trendsTab="calls" setTrendsTab={()=>{}} hideSubTabs={true}/>}
           {tab==="mydash"&&<MyDashboard csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} churnAlerts={churnAlerts} qamc={qamc||[]} qass={qass||[]} domoBoq={domoBoq||[]} q3BobCur={q3BobCur||[]} q3Supp={q3Supp||[]} rawRev={rawRev||[]} cadenceFull={cadenceFull||[]} onNavigate={setTab} onSetTrendsTab={setTrendsTab} onSetBobTab={setBobTab}/>}
