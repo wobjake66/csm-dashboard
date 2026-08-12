@@ -7237,11 +7237,11 @@ My question: ${aiCustom}`,
     setUserSession(user);
     // Check for deep link tab param (e.g. ?tab=digest from email)
     const _urlTab = new URLSearchParams(window.location.search).get("tab");
-    const _validTabs = ["coaching","overview","digest","revenue","bob","leaderboard","trends","mydash"];
+    const _validTabs = ["coaching","digest","revenue","bob","leaderboard","trends","mydash"];
     if (_urlTab && _validTabs.includes(_urlTab)) setTab(_urlTab);
     else setTab("coaching");
     // Auto-filter to this CSM if role=csm
-    if (user.role==="csm") setFilterCSM(user.name);
+    if (user.role==="csm") { setFilterCSM(user.name); setTab("mydash"); }
     // Auto-filter to coach's team if role=coach
     if (user.role==="coach") {
       const c = COACHES.find(c=>c.n===user.name);
@@ -7292,7 +7292,7 @@ My question: ${aiCustom}`,
           </div>
         </div>
         <div style={{display:"flex",alignItems:"stretch",padding:"0 24px"}}>
-          {["coaching","overview","digest","revenue","bob","leaderboard","trends","mydash"].filter(t=>!isCsmView||(t!=="leaderboard"&&t!=="trends")).map(t=>(
+          {["coaching","digest","revenue","bob","leaderboard","trends","mydash"].filter(t=>!isCsmView||(t!=="leaderboard"&&t!=="trends")).map(t=>(
             <button key={t} onClick={()=>setTab(t)}
               style={{padding:"10px 18px",fontSize:13,fontWeight:500,color:tab===t?"#fff":"rgba(255,255,255,.55)",background:"transparent",border:"none",cursor:"pointer",borderBottom:tab===t?"3px solid #FF5000":"3px solid transparent",whiteSpace:"nowrap"}}>
               {t==="mydash"?"🏠 My Dashboard":t==="coaching"?"Coaching":t==="digest"?"📋 Daily Digest":t==="trends"?"📈 Trends":t==="revenue"?"💰 Revenue":t==="bob"?"📋 Book of Business":t.charAt(0).toUpperCase()+t.slice(1)}
@@ -7358,7 +7358,6 @@ My question: ${aiCustom}`,
             liveBobDet={liveBobDet} callData={callData} qamc={qamc} qass={qass} history={history}
             skippedCSMs={skippedCSMs.filter(c=>{const i=lk(c.name);if(filterCoach&&(i&&i.c)!==filterCoach)return false;if(filterCSM&&c.name!==filterCSM)return false;return true;})}
             bobAdj={bobAdj} getDet={getDet} domoBoq={domoBoq} q3BobCur={q3BobCur} q3Supp={q3Supp}/>}
-          {tab==="overview"&&<OverviewView csms={filteredCSMs} allCSMs={csms} bobRaw={bobRaw} bobAdj={bobAdj} history={history} callData={callData} filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches}/>}
           {tab==="leaderboard"&&<LeaderboardView csms={filteredCSMs} bobRaw={bobRaw} history={history} q2DomoBoq={q2DomoBoq} domoBoq={domoBoq} q3BobCur={q3BobCur} q3Supp={q3Supp} rawRev={rawRev}/>}
           
           {tab==="revenue"&&<RevenueView rawRev={rawRev} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches}/>}
