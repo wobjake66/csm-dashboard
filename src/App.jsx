@@ -2706,10 +2706,9 @@ function LeaderboardView({csms, bobRaw, history=[], q2DomoBoq=[], domoBoq=[], q3
   );
 }
 // ── TRENDS VIEW ────────────────────────────────────────────────────────────
-function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}, qass={}}) {
+function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}, qass={}, trendsTab="performance", setTrendsTab=()=>{}}) {
   const [metric, setMetric] = useState("otPct");
   const [view,   setView]         = useState("team"); // "team" | "csm"
-  const [trendsTab, setTrendsTab]   = useState("performance");
   const [callDateFilter, setCallDateFilter] = useState("all");
   const [callCustomFrom, setCallCustomFrom] = useState("");
   const [callCustomTo,   setCallCustomTo]   = useState("");
@@ -6986,6 +6985,7 @@ function App() {
   });
   const [csms, setCSMs] = useState([]);
   const [tab, setTab] = useState("coaching");
+  const [trendsTab, setTrendsTab] = useState("performance");
   const [filterManager, setFilterManager] = useState("");
   const [filterCoach, setFilterCoach] = useState("");
   const [filterCSM, setFilterCSM] = useState("");
@@ -7513,7 +7513,7 @@ My question: ${aiCustom}`,
           
           {tab==="revenue"&&<RevenueView rawRev={rawRev} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches}/>}
           {tab==="bob"&&<BobView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} churnAlerts={churnAlerts} onSelectCSM={selectCSMFn} liveBobDet={liveBobDet} bobAdj={bobAdj} q3BobCur={q3BobCur} domoBoq={domoBoq} q3Supp={q3Supp} q2DomoBoq={q2DomoBoq}/>}
-          {tab==="trends"&&<TrendsView history={history} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} qamc={qamc} qass={qass}/>}
+          {tab==="trends"&&<TrendsView history={history} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} qamc={qamc} qass={qass} trendsTab={trendsTab} setTrendsTab={setTrendsTab}/>}
           {tab==="mydash"&&<MyDashboard csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} churnAlerts={churnAlerts} qamc={qamc||[]} qass={qass||[]} domoBoq={domoBoq||[]} q3BobCur={q3BobCur||[]} q3Supp={q3Supp||[]} rawRev={rawRev||[]} cadenceFull={cadenceFull||[]} onNavigate={setTab} onSetTrendsTab={setTrendsTab} onSetBobTab={setBobTab}/>}
         </div>
       )}
