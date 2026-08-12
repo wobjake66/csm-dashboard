@@ -6627,14 +6627,14 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
   const retColor=r=>r==null?"#808080":r>=0.9095?"#16a34a":r>=0.845?"#d97706":"#dc2626";
 
   const bobAlerts=[];
-  let totalIncreaseCount=0;
+  let totalIncreaseCount=0, totalIncreaseMrr=0, totalDecreaseMrr=0, totalCancelMrr=0;
   bobRows.forEach(b=>{
     const sf=sfD.map[b.eid]||0, sup=supD.map[b.eid]||0, cur=sf+sup;
     const seen=sfD.seen.has(b.eid)||supD.seen.has(b.eid);
     if (!seen) return;
-    if (b.boq>0&&cur===0) bobAlerts.push({csm:b.csm,acct:b.acct,type:"Cancel",boq:b.boq,cur:0});
-    else if (cur<b.boq&&cur>0 && Math.abs(cur-b.boq)>=0.5) bobAlerts.push({csm:b.csm,acct:b.acct,type:"Decrease",boq:b.boq,cur});
-    else if (cur>b.boq && Math.abs(cur-b.boq)>=0.5) { bobAlerts.push({csm:b.csm,acct:b.acct,type:"Increase",boq:b.boq,cur}); totalIncreaseCount++; }
+    if (b.boq>0&&cur===0) { bobAlerts.push({csm:b.csm,acct:b.acct,type:"Cancel",boq:b.boq,cur:0}); totalCancelMrr+=b.boq; }
+    else if (cur<b.boq&&cur>0 && Math.abs(cur-b.boq)>=0.5) { bobAlerts.push({csm:b.csm,acct:b.acct,type:"Decrease",boq:b.boq,cur}); totalDecreaseMrr+=(b.boq-cur); }
+    else if (cur>b.boq && Math.abs(cur-b.boq)>=0.5) { bobAlerts.push({csm:b.csm,acct:b.acct,type:"Increase",boq:b.boq,cur}); totalIncreaseCount++; totalIncreaseMrr+=(cur-b.boq); }
   });
 
   const cancelAlerts=[...bobAlerts];
@@ -6819,7 +6819,8 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
               {/* Increases */}
               <div style={{padding:"12px 14px",background:"rgba(22,163,74,.05)",borderRadius:8,border:"0.5px solid rgba(22,163,74,.2)"}}>
                 <div style={{fontSize:10,color:"#16a34a",fontWeight:600,textTransform:"uppercase",marginBottom:6}}>↑ Increases</div>
-                <div style={{fontSize:20,fontWeight:700,color:"#16a34a",marginBottom:4}}>{totalIncreaseCount}</div>
+                <div style={{fontSize:20,fontWeight:700,color:"#16a34a",marginBottom:2}}>{totalIncreaseCount}</div>
+                <div style={{fontSize:13,fontWeight:600,color:"#16a34a",marginBottom:4}}>+{fk(totalIncreaseMrr)}</div>
                 <div style={{fontSize:11,color:"#808080",marginBottom:8}}>accounts above BOQ</div>
                 {totalRevTot>0&&<div style={{paddingTop:8,borderTop:"0.5px solid rgba(22,163,74,.15)"}}>
                   <div style={{fontSize:10,color:"#808080",marginBottom:4}}>📋 Revenue recommendations</div>
@@ -6833,7 +6834,8 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
               {/* Decreases */}
               <div style={{padding:"12px 14px",background:"rgba(220,38,38,.03)",borderRadius:8,border:"0.5px solid rgba(220,38,38,.15)"}}>
                 <div style={{fontSize:10,color:"#d97706",fontWeight:600,textTransform:"uppercase",marginBottom:6}}>↓ Decreases</div>
-                <div style={{fontSize:20,fontWeight:700,color:"#d97706",marginBottom:4}}>{bobAlerts.filter(a=>a.type==="Decrease").length}</div>
+                <div style={{fontSize:20,fontWeight:700,color:"#d97706",marginBottom:2}}>{bobAlerts.filter(a=>a.type==="Decrease").length}</div>
+                <div style={{fontSize:13,fontWeight:600,color:"#d97706",marginBottom:4}}>-{fk(totalDecreaseMrr)}</div>
                 <div style={{fontSize:11,color:"#808080",marginBottom:8}}>accounts below BOQ</div>
                 {bobAlerts.filter(a=>a.type==="Decrease").length>0&&(
                   <div style={{display:"flex",flexDirection:"column",gap:4,maxHeight:80,overflowY:"auto"}}>
@@ -6847,7 +6849,8 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
               {/* Cancels */}
               <div style={{padding:"12px 14px",background:"rgba(220,38,38,.05)",borderRadius:8,border:"0.5px solid rgba(220,38,38,.2)"}}>
                 <div style={{fontSize:10,color:"#dc2626",fontWeight:600,textTransform:"uppercase",marginBottom:6}}>✕ Cancels</div>
-                <div style={{fontSize:20,fontWeight:700,color:"#dc2626",marginBottom:4}}>{bobAlerts.filter(a=>a.type==="Cancel").length}</div>
+                <div style={{fontSize:20,fontWeight:700,color:"#dc2626",marginBottom:2}}>{bobAlerts.filter(a=>a.type==="Cancel").length}</div>
+                <div style={{fontSize:13,fontWeight:600,color:"#dc2626",marginBottom:4}}>-{fk(totalCancelMrr)}</div>
                 <div style={{fontSize:11,color:"#808080",marginBottom:8}}>accounts churned</div>
                 {bobAlerts.filter(a=>a.type==="Cancel").length>0&&(
                   <div style={{display:"flex",flexDirection:"column",gap:4,maxHeight:80,overflowY:"auto"}}>
