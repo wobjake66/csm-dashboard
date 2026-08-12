@@ -5882,14 +5882,14 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
     // Filter out any row where CSM name contains TOTAL or GRAND (subtotals/grand total rows)
     const eidMap = {};
     domoBoq.forEach(r => {
-      const csmRaw = String(getCol(r,"CSM Name")||"").trim();
+      const csmRaw = String(r["CSM Name"]||"").trim();
       if (!csmRaw || /TOTAL|GRAND/i.test(csmRaw) || /\bTOTAL$/i.test(csmRaw)) return;
-      const eidRaw = String(getCol(r,"Enterprise ID","Enterprise Id")||"").trim();
+      const eidRaw = String(r["Enterprise ID"]||r["Enterprise Id"]||"").trim();
       if (!eidRaw || /count/i.test(eidRaw)) return;
       const eid = eidRaw.toUpperCase();
-      const acct = String(getCol(r,"Account Name")||"").trim();
-      const boq  = pf(r["Beginning of Quarter"] ?? r[Object.keys(r)[4]] ?? 0);
-      const net  = pf(r["MTD Net Billing"] ?? r[Object.keys(r)[6]] ?? 0);
+      const acct = String(r["Account Name"]||"").trim();
+      const boq  = pf(r["Beginning of Quarter"]);
+      const net  = pf(r["MTD Net Billing"]);
       const csmName = norm(lfSwap(csmRaw)) || lfSwap(csmRaw);
       if (!eidMap[eid]) eidMap[eid] = {eid, csm:csmName, acct, boq:0, net:0};
       eidMap[eid].boq += boq;
