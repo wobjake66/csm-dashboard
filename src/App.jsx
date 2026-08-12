@@ -5852,7 +5852,19 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
   // bob_q3_supplemental, joined by Enterprise ID and summed together. CSM
   // attribution always comes from the Domo BOQ file, never from the SF files.
   const renderDomoBoB = () => {
-    const pf = v => { let s=String(v||"0").trim().replace(/\u2212/g,"-").replace(/\u2013/g,"-"); const neg=s.startsWith("(")&&s.endsWith(")"); s=s.replace(/[$,%()]/g,""); const x=parseFloat(s); return isNaN(x)?0:(neg?-x:x); };
+    const pf = v => {
+      if (v === null || v === undefined || v === "") return 0;
+      if (typeof v === "number") return v;
+      let s = String(v).trim();
+      // Handle unicode minus (U+2212) and en-dash
+      s = s.replace(/[\u2212\u2013]/g, "-");
+      // Handle parenthetical negatives like (125.00)
+      const neg = s.startsWith("(") && s.endsWith(")");
+      // Strip everything except digits, dot, minus
+      s = s.replace(/[^0-9.\-]/g, "");
+      const x = parseFloat(s);
+      return isNaN(x) ? 0 : (neg ? -Math.abs(x) : x);
+    };
     const getCol = (row, ...names) => {
       for (const n of names) {
         const k = Object.keys(row).find(k => k.toLowerCase().replace(/[^a-z]/g,"") === n.toLowerCase().replace(/[^a-z]/g,""));
