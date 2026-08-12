@@ -7432,7 +7432,11 @@ function App() {
         setChurnAlerts(mapChurnAlerts(churnAlertRows));
         setHistory(mapHistory(historyRows));
         if (q3BobCurRows&&q3BobCurRows.length>0) setQ3BobCur(q3BobCurRows);
-        if (domoBoqRows&&domoBoqRows.length>0) setDomoBoq(domoBoqRows);
+        if (domoBoqRows&&domoBoqRows.length>0) {
+          console.log("[domoBoq] columns:", Object.keys(domoBoqRows[0]));
+          console.log("[domoBoq] sample row:", domoBoqRows[1]);
+          setDomoBoq(domoBoqRows);
+        }
         if (q3SuppRows&&q3SuppRows.length>0) setQ3Supp(q3SuppRows);
         if (q2DomoBoqRows&&q2DomoBoqRows.length>0) setQ2DomoBoq(q2DomoBoqRows);
         setUpdatedAt(new Date().toLocaleTimeString());
