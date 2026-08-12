@@ -6473,7 +6473,7 @@ function PinLock({onUnlock}) {
 // MY DASHBOARD — self-contained. To revert: remove this block + 3 lines below.
 // ═══════════════════════════════════════════════════════════════════════════
 function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
-  churnAlerts=[], qamc=[], qass=[], domoBoq=[], q3BobCur=[], q3Supp=[], rawRev=[], cadenceFull=[], onNavigate=()=>{}}) {
+  churnAlerts=[], qamc=[], qass=[], domoBoq=[], q3BobCur=[], q3Supp=[], rawRev=[], cadenceFull=[], onNavigate=()=>{}, onSetTrendsTab=()=>{}, onSetBobTab=()=>{}}) {
   const [dashDateFilter, setDashDateFilter] = React.useState("today");
   const [dashCustomFrom, setDashCustomFrom] = React.useState("");
   const [dashCustomTo,   setDashCustomTo]   = React.useState("");
@@ -6727,7 +6727,7 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
 
         {/* Calls */}
         <div style={card}>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8,cursor:"pointer"}} onClick={()=>onNavigate("trends")}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8,cursor:"pointer"}} onClick={()=>{onSetTrendsTab("calls");onNavigate("trends");}}>
             <span style={lbl}>📞 Calls — {dashLabel}</span>
             <span style={{fontSize:10,color:"#5378FC",fontWeight:500}}>View details →</span>
           </div>
@@ -6800,7 +6800,7 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
 
       {/* Q3 Book of Business */}
       <div style={{...card,marginBottom:16}}>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8,cursor:"pointer"}} onClick={()=>onNavigate("bob")}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8,cursor:"pointer"}} onClick={()=>{onSetBobTab("domo");onNavigate("bob");}}>
             <span style={lbl}>📋 Q3 Book of Business</span>
             <span style={{fontSize:10,color:"#5378FC",fontWeight:500}}>View details →</span>
           </div>
@@ -7514,7 +7514,7 @@ My question: ${aiCustom}`,
           {tab==="revenue"&&<RevenueView rawRev={rawRev} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches}/>}
           {tab==="bob"&&<BobView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} churnAlerts={churnAlerts} onSelectCSM={selectCSMFn} liveBobDet={liveBobDet} bobAdj={bobAdj} q3BobCur={q3BobCur} domoBoq={domoBoq} q3Supp={q3Supp} q2DomoBoq={q2DomoBoq}/>}
           {tab==="trends"&&<TrendsView history={history} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} qamc={qamc} qass={qass}/>}
-          {tab==="mydash"&&<MyDashboard csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} churnAlerts={churnAlerts} qamc={qamc||[]} qass={qass||[]} domoBoq={domoBoq||[]} q3BobCur={q3BobCur||[]} q3Supp={q3Supp||[]} rawRev={rawRev||[]} cadenceFull={cadenceFull||[]} onNavigate={setTab}/>}
+          {tab==="mydash"&&<MyDashboard csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} churnAlerts={churnAlerts} qamc={qamc||[]} qass={qass||[]} domoBoq={domoBoq||[]} q3BobCur={q3BobCur||[]} q3Supp={q3Supp||[]} rawRev={rawRev||[]} cadenceFull={cadenceFull||[]} onNavigate={setTab} onSetTrendsTab={setTrendsTab} onSetBobTab={setBobTab}/>}
         </div>
       )}
 
