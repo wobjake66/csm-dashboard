@@ -6730,9 +6730,9 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
             ))}
           </div>
           {week.compRate!=null?(<div>
-            <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{fontSize:11,color:"#808080"}}>Completion rate</span><span style={{fontSize:11,fontWeight:700,color:cc(week.compRate)}}>{pp(week.compRate)}</span></div>
+            <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{fontSize:11,color:"#808080"}}>Completion rate <span style={{fontSize:10,color:"#aaa",fontWeight:400}}>(of resolved calls)</span></span><span style={{fontSize:11,fontWeight:700,color:cc(week.compRate)}}>{pp(week.compRate)}</span></div>
             <div style={{height:6,background:"rgba(0,0,0,.08)",borderRadius:3,overflow:"hidden"}}><div style={{width:(week.compRate*100).toFixed(1)+"%",height:"100%",background:cc(week.compRate),borderRadius:3}}/></div>
-            <div style={{display:"flex",justifyContent:"space-between",marginTop:6}}><span style={{fontSize:10,color:"#808080"}}>No-show: <span style={{color:nsc(week.nsRate),fontWeight:600}}>{pp(week.nsRate)}</span></span><span style={{fontSize:10,color:"#808080"}}>Goal: &lt;8% · &gt;85% completion</span></div>
+            <div style={{display:"flex",justifyContent:"space-between",marginTop:6}}><span style={{fontSize:10,color:"#808080"}}>No-show: <span style={{color:nsc(week.nsRate),fontWeight:600}}>{pp(week.nsRate)}</span>{week.scheduled>0&&<span style={{color:"#5378FC",marginLeft:8}}>{week.scheduled} still scheduled</span>}</span><span style={{fontSize:10,color:"#808080"}}>Goal: &lt;8% · &gt;85% completion</span></div>
           </div>):<div style={{fontSize:12,color:"#808080",textAlign:"center",padding:"12px 0"}}>No call data for this week yet</div>}
         </div>
 
