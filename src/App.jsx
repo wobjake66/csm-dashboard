@@ -6830,41 +6830,33 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
 
       {/* CER card */}
       <div style={card}>
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16,cursor:"pointer"}} onClick={()=>onNavigate("cers")}>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
             <span style={{fontSize:13}}>📋</span>
             <span style={lbl}>Client Engagement Roadmaps — Q3 {now.getFullYear()}</span>
           </div>
-          <span style={{fontSize:11,color:"var(--text-secondary)",background:"var(--surface-1)",border:"0.5px solid var(--border)",padding:"2px 10px",borderRadius:20}}>
-            Jul 1 – Sep 30
-          </span>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <span style={{fontSize:11,color:"var(--text-secondary)",background:"var(--surface-1)",border:"0.5px solid var(--border)",padding:"2px 10px",borderRadius:20}}>Jul 1 – Sep 30</span>
+            <span style={{fontSize:10,color:"#5378FC",fontWeight:500}}>View details →</span>
+          </div>
         </div>
         {cerAssignedQ.length>0||cerCompletedQ.length>0?(
           <>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(4,minmax(0,1fr))",gap:12,marginBottom:14}}>
-              <div style={{background:"var(--surface-1)",borderRadius:8,padding:"14px 16px"}}>
-                <div style={{fontSize:10,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:6}}>Assigned</div>
-                <div style={{fontSize:26,fontWeight:500,color:"var(--text-primary)",lineHeight:1,marginBottom:4}}>{cerAssignedQ.length}</div>
-                <div style={{fontSize:11,color:"var(--text-secondary)"}}>form start in Q3</div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:12,marginBottom:14}}>
+              <div style={{background:"var(--surface-1)",border:"0.5px solid var(--border)",borderTop:"3px solid #29355D",borderRadius:12,padding:"12px 16px"}}>
+                <div style={{fontSize:10,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:4}}>Assigned</div>
+                <div style={{fontSize:24,fontWeight:500,color:"var(--text-primary)",lineHeight:1,marginBottom:3}}>{cerAssignedQ.length}</div>
+                <div style={{fontSize:10,color:"var(--text-muted)"}}>form start in Q3</div>
               </div>
-              <div style={{background:"var(--surface-1)",borderRadius:8,padding:"14px 16px"}}>
-                <div style={{fontSize:10,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:6}}>Completed</div>
-                <div style={{fontSize:26,fontWeight:500,color:"#16a34a",lineHeight:1,marginBottom:4}}>{cerCompletedQ.length}</div>
-                <div style={{fontSize:11,color:"var(--text-secondary)"}}>form end in Q3</div>
+              <div style={{background:"var(--surface-1)",border:"0.5px solid var(--border)",borderTop:"3px solid #16a34a",borderRadius:12,padding:"12px 16px"}}>
+                <div style={{fontSize:10,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:4}}>Completed</div>
+                <div style={{fontSize:24,fontWeight:500,color:"#16a34a",lineHeight:1,marginBottom:3}}>{cerCompletedQ.length}</div>
+                <div style={{fontSize:10,color:"var(--text-muted)"}}>form end in Q3</div>
               </div>
-              <div style={{background:"var(--surface-1)",borderRadius:8,padding:"14px 16px"}}>
-                <div style={{fontSize:10,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:6}}>Completion rate</div>
-                <div style={{fontSize:26,fontWeight:500,color:cerCompRate!=null?(cerCompRate>=0.8?"#16a34a":cerCompRate>=0.6?"#d97706":"#dc2626"):"#808080",lineHeight:1,marginBottom:6}}>
-                  {cerCompRate!=null?pp(cerCompRate):"--"}
-                </div>
-                {cerCompRate!=null&&<div style={{height:5,background:"rgba(0,0,0,.08)",borderRadius:3,overflow:"hidden"}}>
-                  <div style={{width:(cerCompRate*100).toFixed(1)+"%",height:"100%",background:cerCompRate>=0.8?"#16a34a":cerCompRate>=0.6?"#d97706":"#dc2626",borderRadius:3}}/>
-                </div>}
-              </div>
-              <div style={{background:"var(--surface-1)",borderRadius:8,padding:"14px 16px"}}>
-                <div style={{fontSize:10,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:6}}>In progress</div>
-                <div style={{fontSize:26,fontWeight:500,color:"#d97706",lineHeight:1,marginBottom:4}}>{cerInProgress+cerNew+cerOnHold}</div>
-                <div style={{fontSize:11,color:"var(--text-secondary)"}}>open + on hold</div>
+              <div style={{background:"var(--surface-1)",border:"0.5px solid var(--border)",borderTop:"3px solid #d97706",borderRadius:12,padding:"12px 16px"}}>
+                <div style={{fontSize:10,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:4}}>In progress / New</div>
+                <div style={{fontSize:24,fontWeight:500,color:"#d97706",lineHeight:1,marginBottom:3}}>{cerInProgress+cerNew+cerOnHold}</div>
+                <div style={{fontSize:10,color:"var(--text-muted)"}}>open + on hold + new</div>
               </div>
             </div>
             <div style={{borderTop:"0.5px solid rgba(41,53,93,.08)",paddingTop:12,display:"flex",gap:8,flexWrap:"wrap"}}>
@@ -6875,7 +6867,7 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
             </div>
           </>
         ):(
-          <div style={{fontSize:12,color:"var(--text-secondary)",textAlign:"center",padding:"16px 0"}}>No CER data loaded yet — add the Google Sheet tab and it will appear here</div>
+          <div style={{fontSize:12,color:"var(--text-secondary)",textAlign:"center",padding:"16px 0"}}>No CER data loaded yet</div>
         )}
       </div>
 
