@@ -5900,11 +5900,6 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
       if (!eidRaw || /count/i.test(eidRaw)) return;
       const eid = eidRaw.toUpperCase();
       const acct = String(r["Account Name"]||"").trim();
-      // Log all keys from first row to verify column names
-      if (Object.keys(eidMap).length === 0) {
-        console.log("[domoBoB keys]", Object.keys(r));
-        console.log("[domoBoB first row]", JSON.stringify(r));
-      }
       const boq  = pf(r["Beginning of Quarter"]);
       const net  = pf(r["MTD Net Billing"]);
       const csmName = norm(lfSwap(csmRaw)) || lfSwap(csmRaw);
@@ -5913,6 +5908,11 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
       eidMap[eid].net += net;
       if (!eidMap[eid].acct && acct) eidMap[eid].acct = acct;
     });
+
+    // Debug: log raw totals before adjustments
+    const _rawBoq = Object.values(eidMap).reduce((s,b)=>s+b.boq,0);
+    const _rawNet = Object.values(eidMap).reduce((s,b)=>s+b.net,0);
+    console.log("[eidMap final] accounts:", Object.keys(eidMap).length, "BOQ:", _rawBoq.toFixed(0), "Net:", _rawNet.toFixed(0), "Cur:", (_rawBoq+_rawNet).toFixed(0));
 
     // Apply Q3 adjustments
     const adjMap = bobAdj || {};
