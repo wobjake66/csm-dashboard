@@ -2706,7 +2706,7 @@ function LeaderboardView({csms, bobRaw, history=[], q2DomoBoq=[], domoBoq=[], q3
   );
 }
 // ── TRENDS VIEW ────────────────────────────────────────────────────────────
-function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}, qass={}, trendsTab="performance", setTrendsTab=()=>{}}) {
+function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}, qass={}, trendsTab="performance", setTrendsTab=()=>{}, hideSubTabs=false}) {
   const [metric, setMetric] = useState("otPct");
   const [view,   setView]         = useState("team"); // "team" | "csm"
   const [callDateFilter, setCallDateFilter] = useState("all");
@@ -2911,7 +2911,7 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
     <div>
       {/* Subtab bar */}
       <div style={{display:"flex",gap:4,marginBottom:20,background:"#ECEEF1",borderRadius:10,padding:4,width:"fit-content"}}>
-        {[["performance","📈 Performance"],["calls","📞 Calls"],["qa","🎯 Call QA"]].map(([t,l])=>(
+        {!hideSubTabs&&[["performance","📈 Performance"],["calls","📞 Calls"],["qa","🎯 Call QA"]].map(([t,l])=>(
           <button key={t} onClick={()=>setTrendsTab(t)}
             style={{padding:"7px 18px",borderRadius:7,border:"none",fontSize:12,fontWeight:600,cursor:"pointer",
               background:trendsTab===t?"#29355D":"transparent",
@@ -6727,7 +6727,7 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
 
         {/* Calls */}
         <div style={card}>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8,cursor:"pointer"}} onClick={()=>{onSetTrendsTab("calls");onNavigate("trends");}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8,cursor:"pointer"}} onClick={()=>onNavigate("calls")}>
             <span style={lbl}>📞 Calls — {dashLabel}</span>
             <span style={{fontSize:10,color:"#5378FC",fontWeight:500}}>View details →</span>
           </div>
@@ -7374,7 +7374,7 @@ My question: ${aiCustom}`,
     setUserSession(user);
     // Check for deep link tab param (e.g. ?tab=digest from email)
     const _urlTab = new URLSearchParams(window.location.search).get("tab");
-    const _validTabs = ["coaching","digest","revenue","bob","leaderboard","trends","mydash"];
+    const _validTabs = ["coaching","digest","revenue","bob","leaderboard","calls","trends","mydash"];
     if (_urlTab && _validTabs.includes(_urlTab)) setTab(_urlTab);
     else setTab("coaching");
     // Auto-filter to this CSM if role=csm
@@ -7429,10 +7429,10 @@ My question: ${aiCustom}`,
           </div>
         </div>
         <div style={{display:"flex",alignItems:"stretch",padding:"0 24px"}}>
-          {["coaching","digest","revenue","bob","leaderboard","trends","mydash"].filter(t=>!isCsmView||(t==="mydash"||t==="bob")).map(t=>(
+          {["coaching","digest","revenue","bob","leaderboard","calls","trends","mydash"].filter(t=>!isCsmView||(t==="mydash"||t==="bob")).map(t=>(
             <button key={t} onClick={()=>setTab(t)}
               style={{padding:"10px 18px",fontSize:13,fontWeight:500,color:tab===t?"#fff":"rgba(255,255,255,.55)",background:"transparent",border:"none",cursor:"pointer",borderBottom:tab===t?"3px solid #FF5000":"3px solid transparent",whiteSpace:"nowrap"}}>
-              {t==="mydash"?"🏠 My Dashboard":t==="coaching"?"Coaching":t==="digest"?"📋 Daily Digest":t==="trends"?"📈 Trends":t==="revenue"?"💰 Revenue":t==="bob"?"📋 Book of Business":t.charAt(0).toUpperCase()+t.slice(1)}
+              {t==="mydash"?"🏠 My Dashboard":t==="coaching"?"Coaching":t==="digest"?"📋 Daily Digest":t==="trends"?"📈 Trends":t==="calls"?"📞 Calls":t==="revenue"?"💰 Revenue":t==="bob"?"📋 Book of Business":t.charAt(0).toUpperCase()+t.slice(1)}
             </button>
           ))}
         </div>
@@ -7514,6 +7514,7 @@ My question: ${aiCustom}`,
           {tab==="revenue"&&<RevenueView rawRev={rawRev} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches}/>}
           {tab==="bob"&&<BobView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} churnAlerts={churnAlerts} onSelectCSM={selectCSMFn} liveBobDet={liveBobDet} bobAdj={bobAdj} q3BobCur={q3BobCur} domoBoq={domoBoq} q3Supp={q3Supp} q2DomoBoq={q2DomoBoq}/>}
           {tab==="trends"&&<TrendsView history={history} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} qamc={qamc} qass={qass} trendsTab={trendsTab} setTrendsTab={setTrendsTab}/>}
+          {tab==="calls"&&<TrendsView history={history} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} qamc={qamc} qass={qass} trendsTab="calls" setTrendsTab={()=>{}} hideSubTabs={true}/>}
           {tab==="mydash"&&<MyDashboard csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} churnAlerts={churnAlerts} qamc={qamc||[]} qass={qass||[]} domoBoq={domoBoq||[]} q3BobCur={q3BobCur||[]} q3Supp={q3Supp||[]} rawRev={rawRev||[]} cadenceFull={cadenceFull||[]} onNavigate={setTab} onSetTrendsTab={setTrendsTab} onSetBobTab={setBobTab}/>}
         </div>
       )}
