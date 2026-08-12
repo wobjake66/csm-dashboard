@@ -6611,8 +6611,8 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
   });
   const toDayKey = d => d?d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"):null;
   const cadDueInWindow     = myCadRows.filter(r=>r.status==="Open"&&r.dueDate&&dashDayTest(toDayKey(r.dueDate)));
-  const cadCompleted       = myCadRows.filter(r=>r.status==="Completed");
-  const cadSkipped         = myCadRows.filter(r=>r.status==="Skipped");
+  const cadCompleted       = myCadRows.filter(r=>r.status==="Completed"&&r.dueDate&&dashDayTest(toDayKey(r.dueDate)));
+  const cadSkipped         = myCadRows.filter(r=>r.status==="Skipped"&&r.dueDate&&dashDayTest(toDayKey(r.dueDate)));
   const cadOpenAll         = myCadRows.filter(r=>r.status==="Open");
   const cadAccountsInWindow = new Set(cadDueInWindow.map(r=>r.account).filter(Boolean));
 
