@@ -6538,28 +6538,6 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
 
   const resolveKey = n => callData[n]?n:Object.keys(callData).find(k=>norm(k)===n)||n;
 
-  // ── Parse cadenceFull rows ────────────────────────────────────────────────
-  const parseCadRow = r => {
-    const assigned = String(r["Cadence Member: Assigned"]||r["Assigned"]||"").trim();
-    const account  = String(r["Cadence Member: Account"]||r["Account"]||"").trim();
-    const status   = String(r["Status"]||"").trim();
-    const overdue  = String(r["Overdue"]||"").trim()==="1";
-    const dateRaw  = String(r["Due Date/Time"]||r["Due Date"]||"").trim();
-    let dueDate = null;
-    if (dateRaw) { const d=new Date(dateRaw); if (!isNaN(d)) dueDate=d; }
-    return {assigned:norm(assigned)||assigned, account, status, overdue, dueDate};
-  };
-  const myCadRows = (Array.isArray(cadenceFull)?cadenceFull:[]).map(parseCadRow).filter(r => {
-    if (!r.assigned) return false;
-    return csmNorms.has(r.assigned)||csmNorms.has(norm(r.assigned));
-  });
-  const toDayKey = d => d?d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"):null;
-  const cadDueInWindow = myCadRows.filter(r=>r.status==="Open"&&r.dueDate&&dashDayTest(toDayKey(r.dueDate)));
-  const cadCompleted   = myCadRows.filter(r=>r.status==="Completed");
-  const cadSkipped     = myCadRows.filter(r=>r.status==="Skipped");
-  const cadOpenAll     = myCadRows.filter(r=>r.status==="Open");
-  const cadAccountsInWindow = new Set(cadDueInWindow.map(r=>r.account).filter(Boolean));
-
   const aggCalls = (dayTest) => {
     let completed=0,noShow=0,cancelled=0,scheduled=0;
     csmNames.forEach(n => {
@@ -6615,6 +6593,29 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
   const sfD=parseRev(q3BobCur), supD=parseRev(q3Supp);
   // Build a set of all normalized name variants for the filtered CSMs
   const csmNorms=new Set(csmNames.flatMap(n=>[norm(n),n.toLowerCase()].filter(Boolean)));
+
+  // ── Parse cadenceFull rows (needs csmNorms + dashDayTest, both defined above) ──
+  const parseCadRow = r => {
+    const assigned = String(r["Cadence Member: Assigned"]||r["Assigned"]||"").trim();
+    const account  = String(r["Cadence Member: Account"]||r["Account"]||"").trim();
+    const status   = String(r["Status"]||"").trim();
+    const overdue  = String(r["Overdue"]||"").trim()==="1";
+    const dateRaw  = String(r["Due Date/Time"]||r["Due Date"]||"").trim();
+    let dueDate = null;
+    if (dateRaw) { const d=new Date(dateRaw); if (!isNaN(d)) dueDate=d; }
+    return {assigned:norm(assigned)||assigned, account, status, overdue, dueDate};
+  };
+  const myCadRows = (Array.isArray(cadenceFull)?cadenceFull:[]).map(parseCadRow).filter(r => {
+    if (!r.assigned) return false;
+    return csmNorms.has(r.assigned)||csmNorms.has(norm(r.assigned));
+  });
+  const toDayKey = d => d?d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"):null;
+  const cadDueInWindow     = myCadRows.filter(r=>r.status==="Open"&&r.dueDate&&dashDayTest(toDayKey(r.dueDate)));
+  const cadCompleted       = myCadRows.filter(r=>r.status==="Completed");
+  const cadSkipped         = myCadRows.filter(r=>r.status==="Skipped");
+  const cadOpenAll         = myCadRows.filter(r=>r.status==="Open");
+  const cadAccountsInWindow = new Set(cadDueInWindow.map(r=>r.account).filter(Boolean));
+
   const bobRows=Object.values(boqMap).filter(b=>{
     const bNorm=b.csm; // already norm(lfSwap(...)) from boqMap building
     return csmNorms.has(bNorm)||csmNorms.has(norm(bNorm));
