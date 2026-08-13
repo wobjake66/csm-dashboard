@@ -2735,7 +2735,7 @@ function LeaderboardView({csms, bobRaw, history=[], q2DomoBoq=[], domoBoq=[], q3
                 border:`0.5px solid ${REG_COL[reg]}`,
                 background:lbRegion===reg?REG_COL[reg]:"#fff",
                 color:lbRegion===reg?"#fff":REG_COL[reg]}}>
-              {reg === "ANZ" ? "🌏 ANZ (Aaron's)" : reg === "DR" ? "🇩🇴 DR" : "🇺🇸 US"} {lbRegion===reg?"✓":""}
+              {reg === "ANZ" ? "ANZ" : reg === "DR" ? "DR" : "US"} {lbRegion===reg?"✓":""}
             </button>
           ))}
         </div>
@@ -2743,8 +2743,15 @@ function LeaderboardView({csms, bobRaw, history=[], q2DomoBoq=[], domoBoq=[], q3
 
       {/* Top 3 podium */}
       {top3.length >= 2 && (()=>{
+        // Order: 2nd left, 1st center, 3rd right
         const podiumOrder = top3.length>=3 ? [top3[1],top3[0],top3[2]] : [top3[0],top3[1]].filter(Boolean);
         const podiumMedal = top3.length>=3 ? ["🥈","🥇","🥉"] : ["🥇","🥈"];
+        // Sizes: center(1st)=large, left(2nd)=medium, right(3rd)=small
+        const podiumSize  = top3.length>=3 ? ["md","lg","sm"] : ["lg","md"];
+        const podiumPad   = {lg:"22px 16px", md:"16px 13px", sm:"12px 11px"};
+        const podiumEmoji = {lg:32, md:24, sm:20};
+        const podiumName  = {lg:15, md:13, sm:12};
+        const podiumVal   = {lg:16, md:14, sm:13};
         const podiumGrad  = [
           "linear-gradient(135deg,rgba(192,192,192,.15),rgba(168,168,168,.06))",
           "linear-gradient(135deg,rgba(255,215,0,.18),rgba(255,165,0,.08))",
@@ -2756,27 +2763,26 @@ function LeaderboardView({csms, bobRaw, history=[], q2DomoBoq=[], domoBoq=[], q3
             {podiumOrder.map(({c,rev,cadPct,bobRet},pi)=>{
               const info = lk(c.name)||{};
               const reg  = getReg(c);
-              const isMid = (top3.length>=3 && pi===1) || (top3.length<3 && pi===0);
               return (
                 <div key={c.name} style={{
                   background:podiumGrad[pi],border:`1.5px solid ${podiumBdr[pi]}`,borderRadius:14,
-                  padding:isMid?"20px 14px":"14px 12px",textAlign:"center"}}>
-                  <div style={{fontSize:isMid?30:22,marginBottom:4}}>{podiumMedal[pi]}</div>
-                  <div style={{fontSize:isMid?15:13,fontWeight:700,color:"#29355D",marginBottom:2}}>{dispName(c.name)}</div>
+                  padding:podiumPad[podiumSize[pi]],textAlign:"center"}}>
+                  <div style={{fontSize:podiumEmoji[podiumSize[pi]],marginBottom:4}}>{podiumMedal[pi]}</div>
+                  <div style={{fontSize:podiumName[podiumSize[pi]],fontWeight:700,color:"#29355D",marginBottom:2}}>{dispName(c.name)}</div>
                   <div style={{fontSize:12,color:"#808080",marginBottom:reg?4:10}}>{st(info.t||c.team)}</div>
                   {reg&&<div style={{fontSize:11,fontWeight:600,color:REG_COL[reg]||"#808080",marginBottom:10}}>{reg}</div>}
                   <div style={{display:"flex",flexDirection:"column",gap:5}}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                      <span style={{fontSize:12,color:"#808080"}}>💰 Revenue</span>
-                      <span style={{fontSize:isMid?15:13,fontWeight:700,color:rev>0?"#FF5000":"#aaa"}}>{fd(rev)}</span>
+                      <span style={{fontSize:12,color:"#808080"}}>💰 Rev</span>
+                      <span style={{fontSize:podiumVal[podiumSize[pi]],fontWeight:700,color:rev>0?"#FF5000":"#aaa"}}>{fd(rev)}</span>
                     </div>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                      <span style={{fontSize:12,color:"#808080"}}>✅ Cadence</span>
-                      <span style={{fontSize:isMid?15:13,fontWeight:700,color:pc(cadPct)}}>{pp(cadPct)}</span>
+                      <span style={{fontSize:12,color:"#808080"}}>✅ Cad</span>
+                      <span style={{fontSize:podiumVal[podiumSize[pi]],fontWeight:700,color:pc(cadPct)}}>{pp(cadPct)}</span>
                     </div>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                      <span style={{fontSize:12,color:"#808080"}}>📋 Retention</span>
-                      <span style={{fontSize:isMid?15:13,fontWeight:700,color:pcR(bobRet)}}>{pp(bobRet)}</span>
+                      <span style={{fontSize:12,color:"#808080"}}>📋 Ret</span>
+                      <span style={{fontSize:podiumVal[podiumSize[pi]],fontWeight:700,color:pcR(bobRet)}}>{pp(bobRet)}</span>
                     </div>
                   </div>
                 </div>
