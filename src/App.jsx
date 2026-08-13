@@ -2659,75 +2659,124 @@ function LeaderboardView({csms, bobRaw, history=[], q2DomoBoq=[], domoBoq=[], q3
   );
 
 
+
+  const [lbRegion, setLbRegion] = React.useState("all");
+  const REG_COL   = {DR:"#FF5000", US:"#29355D", ANZ:"#5378FC"};
+  const REG_LABEL = {DR:"Dominican Republic", US:"United States", ANZ:"Australia & NZ"};
+  const getReg = c => { const i=lk(c.name)||{}; return i.reg||null; };
+
+  // Filter rows by region
+  const regionFiltered = lbRegion==="all" ? sorted : sorted.filter(r=>getReg(r.c)===lbRegion);
+
+  const pp  = p => p==null?"--":(p*100).toFixed(1)+"%";
+  const fd  = n => n>0?"$"+n.toLocaleString("en-US",{maximumFractionDigits:0}):"--";
+  const pc  = p => p==null?"#aaa":p>=0.9?"#16a34a":p>=0.75?"#d97706":"#dc2626";
+  const pcR = p => p==null?"#aaa":p>=0.91?"#16a34a":p>=0.85?"#d97706":"#dc2626";
+
+  const rankBadge = (r, col) => r==null ? "--" : (
+    <span style={{fontSize:12,fontWeight:700,padding:"1px 8px",borderRadius:10,
+      background:r<=3?col+"22":"rgba(41,53,93,.05)",
+      color:r<=3?col:"#aaa",
+      border:`0.5px solid ${r<=3?col+"44":"rgba(41,53,93,.08)"}`}}>
+      #{r}
+    </span>
+  );
+
+  const top3 = regionFiltered.slice(0,3);
+  const rest = regionFiltered.slice(3);
+
   return (
-    <div style={{maxWidth:1100,margin:"0 auto",position:"relative",overflow:"hidden"}}>
+    <div style={{maxWidth:1100,margin:"0 auto",position:"relative",overflow:"hidden",paddingTop:8}}>
 
       {/* Confetti */}
-      {[...Array(28)].map((_,i)=>(
+      {[...Array(24)].map((_,i)=>(
         <div key={i} style={{
-          position:"absolute",width:7,height:7,borderRadius:2,pointerEvents:"none",
-          left:(i*37%100)+"%",top:(i*13%40)-20,
+          position:"absolute",width:7,height:7,borderRadius:2,pointerEvents:"none",zIndex:0,
+          left:(i*41%100)+"%",top:(i*17%50)-20,
           background:["#FF5000","#FFD700","#16a34a","#5378FC","#dc2626","#d97706","#6366f1"][i%7],
-          animation:`lbConfetti ${2+i%3}s ${(i*0.15).toFixed(1)}s linear infinite`,
-          transform:`rotate(${i*47}deg)`,
+          animation:`lbC ${2+i%3}s ${(i*0.18).toFixed(1)}s linear infinite`,
         }}/>
       ))}
-      <style>{`@keyframes lbConfetti{0%{transform:translateY(0) rotate(0deg);opacity:1}100%{transform:translateY(180px) rotate(360deg);opacity:0}}@keyframes lbFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}`}</style>
+      <style>{`
+        @keyframes lbC{0%{transform:translateY(0) rotate(0deg);opacity:1}100%{transform:translateY(200px) rotate(360deg);opacity:0}}
+        @keyframes lbF{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+        .lb-row:hover{background:rgba(41,53,93,.03)!important;}
+      `}</style>
 
       {/* Header */}
-      <div style={{textAlign:"center",marginBottom:24,paddingTop:8}}>
-        <div style={{fontSize:32,display:"inline-block",animation:"lbFloat 3s ease-in-out infinite"}}>🏆</div>
-        <div style={{fontSize:22,fontWeight:700,color:"#29355D",marginTop:4,marginBottom:2}}>CSM Leaderboard</div>
+      <div style={{textAlign:"center",marginBottom:20,position:"relative",zIndex:1}}>
+        <div style={{fontSize:30,display:"inline-block",animation:"lbF 3s ease-in-out infinite"}}>🏆</div>
+        <div style={{fontSize:21,fontWeight:700,color:"#29355D",marginTop:4,marginBottom:2}}>CSM Leaderboard</div>
         <div style={{fontSize:13,color:"#808080",marginBottom:14}}>{curQLabel} · Revenue · Cadence · Retention</div>
-        <div style={{display:"flex",gap:6,justifyContent:"center"}}>
+
+        {/* Period pills */}
+        <div style={{display:"flex",gap:6,justifyContent:"center",marginBottom:14}}>
           {OPTS.map(({k,l})=>(
             <button key={k} onClick={()=>{setPeriod(k);setSort({col:"rev",dir:"desc"});}}
-              style={{padding:"5px 16px",borderRadius:20,border:"0.5px solid "+(period===k?"#29355D":"rgba(41,53,93,.2)"),
-                background:period===k?"#29355D":"#fff",color:period===k?"#fff":"#808080",
-                fontSize:13,fontWeight:period===k?500:400,cursor:"pointer"}}>
+              style={{padding:"4px 16px",borderRadius:20,fontSize:13,fontWeight:500,cursor:"pointer",
+                border:"0.5px solid "+(period===k?"#29355D":"rgba(41,53,93,.2)"),
+                background:period===k?"#29355D":"#fff",color:period===k?"#fff":"#808080"}}>
               {l}
+            </button>
+          ))}
+        </div>
+
+        {/* Region toggles */}
+        <div style={{display:"flex",gap:6,justifyContent:"center",flexWrap:"wrap"}}>
+          <button onClick={()=>setLbRegion("all")}
+            style={{padding:"4px 14px",borderRadius:20,fontSize:12,fontWeight:500,cursor:"pointer",
+              border:"0.5px solid "+(lbRegion==="all"?"#29355D":"rgba(41,53,93,.2)"),
+              background:lbRegion==="all"?"#29355D":"#fff",color:lbRegion==="all"?"#fff":"#808080"}}>
+            All regions
+          </button>
+          {["DR","US","ANZ"].map(reg=>(
+            <button key={reg} onClick={()=>setLbRegion(r=>r===reg?"all":reg)}
+              style={{padding:"4px 14px",borderRadius:20,fontSize:12,fontWeight:500,cursor:"pointer",
+                border:`0.5px solid ${REG_COL[reg]}`,
+                background:lbRegion===reg?REG_COL[reg]:"#fff",
+                color:lbRegion===reg?"#fff":REG_COL[reg]}}>
+              {reg === "ANZ" ? "🌏 ANZ (Aaron's)" : reg === "DR" ? "🇩🇴 DR" : "🇺🇸 US"} {lbRegion===reg?"✓":""}
             </button>
           ))}
         </div>
       </div>
 
       {/* Top 3 podium */}
-      {sorted.length >= 3 && (()=>{
-        const medals = ["🥇","🥈","🥉"];
-        const podiumOrder = [sorted[1], sorted[0], sorted[2]]; // 2nd, 1st, 3rd
-        const podiumIdx   = [1, 0, 2];
-        const gradients = [
+      {top3.length >= 2 && (()=>{
+        const podiumOrder = top3.length>=3 ? [top3[1],top3[0],top3[2]] : [top3[0],top3[1]].filter(Boolean);
+        const podiumMedal = top3.length>=3 ? ["🥈","🥇","🥉"] : ["🥇","🥈"];
+        const podiumGrad  = [
           "linear-gradient(135deg,rgba(192,192,192,.15),rgba(168,168,168,.06))",
           "linear-gradient(135deg,rgba(255,215,0,.18),rgba(255,165,0,.08))",
           "linear-gradient(135deg,rgba(205,127,50,.15),rgba(160,82,45,.07))",
         ];
-        const borders = ["rgba(192,192,192,.45)","rgba(255,215,0,.55)","rgba(205,127,50,.4)"];
-        const valColors = ["#A8A8A8","#FFB300","#CD7F32"];
-        const pc = p => p==null?"--":(p*100).toFixed(1)+"%";
-        const fd2 = n => n>0?"$"+n.toLocaleString("en-US",{maximumFractionDigits:0}):"--";
+        const podiumBdr = ["rgba(192,192,192,.45)","rgba(255,215,0,.55)","rgba(205,127,50,.4)"];
         return (
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1.1fr 1fr",gap:12,maxWidth:620,margin:"0 auto 28px",alignItems:"end"}}>
+          <div style={{display:"grid",gridTemplateColumns:`repeat(${podiumOrder.length},minmax(0,1fr))`,gap:12,maxWidth:600,margin:"0 auto 24px",alignItems:"end",position:"relative",zIndex:1}}>
             {podiumOrder.map(({c,rev,cadPct,bobRet},pi)=>{
-              const pIdx = podiumIdx[pi];
               const info = lk(c.name)||{};
+              const reg  = getReg(c);
+              const isMid = (top3.length>=3 && pi===1) || (top3.length<3 && pi===0);
               return (
-                <div key={c.name} style={{background:gradients[pi],border:`1.5px solid ${borders[pi]}`,borderRadius:14,
-                  padding:pi===1?"20px 14px":"14px 12px",textAlign:"center"}}>
-                  <div style={{fontSize:pi===1?30:22,marginBottom:4}}>{medals[pIdx]}</div>
-                  <div style={{fontSize:pi===1?15:13,fontWeight:700,color:"#29355D",marginBottom:2}}>{dispName(c.name)}</div>
-                  <div style={{fontSize:12,color:"#808080",marginBottom:12}}>{st(info.t||c.team)}</div>
-                  <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                <div key={c.name} style={{
+                  background:podiumGrad[pi],border:`1.5px solid ${podiumBdr[pi]}`,borderRadius:14,
+                  padding:isMid?"20px 14px":"14px 12px",textAlign:"center"}}>
+                  <div style={{fontSize:isMid?30:22,marginBottom:4}}>{podiumMedal[pi]}</div>
+                  <div style={{fontSize:isMid?15:13,fontWeight:700,color:"#29355D",marginBottom:2}}>{dispName(c.name)}</div>
+                  <div style={{fontSize:12,color:"#808080",marginBottom:reg?4:10}}>{st(info.t||c.team)}</div>
+                  {reg&&<div style={{fontSize:11,fontWeight:600,color:REG_COL[reg]||"#808080",marginBottom:10}}>{reg}</div>}
+                  <div style={{display:"flex",flexDirection:"column",gap:5}}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                       <span style={{fontSize:12,color:"#808080"}}>💰 Revenue</span>
-                      <span style={{fontSize:pi===1?15:13,fontWeight:700,color:"#FF5000"}}>{fd2(rev)}</span>
+                      <span style={{fontSize:isMid?15:13,fontWeight:700,color:rev>0?"#FF5000":"#aaa"}}>{fd(rev)}</span>
                     </div>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                       <span style={{fontSize:12,color:"#808080"}}>✅ Cadence</span>
-                      <span style={{fontSize:pi===1?15:13,fontWeight:700,color:cadPct==null?"#aaa":cadPct>=0.9?"#16a34a":cadPct>=0.75?"#d97706":"#dc2626"}}>{pc(cadPct)}</span>
+                      <span style={{fontSize:isMid?15:13,fontWeight:700,color:pc(cadPct)}}>{pp(cadPct)}</span>
                     </div>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                       <span style={{fontSize:12,color:"#808080"}}>📋 Retention</span>
-                      <span style={{fontSize:pi===1?15:13,fontWeight:700,color:bobRet==null?"#aaa":bobRet>=0.91?"#16a34a":bobRet>=0.85?"#d97706":"#dc2626"}}>{pc(bobRet)}</span>
+                      <span style={{fontSize:isMid?15:13,fontWeight:700,color:pcR(bobRet)}}>{pp(bobRet)}</span>
                     </div>
                   </div>
                 </div>
@@ -2738,94 +2787,75 @@ function LeaderboardView({csms, bobRaw, history=[], q2DomoBoq=[], domoBoq=[], q3
       })()}
 
       {/* Sort tabs */}
-      <div style={{display:"flex",gap:8,marginBottom:14,alignItems:"center",flexWrap:"wrap"}}>
-        <span style={{fontSize:12,color:"#808080",fontWeight:500}}>Sort by:</span>
-        {[["rev","💰 Revenue"],["cadPct","✅ Cadence"],["bobRet","📋 Retention"]].map(([col,lbl])=>(
+      <div style={{display:"flex",gap:8,marginBottom:14,alignItems:"center",flexWrap:"wrap",position:"relative",zIndex:1}}>
+        <span style={{fontSize:13,color:"#808080",fontWeight:500}}>Sort by:</span>
+        {[["rev","💰 Revenue","#FF5000"],["cadPct","✅ Cadence","#16a34a"],["bobRet","📋 Retention","#5378FC"]].map(([col,lbl,col2])=>(
           <button key={col} onClick={()=>setSort(s=>({col,dir:s.col===col&&s.dir==="desc"?"asc":"desc"}))}
             style={{padding:"4px 14px",borderRadius:20,fontSize:13,fontWeight:500,cursor:"pointer",
-              border:"0.5px solid "+(sort.col===col?"#FF5000":"rgba(41,53,93,.2)"),
-              background:sort.col===col?"rgba(255,80,0,.08)":"#fff",
-              color:sort.col===col?"#FF5000":"#808080"}}>
+              border:`0.5px solid ${sort.col===col?col2:"rgba(41,53,93,.2)"}`,
+              background:sort.col===col?col2+"14":"#fff",
+              color:sort.col===col?col2:"#808080"}}>
             {lbl} {sort.col===col?(sort.dir==="desc"?"↓":"↑"):""}
           </button>
         ))}
       </div>
 
       {/* Full table */}
-      <div style={{background:"#fff",border:"0.5px solid rgba(41,53,93,.1)",borderRadius:12,overflow:"hidden",boxShadow:"0 1px 4px rgba(41,53,93,.06)"}}>
+      <div style={{background:"#fff",border:"0.5px solid rgba(41,53,93,.1)",borderRadius:12,overflow:"hidden",boxShadow:"0 1px 4px rgba(41,53,93,.06)",position:"relative",zIndex:1}}>
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
           <thead>
             <tr style={{borderBottom:"0.5px solid rgba(41,53,93,.1)"}}>
-              {[
-                ["","left","#808080","40px"],
-                ["CSM","left","#808080",""],
-                ["Team","left","#808080",""],
-                ["💰 Revenue","right","#FF5000",""],
-                ["Rev Rank","right","#FF5000","90px"],
-                ["✅ Cadence","right","#16a34a",""],
-                ["Cad Rank","right","#16a34a","90px"],
-                ["📋 Retention","right","#5378FC",""],
-                ["Ret Rank","right","#5378FC","90px"],
-              ].map(([h,a,col,w])=>(
-                <th key={h} style={{padding:"10px 10px",textAlign:a,fontSize:12,textTransform:"uppercase",
-                  color:col,fontWeight:500,letterSpacing:"0.04em",borderBottom:"0.5px solid rgba(41,53,93,.08)",
-                  width:w||"auto",whiteSpace:"nowrap"}}>
-                  {h}
-                </th>
-              ))}
+              <th style={{padding:"10px 12px",textAlign:"left",fontSize:12,color:"#808080",fontWeight:500,width:36}}>#</th>
+              <th style={{padding:"10px 12px",textAlign:"left",fontSize:12,color:"#808080",fontWeight:500}}>CSM</th>
+              <th style={{padding:"10px 12px",textAlign:"left",fontSize:12,color:"#808080",fontWeight:500}}>Team</th>
+              <th style={{padding:"10px 12px",textAlign:"right",fontSize:12,color:"#FF5000",fontWeight:500,cursor:"pointer",whiteSpace:"nowrap"}}
+                onClick={()=>setSort(s=>({col:"rev",dir:s.col==="rev"&&s.dir==="desc"?"asc":"desc"}))}>
+                💰 Revenue {sort.col==="rev"?(sort.dir==="desc"?"↓":"↑"):""}
+              </th>
+              <th style={{padding:"10px 12px",textAlign:"right",fontSize:12,color:"#FF5000",fontWeight:500,width:80}}>Rank</th>
+              <th style={{padding:"10px 12px",textAlign:"right",fontSize:12,color:"#16a34a",fontWeight:500,cursor:"pointer",whiteSpace:"nowrap"}}
+                onClick={()=>setSort(s=>({col:"cadPct",dir:s.col==="cadPct"&&s.dir==="desc"?"asc":"desc"}))}>
+                ✅ Cadence {sort.col==="cadPct"?(sort.dir==="desc"?"↓":"↑"):""}
+              </th>
+              <th style={{padding:"10px 12px",textAlign:"right",fontSize:12,color:"#16a34a",fontWeight:500,width:80}}>Rank</th>
+              <th style={{padding:"10px 12px",textAlign:"right",fontSize:12,color:"#5378FC",fontWeight:500,cursor:"pointer",whiteSpace:"nowrap"}}
+                onClick={()=>setSort(s=>({col:"bobRet",dir:s.col==="bobRet"&&s.dir==="desc"?"asc":"desc"}))}>
+                📋 Retention {sort.col==="bobRet"?(sort.dir==="desc"?"↓":"↑"):""}
+              </th>
+              <th style={{padding:"10px 12px",textAlign:"right",fontSize:12,color:"#5378FC",fontWeight:500,width:80}}>Rank</th>
             </tr>
           </thead>
           <tbody>
-            {sorted.map(({c,rev,cadPct,bobRet},i)=>{
+            {regionFiltered.map(({c,rev,cadPct,bobRet},i)=>{
               const info = lk(c.name)||{};
+              const reg  = getReg(c);
               const tcol = TEAM_COLS[info.t||c.team]||"#888";
-              // Compute individual ranks
-              const revRank = [...rows].filter(r=>r.rev>rev).length + 1;
-              const cadRank = cadPct==null ? null : [...rows].filter(r=>r.cadPct!=null&&r.cadPct>cadPct).length + 1;
-              const retRank = bobRet==null ? null : [...rows].filter(r=>r.bobRet!=null&&r.bobRet>bobRet).length + 1;
-              const rankBadge = (r,col) => r==null?"--":(
-                <span style={{fontSize:12,fontWeight:700,padding:"1px 8px",borderRadius:10,
-                  background:r<=3?col+"22":r<=10?"rgba(41,53,93,.06)":"rgba(41,53,93,.04)",
-                  color:r<=3?col:"#808080",border:`0.5px solid ${r<=3?col+"44":"rgba(41,53,93,.1)"}`}}>
-                  #{r}
-                </span>
-              );
-              const isTop3 = i < 3;
+              // Compute ranks within the regionFiltered list
+              const revRank = [...regionFiltered].filter(r=>r.rev>rev).length+1;
+              const cadRank = cadPct==null?null:[...regionFiltered].filter(r=>r.cadPct!=null&&r.cadPct>cadPct).length+1;
+              const retRank = bobRet==null?null:[...regionFiltered].filter(r=>r.bobRet!=null&&r.bobRet>bobRet).length+1;
               return (
-                <tr key={c.name} style={{borderBottom:"0.5px solid rgba(41,53,93,.05)",
-                  background:isTop3?"rgba(255,215,0,.03)":"#fff"}}>
-                  <td style={{padding:"10px 10px",fontWeight:700,color:"#aaa",fontSize:15}}>
+                <tr key={c.name} className="lb-row"
+                  style={{borderBottom:"0.5px solid rgba(41,53,93,.05)",background:i<3?"rgba(255,215,0,.03)":"#fff",transition:"background .1s"}}>
+                  <td style={{padding:"10px 12px",fontWeight:700,color:"#aaa",fontSize:15}}>
                     {i===0?"🥇":i===1?"🥈":i===2?"🥉":i+1}
                   </td>
-                  <td style={{padding:"10px 10px",fontWeight:600,color:"#29355D"}}>
-                    {dispName(c.name)}
+                  <td style={{padding:"10px 12px"}}>
+                    <div style={{fontWeight:600,color:"#29355D"}}>{dispName(c.name)}</div>
+                    {reg&&<span style={{fontSize:12,fontWeight:600,color:REG_COL[reg]||"#808080"}}>{reg}</span>}
                   </td>
-                  <td style={{padding:"10px 10px"}}>
+                  <td style={{padding:"10px 12px"}}>
                     <span style={{display:"inline-flex",alignItems:"center",gap:5}}>
                       <span style={{width:7,height:7,borderRadius:"50%",background:tcol,display:"inline-block",flexShrink:0}}/>
-                      <span style={{color:"#808080",fontSize:12}}>{st(info.t||c.team)}</span>
+                      <span style={{color:"#808080",fontSize:13}}>{st(info.t||c.team)}</span>
                     </span>
                   </td>
-                  <td style={{padding:"10px 10px",textAlign:"right",fontWeight:600,color:rev>0?"#FF5000":"#aaa"}}>
-                    {rev>0?fd(rev):"--"}
-                  </td>
-                  <td style={{padding:"10px 10px",textAlign:"right"}}>
-                    {rankBadge(revRank,"#FF5000")}
-                  </td>
-                  <td style={{padding:"10px 10px",textAlign:"right",fontWeight:600,
-                    color:cadPct==null?"#aaa":cadPct>=0.9?"#16a34a":cadPct>=0.75?"#d97706":"#dc2626"}}>
-                    {cadPct!=null?pp(cadPct):"--"}
-                  </td>
-                  <td style={{padding:"10px 10px",textAlign:"right"}}>
-                    {rankBadge(cadRank,"#16a34a")}
-                  </td>
-                  <td style={{padding:"10px 10px",textAlign:"right",fontWeight:600,
-                    color:bobRet==null?"#aaa":bobRet>=0.91?"#16a34a":bobRet>=0.85?"#d97706":"#dc2626"}}>
-                    {bobRet!=null?pp(bobRet):"--"}
-                  </td>
-                  <td style={{padding:"10px 10px",textAlign:"right"}}>
-                    {rankBadge(retRank,"#5378FC")}
-                  </td>
+                  <td style={{padding:"10px 12px",textAlign:"right",fontWeight:600,color:rev>0?"#FF5000":"#aaa"}}>{fd(rev)}</td>
+                  <td style={{padding:"10px 12px",textAlign:"right"}}>{rankBadge(revRank,"#FF5000")}</td>
+                  <td style={{padding:"10px 12px",textAlign:"right",fontWeight:600,color:pc(cadPct)}}>{pp(cadPct)}</td>
+                  <td style={{padding:"10px 12px",textAlign:"right"}}>{rankBadge(cadRank,"#16a34a")}</td>
+                  <td style={{padding:"10px 12px",textAlign:"right",fontWeight:600,color:pcR(bobRet)}}>{pp(bobRet)}</td>
+                  <td style={{padding:"10px 12px",textAlign:"right"}}>{rankBadge(retRank,"#5378FC")}</td>
                 </tr>
               );
             })}
