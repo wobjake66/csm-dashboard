@@ -6780,7 +6780,7 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
               <div style={{padding:"8px 10px",background:"rgba(41,53,93,.04)",borderRadius:8}}><div style={{fontSize:10,color:"#808080",marginBottom:2}}>Current MRR</div><div style={{fontSize:16,fontWeight:700,color:"#29355D"}}>{fk(totalCur)}</div></div>
             </div>
             {/* Account Increases, Decreases & Cancels */}
-            <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:600,letterSpacing:"0.05em",marginBottom:8}}>Account Increases, Decreases, &amp; Cancels</div>
+            <div style={{marginBottom:8}}><div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:600,letterSpacing:"0.05em"}}>Account Increases, Decreases, &amp; Cancels</div><div style={{fontSize:10,color:"#aaa",marginTop:2}}>Change in MRR during current quarter</div></div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:12}}>
               {/* Increases — green */}
               <div style={{padding:"12px 14px",background:"rgba(22,163,74,.06)",borderRadius:8,border:"0.5px solid rgba(22,163,74,.25)"}}>
@@ -6832,7 +6832,7 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
             {totalRevTot>0&&(
               <div style={{padding:"12px 14px",background:"rgba(255,80,0,.05)",borderRadius:8,border:"0.5px solid rgba(255,80,0,.2)"}}>
                 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
-                  <div style={{fontSize:10,color:"#c2410c",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.04em"}}>💡 Revenue Recommendations — Q3</div>
+                  <div style={{fontSize:10,color:"#c2410c",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.04em"}}>💡 Revenue upgrades submitted by CSM — Q3</div>
                   <div style={{fontSize:14,fontWeight:700,color:"#FF5000"}}>+{fd(totalRevTot)}</div>
                 </div>
                 <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
@@ -6863,8 +6863,15 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
         <div style={{...card,borderLeft:"4px solid #dc2626"}}>
           <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
             <span style={{fontSize:16}}>🚨</span>
-            <span style={lbl}>Account Increases, Decreases, &amp; Cancels</span>
-            <span style={{marginLeft:"auto",fontSize:11,color:"#991b1b",fontWeight:600,background:"rgba(220,38,38,.1)",padding:"2px 10px",borderRadius:20}}>{cancelAlerts.length} account{cancelAlerts.length!==1?"s":""}</span>
+            <div>
+              <span style={lbl}>Account Increases, Decreases, &amp; Cancels</span>
+              <div style={{fontSize:10,color:"#aaa",marginTop:2,marginBottom:0}}>Change in MRR during current quarter</div>
+            </div>
+            <span id="alert-badge" style={{marginLeft:"auto",fontSize:11,fontWeight:600,padding:"2px 10px",borderRadius:20,
+              background:alertFilter==="increase"?"rgba(22,163,74,.12)":alertFilter==="decrease"?"rgba(217,119,6,.12)":alertFilter==="cancel"?"rgba(220,38,38,.12)":"rgba(41,53,93,.06)",
+              color:alertFilter==="increase"?"#15803d":alertFilter==="decrease"?"#b45309":alertFilter==="cancel"?"#991b1b":"#808080",
+              border:"0.5px solid "+(alertFilter==="increase"?"rgba(22,163,74,.25)":alertFilter==="decrease"?"rgba(217,119,6,.25)":alertFilter==="cancel"?"rgba(220,38,38,.25)":"rgba(41,53,93,.15)")}}>
+              {alertFilter==="increase"?cancelAlerts.filter(a=>a.type==="Increase").length:alertFilter==="decrease"?cancelAlerts.filter(a=>a.type==="Decrease").length:alertFilter==="cancel"?cancelAlerts.filter(a=>a.type==="Cancel"||a.type==="MC"||a.type==="BC"||a.type==="Alert").length:cancelAlerts.length} account{(alertFilter==="increase"?cancelAlerts.filter(a=>a.type==="Increase").length:alertFilter==="decrease"?cancelAlerts.filter(a=>a.type==="Decrease").length:alertFilter==="cancel"?cancelAlerts.filter(a=>a.type==="Cancel"||a.type==="MC"||a.type==="BC"||a.type==="Alert").length:cancelAlerts.length)!==1?"s":""}</span>
           </div>
           {(()=>{
             const filtered = alertFilter==="all" ? cancelAlerts :
