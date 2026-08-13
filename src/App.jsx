@@ -5914,24 +5914,19 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
     const _rawNet = Object.values(eidMap).reduce((s,b)=>s+b.net,0);
     console.log("[eidMap final] accounts:", Object.keys(eidMap).length, "BOQ:", _rawBoq.toFixed(0), "Net:", _rawNet.toFixed(0), "Cur:", (_rawBoq+_rawNet).toFixed(0));
 
-    // Apply Q3 adjustments
     const adjMap = bobAdj || {};
     const allRows = Object.values(eidMap).map(b => {
-      const adjKey = Object.keys(adjMap).find(k => norm(k)===b.csm || k===b.csm);
-      const adjAmt = adjKey ? (adjMap[adjKey].lcmDelta||0) : 0;
-      const cur    = b.boq + b.net + adjAmt;
+      const cur    = b.boq + b.net;
       const delta  = cur - b.boq;
       const ret    = b.boq > 0 ? cur / b.boq : null;
       let status;
-      if (b.boq === 0 && cur > 0)    status = "net_new";
-      else if (b.boq > 0 && cur <= 0) status = "cancelled";
+      if (b.boq === 0 && cur > 0)      status = "net_new";
+      else if (b.boq > 0 && cur <= 0)  status = "cancelled";
       else if (Math.abs(delta) < 0.5)  status = "unchanged";
       else if (delta > 0)              status = "increase";
       else                             status = "decrease";
-      return {eid:b.eid, csm:b.csm, acct:b.acct, boq:b.boq, cur, delta, ret, status, adjAmount:adjAmt};
+      return {eid:b.eid, csm:b.csm, acct:b.acct, boq:b.boq, cur, delta, ret, status};
     });
-
-    console.log("[allRows] count:", allRows.length, "totalBoq:", allRows.reduce((s,r)=>s+r.boq,0).toFixed(0), "totalCur:", allRows.reduce((s,r)=>s+r.cur,0).toFixed(0));
 
     // ── Scope by coach/manager/CSM filters ──────────────────────────────────
     const scopedRows = allRows.filter(r => {
