@@ -2697,25 +2697,6 @@ function LeaderboardView({csms, bobRaw, history=[], q2DomoBoq=[], domoBoq=[], q3
             </button>
           ))}
         </div>
-
-        {/* Region toggles */}
-        <div style={{display:"flex",gap:6,justifyContent:"center",flexWrap:"wrap"}}>
-          <button onClick={()=>setLbRegion("all")}
-            style={{padding:"4px 14px",borderRadius:20,fontSize:12,fontWeight:500,cursor:"pointer",
-              border:"0.5px solid "+(lbRegion==="all"?"#29355D":"rgba(41,53,93,.2)"),
-              background:lbRegion==="all"?"#29355D":"#fff",color:lbRegion==="all"?"#fff":"#808080"}}>
-            All regions
-          </button>
-          {["DR","US","ANZ"].map(reg=>(
-            <button key={reg} onClick={()=>setLbRegion(r=>r===reg?"all":reg)}
-              style={{padding:"4px 14px",borderRadius:20,fontSize:12,fontWeight:500,cursor:"pointer",
-                border:`0.5px solid ${REG_COL[reg]}`,
-                background:lbRegion===reg?REG_COL[reg]:"#fff",
-                color:lbRegion===reg?"#fff":REG_COL[reg]}}>
-              {reg === "ANZ" ? "ANZ" : reg === "DR" ? "DR" : "US"} {lbRegion===reg?"✓":""}
-            </button>
-          ))}
-        </div>
       </div>
 
       {/* Top 3 podium */}
@@ -2769,7 +2750,7 @@ function LeaderboardView({csms, bobRaw, history=[], q2DomoBoq=[], domoBoq=[], q3
         );
       })()}
 
-      {/* Sort tabs */}
+      {/* Sort + Region bar */}
       <div style={{display:"flex",gap:8,marginBottom:14,alignItems:"center",flexWrap:"wrap",position:"relative",zIndex:1}}>
         <span style={{fontSize:13,color:"#808080",fontWeight:500}}>Sort by:</span>
         {[["rev","💰 Revenue","#FF5000"],["cadPct","✅ Cadence","#16a34a"],["bobRet","📋 Retention","#5378FC"]].map(([col,lbl,col2])=>(
@@ -2779,6 +2760,23 @@ function LeaderboardView({csms, bobRaw, history=[], q2DomoBoq=[], domoBoq=[], q3
               background:sort.col===col?col2+"14":"#fff",
               color:sort.col===col?col2:"#808080"}}>
             {lbl} {sort.col===col?(sort.dir==="desc"?"↓":"↑"):""}
+          </button>
+        ))}
+        <div style={{width:1,height:20,background:"rgba(41,53,93,.15)",margin:"0 4px"}}/>
+        <span style={{fontSize:13,color:"#808080",fontWeight:500}}>Region:</span>
+        <button onClick={()=>setLbRegion("all")}
+          style={{padding:"4px 14px",borderRadius:20,fontSize:12,fontWeight:500,cursor:"pointer",
+            border:"0.5px solid "+(lbRegion==="all"?"#29355D":"rgba(41,53,93,.2)"),
+            background:lbRegion==="all"?"#29355D":"#fff",color:lbRegion==="all"?"#fff":"#808080"}}>
+          All
+        </button>
+        {["DR","US","ANZ"].map(reg=>(
+          <button key={reg} onClick={()=>setLbRegion(r=>r===reg?"all":reg)}
+            style={{padding:"4px 14px",borderRadius:20,fontSize:12,fontWeight:500,cursor:"pointer",
+              border:`0.5px solid ${REG_COL[reg]}`,
+              background:lbRegion===reg?REG_COL[reg]:"#fff",
+              color:lbRegion===reg?"#fff":REG_COL[reg]}}>
+            {reg} {lbRegion===reg?"✓":""}
           </button>
         ))}
       </div>
