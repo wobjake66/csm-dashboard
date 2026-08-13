@@ -2658,48 +2658,178 @@ function LeaderboardView({csms, bobRaw, history=[], q2DomoBoq=[], domoBoq=[], q3
     </th>
   );
 
+
   return (
-    <div>
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16,flexWrap:"wrap",gap:8}}>
-        <div style={{fontSize:13,fontWeight:500,color:"#29355D"}}>Leaderboard</div>
-        <div style={{display:"flex",gap:4,background:"#ECEEF1",borderRadius:8,padding:3}}>
+    <div style={{maxWidth:1100,margin:"0 auto",position:"relative",overflow:"hidden"}}>
+
+      {/* Confetti */}
+      {[...Array(28)].map((_,i)=>(
+        <div key={i} style={{
+          position:"absolute",width:7,height:7,borderRadius:2,pointerEvents:"none",
+          left:(i*37%100)+"%",top:(i*13%40)-20,
+          background:["#FF5000","#FFD700","#16a34a","#5378FC","#dc2626","#d97706","#6366f1"][i%7],
+          animation:`lbConfetti ${2+i%3}s ${(i*0.15).toFixed(1)}s linear infinite`,
+          transform:`rotate(${i*47}deg)`,
+        }}/>
+      ))}
+      <style>{`@keyframes lbConfetti{0%{transform:translateY(0) rotate(0deg);opacity:1}100%{transform:translateY(180px) rotate(360deg);opacity:0}}@keyframes lbFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}`}</style>
+
+      {/* Header */}
+      <div style={{textAlign:"center",marginBottom:24,paddingTop:8}}>
+        <div style={{fontSize:32,display:"inline-block",animation:"lbFloat 3s ease-in-out infinite"}}>🏆</div>
+        <div style={{fontSize:22,fontWeight:700,color:"#29355D",marginTop:4,marginBottom:2}}>CSM Leaderboard</div>
+        <div style={{fontSize:13,color:"#808080",marginBottom:14}}>{curQLabel} · Revenue · Cadence · Retention</div>
+        <div style={{display:"flex",gap:6,justifyContent:"center"}}>
           {OPTS.map(({k,l})=>(
             <button key={k} onClick={()=>{setPeriod(k);setSort({col:"rev",dir:"desc"});}}
-              style={{padding:"4px 14px",fontSize:13,fontWeight:500,borderRadius:6,border:"none",
-                background:period===k?"#fff":"transparent",
-                color:period===k?"#29355D":"#808080",
-                cursor:"pointer",boxShadow:period===k?"0 1px 3px rgba(0,0,0,.08)":"none"}}>
+              style={{padding:"5px 16px",borderRadius:20,border:"0.5px solid "+(period===k?"#29355D":"rgba(41,53,93,.2)"),
+                background:period===k?"#29355D":"#fff",color:period===k?"#fff":"#808080",
+                fontSize:13,fontWeight:period===k?500:400,cursor:"pointer"}}>
               {l}
             </button>
           ))}
         </div>
       </div>
-      {!hasHistory&&(
-        <div style={{background:"rgba(217,119,6,.06)",border:"0.5px solid rgba(217,119,6,.25)",borderRadius:10,padding:10,marginBottom:14,fontSize:12,color:"#92400e"}}>
-          No history data found for this period — revenue, cadence, and email columns may be incomplete.
-        </div>
-      )}
-      <div style={S.card}>
-        <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
-          <thead><tr>
-            <th style={{width:28,fontSize:12,color:"#808080",fontWeight:500,padding:"0 0 8px",textAlign:"left",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>{"#"}</th>
-            <th style={{fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500,padding:"0 0 8px",textAlign:"left",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>CSM</th>
-            <th style={{fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500,padding:"0 0 8px",textAlign:"left",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>Team</th>
-            {th("rev","Revenue")}{th("cadPct","Cadence")}{th("otPct","On-time %")}{th("bobRet","Retention")}
-          </tr></thead>
-          <tbody>{sorted.map(({c,rev,cadPct,otPct,bobRet},i)=>{
-            const info=lk(c.name)||{};
-            const tcol=TEAM_COLS[info.t||c.team]||"#888";
-            return <tr key={c.name}>
-              <td style={{padding:"9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)"}}>{i<3?medals[i]:(i+1)+"."}</td>
-              <td style={{padding:"9px 8px 9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",fontWeight:500}}>{dispName(c.name)}</td>
-              <td style={{padding:"9px 8px 9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)"}}><span style={{display:"inline-block",width:6,height:6,borderRadius:"50%",background:tcol,marginRight:5,verticalAlign:"middle"}}/><span style={{color:"#808080",fontSize:13}}>{st(info.t||c.team)}</span></td>
-              <td style={{padding:"9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#FF5000",fontWeight:500}}>{rev>0?fd(rev):"--"}</td>
-              <td style={{padding:"9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",fontWeight:500,color:cadPct!=null?pc(cadPct):"#888"}}>{cadPct!=null?pp(cadPct):"--"}</td>
-              <td style={{padding:"9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",fontWeight:500,color:otPct!=null?pc(otPct):"#888"}}>{otPct!=null?pp(otPct):"--"}</td>
-              <td style={{padding:"9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right"}}>{bobRet!=null?<span style={{fontSize:12,fontWeight:500,padding:"1px 7px",borderRadius:20,background:bobRet>=0.91?"rgba(22,163,74,.1)":bobRet>=0.85?"rgba(217,119,6,.1)":"rgba(220,38,38,.1)",color:bobRet>=0.91?"#166534":bobRet>=0.85?"#854d0e":"#991b1b"}}>{pp(bobRet)}</span>:"--"}</td>
-            </tr>;
-          })}</tbody>
+
+      {/* Top 3 podium */}
+      {sorted.length >= 3 && (()=>{
+        const medals = ["🥇","🥈","🥉"];
+        const podiumOrder = [sorted[1], sorted[0], sorted[2]]; // 2nd, 1st, 3rd
+        const podiumIdx   = [1, 0, 2];
+        const gradients = [
+          "linear-gradient(135deg,rgba(192,192,192,.15),rgba(168,168,168,.06))",
+          "linear-gradient(135deg,rgba(255,215,0,.18),rgba(255,165,0,.08))",
+          "linear-gradient(135deg,rgba(205,127,50,.15),rgba(160,82,45,.07))",
+        ];
+        const borders = ["rgba(192,192,192,.45)","rgba(255,215,0,.55)","rgba(205,127,50,.4)"];
+        const valColors = ["#A8A8A8","#FFB300","#CD7F32"];
+        const pc = p => p==null?"--":(p*100).toFixed(1)+"%";
+        const fd2 = n => n>0?"$"+n.toLocaleString("en-US",{maximumFractionDigits:0}):"--";
+        return (
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1.1fr 1fr",gap:12,maxWidth:620,margin:"0 auto 28px",alignItems:"end"}}>
+            {podiumOrder.map(({c,rev,cadPct,bobRet},pi)=>{
+              const pIdx = podiumIdx[pi];
+              const info = lk(c.name)||{};
+              return (
+                <div key={c.name} style={{background:gradients[pi],border:`1.5px solid ${borders[pi]}`,borderRadius:14,
+                  padding:pi===1?"20px 14px":"14px 12px",textAlign:"center"}}>
+                  <div style={{fontSize:pi===1?30:22,marginBottom:4}}>{medals[pIdx]}</div>
+                  <div style={{fontSize:pi===1?15:13,fontWeight:700,color:"#29355D",marginBottom:2}}>{dispName(c.name)}</div>
+                  <div style={{fontSize:12,color:"#808080",marginBottom:12}}>{st(info.t||c.team)}</div>
+                  <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                      <span style={{fontSize:12,color:"#808080"}}>💰 Revenue</span>
+                      <span style={{fontSize:pi===1?15:13,fontWeight:700,color:"#FF5000"}}>{fd2(rev)}</span>
+                    </div>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                      <span style={{fontSize:12,color:"#808080"}}>✅ Cadence</span>
+                      <span style={{fontSize:pi===1?15:13,fontWeight:700,color:cadPct==null?"#aaa":cadPct>=0.9?"#16a34a":cadPct>=0.75?"#d97706":"#dc2626"}}>{pc(cadPct)}</span>
+                    </div>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                      <span style={{fontSize:12,color:"#808080"}}>📋 Retention</span>
+                      <span style={{fontSize:pi===1?15:13,fontWeight:700,color:bobRet==null?"#aaa":bobRet>=0.91?"#16a34a":bobRet>=0.85?"#d97706":"#dc2626"}}>{pc(bobRet)}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
+
+      {/* Sort tabs */}
+      <div style={{display:"flex",gap:8,marginBottom:14,alignItems:"center",flexWrap:"wrap"}}>
+        <span style={{fontSize:12,color:"#808080",fontWeight:500}}>Sort by:</span>
+        {[["rev","💰 Revenue"],["cadPct","✅ Cadence"],["bobRet","📋 Retention"]].map(([col,lbl])=>(
+          <button key={col} onClick={()=>setSort(s=>({col,dir:s.col===col&&s.dir==="desc"?"asc":"desc"}))}
+            style={{padding:"4px 14px",borderRadius:20,fontSize:13,fontWeight:500,cursor:"pointer",
+              border:"0.5px solid "+(sort.col===col?"#FF5000":"rgba(41,53,93,.2)"),
+              background:sort.col===col?"rgba(255,80,0,.08)":"#fff",
+              color:sort.col===col?"#FF5000":"#808080"}}>
+            {lbl} {sort.col===col?(sort.dir==="desc"?"↓":"↑"):""}
+          </button>
+        ))}
+      </div>
+
+      {/* Full table */}
+      <div style={{background:"#fff",border:"0.5px solid rgba(41,53,93,.1)",borderRadius:12,overflow:"hidden",boxShadow:"0 1px 4px rgba(41,53,93,.06)"}}>
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+          <thead>
+            <tr style={{borderBottom:"0.5px solid rgba(41,53,93,.1)"}}>
+              {[
+                ["","left","#808080","40px"],
+                ["CSM","left","#808080",""],
+                ["Team","left","#808080",""],
+                ["💰 Revenue","right","#FF5000",""],
+                ["Rev Rank","right","#FF5000","90px"],
+                ["✅ Cadence","right","#16a34a",""],
+                ["Cad Rank","right","#16a34a","90px"],
+                ["📋 Retention","right","#5378FC",""],
+                ["Ret Rank","right","#5378FC","90px"],
+              ].map(([h,a,col,w])=>(
+                <th key={h} style={{padding:"10px 10px",textAlign:a,fontSize:12,textTransform:"uppercase",
+                  color:col,fontWeight:500,letterSpacing:"0.04em",borderBottom:"0.5px solid rgba(41,53,93,.08)",
+                  width:w||"auto",whiteSpace:"nowrap"}}>
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.map(({c,rev,cadPct,bobRet},i)=>{
+              const info = lk(c.name)||{};
+              const tcol = TEAM_COLS[info.t||c.team]||"#888";
+              // Compute individual ranks
+              const revRank = [...rows].filter(r=>r.rev>rev).length + 1;
+              const cadRank = cadPct==null ? null : [...rows].filter(r=>r.cadPct!=null&&r.cadPct>cadPct).length + 1;
+              const retRank = bobRet==null ? null : [...rows].filter(r=>r.bobRet!=null&&r.bobRet>bobRet).length + 1;
+              const rankBadge = (r,col) => r==null?"--":(
+                <span style={{fontSize:12,fontWeight:700,padding:"1px 8px",borderRadius:10,
+                  background:r<=3?col+"22":r<=10?"rgba(41,53,93,.06)":"rgba(41,53,93,.04)",
+                  color:r<=3?col:"#808080",border:`0.5px solid ${r<=3?col+"44":"rgba(41,53,93,.1)"}`}}>
+                  #{r}
+                </span>
+              );
+              const isTop3 = i < 3;
+              return (
+                <tr key={c.name} style={{borderBottom:"0.5px solid rgba(41,53,93,.05)",
+                  background:isTop3?"rgba(255,215,0,.03)":"#fff"}}>
+                  <td style={{padding:"10px 10px",fontWeight:700,color:"#aaa",fontSize:15}}>
+                    {i===0?"🥇":i===1?"🥈":i===2?"🥉":i+1}
+                  </td>
+                  <td style={{padding:"10px 10px",fontWeight:600,color:"#29355D"}}>
+                    {dispName(c.name)}
+                  </td>
+                  <td style={{padding:"10px 10px"}}>
+                    <span style={{display:"inline-flex",alignItems:"center",gap:5}}>
+                      <span style={{width:7,height:7,borderRadius:"50%",background:tcol,display:"inline-block",flexShrink:0}}/>
+                      <span style={{color:"#808080",fontSize:12}}>{st(info.t||c.team)}</span>
+                    </span>
+                  </td>
+                  <td style={{padding:"10px 10px",textAlign:"right",fontWeight:600,color:rev>0?"#FF5000":"#aaa"}}>
+                    {rev>0?fd(rev):"--"}
+                  </td>
+                  <td style={{padding:"10px 10px",textAlign:"right"}}>
+                    {rankBadge(revRank,"#FF5000")}
+                  </td>
+                  <td style={{padding:"10px 10px",textAlign:"right",fontWeight:600,
+                    color:cadPct==null?"#aaa":cadPct>=0.9?"#16a34a":cadPct>=0.75?"#d97706":"#dc2626"}}>
+                    {cadPct!=null?pp(cadPct):"--"}
+                  </td>
+                  <td style={{padding:"10px 10px",textAlign:"right"}}>
+                    {rankBadge(cadRank,"#16a34a")}
+                  </td>
+                  <td style={{padding:"10px 10px",textAlign:"right",fontWeight:600,
+                    color:bobRet==null?"#aaa":bobRet>=0.91?"#16a34a":bobRet>=0.85?"#d97706":"#dc2626"}}>
+                    {bobRet!=null?pp(bobRet):"--"}
+                  </td>
+                  <td style={{padding:"10px 10px",textAlign:"right"}}>
+                    {rankBadge(retRank,"#5378FC")}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
         </table>
       </div>
     </div>
