@@ -2812,9 +2812,9 @@ function LeaderboardView({csms, bobRaw, history=[], q2DomoBoq=[], domoBoq=[], q3
               const reg  = getReg(c);
               const tcol = TEAM_COLS[info.t||c.team]||"#888";
               // Compute ranks within the regionFiltered list
-              const revRank = [...regionFiltered].filter(r=>r.rev>rev).length+1;
-              const cadRank = cadPct==null?null:[...regionFiltered].filter(r=>r.cadPct!=null&&r.cadPct>cadPct).length+1;
-              const retRank = bobRet==null?null:[...regionFiltered].filter(r=>r.bobRet!=null&&r.bobRet>bobRet).length+1;
+              const revRank = [...sorted].filter(r=>r.rev>rev).length+1;
+              const cadRank = cadPct==null?null:[...sorted].filter(r=>r.cadPct!=null&&r.cadPct>cadPct).length+1;
+              const retRank = bobRet==null?null:[...sorted].filter(r=>r.bobRet!=null&&r.bobRet>bobRet).length+1;
               return (
                 <tr key={c.name} className="lb-row"
                   style={{borderBottom:"0.5px solid rgba(41,53,93,.05)",background:i<3?"rgba(255,215,0,.03)":"#fff",transition:"background .1s"}}>
