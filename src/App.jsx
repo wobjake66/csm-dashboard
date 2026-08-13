@@ -1342,19 +1342,19 @@ function getWeeks(historyRows) {
 function TrendArrow({curr, prev, isPercent, higherBetter=true}) {
   if (curr == null || prev == null) return null;
   const delta = curr - prev;
-  if (Math.abs(delta) < 0.005) return <span style={{color:"#808080",fontSize:10,marginLeft:3}}>→</span>;
+  if (Math.abs(delta) < 0.005) return <span style={{color:"#808080",fontSize:12,marginLeft:3}}>→</span>;
   const up = delta > 0;
   const good = higherBetter ? up : !up;
   const col = good ? "#16a34a" : "#dc2626";
   const arrow = up ? "↑" : "↓";
   const label = isPercent ? Math.round(Math.abs(delta)*100)+"pp" : Math.round(Math.abs(delta));
-  return <span style={{color:col,fontSize:10,marginLeft:3,fontWeight:500}}>{arrow}{label}</span>;
+  return <span style={{color:col,fontSize:12,marginLeft:3,fontWeight:500}}>{arrow}{label}</span>;
 }
 
 // ── SPARKLINE ──────────────────────────────────────────────────────────────
 function Sparkline({values, color="#FF5000", height=24, width=80}) {
   const valid = values.filter(v => v != null);
-  if (valid.length < 2) return <span style={{color:"#ccc",fontSize:10}}>—</span>;
+  if (valid.length < 2) return <span style={{color:"#ccc",fontSize:12}}>—</span>;
   const min = Math.min(...valid), max = Math.max(...valid);
   const range = max - min || 1;
   const pts = values.map((v, i) => {
@@ -1384,11 +1384,11 @@ function Bar({label,val,hi,lo}) {
   const col = val!=null ? bc(val,hi,lo) : "#e5e7eb";
   return (
     <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:5}}>
-      <span style={{width:65,flexShrink:0,fontSize:10,fontWeight:500,color:"#808080",textTransform:"uppercase"}}>{label}</span>
+      <span style={{width:65,flexShrink:0,fontSize:12,fontWeight:500,color:"#808080",textTransform:"uppercase"}}>{label}</span>
       <div style={{flex:1,height:5,background:"#ECEEF1",borderRadius:3,overflow:"hidden"}}>
         <div style={{width:p.toFixed(1)+"%",height:"100%",background:col,borderRadius:3}}/>
       </div>
-      <span style={{width:30,textAlign:"right",fontSize:11,fontWeight:500,color:col,flexShrink:0}}>
+      <span style={{width:30,textAlign:"right",fontSize:13,fontWeight:500,color:col,flexShrink:0}}>
         {val!=null ? Math.round(val*100)+"%" : "--"}
       </span>
     </div>
@@ -1449,8 +1449,8 @@ function CoachCard({coach, csms, onSelectCSM, onSelectCoach}) {
           <div style={{fontSize:13,fontWeight:500,color:"#29355D",marginTop:4,cursor:"pointer"}} onClick={()=>onSelectCoach(coach.e)}>
             {coach.n}
           </div>
-          <div style={{fontSize:11,fontWeight:500,color:coach.col,marginBottom:6}}>{coach.t}</div>
-          <div style={{fontSize:11,color:"#808080",marginBottom:8}}>Revenue: <strong style={{color:"#FF5000"}}>{fk(teamRev)}</strong></div>
+          <div style={{fontSize:13,fontWeight:500,color:coach.col,marginBottom:6}}>{coach.t}</div>
+          <div style={{fontSize:13,color:"#808080",marginBottom:8}}>Revenue: <strong style={{color:"#FF5000"}}>{fk(teamRev)}</strong></div>
         </div>
         {TEAM_LOGOS[coach.t]&&<img src={TEAM_LOGOS[coach.t]} alt={coach.t}
           style={{width:72,height:72,objectFit:"contain",borderRadius:8,flexShrink:0,marginTop:2,
@@ -1459,7 +1459,7 @@ function CoachCard({coach, csms, onSelectCSM, onSelectCoach}) {
       </div>
       <div style={{display:"flex",alignItems:"baseline",gap:6,marginBottom:8}}>
         <span style={{fontSize:40,fontWeight:500,lineHeight:1,color:sCol}}>{score!=null?score:"--"}</span>
-        <div style={{fontSize:11,color:"#808080",lineHeight:1.4}}>/ 100<br/><span style={{fontSize:10}}>{wins}✓ {warns}⚠ {atts}✗</span></div>
+        <div style={{fontSize:13,color:"#808080",lineHeight:1.4}}>/ 100<br/><span style={{fontSize:12}}>{wins}✓ {warns}⚠ {atts}✗</span></div>
       </div>
       <Bar label="Cadence"   val={avgCad}  hi={0.9} lo={0.5}/>
       <Bar label="On-time"   val={avgOT}   hi={0.8} lo={0.6}/>
@@ -1467,7 +1467,7 @@ function CoachCard({coach, csms, onSelectCSM, onSelectCoach}) {
       <Bar label="Revenue"   val={revPct}  hi={0.7} lo={0.4}/>
       <Bar label="Retention" val={avgBob}  hi={0.91} lo={0.85}/>
       <div style={{height:.5,background:"rgba(41,53,93,.07)",margin:"10px 0"}}/>
-      <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:6}}>CSM Status</div>
+      <div style={{fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:6}}>CSM Status</div>
       {visible.map(c => {
         const hc = c.cadCount>0;
         const bdgTxt = hc?(c.cadPct>=0.9?"Win":c.cadPct>=0.5?"Watch":"Coach"):"No tasks";
@@ -1475,19 +1475,19 @@ function CoachCard({coach, csms, onSelectCSM, onSelectCoach}) {
         const bdgFg  = hc?(c.cadPct>=0.9?"#166534":c.cadPct>=0.5?"#854d0e":"#991b1b"):"#808080";
         return (
           <div key={c.name} style={{display:"flex",alignItems:"center",gap:6,padding:"3px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",cursor:"pointer"}} onClick={()=>onSelectCSM(c.name)}>
-            <span style={{flex:1,fontSize:11,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:"#121212"}}>{dispName(c.name)}</span>
-            <span style={{fontSize:11,fontWeight:500,width:28,textAlign:"right",flexShrink:0,color:hc?pc(c.cadPct):"#888"}}>{hc?Math.round(c.cadPct*100)+"%":"--"}</span>
-            <span style={{fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:20,background:bdgCol,color:bdgFg,flexShrink:0}}>{bdgTxt}</span>
-            {c.overdueCount>0&&<span style={{fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:20,background:"rgba(220,38,38,.1)",color:"#991b1b",flexShrink:0}}>{c.overdueCount}!</span>}
-            {c.skippedCount>0&&<span style={{fontSize:10,fontWeight:700,padding:"1px 7px",borderRadius:20,background:"rgba(139,0,0,.15)",color:"#7f1d1d",flexShrink:0}} title="Continued After 4th Reschedule">🚩{c.skippedCount}</span>}
-            {c.otTotal>=3&&<span style={{fontSize:10,color:pc(c.otPct),marginLeft:2,flexShrink:0}}>{Math.round(c.otPct*100)}%⏱</span>}
+            <span style={{flex:1,fontSize:13,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:"#121212"}}>{dispName(c.name)}</span>
+            <span style={{fontSize:13,fontWeight:500,width:28,textAlign:"right",flexShrink:0,color:hc?pc(c.cadPct):"#888"}}>{hc?Math.round(c.cadPct*100)+"%":"--"}</span>
+            <span style={{fontSize:12,fontWeight:500,padding:"1px 7px",borderRadius:20,background:bdgCol,color:bdgFg,flexShrink:0}}>{bdgTxt}</span>
+            {c.overdueCount>0&&<span style={{fontSize:12,fontWeight:500,padding:"1px 7px",borderRadius:20,background:"rgba(220,38,38,.1)",color:"#991b1b",flexShrink:0}}>{c.overdueCount}!</span>}
+            {c.skippedCount>0&&<span style={{fontSize:12,fontWeight:700,padding:"1px 7px",borderRadius:20,background:"rgba(139,0,0,.15)",color:"#7f1d1d",flexShrink:0}} title="Continued After 4th Reschedule">🚩{c.skippedCount}</span>}
+            {c.otTotal>=3&&<span style={{fontSize:12,color:pc(c.otPct),marginLeft:2,flexShrink:0}}>{Math.round(c.otPct*100)}%⏱</span>}
           </div>
         );
       })}
       {sorted.length > PREVIEW && (
         <button
           onClick={()=>setExpanded(e=>!e)}
-          style={{width:"100%",marginTop:8,padding:"5px 0",fontSize:11,fontWeight:500,color:"#FF5000",background:"rgba(255,80,0,.06)",border:"0.5px solid rgba(255,80,0,.2)",borderRadius:6,cursor:"pointer",textAlign:"center"}}>
+          style={{width:"100%",marginTop:8,padding:"5px 0",fontSize:13,fontWeight:500,color:"#FF5000",background:"rgba(255,80,0,.06)",border:"0.5px solid rgba(255,80,0,.2)",borderRadius:6,cursor:"pointer",textAlign:"center"}}>
           {expanded ? "▲ Show less" : `▼ +${hiddenCount} more`}
         </button>
       )}
@@ -1585,14 +1585,14 @@ function CSMDetail({csm: csmRaw, onClear, bobRaw, mcChurn, bcChurn, liveBobDet={
 
   const statBox = (label, val, sub, col) => (
     <div style={{background:"#F4F6FB",borderRadius:8,padding:14}}>
-      <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>{label}</div>
+      <div style={{fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>{label}</div>
       <div style={{fontSize:20,fontWeight:500,color:col||"#29355D",lineHeight:1.2}}>{val}</div>
-      {sub&&<div style={{fontSize:11,color:"#808080",marginTop:3}}>{sub}</div>}
+      {sub&&<div style={{fontSize:13,color:"#808080",marginTop:3}}>{sub}</div>}
     </div>
   );
 
   const tdS = {padding:"7px 8px 7px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",fontSize:12,verticalAlign:"top"};
-  const thS = {fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,padding:"0 8px 8px 0",textAlign:"left",borderBottom:"0.5px solid rgba(41,53,93,.08)"};
+  const thS = {fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500,padding:"0 8px 8px 0",textAlign:"left",borderBottom:"0.5px solid rgba(41,53,93,.08)"};
 
   return (
     <div>
@@ -1602,7 +1602,7 @@ function CSMDetail({csm: csmRaw, onClear, bobRaw, mcChurn, bcChurn, liveBobDet={
           <div style={{fontSize:20,fontWeight:500,color:"#29355D"}}>
             {isCsmView ? "👋 Your daily snapshot — "+csm.name.split(" ")[0] : csm.name}
           </div>
-          {onClear&&<button onClick={onClear} style={{fontSize:11,color:"#FF5000",background:"none",border:"0.5px solid #FF5000",borderRadius:20,padding:"4px 12px",cursor:"pointer"}}>✕ Clear filter</button>}
+          {onClear&&<button onClick={onClear} style={{fontSize:13,color:"#FF5000",background:"none",border:"0.5px solid #FF5000",borderRadius:20,padding:"4px 12px",cursor:"pointer"}}>✕ Clear filter</button>}
         </div>
         <div style={{fontSize:12,color:"#808080",marginBottom:16}}>
           {isCsmView
@@ -1637,7 +1637,7 @@ function CSMDetail({csm: csmRaw, onClear, bobRaw, mcChurn, bcChurn, liveBobDet={
 
       {/* Book of business */}
       {csm.bobBoq>0&&<div style={{...S.card,marginBottom:16}}>
-        <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>Book of business — this quarter</div>
+        <div style={{fontSize:13,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>Book of business — this quarter</div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(4,minmax(0,1fr))",gap:12,marginBottom:csm.bobMcc+csm.bobBcc>0?16:0}}>
           {[
             {l:"Beginning of quarter",v:fd(csm.bobBoq),col:"#29355D"},
@@ -1646,7 +1646,7 @@ function CSMDetail({csm: csmRaw, onClear, bobRaw, mcChurn, bcChurn, liveBobDet={
             {l:"Retention rate",v:pp(csm.bobRet||0),col:csm.bobRet>=0.91?"#16a34a":csm.bobRet>=0.85?"#d97706":"#dc2626"},
           ].map(s=>(
             <div key={s.l} style={{background:"#F4F6FB",borderRadius:8,padding:12}}>
-              <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>{s.l}</div>
+              <div style={{fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>{s.l}</div>
               <div style={{fontSize:18,fontWeight:500,color:s.col}}>{s.v}</div>
             </div>
           ))}
@@ -1654,7 +1654,7 @@ function CSMDetail({csm: csmRaw, onClear, bobRaw, mcChurn, bcChurn, liveBobDet={
         {/* Churned accounts from BOB detail (preferred) or MC/BC fallback */}
         {(csm.churnedAccts&&csm.churnedAccts.length>0)
           ? <div>
-              <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:10}}>
+              <div style={{fontSize:13,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:10}}>
                 Churned accounts this quarter ({csm.churnedAccts.length})
               </div>
               {csm.churnedAccts.map((a,i)=>(
@@ -1662,7 +1662,7 @@ function CSMDetail({csm: csmRaw, onClear, bobRaw, mcChurn, bcChurn, liveBobDet={
                   <div style={{fontSize:12,fontWeight:500,color:"#29355D"}}>{a.name}</div>
                   <div style={{display:"flex",flexWrap:"wrap",gap:4,justifyContent:"flex-end"}}>
                     {(a.products||[]).map((p,j)=>(
-                      <span key={j} style={{fontSize:10,padding:"2px 8px",borderRadius:20,background:"rgba(220,38,38,.08)",color:"#991b1b",fontWeight:500,whiteSpace:"nowrap"}}>{p}</span>
+                      <span key={j} style={{fontSize:12,padding:"2px 8px",borderRadius:20,background:"rgba(220,38,38,.08)",color:"#991b1b",fontWeight:500,whiteSpace:"nowrap"}}>{p}</span>
                     ))}
                   </div>
                 </div>
@@ -1670,11 +1670,11 @@ function CSMDetail({csm: csmRaw, onClear, bobRaw, mcChurn, bcChurn, liveBobDet={
             </div>
           : (csm.bobMcc>0||csm.bobBcc>0)&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
               <div>
-                <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:8}}>MC churned ({csm.bobMcc})</div>
+                <div style={{fontSize:13,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:8}}>MC churned ({csm.bobMcc})</div>
                 {csm.bobMch.map((a,i)=><div key={i} style={{padding:"4px 0",borderBottom:"0.5px solid rgba(41,53,93,.06)",fontSize:12}}>{a}</div>)}
               </div>
               <div>
-                <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:8}}>BC churned ({csm.bobBcc})</div>
+                <div style={{fontSize:13,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:8}}>BC churned ({csm.bobBcc})</div>
                 {csm.bobBch.map((a,i)=><div key={i} style={{padding:"4px 0",borderBottom:"0.5px solid rgba(41,53,93,.06)",fontSize:12,color:"#991b1b"}}>{a}</div>)}
               </div>
             </div>}
@@ -1683,9 +1683,9 @@ function CSMDetail({csm: csmRaw, onClear, bobRaw, mcChurn, bcChurn, liveBobDet={
       {/* Skipped cadences detail */}
       {csm.skippedCount>0&&<div style={{...S.card,marginBottom:16}}>
         <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
-          <span style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500}}>Tasks skipped yesterday — action needed</span>
-          <span style={{fontSize:10,fontWeight:600,padding:"2px 8px",borderRadius:20,background:"rgba(127,29,29,.1)",color:"#7f1d1d"}}>{csm.skippedCount} skipped</span>
-          {csm.skippedFourthCount>0&&<span style={{fontSize:10,fontWeight:600,padding:"2px 8px",borderRadius:20,background:"rgba(220,38,38,.15)",color:"#991b1b"}}>🚩 {csm.skippedFourthCount} × 4th reschedule</span>}
+          <span style={{fontSize:13,textTransform:"uppercase",color:"#808080",fontWeight:500}}>Tasks skipped yesterday — action needed</span>
+          <span style={{fontSize:12,fontWeight:600,padding:"2px 8px",borderRadius:20,background:"rgba(127,29,29,.1)",color:"#7f1d1d"}}>{csm.skippedCount} skipped</span>
+          {csm.skippedFourthCount>0&&<span style={{fontSize:12,fontWeight:600,padding:"2px 8px",borderRadius:20,background:"rgba(220,38,38,.15)",color:"#991b1b"}}>🚩 {csm.skippedFourthCount} × 4th reschedule</span>}
         </div>
         <div style={{display:"flex",flexDirection:"column",gap:6}}>
           {(csm.skippedAccts||[]).map((a,i)=>(
@@ -1697,11 +1697,11 @@ function CSMDetail({csm: csmRaw, onClear, bobRaw, mcChurn, bcChurn, liveBobDet={
                 <span style={{fontSize:12,fontWeight:500,color:a.is4th?"#7f1d1d":"#92400e"}}>
                   {a.is4th&&"🚩 "}{a.n}
                 </span>
-                {a.outcome&&<span style={{fontSize:10,padding:"1px 7px",borderRadius:20,
+                {a.outcome&&<span style={{fontSize:12,padding:"1px 7px",borderRadius:20,
                   background:a.is4th?"rgba(127,29,29,.1)":"rgba(217,119,6,.1)",
                   color:a.is4th?"#7f1d1d":"#92400e"}}>{a.outcome}</span>}
               </div>
-              {a.note&&<div style={{fontSize:11,color:"#808080",fontStyle:"italic"}}>"{a.note}"</div>}
+              {a.note&&<div style={{fontSize:13,color:"#808080",fontStyle:"italic"}}>"{a.note}"</div>}
             </div>
           ))}
         </div>
@@ -1713,12 +1713,12 @@ function CSMDetail({csm: csmRaw, onClear, bobRaw, mcChurn, bcChurn, liveBobDet={
         const inc = det.i||[], dec = det.d||[];
         if (inc.length===0 && dec.length===0) return null;
         const tdS2={padding:"7px 8px 7px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",fontSize:12,verticalAlign:"top"};
-        const thS2={fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,padding:"0 8px 8px 0",textAlign:"left",borderBottom:"0.5px solid rgba(41,53,93,.08)"};
+        const thS2={fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500,padding:"0 8px 8px 0",textAlign:"left",borderBottom:"0.5px solid rgba(41,53,93,.08)"};
         return <div style={{...S.card,marginBottom:16}}>
-          <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>
+          <div style={{fontSize:13,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>
             Billing changes this quarter
-            {inc.length>0&&<span style={{marginLeft:8,fontSize:10,fontWeight:500,padding:"2px 8px",borderRadius:20,background:"rgba(22,163,74,.1)",color:"#166534"}}>↑ {inc.length} increase{inc.length!==1?"s":""}</span>}
-            {dec.length>0&&<span style={{marginLeft:6,fontSize:10,fontWeight:500,padding:"2px 8px",borderRadius:20,background:"rgba(220,38,38,.1)",color:"#991b1b"}}>↓ {dec.length} decrease{dec.length!==1?"s":""}</span>}
+            {inc.length>0&&<span style={{marginLeft:8,fontSize:12,fontWeight:500,padding:"2px 8px",borderRadius:20,background:"rgba(22,163,74,.1)",color:"#166534"}}>↑ {inc.length} increase{inc.length!==1?"s":""}</span>}
+            {dec.length>0&&<span style={{marginLeft:6,fontSize:12,fontWeight:500,padding:"2px 8px",borderRadius:20,background:"rgba(220,38,38,.1)",color:"#991b1b"}}>↓ {dec.length} decrease{dec.length!==1?"s":""}</span>}
           </div>
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
             <thead><tr>
@@ -1733,7 +1733,7 @@ function CSMDetail({csm: csmRaw, onClear, bobRaw, mcChurn, bcChurn, liveBobDet={
               {[...inc.map(r=>({...r,_t:"increase"})),...dec.map(r=>({...r,_t:"decrease"}))].sort((a,b)=>b.n-a.n).map((r,i)=>{
                 const isInc = r._t==="increase";
                 return <tr key={i}>
-                  <td style={{...tdS2,fontFamily:"monospace",fontSize:11,color:"#808080"}}>{r.e}</td>
+                  <td style={{...tdS2,fontFamily:"monospace",fontSize:13,color:"#808080"}}>{r.e}</td>
                   <td style={tdS2}>{r.l}</td>
                   <td style={{...tdS2,textAlign:"right",color:"#808080"}}>${r.b.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
                   <td style={{...tdS2,textAlign:"right"}}>${r.m.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
@@ -1742,12 +1742,12 @@ function CSMDetail({csm: csmRaw, onClear, bobRaw, mcChurn, bcChurn, liveBobDet={
                   </td>
                   <td style={tdS2}>
                     <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
-                      <span style={{fontSize:10,fontWeight:500,padding:"2px 8px",borderRadius:20,
+                      <span style={{fontSize:12,fontWeight:500,padding:"2px 8px",borderRadius:20,
                         background:isInc?"rgba(22,163,74,.1)":"rgba(220,38,38,.1)",
                         color:isInc?"#166534":"#991b1b"}}>
                         {isInc?"↑ Increase":"↓ Decrease"}
                       </span>
-                      {r._adj&&<span style={{fontSize:10,fontWeight:600,padding:"2px 7px",borderRadius:20,background:"rgba(83,120,252,.1)",color:"#3b5bdb"}}>✦ Adj</span>}
+                      {r._adj&&<span style={{fontSize:12,fontWeight:600,padding:"2px 7px",borderRadius:20,background:"rgba(83,120,252,.1)",color:"#3b5bdb"}}>✦ Adj</span>}
                     </div>
                   </td>
                 </tr>;
@@ -1760,14 +1760,14 @@ function CSMDetail({csm: csmRaw, onClear, bobRaw, mcChurn, bcChurn, liveBobDet={
       {/* Cadence accounts */}
       <div style={{...S.card,marginBottom:16}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
-          <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500}}>
+          <div style={{fontSize:13,textTransform:"uppercase",color:"#808080",fontWeight:500}}>
             Your tasks
-            {dueAccts.length>0&&<span style={{marginLeft:8,fontSize:10,fontWeight:500,padding:"2px 8px",borderRadius:20,background:"rgba(220,38,38,.1)",color:"#991b1b"}}>{csm.overdueCount} overdue</span>}
+            {dueAccts.length>0&&<span style={{marginLeft:8,fontSize:12,fontWeight:500,padding:"2px 8px",borderRadius:20,background:"rgba(220,38,38,.1)",color:"#991b1b"}}>{csm.overdueCount} overdue</span>}
           </div>
           <div style={{display:"flex",gap:4,background:"#ECEEF1",borderRadius:8,padding:3}}>
             {[["due","Due / Overdue"],["ontime","On-time history"]].map(([k,l])=>(
               <button key={k} onClick={()=>setCadTab(k)}
-                style={{padding:"4px 12px",fontSize:11,fontWeight:500,borderRadius:6,border:"none",background:cadTab===k?"#fff":"transparent",color:cadTab===k?"#29355D":"#808080",cursor:"pointer",boxShadow:cadTab===k?"0 1px 3px rgba(0,0,0,.08)":"none"}}>
+                style={{padding:"4px 12px",fontSize:13,fontWeight:500,borderRadius:6,border:"none",background:cadTab===k?"#fff":"transparent",color:cadTab===k?"#29355D":"#808080",cursor:"pointer",boxShadow:cadTab===k?"0 1px 3px rgba(0,0,0,.08)":"none"}}>
                 {l}
               </button>
             ))}
@@ -1798,10 +1798,10 @@ function CSMDetail({csm: csmRaw, onClear, bobRaw, mcChurn, bcChurn, liveBobDet={
                           <td style={{...tdS,textAlign:"right",color:"#808080"}}>{task.due}</td>
                           <td style={{...tdS,textAlign:"right"}}>
                             {task.ov
-                              ? <span style={{fontSize:10,fontWeight:500,padding:"2px 8px",borderRadius:20,background:"rgba(220,38,38,.1)",color:"#991b1b"}}>Overdue</span>
+                              ? <span style={{fontSize:12,fontWeight:500,padding:"2px 8px",borderRadius:20,background:"rgba(220,38,38,.1)",color:"#991b1b"}}>Overdue</span>
                               : task.nw
-                                ? <span style={{fontSize:10,fontWeight:500,padding:"2px 8px",borderRadius:20,background:"rgba(83,120,252,.1)",color:"#1e3a8a"}}>New today</span>
-                                : <span style={{fontSize:10,fontWeight:500,padding:"2px 8px",borderRadius:20,background:"rgba(217,119,6,.1)",color:"#92400e"}}>Due</span>}
+                                ? <span style={{fontSize:12,fontWeight:500,padding:"2px 8px",borderRadius:20,background:"rgba(83,120,252,.1)",color:"#1e3a8a"}}>New today</span>
+                                : <span style={{fontSize:12,fontWeight:500,padding:"2px 8px",borderRadius:20,background:"rgba(217,119,6,.1)",color:"#92400e"}}>Due</span>}
                           </td>
                         </tr>
                       ))
@@ -1842,7 +1842,7 @@ function CSMDetail({csm: csmRaw, onClear, bobRaw, mcChurn, bcChurn, liveBobDet={
 
       {/* Revenue integrations */}
       <div style={S.card}>
-        <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>
+        <div style={{fontSize:13,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>
           Your revenue submissions — {csm.accts.length} this period{csm.accts.length>0?" · "+fd(totalAcctRev)+" total":""}
         </div>
         {csm.accts.length===0
@@ -1857,7 +1857,7 @@ function CSMDetail({csm: csmRaw, onClear, bobRaw, mcChurn, bcChurn, liveBobDet={
                 const fg=cls==="mrr"?"#166534":cls==="otr"?"#1e3a8a":"#808080";
                 return <tr key={idx}>
                   <td style={{...tdS,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.b}</td>
-                  <td style={tdS}><span style={{fontSize:10,fontWeight:500,padding:"2px 7px",borderRadius:20,background:bg,color:fg}}>{sh}</span></td>
+                  <td style={tdS}><span style={{fontSize:12,fontWeight:500,padding:"2px 7px",borderRadius:20,background:bg,color:fg}}>{sh}</span></td>
                   <td style={{...tdS,textAlign:"right"}}>{a.m>0?fd(a.m):"--"}</td>
                   <td style={{...tdS,textAlign:"right"}}>{a.o>0?fd(a.o):"--"}</td>
                   <td style={{...tdS,color:"#808080",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.n||"--"}</td>
@@ -1884,7 +1884,7 @@ function PeriodPicker({value, onChange, customFrom, customTo, onFromChange, onTo
       <div style={{display:"flex",gap:4,background:"#ECEEF1",borderRadius:8,padding:3}}>
         {OPTS.map(({k,l})=>(
           <button key={k} onClick={()=>onChange(k)}
-            style={{padding:"4px 12px",fontSize:11,fontWeight:500,borderRadius:6,border:"none",
+            style={{padding:"4px 12px",fontSize:13,fontWeight:500,borderRadius:6,border:"none",
               background:value===k?"#fff":"transparent",color:value===k?"#29355D":"#808080",
               cursor:"pointer",boxShadow:value===k?"0 1px 3px rgba(0,0,0,.08)":"none"}}>
             {l}
@@ -1894,13 +1894,13 @@ function PeriodPicker({value, onChange, customFrom, customTo, onFromChange, onTo
       {value==="custom"&&(
         <div style={{display:"flex",alignItems:"center",gap:6}}>
           <input type="date" value={customFrom} onChange={e=>onFromChange(e.target.value)}
-            style={{fontSize:11,padding:"4px 8px",borderRadius:6,border:"0.5px solid #ddd",color:"#29355D"}}/>
-          <span style={{fontSize:11,color:"#808080"}}>–</span>
+            style={{fontSize:13,padding:"4px 8px",borderRadius:6,border:"0.5px solid #ddd",color:"#29355D"}}/>
+          <span style={{fontSize:13,color:"#808080"}}>–</span>
           <input type="date" value={customTo} onChange={e=>onToChange(e.target.value)}
-            style={{fontSize:11,padding:"4px 8px",borderRadius:6,border:"0.5px solid #ddd",color:"#29355D"}}/>
+            style={{fontSize:13,padding:"4px 8px",borderRadius:6,border:"0.5px solid #ddd",color:"#29355D"}}/>
         </div>
       )}
-      {latestDate&&<span style={{fontSize:10,color:"#aaa",marginLeft:4}}>as of {latestDate}</span>}
+      {latestDate&&<span style={{fontSize:12,color:"#aaa",marginLeft:4}}>as of {latestDate}</span>}
     </div>
   );
 }
@@ -2010,11 +2010,11 @@ function CoachingView({csms, coach, onSelectCSM, onSelectCoach, onClear, skipped
       {skipped.length>0&&<div style={{background:"rgba(127,29,29,.05)",border:"1px solid rgba(127,29,29,.25)",borderRadius:12,padding:16,marginBottom:16}}>
         <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
           <span style={{fontSize:16,fontWeight:600,color:"#7f1d1d"}}>🚩 Skipped Cadences — Prior Day</span>
-          <span style={{fontSize:10,fontWeight:600,padding:"2px 8px",borderRadius:20,background:"rgba(127,29,29,.12)",color:"#7f1d1d"}}>{skipped.length} CSMs</span>
-          {skipped.some(c=>c.skippedFourthCount>0)&&<span style={{fontSize:10,fontWeight:600,padding:"2px 8px",borderRadius:20,background:"rgba(220,38,38,.15)",color:"#991b1b"}}>
+          <span style={{fontSize:12,fontWeight:600,padding:"2px 8px",borderRadius:20,background:"rgba(127,29,29,.12)",color:"#7f1d1d"}}>{skipped.length} CSMs</span>
+          {skipped.some(c=>c.skippedFourthCount>0)&&<span style={{fontSize:12,fontWeight:600,padding:"2px 8px",borderRadius:20,background:"rgba(220,38,38,.15)",color:"#991b1b"}}>
             ⚠ {skipped.filter(c=>c.skippedFourthCount>0).length} with 4th reschedule
           </span>}
-          <span style={{fontSize:11,color:"#808080",marginLeft:"auto",fontStyle:"italic"}}>Click a name to see details</span>
+          <span style={{fontSize:13,color:"#808080",marginLeft:"auto",fontStyle:"italic"}}>Click a name to see details</span>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
           {skipped.map(c=>{
@@ -2026,11 +2026,11 @@ function CoachingView({csms, coach, onSelectCSM, onSelectCoach, onClear, skipped
                 borderLeft:`3px solid ${has4th?"#7f1d1d":"#d97706"}`}}>
               <div style={{flex:1,minWidth:0}}>
                 <div style={{fontSize:12,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{dispName(c.name)}</div>
-                <div style={{fontSize:11,color:"#808080",marginTop:2}}>{st(i.t||"")}{has4th?" · 🚩 4th reschedule":""}</div>
+                <div style={{fontSize:13,color:"#808080",marginTop:2}}>{st(i.t||"")}{has4th?" · 🚩 4th reschedule":""}</div>
               </div>
               <div style={{textAlign:"center",flexShrink:0}}>
                 <div style={{fontSize:20,fontWeight:500,color:has4th?"#7f1d1d":"#d97706"}}>{c.skippedCount}</div>
-                <div style={{fontSize:10,color:has4th?"#7f1d1d":"#d97706"}}>skipped</div>
+                <div style={{fontSize:12,color:has4th?"#7f1d1d":"#d97706"}}>skipped</div>
               </div>
             </div>;
           })}
@@ -2041,7 +2041,7 @@ function CoachingView({csms, coach, onSelectCSM, onSelectCoach, onClear, skipped
       {overdue.length>0&&<div style={{background:"rgba(220,38,38,.04)",border:"0.5px solid rgba(220,38,38,.18)",borderRadius:12,padding:16,marginBottom:24}}>
         <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
           <span style={{fontSize:16,fontWeight:500,color:"#dc2626"}}>⚠ Overdue cadence tasks</span>
-          <span style={{fontSize:10,fontWeight:500,padding:"2px 8px",borderRadius:20,background:"rgba(220,38,38,.1)",color:"#991b1b"}}>{overdue.length} CSMs</span>
+          <span style={{fontSize:12,fontWeight:500,padding:"2px 8px",borderRadius:20,background:"rgba(220,38,38,.1)",color:"#991b1b"}}>{overdue.length} CSMs</span>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
           {overdue.map(c=>{
@@ -2049,11 +2049,11 @@ function CoachingView({csms, coach, onSelectCSM, onSelectCoach, onClear, skipped
             return <div key={c.name} style={{...S.card,display:"flex",alignItems:"center",gap:10,cursor:"pointer",padding:12}} onClick={()=>onSelectCSM(c.name)}>
               <div style={{flex:1,minWidth:0}}>
                 <div style={{fontSize:12,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{dispName(c.name)}</div>
-                <div style={{fontSize:11,color:"#808080",marginTop:2}}>{st(i.t||"")}{c.newToday>0?" · "+c.newToday+" new":""}</div>
+                <div style={{fontSize:13,color:"#808080",marginTop:2}}>{st(i.t||"")}{c.newToday>0?" · "+c.newToday+" new":""}</div>
               </div>
               <div style={{textAlign:"center",flexShrink:0}}>
                 <div style={{fontSize:20,fontWeight:500,color:"#dc2626"}}>{c.overdueCount}</div>
-                <div style={{fontSize:10,color:"#dc2626"}}>overdue</div>
+                <div style={{fontSize:12,color:"#dc2626"}}>overdue</div>
               </div>
             </div>;
           })}
@@ -2068,14 +2068,14 @@ function CoachingView({csms, coach, onSelectCSM, onSelectCoach, onClear, skipped
       {/* Needs attention */}
       <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
         <span style={{fontSize:16,fontWeight:500,color:"#29355D"}}>🚨 Needs attention</span>
-        <span style={{fontSize:10,fontWeight:500,padding:"2px 8px",borderRadius:20,background:"rgba(220,38,38,.1)",color:"#991b1b"}}>{attn.length} CSMs</span>
-        {!noHistoryData&&<span style={{fontSize:11,color:"#aaa",fontStyle:"italic"}}>based on {dateFilter.replace("_"," ")} data</span>}
+        <span style={{fontSize:12,fontWeight:500,padding:"2px 8px",borderRadius:20,background:"rgba(220,38,38,.1)",color:"#991b1b"}}>{attn.length} CSMs</span>
+        {!noHistoryData&&<span style={{fontSize:13,color:"#aaa",fontStyle:"italic"}}>based on {dateFilter.replace("_"," ")} data</span>}
       </div>
       <div style={{...S.card,marginBottom:24}}>
         {attn.length===0
           ? <div style={{textAlign:"center",padding:20,color:"#16a34a",fontWeight:500}}>🎉 Everyone on track for this period!</div>
           : <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
-              <thead><tr>{["CSM","Team","Skipped","Cadence","On-time %","Overdue","Retention","Revenue"].map((h,j)=><th key={h} style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,padding:"0 8px 8px 0",textAlign:j>=2?"right":"left",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>{h}</th>)}</tr></thead>
+              <thead><tr>{["CSM","Team","Skipped","Cadence","On-time %","Overdue","Retention","Revenue"].map((h,j)=><th key={h} style={{fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500,padding:"0 8px 8px 0",textAlign:j>=2?"right":"left",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>{h}</th>)}</tr></thead>
               <tbody>{attn.map(c=>{
                 const i=lk(c.name)||{};
                 const s=getPeriodStats(c);
@@ -2085,25 +2085,25 @@ function CoachingView({csms, coach, onSelectCSM, onSelectCoach, onClear, skipped
                     <div style={{fontWeight:500,color:hasSkip?"#7f1d1d":"#29355D",display:"flex",alignItems:"center",gap:5}}>
                       {hasSkip&&<span>🚩</span>}{dispName(c.name)}
                     </div>
-                    <div style={{fontSize:11,color:"#808080",fontStyle:"italic",marginTop:2}}>
+                    <div style={{fontSize:13,color:"#808080",fontStyle:"italic",marginTop:2}}>
                       {hasSkip?"Continued After 4th Reschedule":s.cadPct===0?"No completions":s.cadPct!=null&&s.cadPct<0.5?"Significantly behind":s.cadPct!=null?"Below 90% target":s.bobRet!=null&&s.bobRet<0.91?"Retention below goal":"Needs review"}
                     </div>
                   </td>
                   <td style={{padding:"7px 8px 7px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",color:"#808080"}}>{st(i.t||"")}</td>
                   <td style={{padding:"7px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right"}}>
-                    {hasSkip?<span style={{fontSize:10,fontWeight:600,padding:"1px 7px",borderRadius:20,background:"rgba(127,29,29,.12)",color:"#7f1d1d"}}>{c.skippedCount}</span>:"--"}
+                    {hasSkip?<span style={{fontSize:12,fontWeight:600,padding:"1px 7px",borderRadius:20,background:"rgba(127,29,29,.12)",color:"#7f1d1d"}}>{c.skippedCount}</span>:"--"}
                   </td>
                   <td style={{padding:"7px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right"}}>
-                    {s.cadPct!=null?<span style={{fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:20,background:"rgba(220,38,38,.12)",color:"#991b1b"}}>{Math.round(s.cadPct*100)}%</span>:"--"}
+                    {s.cadPct!=null?<span style={{fontSize:12,fontWeight:500,padding:"1px 7px",borderRadius:20,background:"rgba(220,38,38,.12)",color:"#991b1b"}}>{Math.round(s.cadPct*100)}%</span>:"--"}
                   </td>
                   <td style={{padding:"7px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",fontWeight:500,color:s.otPct!=null?pc(s.otPct):"#888"}}>
                     {s.otPct!=null?pp(s.otPct):"--"}
                   </td>
                   <td style={{padding:"7px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right"}}>
-                    {c.overdueCount>0?<span style={{fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:20,background:"rgba(220,38,38,.1)",color:"#991b1b"}}>{c.overdueCount}</span>:"--"}
+                    {c.overdueCount>0?<span style={{fontSize:12,fontWeight:500,padding:"1px 7px",borderRadius:20,background:"rgba(220,38,38,.1)",color:"#991b1b"}}>{c.overdueCount}</span>:"--"}
                   </td>
                   <td style={{padding:"7px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right"}}>
-                    {s.bobRet!=null?<span style={{fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:20,
+                    {s.bobRet!=null?<span style={{fontSize:12,fontWeight:500,padding:"1px 7px",borderRadius:20,
                       background:s.bobRet>=0.91?"rgba(22,163,74,.1)":s.bobRet>=0.85?"rgba(217,119,6,.1)":"rgba(220,38,38,.1)",
                       color:s.bobRet>=0.91?"#166534":s.bobRet>=0.85?"#854d0e":"#991b1b"}}>
                       {pp(s.bobRet)}
@@ -2120,7 +2120,7 @@ function CoachingView({csms, coach, onSelectCSM, onSelectCoach, onClear, skipped
       {/* Winning this period */}
       <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
         <span style={{fontSize:16,fontWeight:500,color:"#29355D"}}>🏅 On track this period</span>
-        <span style={{fontSize:10,fontWeight:500,padding:"2px 8px",borderRadius:20,background:"rgba(22,163,74,.1)",color:"#166534"}}>{wins.length} CSMs</span>
+        <span style={{fontSize:12,fontWeight:500,padding:"2px 8px",borderRadius:20,background:"rgba(22,163,74,.1)",color:"#166534"}}>{wins.length} CSMs</span>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
         {wins.map(c=>{
@@ -2129,14 +2129,14 @@ function CoachingView({csms, coach, onSelectCSM, onSelectCoach, onClear, skipped
           return <div key={c.name} style={{...S.card,display:"flex",alignItems:"center",gap:10,borderLeft:"3px solid #16a34a",cursor:"pointer",padding:12}} onClick={()=>onSelectCSM(c.name)}>
             <div style={{flex:1,minWidth:0}}>
               <div style={{fontSize:12,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{dispName(c.name)}</div>
-              <div style={{fontSize:11,color:"#808080",marginTop:2}}>
+              <div style={{fontSize:13,color:"#808080",marginTop:2}}>
                 {st(i.t||"")}
                 {s.cadPct!=null?" · Cad "+Math.round(s.cadPct*100)+"%":""}
                 {s.bobRet!=null?" · Ret "+Math.round(s.bobRet*100)+"%":""}
               </div>
             </div>
-            {s.rev>0&&<span style={{fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:20,background:"rgba(255,80,0,.1)",color:"#FF5000",flexShrink:0}}>{fd(s.rev)}</span>}
-            {!s.rev&&<span style={{fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:20,background:"rgba(22,163,74,.12)",color:"#166534",flexShrink:0}}>✓</span>}
+            {s.rev>0&&<span style={{fontSize:12,fontWeight:500,padding:"1px 7px",borderRadius:20,background:"rgba(255,80,0,.1)",color:"#FF5000",flexShrink:0}}>{fd(s.rev)}</span>}
+            {!s.rev&&<span style={{fontSize:12,fontWeight:500,padding:"1px 7px",borderRadius:20,background:"rgba(22,163,74,.12)",color:"#166534",flexShrink:0}}>✓</span>}
           </div>;
         })}
       </div>
@@ -2279,7 +2279,7 @@ function OverviewView({csms, allCSMs, bobRaw, bobAdj, history, callData, filterC
       <div style={{flex:1,height:4,background:"#ECEEF1",borderRadius:2,overflow:"hidden"}}>
         <div style={{width:Math.min((pct||0)*100,100).toFixed(1)+"%",height:"100%",background:col,opacity:.85,borderRadius:2}}/>
       </div>
-      <span style={{width:50,textAlign:"right",fontSize:11,color:"#808080",flexShrink:0}}>{val}</span>
+      <span style={{width:50,textAlign:"right",fontSize:13,color:"#808080",flexShrink:0}}>{val}</span>
     </div>
   );
 
@@ -2293,7 +2293,7 @@ function OverviewView({csms, allCSMs, bobRaw, bobAdj, history, callData, filterC
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16,flexWrap:"wrap",gap:8}}>
         <div>
           <div style={{fontSize:13,fontWeight:600,color:"#29355D"}}>Team overview</div>
-          {rangeLabel&&<div style={{fontSize:11,color:"#808080"}}>{rangeLabel}</div>}
+          {rangeLabel&&<div style={{fontSize:13,color:"#808080"}}>{rangeLabel}</div>}
         </div>
         <PeriodPicker value={dateFilter} onChange={v=>{setDateFilter(v);}}
           customFrom={customFrom} customTo={customTo}
@@ -2304,47 +2304,47 @@ function OverviewView({csms, allCSMs, bobRaw, bobAdj, history, callData, filterC
       {/* Headline stat cards */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(4,minmax(0,1fr))",gap:12,marginBottom:14}}>
         <div style={{background:"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",borderTop:"3px solid #FF5000"}}>
-          <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Revenue</div>
+          <div style={{fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Revenue</div>
           <div style={{fontSize:24,fontWeight:600,color:"#FF5000",lineHeight:1,marginBottom:4}}>{fd(totalRev)}</div>
-          <div style={{fontSize:10,color:"#808080"}}>MRR {fk(totalMRR)}{!hasRevHistory&&" · current"}</div>
+          <div style={{fontSize:12,color:"#808080"}}>MRR {fk(totalMRR)}{!hasRevHistory&&" · current"}</div>
         </div>
         <div style={{background:"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",borderTop:"3px solid #29355D"}}>
-          <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Retention</div>
+          <div style={{fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Retention</div>
           <div style={{fontSize:24,fontWeight:600,color:avgRet!=null?bc(avgRet,0.91,0.85):"#808080",lineHeight:1,marginBottom:4}}>{avgRet!=null?pp(avgRet):"--"}</div>
-          <div style={{fontSize:10,color:"#808080"}}>{aboveGoal} of {bobC2.length} at goal{!hasRetentionHistory&&" · current"}</div>
+          <div style={{fontSize:12,color:"#808080"}}>{aboveGoal} of {bobC2.length} at goal{!hasRetentionHistory&&" · current"}</div>
         </div>
         <div style={{background:"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",borderTop:"3px solid #16a34a"}}>
-          <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Call completion</div>
+          <div style={{fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Call completion</div>
           <div style={{fontSize:24,fontWeight:600,color:compColor(callTotals.compRate),lineHeight:1,marginBottom:4}}>{callTotals.total>0?pp(callTotals.compRate):"--"}</div>
           {callTotals.total>0&&<div style={{height:5,background:"rgba(0,0,0,.08)",borderRadius:3,marginBottom:4,overflow:"hidden"}}>
             <div style={{width:(callTotals.compRate*100).toFixed(1)+"%",height:"100%",background:compColor(callTotals.compRate),borderRadius:3}}/>
           </div>}
-          <div style={{fontSize:10,color:"#808080"}}>{callTotals.completed} of {callTotals.total} booked</div>
+          <div style={{fontSize:12,color:"#808080"}}>{callTotals.completed} of {callTotals.total} booked</div>
         </div>
         <div style={{background:"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",borderTop:"3px solid #dc2626"}}>
-          <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Overdue tasks</div>
+          <div style={{fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Overdue tasks</div>
           <div style={{fontSize:24,fontWeight:600,color:"#dc2626",lineHeight:1,marginBottom:4}}>{totalOD}</div>
-          <div style={{fontSize:10,color:"#808080"}}>across {odCsmCount} CSMs · current</div>
+          <div style={{fontSize:12,color:"#808080"}}>across {odCsmCount} CSMs · current</div>
         </div>
       </div>
 
       {/* Secondary stat row */}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
         <div style={S.card}>
-          <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Cadence on-time</div>
+          <div style={{fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Cadence on-time</div>
           <div style={{fontSize:20,fontWeight:600,color:otRows.length?bc(avgOT,0.8,0.6):"#808080"}}>{otRows.length?pp(avgOT):"--"}</div>
-          <div style={{fontSize:10,color:"#808080"}}>goal 85%+ · {otRows.length} CSM-days tracked</div>
+          <div style={{fontSize:12,color:"#808080"}}>goal 85%+ · {otRows.length} CSM-days tracked</div>
         </div>
         <div style={S.card}>
-          <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Email open rate</div>
+          <div style={{fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Email open rate</div>
           <div style={{fontSize:20,fontWeight:600,color:emRows.length?(avgOpen>=0.7?"#16a34a":"#d97706"):"#808080"}}>{emRows.length?pp(avgOpen):"--"}</div>
-          <div style={{fontSize:10,color:"#808080"}}>target 70%+ · {totalSent} emails sent</div>
+          <div style={{fontSize:12,color:"#808080"}}>target 70%+ · {totalSent} emails sent</div>
         </div>
       </div>
 
       {/* Call attendance by CSM — worst first */}
       {callRows.length>0&&<div style={{...S.card,marginBottom:16}}>
-        <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:14}}>Call attendance by CSM — needs attention first</div>
+        <div style={{fontSize:13,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:14}}>Call attendance by CSM — needs attention first</div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:"8px 24px"}}>
           {callRows.slice(0,10).map(r=>(
             <div key={r.name} style={{display:"flex",alignItems:"center",gap:10,fontSize:12}}>
@@ -2352,7 +2352,7 @@ function OverviewView({csms, allCSMs, bobRaw, bobAdj, history, callData, filterC
               <div style={{flex:1,height:5,background:"#ECEEF1",borderRadius:3,overflow:"hidden"}}>
                 <div style={{width:Math.min(r.rate*100,100).toFixed(1)+"%",height:"100%",background:compColor(r.rate),borderRadius:3}}/>
               </div>
-              <span style={{width:36,textAlign:"right",fontSize:11,fontWeight:600,color:compColor(r.rate),flexShrink:0}}>{(r.rate*100).toFixed(0)}%</span>
+              <span style={{width:36,textAlign:"right",fontSize:13,fontWeight:600,color:compColor(r.rate),flexShrink:0}}>{(r.rate*100).toFixed(0)}%</span>
             </div>
           ))}
         </div>
@@ -2361,13 +2361,13 @@ function OverviewView({csms, allCSMs, bobRaw, bobAdj, history, callData, filterC
       {/* Revenue + Retention by team */}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}}>
         <div style={S.card}>
-          <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>Revenue by team</div>
+          <div style={{fontSize:13,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>Revenue by team</div>
           {trs.length===0
             ? <div style={{color:"#808080",fontSize:12}}>No revenue in this period</div>
             : trs.map(([t,v])=>hbar(st(t),v/maxR,fk(v),TEAM_COLS[t]||"#888"))}
         </div>
         <div style={S.card}>
-          <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>Retention by team — goal 91%</div>
+          <div style={{fontSize:13,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>Retention by team — goal 91%</div>
           {teamRetList.length===0
             ? <div style={{color:"#808080",fontSize:12}}>No retention data available</div>
             : teamRetList.map(([t,v])=>hbar(st(t),v,pp(v),bc(v,0.91,0.85)))}
@@ -2376,32 +2376,32 @@ function OverviewView({csms, allCSMs, bobRaw, bobAdj, history, callData, filterC
 
       {/* Top revenue earners */}
       {topRev.length>0&&<div style={{...S.card,marginBottom:16}}>
-        <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>Top CSM revenue</div>
+        <div style={{fontSize:13,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>Top CSM revenue</div>
         {topRev.map(c=>hbar(dispName(c.name).split(" ").slice(0,2).join(" "),c.rev/maxRI,fk(c.rev),"#FF5000"))}
       </div>}
 
       {/* Overdue + Skipped cadence */}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
         <div style={S.card}>
-          <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>Overdue cadence · current</div>
+          <div style={{fontSize:13,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>Overdue cadence · current</div>
           {csms.filter(c=>c.overdueCount>0).length===0
             ? <div style={{color:"#808080",fontSize:12}}>No overdue tasks</div>
             : csms.filter(c=>c.overdueCount>0).sort((a,b)=>b.overdueCount-a.overdueCount).map(c=>(
               <div key={c.name} style={{display:"flex",alignItems:"center",gap:8,padding:"4px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)"}}>
                 <span style={{flex:1,fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{dispName(c.name)}</span>
-                <span style={{fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:20,background:"rgba(220,38,38,.1)",color:"#991b1b"}}>{c.overdueCount}</span>
-                {c.newToday>0&&<span style={{fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:20,background:"rgba(83,120,252,.1)",color:"#1e3a8a"}}>{c.newToday} new</span>}
+                <span style={{fontSize:12,fontWeight:500,padding:"1px 7px",borderRadius:20,background:"rgba(220,38,38,.1)",color:"#991b1b"}}>{c.overdueCount}</span>
+                {c.newToday>0&&<span style={{fontSize:12,fontWeight:500,padding:"1px 7px",borderRadius:20,background:"rgba(83,120,252,.1)",color:"#1e3a8a"}}>{c.newToday} new</span>}
               </div>
             ))}
         </div>
         <div style={S.card}>
-          <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>Skipped cadences — prior day · current</div>
+          <div style={{fontSize:13,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>Skipped cadences — prior day · current</div>
           {csms.filter(c=>(c.skippedCount||0)>0).length===0
             ? <div style={{color:"#808080",fontSize:12}}>No skipped cadences</div>
             : csms.filter(c=>(c.skippedCount||0)>0).sort((a,b)=>b.skippedCount-a.skippedCount).map(c=>(
               <div key={c.name} style={{display:"flex",alignItems:"center",gap:8,padding:"4px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)"}}>
                 <span style={{flex:1,fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{dispName(c.name)}</span>
-                <span style={{fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:20,background:"rgba(217,119,6,.1)",color:"#854d0e"}}>{c.skippedCount} skipped</span>
+                <span style={{fontSize:12,fontWeight:500,padding:"1px 7px",borderRadius:20,background:"rgba(217,119,6,.1)",color:"#854d0e"}}>{c.skippedCount} skipped</span>
               </div>
             ))}
         </div>
@@ -2653,7 +2653,7 @@ function LeaderboardView({csms, bobRaw, history=[], q2DomoBoq=[], domoBoq=[], q3
   const medals = ["🥇","🥈","🥉"];
   const th = (col,lbl) => (
     <th onClick={()=>setSort(s=>({col, dir:s.col===col&&s.dir==="desc"?"asc":"desc"}))}
-      style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,padding:"0 0 8px",textAlign:"right",cursor:"pointer",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>
+      style={{fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500,padding:"0 0 8px",textAlign:"right",cursor:"pointer",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>
       {lbl}{sort.col===col?(sort.dir==="desc"?" ▼":" ▲"):<span style={{color:"#ccc",fontSize:9}}> ↕</span>}
     </th>
   );
@@ -2665,7 +2665,7 @@ function LeaderboardView({csms, bobRaw, history=[], q2DomoBoq=[], domoBoq=[], q3
         <div style={{display:"flex",gap:4,background:"#ECEEF1",borderRadius:8,padding:3}}>
           {OPTS.map(({k,l})=>(
             <button key={k} onClick={()=>{setPeriod(k);setSort({col:"rev",dir:"desc"});}}
-              style={{padding:"4px 14px",fontSize:11,fontWeight:500,borderRadius:6,border:"none",
+              style={{padding:"4px 14px",fontSize:13,fontWeight:500,borderRadius:6,border:"none",
                 background:period===k?"#fff":"transparent",
                 color:period===k?"#29355D":"#808080",
                 cursor:"pointer",boxShadow:period===k?"0 1px 3px rgba(0,0,0,.08)":"none"}}>
@@ -2682,9 +2682,9 @@ function LeaderboardView({csms, bobRaw, history=[], q2DomoBoq=[], domoBoq=[], q3
       <div style={S.card}>
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
           <thead><tr>
-            <th style={{width:28,fontSize:10,color:"#808080",fontWeight:500,padding:"0 0 8px",textAlign:"left",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>{"#"}</th>
-            <th style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,padding:"0 0 8px",textAlign:"left",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>CSM</th>
-            <th style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,padding:"0 0 8px",textAlign:"left",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>Team</th>
+            <th style={{width:28,fontSize:12,color:"#808080",fontWeight:500,padding:"0 0 8px",textAlign:"left",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>{"#"}</th>
+            <th style={{fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500,padding:"0 0 8px",textAlign:"left",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>CSM</th>
+            <th style={{fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500,padding:"0 0 8px",textAlign:"left",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>Team</th>
             {th("rev","Revenue")}{th("cadPct","Cadence")}{th("otPct","On-time %")}{th("bobRet","Retention")}
           </tr></thead>
           <tbody>{sorted.map(({c,rev,cadPct,otPct,bobRet},i)=>{
@@ -2693,11 +2693,11 @@ function LeaderboardView({csms, bobRaw, history=[], q2DomoBoq=[], domoBoq=[], q3
             return <tr key={c.name}>
               <td style={{padding:"9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)"}}>{i<3?medals[i]:(i+1)+"."}</td>
               <td style={{padding:"9px 8px 9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",fontWeight:500}}>{dispName(c.name)}</td>
-              <td style={{padding:"9px 8px 9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)"}}><span style={{display:"inline-block",width:6,height:6,borderRadius:"50%",background:tcol,marginRight:5,verticalAlign:"middle"}}/><span style={{color:"#808080",fontSize:11}}>{st(info.t||c.team)}</span></td>
+              <td style={{padding:"9px 8px 9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)"}}><span style={{display:"inline-block",width:6,height:6,borderRadius:"50%",background:tcol,marginRight:5,verticalAlign:"middle"}}/><span style={{color:"#808080",fontSize:13}}>{st(info.t||c.team)}</span></td>
               <td style={{padding:"9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:"#FF5000",fontWeight:500}}>{rev>0?fd(rev):"--"}</td>
               <td style={{padding:"9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",fontWeight:500,color:cadPct!=null?pc(cadPct):"#888"}}>{cadPct!=null?pp(cadPct):"--"}</td>
               <td style={{padding:"9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",fontWeight:500,color:otPct!=null?pc(otPct):"#888"}}>{otPct!=null?pp(otPct):"--"}</td>
-              <td style={{padding:"9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right"}}>{bobRet!=null?<span style={{fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:20,background:bobRet>=0.91?"rgba(22,163,74,.1)":bobRet>=0.85?"rgba(217,119,6,.1)":"rgba(220,38,38,.1)",color:bobRet>=0.91?"#166534":bobRet>=0.85?"#854d0e":"#991b1b"}}>{pp(bobRet)}</span>:"--"}</td>
+              <td style={{padding:"9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right"}}>{bobRet!=null?<span style={{fontSize:12,fontWeight:500,padding:"1px 7px",borderRadius:20,background:bobRet>=0.91?"rgba(22,163,74,.1)":bobRet>=0.85?"rgba(217,119,6,.1)":"rgba(220,38,38,.1)",color:bobRet>=0.91?"#166534":bobRet>=0.85?"#854d0e":"#991b1b"}}>{pp(bobRet)}</span>:"--"}</td>
             </tr>;
           })}</tbody>
         </table>
@@ -2779,7 +2779,7 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
   const lastWeek = weeks[weeks.length-1];
   const prevWeek = weeks[weeks.length-2];
 
-  const thStyle = {fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,padding:"0 8px 8px 0",textAlign:"left",borderBottom:"0.5px solid rgba(41,53,93,.08)"};
+  const thStyle = {fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500,padding:"0 8px 8px 0",textAlign:"left",borderBottom:"0.5px solid rgba(41,53,93,.08)"};
   const thRStyle = {...thStyle, textAlign:"right"};
   const tdStyle = {padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",fontSize:12};
   const tdRStyle = {...tdStyle, textAlign:"right"};
@@ -2972,7 +2972,7 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
           const isLatest = wi === arr.length-1;
           return (
             <div key={week} style={{background:isLatest?"#29355D":"#ECEEF1",borderRadius:8,padding:14}}>
-              <div style={{fontSize:10,textTransform:"uppercase",color:isLatest?"rgba(255,255,255,.6)":"#808080",fontWeight:500,marginBottom:4}}>{week}{isLatest?" · Latest":""}</div>
+              <div style={{fontSize:12,textTransform:"uppercase",color:isLatest?"rgba(255,255,255,.6)":"#808080",fontWeight:500,marginBottom:4}}>{week}{isLatest?" · Latest":""}</div>
               <div style={{fontSize:22,fontWeight:500,color:isLatest?"#fff":"#29355D",lineHeight:1}}>
                 {activeMetric.format(avg)}
               </div>
@@ -2981,7 +2981,7 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
                   isPercent={metric!=="rev"&&metric!=="overdueCount"}
                   higherBetter={metric!=="overdueCount"}/>
               )}
-              <div style={{fontSize:11,color:isLatest?"rgba(255,255,255,.5)":"#808080",marginTop:4}}>{vals.length} CSMs</div>
+              <div style={{fontSize:13,color:isLatest?"rgba(255,255,255,.5)":"#808080",marginTop:4}}>{vals.length} CSMs</div>
             </div>
           );
         })}
@@ -2990,7 +2990,7 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
       {/* Detail table */}
       {view === "team" ? (
         <div style={S.card}>
-          <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>
+          <div style={{fontSize:13,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>
             {activeMetric.label} — week over week by team
           </div>
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
@@ -3031,7 +3031,7 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
         </div>
       ) : (
         <div style={S.card}>
-          <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>
+          <div style={{fontSize:13,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>
             {activeMetric.label} — week over week by CSM
           </div>
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
@@ -3266,7 +3266,7 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
           else { setCallSortCol(col); setCallSortDir(col==="name"?"asc":"desc"); }
         };
         const sortArrow = col => callSortCol===col ? (callSortDir==="asc"?" ↑":" ↓") : " ↕";
-        const thBase = {padding:"0 8px 8px 0",fontSize:10,textTransform:"uppercase",fontWeight:500,
+        const thBase = {padding:"0 8px 8px 0",fontSize:12,textTransform:"uppercase",fontWeight:500,
           borderBottom:"0.5px solid rgba(41,53,93,.08)",cursor:"pointer",userSelect:"none",whiteSpace:"nowrap"};
         const thActive = col => ({color:callSortCol===col?"#29355D":undefined, fontWeight:callSortCol===col?700:500});
 
@@ -3349,7 +3349,7 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
                   {callSelectedCSM&&<span style={{marginLeft:8,fontSize:12,color:"#FF5000"}}> — {dispName(callSelectedCSM)}</span>}
                   {callSelectedSvc&&<span style={{marginLeft:8,fontSize:12,color:"#FF5000"}}> — {callSelectedSvc}</span>}
                 </div>
-                <div style={{fontSize:11,color:"#808080"}}>{
+                <div style={{fontSize:13,color:"#808080"}}>{
                   callDateFilter==="today"        ? `Today — ${todayStart.toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"})}` :
                   callDateFilter==="yesterday"    ? `Yesterday — ${yestStart.toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"})}` :
                   callDateFilter==="tomorrow"     ? `Tomorrow — ${tmrwStart.toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"})}` :
@@ -3367,21 +3367,21 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
                   <button key={v} onClick={()=>setCallDateFilter(v)}
                     style={{padding:"4px 10px",borderRadius:20,border:"0.5px solid "+(callDateFilter===v?"#29355D":"rgba(41,53,93,.15)"),
                       background:callDateFilter===v?"#29355D":"#fff",color:callDateFilter===v?"#fff":"#808080",
-                      fontSize:11,fontWeight:500,cursor:"pointer"}}>
+                      fontSize:13,fontWeight:500,cursor:"pointer"}}>
                     {l}
                   </button>
                 ))}
                 {/* Custom date pickers */}
                 {callDateFilter==="custom"&&<>
                   <input type="date" value={callCustomFrom} onChange={e=>setCallCustomFrom(e.target.value)}
-                    style={{padding:"4px 8px",borderRadius:8,border:"0.5px solid rgba(41,53,93,.2)",fontSize:11}}/>
-                  <span style={{fontSize:11,color:"#808080"}}>to</span>
+                    style={{padding:"4px 8px",borderRadius:8,border:"0.5px solid rgba(41,53,93,.2)",fontSize:13}}/>
+                  <span style={{fontSize:13,color:"#808080"}}>to</span>
                   <input type="date" value={callCustomTo} onChange={e=>setCallCustomTo(e.target.value)}
-                    style={{padding:"4px 8px",borderRadius:8,border:"0.5px solid rgba(41,53,93,.2)",fontSize:11}}/>
+                    style={{padding:"4px 8px",borderRadius:8,border:"0.5px solid rgba(41,53,93,.2)",fontSize:13}}/>
                 </>}
                 {/* Compare toggle */}
                 <button onClick={()=>setCallCompare(c=>!c)}
-                  style={{padding:"4px 12px",borderRadius:20,fontSize:11,fontWeight:600,cursor:"pointer",
+                  style={{padding:"4px 12px",borderRadius:20,fontSize:13,fontWeight:600,cursor:"pointer",
                     border:"0.5px solid "+(callCompare?"#5378FC":"rgba(41,53,93,.2)"),
                     background:callCompare?"#5378FC":"#fff",
                     color:callCompare?"#fff":"#29355D"}}>
@@ -3391,7 +3391,7 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
                 {(callSelectedCSM||callSelectedSvc)&&(
                   <button onClick={()=>{setCallSelectedCSM(null);setCallSelectedSvc(null);}}
                     style={{padding:"4px 10px",borderRadius:20,border:"0.5px solid #FF5000",background:"#fff",
-                      color:"#FF5000",fontSize:11,fontWeight:500,cursor:"pointer"}}>
+                      color:"#FF5000",fontSize:13,fontWeight:500,cursor:"pointer"}}>
                     ✕ Clear filter
                   </button>
                 )}
@@ -3400,7 +3400,7 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
 
             {/* Compare banner */}
             {hasPrior&&<div style={{marginBottom:12,padding:"8px 14px",borderRadius:8,background:"rgba(83,120,252,.06)",
-              border:"0.5px solid rgba(83,120,252,.2)",fontSize:11,color:"#3b5bdb",display:"flex",gap:16,flexWrap:"wrap"}}>
+              border:"0.5px solid rgba(83,120,252,.2)",fontSize:13,color:"#3b5bdb",display:"flex",gap:16,flexWrap:"wrap"}}>
               <span>🟦 <strong>Current:</strong> {curLabel}</span>
               <span>⇄</span>
               <span>⬜ <strong>Prior:</strong> {priorLabel}</span>
@@ -3431,16 +3431,16 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
                     const dVal = hasPrior&&t.priorVal!=null ? t.val - t.priorVal : null;
                     return (
                       <div key={t.l} style={{background:"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",borderTop:"3px solid "+t.col}}>
-                        <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>{t.l}</div>
+                        <div style={{fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>{t.l}</div>
                         <div style={{fontSize:24,fontWeight:600,color:t.col,lineHeight:1,marginBottom:4}}>{t.val}</div>
                         {t.bar!=null&&<div style={{height:5,background:"rgba(0,0,0,.08)",borderRadius:3,marginBottom:5,overflow:"hidden"}}>
                           <div style={{width:Math.min(t.bar*100,100).toFixed(1)+"%",height:"100%",background:t.col,borderRadius:3}}/>
                         </div>}
                         {t.pills&&<div style={{display:"flex",flexWrap:"wrap",gap:4,marginTop:4}}>
-                          {t.pills.map(p=><span key={p.label} style={{fontSize:10,fontWeight:500,padding:"2px 6px",borderRadius:20,background:p.bg,color:p.fg}}>{p.label}</span>)}
+                          {t.pills.map(p=><span key={p.label} style={{fontSize:12,fontWeight:500,padding:"2px 6px",borderRadius:20,background:p.bg,color:p.fg}}>{p.label}</span>)}
                         </div>}
-                        {!t.pills&&<div style={{fontSize:10,color:"#808080"}}>{t.sub}</div>}
-                        {hasPrior&&dVal!=null&&<div style={{fontSize:10,marginTop:3,color:t.l==="No shows"?(dVal<0?"#16a34a":dVal>0?"#dc2626":"#808080"):(dVal>0?"#16a34a":dVal<0?"#dc2626":"#808080"),fontWeight:500}}>
+                        {!t.pills&&<div style={{fontSize:12,color:"#808080"}}>{t.sub}</div>}
+                        {hasPrior&&dVal!=null&&<div style={{fontSize:12,marginTop:3,color:t.l==="No shows"?(dVal<0?"#16a34a":dVal>0?"#dc2626":"#808080"):(dVal>0?"#16a34a":dVal<0?"#dc2626":"#808080"),fontWeight:500}}>
                           {dVal>0?"+":""}{dVal} vs prior
                         </div>}
                       </div>
@@ -3453,7 +3453,7 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
             {/* Service breakdown — completion rate bars */}
             {Object.keys(svcTotals).length>0&&(
               <div style={{...S.card,marginBottom:16}}>
-                <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:14}}>Completion rate by service type — {curLabel||lastCW}</div>
+                <div style={{fontSize:13,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:14}}>Completion rate by service type — {curLabel||lastCW}</div>
                 <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:12}}>
                   {Object.entries(svcTotals).sort((a,b)=>{
                     const ta=a[1].completed+a[1].noShow+(a[1].cancelled||0);
@@ -3480,7 +3480,7 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
                         <div style={{height:5,background:"rgba(0,0,0,.08)",borderRadius:3,marginBottom:5,overflow:"hidden"}}>
                           <div style={{width:(compRate*100).toFixed(1)+"%",height:"100%",background:compCol,borderRadius:3}}/>
                         </div>
-                        <div style={{fontSize:11,color:"#808080"}}>
+                        <div style={{fontSize:13,color:"#808080"}}>
                           {d.completed} completed · {d.noShow||0} no-show · {d.cancelled||0} cancelled
                         </div>
                       </div>
@@ -3493,12 +3493,12 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
             {/* CSM table */}
             <div style={S.card}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-                <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500}}>
+                <div style={{fontSize:13,textTransform:"uppercase",color:"#808080",fontWeight:500}}>
                   CSM call performance{hasPrior?" — current vs prior period":lastCW?" — "+lastCW:""}
                 </div>
                 <button onClick={exportCallsCSV}
                   style={{padding:"4px 12px",borderRadius:20,border:"0.5px solid rgba(41,53,93,.2)",
-                    background:"#fff",color:"#29355D",fontSize:11,fontWeight:500,cursor:"pointer",
+                    background:"#fff",color:"#29355D",fontSize:13,fontWeight:500,cursor:"pointer",
                     whiteSpace:"nowrap"}}>
                   ⬇ Export CSV
                 </button>
@@ -3613,15 +3613,15 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
                                 <div style={{flex:1,height:5,background:"rgba(0,0,0,.08)",borderRadius:3,overflow:"hidden",minWidth:60}}>
                                   <div style={{width:(compRate*100).toFixed(1)+"%",height:"100%",background:compCol,borderRadius:3}}/>
                                 </div>
-                                <span style={{fontSize:11,fontWeight:600,color:compCol,minWidth:36,textAlign:"right"}}>{(compRate*100).toFixed(0)}%</span>
+                                <span style={{fontSize:13,fontWeight:600,color:compCol,minWidth:36,textAlign:"right"}}>{(compRate*100).toFixed(0)}%</span>
                               </div>
                             );
                           })()}
                         </td>
                         <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:t.noShow>0?"#dc2626":"#808080"}}>{t.noShow}</td>
                         <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:(t.cancelled||0)>0?"#d97706":"#808080"}}>{t.cancelled||0}</td>
-                        <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",fontSize:11}}>
-                          {hasPrior&&deltaRef!=null&&<div style={{fontSize:10,color:"#808080"}}>{deltaRef.total} calls / {(deltaRef.completed/Math.max(deltaRef.total,1)*100).toFixed(0)}%</div>}
+                        <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",fontSize:13}}>
+                          {hasPrior&&deltaRef!=null&&<div style={{fontSize:12,color:"#808080"}}>{deltaRef.total} calls / {(deltaRef.completed/Math.max(deltaRef.total,1)*100).toFixed(0)}%</div>}
                           {delta!=null
                             ? <span style={{color:delta>=0?"#16a34a":"#dc2626",fontWeight:500}}>
                                 {delta>=0?"↑":"↓"}{Math.abs(delta*100).toFixed(1)}pp
@@ -3666,7 +3666,7 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
                               <div style={{background:"rgba(41,53,93,.03)",borderRadius:8,padding:"10px 14px",
                                 border:"0.5px solid rgba(41,53,93,.1)"}}>
                                 {(()=>{ const csmDaysExp = getDailyDays(n); return (
-                                <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:8}}>
+                                <div style={{fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:8}}>
                                   Daily avg by call type — {csmDaysExp} active day{csmDaysExp!==1?"s":""}
                                 </div>
                                 ); })()}
@@ -3680,10 +3680,10 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
                                       <div key={svc} style={{background:"#fff",borderRadius:6,padding:"7px 11px",
                                         border:"0.5px solid rgba(41,53,93,.12)",minWidth:140}}>
                                         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:3}}>
-                                          <span style={{fontSize:11,fontWeight:600,color:"#29355D"}}>{svc}</span>
+                                          <span style={{fontSize:13,fontWeight:600,color:"#29355D"}}>{svc}</span>
                                           <span style={{fontSize:13,fontWeight:700,color:"#29355D",marginLeft:10}}>{(d.total/csmDaysExp2).toFixed(1)}<span style={{fontSize:9,color:"#808080",fontWeight:400}}>/day</span></span>
                                         </div>
-                                        <div style={{fontSize:10,color:"#808080",marginBottom:3}}>
+                                        <div style={{fontSize:12,color:"#808080",marginBottom:3}}>
                                           {(d.scheduled||0)>0&&<span style={{color:"#5378FC",fontWeight:500}}>{d.scheduled} scheduled · </span>}
                                           {d.completed} done · {d.noShow} no-show · {d.cancelled} cancel
                                         </div>
@@ -3793,7 +3793,7 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
           else { setCallSortCol(col); setCallSortDir(col==="name"?"asc":"desc"); }
         };
         const sortArrow = col => callSortCol===col ? (callSortDir==="asc"?" ↑":" ↓") : " ↕";
-        const thBase = {padding:"0 8px 8px 0",fontSize:10,textTransform:"uppercase",fontWeight:500,
+        const thBase = {padding:"0 8px 8px 0",fontSize:12,textTransform:"uppercase",fontWeight:500,
           borderBottom:"0.5px solid rgba(41,53,93,.08)",cursor:"pointer",userSelect:"none",whiteSpace:"nowrap"};
         const thActive = col => ({color:callSortCol===col?"#29355D":undefined, fontWeight:callSortCol===col?700:500});
 
@@ -3813,10 +3813,10 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
               </div>
               {/* Month picker */}
               <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
-                <span style={{fontSize:11,color:"#808080"}}>Month:</span>
+                <span style={{fontSize:13,color:"#808080"}}>Month:</span>
                 {months.map(m=>(
                   <button key={m} onClick={()=>setQaMonth(m)}
-                    style={{padding:"4px 10px",borderRadius:20,fontSize:11,fontWeight:500,cursor:"pointer",
+                    style={{padding:"4px 10px",borderRadius:20,fontSize:13,fontWeight:500,cursor:"pointer",
                       border:"0.5px solid "+(activeMonth===m?"#29355D":"rgba(41,53,93,.15)"),
                       background:activeMonth===m?"#29355D":"#fff",
                       color:activeMonth===m?"#fff":"#808080"}}>
@@ -3824,7 +3824,7 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
                   </button>
                 ))}
                 {prevMonth&&<button onClick={()=>setQaCompare(c=>!c)}
-                  style={{padding:"4px 12px",borderRadius:20,fontSize:11,fontWeight:600,cursor:"pointer",
+                  style={{padding:"4px 12px",borderRadius:20,fontSize:13,fontWeight:600,cursor:"pointer",
                     border:"0.5px solid "+(qaCompare?"#5378FC":"rgba(41,53,93,.2)"),
                     background:qaCompare?"#5378FC":"#fff",color:qaCompare?"#fff":"#29355D"}}>
                   ⇄ vs {formatMonthLabel(prevMonth)}
@@ -3841,16 +3841,16 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
                 {l:"Below 80%",      v:belowGoal.length,                   col:belowGoal.length>0?"#dc2626":"#16a34a", sub:belowGoal.length>0?belowGoal.map(n=>dispName(n)).slice(0,2).join(", ")+(belowGoal.length>2?" +more":""):"All above 80%"},
               ].map(t=>(
                 <div key={t.l} style={{background:"#ECEEF1",borderRadius:8,padding:"12px 14px",borderTop:"2px solid "+t.col}}>
-                  <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>{t.l}</div>
+                  <div style={{fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>{t.l}</div>
                   <div style={{fontSize:22,fontWeight:600,color:t.col,lineHeight:1}}>{t.v}</div>
-                  <div style={{fontSize:10,color:"#808080",marginTop:3}}>{t.sub}</div>
+                  <div style={{fontSize:12,color:"#808080",marginTop:3}}>{t.sub}</div>
                 </div>
               ))}
             </div>
 
             {/* Criterion team averages bar */}
             <div style={{...S.card,marginBottom:16}}>
-              <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>
+              <div style={{fontSize:13,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>
                 Team averages by criterion — {formatMonthLabel(activeMonth)}
               </div>
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:8}}>
@@ -3861,9 +3861,9 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
                   return (
                     <div key={cr.key} style={{padding:"10px 12px",borderRadius:8,background:scoreBg(cur),
                       border:"0.5px solid rgba(41,53,93,.08)"}}>
-                      <div style={{fontSize:10,color:"#808080",marginBottom:4,fontWeight:500}}>{cr.label}</div>
+                      <div style={{fontSize:12,color:"#808080",marginBottom:4,fontWeight:500}}>{cr.label}</div>
                       <div style={{fontSize:18,fontWeight:600,color:scoreColor(cur)}}>{fmtPct(cur)}</div>
-                      {qaCompare&&delta!=null&&<div style={{fontSize:10,marginTop:2,fontWeight:600,
+                      {qaCompare&&delta!=null&&<div style={{fontSize:12,marginTop:2,fontWeight:600,
                         color:delta>=0?"#16a34a":"#dc2626"}}>
                         {delta>=0?"↑":"↓"}{Math.abs(delta).toFixed(1)}pp vs prior
                       </div>}
@@ -3878,15 +3878,15 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
 
             {/* CSM scorecard table */}
             <div style={S.card}>
-              <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>
+              <div style={{fontSize:13,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12}}>
                 CSM scorecard — {formatMonthLabel(activeMonth)}{qaCompare&&prevMonth?" vs "+formatMonthLabel(prevMonth):""}
               </div>
               <div style={{overflowX:"auto"}}>
-                <table style={{width:"100%",borderCollapse:"collapse",fontSize:11,minWidth:700}}>
+                <table style={{width:"100%",borderCollapse:"collapse",fontSize:13,minWidth:700}}>
                   <thead><tr>
                     {[{k:"name",l:"CSM"},{k:"audits",l:"Audits"},{k:"total",l:"Overall"},...criteria.map(c=>({k:c.key,l:c.label}))].map(h=>(
                       <th key={h.k} onClick={()=>{if(h.k!=="name"){setQaSortCol(h.k);setQaSortDir(d=>d==="asc"?"desc":"asc");}}}
-                        style={{padding:"0 8px 8px 0",textAlign:h.k==="name"?"left":"right",fontSize:10,
+                        style={{padding:"0 8px 8px 0",textAlign:h.k==="name"?"left":"right",fontSize:12,
                           textTransform:"uppercase",color:qaSortCol===h.k?"#29355D":"#808080",
                           fontWeight:qaSortCol===h.k?700:500,borderBottom:"0.5px solid rgba(41,53,93,.08)",
                           cursor:h.k!=="name"?"pointer":"default",whiteSpace:"nowrap"}}>
@@ -3903,11 +3903,11 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
                           <td style={{padding:"7px 8px 7px 0",fontWeight:500,whiteSpace:"nowrap"}}>{dispName(n)}</td>
                           <td style={{padding:"7px 8px 7px 0",textAlign:"right",color:"#808080"}}>{d.audits||"—"}</td>
                           <td style={{padding:"7px 8px 7px 0",textAlign:"right"}}>
-                            <span style={{fontSize:11,fontWeight:600,padding:"2px 8px",borderRadius:20,
+                            <span style={{fontSize:13,fontWeight:600,padding:"2px 8px",borderRadius:20,
                               background:scoreBg(d.total),color:scoreColor(d.total)}}>
                               {fmtPct(d.total)}
                             </span>
-                            {p&&p.total!=null&&d.total!=null&&<span style={{fontSize:10,marginLeft:4,
+                            {p&&p.total!=null&&d.total!=null&&<span style={{fontSize:12,marginLeft:4,
                               color:(d.total-p.total)>=0?"#16a34a":"#dc2626"}}>
                               {(d.total-p.total)>=0?"↑":"↓"}{Math.abs((d.total-p.total)*100).toFixed(1)}pp
                             </span>}
@@ -3917,7 +3917,7 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
                             const pv = p?.criteria?.[cr.key];
                             return (
                               <td key={cr.key} style={{padding:"7px 8px 7px 0",textAlign:"right"}}>
-                                <span style={{fontSize:10,padding:"1px 6px",borderRadius:20,
+                                <span style={{fontSize:12,padding:"1px 6px",borderRadius:20,
                                   background:scoreBg(v),color:scoreColor(v)}}>
                                   {fmtPct(v)}
                                 </span>
@@ -4346,15 +4346,15 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
                 <div style={{fontSize:15,fontWeight:700,color:"#29355D"}}>
                   {overall==="legend"?"Team is legendary":overall==="green"?"Team is winning":overall==="yellow"?"Team needs attention":"Team has urgent issues"}
                 </div>
-                <div style={{fontSize:11,color:"#808080"}}>{visibleCSMs.length} CSMs · Live signals</div>
+                <div style={{fontSize:13,color:"#808080"}}>{visibleCSMs.length} CSMs · Live signals</div>
               </div>
             </div>
             <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
               {ts.map(t=>(
                 <div key={t.key} style={{padding:"8px 12px",borderRadius:8,background:scoreBg(t.score),
                   border:"0.5px solid "+scoreColor(t.score)+"44",minWidth:100}}>
-                  <div style={{fontSize:11,fontWeight:600,color:scoreColor(t.score)}}>{scoreDot(t.score)} {t.label}</div>
-                  <div style={{fontSize:10,color:"#808080",marginTop:2}}>{t.summary}</div>
+                  <div style={{fontSize:13,fontWeight:600,color:scoreColor(t.score)}}>{scoreDot(t.score)} {t.label}</div>
+                  <div style={{fontSize:12,color:"#808080",marginTop:2}}>{t.summary}</div>
                 </div>
               ))}
             </div>
@@ -4391,19 +4391,19 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
                     </div>
                     <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:8}}>
                       {sigs.filter(s=>s.score!=="gray").map(s=>(
-                        <span key={s.key} style={{fontSize:10,padding:"2px 7px",borderRadius:20,
+                        <span key={s.key} style={{fontSize:12,padding:"2px 7px",borderRadius:20,
                           background:scoreBg(s.score),color:scoreColor(s.score),fontWeight:500}}>
                           {s.label}
                         </span>
                       ))}
                     </div>
-                    <div style={{fontSize:11,color:"#808080"}}>
+                    <div style={{fontSize:13,color:"#808080"}}>
                       {reds>0&&<span style={{color:"#dc2626",fontWeight:500}}>{reds} urgent</span>}
                       {reds>0&&yellows>0&&" · "}
                       {yellows>0&&<span style={{color:"#d97706"}}>{yellows} needs attention</span>}
                       {reds===0&&yellows===0&&<span style={{color:"#16a34a"}}>All green ✓</span>}
                     </div>
-                    <div style={{fontSize:10,color:"#5378FC",marginTop:6}}>{isExp?"▲ Collapse":"▼ Expand"}</div>
+                    <div style={{fontSize:12,color:"#5378FC",marginTop:6}}>{isExp?"▲ Collapse":"▼ Expand"}</div>
                   </div>
                   {/* Inline expansion */}
                   {isExp&&<div style={{background:"#F4F6FB",borderRadius:"0 0 12px 12px",padding:16,marginTop:-8,
@@ -4413,14 +4413,14 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
                         <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
                           <span style={{fontSize:16}}>{scoreDot(s.score)}</span>
                           <span style={{fontSize:12,fontWeight:600,color:"#29355D"}}>{s.label}</span>
-                          <span style={{fontSize:11,color:"#808080"}}>{s.value}</span>
+                          <span style={{fontSize:13,color:"#808080"}}>{s.value}</span>
                         </div>
                         {(s.detail||[]).map((d,i)=>(
                           <div key={i} style={{display:"flex",alignItems:"center",gap:6,padding:"4px 0 4px 24px",
                             borderBottom:"0.5px solid rgba(41,53,93,.06)"}}>
-                            <span style={{fontSize:11,color:scoreColor(d.score),flexShrink:0}}>{scoreEmoji(d.score)}</span>
-                            <span style={{fontSize:11,fontWeight:500,color:"#29355D"}}>{d.name}</span>
-                            {d.note&&<span style={{fontSize:10,color:"#808080",marginLeft:"auto"}}>{d.note}</span>}
+                            <span style={{fontSize:13,color:scoreColor(d.score),flexShrink:0}}>{scoreEmoji(d.score)}</span>
+                            <span style={{fontSize:13,fontWeight:500,color:"#29355D"}}>{d.name}</span>
+                            {d.note&&<span style={{fontSize:12,color:"#808080",marginLeft:"auto"}}>{d.note}</span>}
                           </div>
                         ))}
                       </div>
@@ -4480,7 +4480,7 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
                   <div style={{position:"absolute",bottom:0,left:0,right:0,background:"linear-gradient(transparent,rgba(0,0,0,.5))",
                     padding:"8px 16px",display:"flex",alignItems:"center",gap:10}}>
                     <div style={{fontSize:14,fontWeight:700,color:"#fff",textShadow:"0 1px 3px rgba(0,0,0,.5)"}}>{dispName(csm.name)}</div>
-                    <div style={{fontSize:11,color:"rgba(255,255,255,.85)",textShadow:"0 1px 3px rgba(0,0,0,.5)"}}>{scoreMsg}</div>
+                    <div style={{fontSize:13,color:"rgba(255,255,255,.85)",textShadow:"0 1px 3px rgba(0,0,0,.5)"}}>{scoreMsg}</div>
                   </div>
                 </div>
 
@@ -4488,12 +4488,12 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
                 {(goodNotes.length>0||coachNotes.length>0)&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
                   {goodNotes.length>0&&<div style={{background:"rgba(22,163,74,.06)",borderRadius:10,padding:"12px 14px",
                     border:"0.5px solid rgba(22,163,74,.2)"}}>
-                    <div style={{fontSize:11,fontWeight:700,color:"#166534",textTransform:"uppercase",marginBottom:8,letterSpacing:".04em"}}>✓ What's Working</div>
+                    <div style={{fontSize:13,fontWeight:700,color:"#166534",textTransform:"uppercase",marginBottom:8,letterSpacing:".04em"}}>✓ What's Working</div>
                     {goodNotes.map((n,i)=><div key={i} style={{fontSize:12,color:"#166534",padding:"3px 0",borderBottom:i<goodNotes.length-1?"0.5px solid rgba(22,163,74,.1)":"none"}}>{n}</div>)}
                   </div>}
                   {coachNotes.length>0&&<div style={{background:"rgba(220,38,38,.06)",borderRadius:10,padding:"12px 14px",
                     border:"0.5px solid rgba(220,38,38,.2)"}}>
-                    <div style={{fontSize:11,fontWeight:700,color:"#991b1b",textTransform:"uppercase",marginBottom:8,letterSpacing:".04em"}}>⚡ Coaching Focus</div>
+                    <div style={{fontSize:13,fontWeight:700,color:"#991b1b",textTransform:"uppercase",marginBottom:8,letterSpacing:".04em"}}>⚡ Coaching Focus</div>
                     {coachNotes.map((n,i)=><div key={i} style={{fontSize:12,color:"#991b1b",padding:"3px 0",borderBottom:i<coachNotes.length-1?"0.5px solid rgba(220,38,38,.1)":"none"}}>{n}</div>)}
                   </div>}
                 </div>}
@@ -4522,7 +4522,7 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
                       {l:"Retention",   v:adjRet!=null?pp(adjRet):"—", col:adjRet>=0.91?"#16a34a":adjRet>=0.88?"#d97706":"#dc2626"},
                     ].map(t=>(
                       <div key={t.l} style={{background:"#F4F6FB",borderRadius:8,padding:"10px 12px",textAlign:"center"}}>
-                        <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>{t.l}</div>
+                        <div style={{fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>{t.l}</div>
                         <div style={{fontSize:16,fontWeight:700,color:t.col}}>{t.v}</div>
                       </div>
                     ))}
@@ -4546,7 +4546,7 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
                         borderBottom:"0.5px solid rgba(41,53,93,.06)",opacity:d.isTrend?0.8:1}}>
                         <span style={{fontSize:12,color:d.isTrend?"#5378FC":scoreColor(d.score),flexShrink:0,width:16}}>{d.isTrend?"📈":scoreEmoji(d.score)}</span>
                         <span style={{fontSize:12,fontWeight:d.isTrend?400:500,color:d.isTrend?"#5378FC":"#29355D",flex:1,fontStyle:d.isTrend?"italic":"normal"}}>{d.name}</span>
-                        {d.note&&<span style={{fontSize:11,color:d.isTrend?"#5378FC":"#808080",textAlign:"right"}}>{d.note}</span>}
+                        {d.note&&<span style={{fontSize:13,color:d.isTrend?"#5378FC":"#808080",textAlign:"right"}}>{d.note}</span>}
                       </div>
                     ))}
                   </div>
@@ -4706,7 +4706,7 @@ function RevenueView({rawRev, csms, filterCoach, filterCSM, managerCoaches}) {
   const [showAllLb, setShowAllLb] = useState(false);
   const visibleLb = showAllLb ? lbRows : lbRows.slice(0,15);
   const medals=["🥇","🥈","🥉"];
-  const thS = {fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,padding:"0 0 8px",textAlign:"left",borderBottom:"0.5px solid rgba(41,53,93,.08)",cursor:"pointer",whiteSpace:"nowrap"};
+  const thS = {fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500,padding:"0 0 8px",textAlign:"left",borderBottom:"0.5px solid rgba(41,53,93,.08)",cursor:"pointer",whiteSpace:"nowrap"};
   const thRS = {...thS, textAlign:"right"};
   const tdS = {padding:"9px 8px 9px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",fontSize:12};
   const tdRS = {...tdS, textAlign:"right"};
@@ -4718,22 +4718,22 @@ function RevenueView({rawRev, csms, filterCoach, filterCSM, managerCoaches}) {
   }
 
   const cardStyle = {background:"#fff",border:"0.5px solid rgba(41,53,93,.09)",borderRadius:12,padding:16};
-  const secTitle = {fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12};
+  const secTitle = {fontSize:13,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12};
 
   return (
     <div>
       {/* ── Quarter filter bar ── */}
       <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:16,flexWrap:"wrap"}}>
-        <span style={{fontSize:11,fontWeight:600,color:"#808080",textTransform:"uppercase",letterSpacing:".05em",marginRight:4}}>Quarter:</span>
+        <span style={{fontSize:13,fontWeight:600,color:"#808080",textTransform:"uppercase",letterSpacing:".05em",marginRight:4}}>Quarter:</span>
         {[["all","All time"], ["ytd","YTD "+new Date().getFullYear()], ...availableQuarters.map(q=>[q,q])].map(([v,l])=>(
           <button key={v} onClick={()=>setQuarterFilter(v)}
             style={{padding:"4px 12px",borderRadius:20,border:"0.5px solid "+(quarterFilter===v?"#29355D":"rgba(41,53,93,.15)"),
               background:quarterFilter===v?"#29355D":"#fff",color:quarterFilter===v?"#fff":"#808080",
-              fontSize:11,fontWeight:500,cursor:"pointer",transition:"all .15s"}}>
+              fontSize:13,fontWeight:500,cursor:"pointer",transition:"all .15s"}}>
             {l}
           </button>
         ))}
-        {quarterFilter!=="all"&&<span style={{fontSize:11,color:"#808080",marginLeft:4}}>
+        {quarterFilter!=="all"&&<span style={{fontSize:13,color:"#808080",marginLeft:4}}>
           · filtering revenue rows by "Quarter for Consideration"
         </span>}
       </div>
@@ -4749,9 +4749,9 @@ function RevenueView({rawRev, csms, filterCoach, filterCSM, managerCoaches}) {
         ].map(m=>(
           <div key={m.l} style={{...cardStyle,position:"relative",overflow:"hidden"}}>
             <div style={{position:"absolute",top:0,left:0,right:0,height:3,background:m.col,borderRadius:"12px 12px 0 0"}}/>
-            <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:6}}>{m.l}</div>
+            <div style={{fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:6}}>{m.l}</div>
             <div style={{fontSize:22,fontWeight:500,color:m.col,lineHeight:1,marginBottom:3}}>{m.v}</div>
-            <div style={{fontSize:11,color:"#808080"}}>{m.s}</div>
+            <div style={{fontSize:13,color:"#808080"}}>{m.s}</div>
           </div>
         ))}
       </div>
@@ -4766,7 +4766,7 @@ function RevenueView({rawRev, csms, filterCoach, filterCSM, managerCoaches}) {
             const coach=COACHES.find(c=>c.t===team);
             const col=TEAM_COLS[team]||"#888";
             return <div key={team} style={{marginBottom:8}}>
-              <div style={{display:"flex",justifyContent:"space-between",fontSize:11,marginBottom:3}}>
+              <div style={{display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:3}}>
                 <span style={{display:"flex",alignItems:"center",gap:6}}>
                   <span style={{width:8,height:8,borderRadius:"50%",background:col,display:"inline-block",flexShrink:0}}/>
                   <span style={{fontWeight:500}}>{st(team)}</span>
@@ -4776,7 +4776,7 @@ function RevenueView({rawRev, csms, filterCoach, filterCSM, managerCoaches}) {
               <div style={{height:6,background:"#ECEEF1",borderRadius:3,overflow:"hidden"}}>
                 <div style={{height:"100%",borderRadius:3,background:col,width:(d.total/maxTeamRev*100).toFixed(1)+"%"}}/>
               </div>
-              <div style={{fontSize:10,color:"#808080",marginTop:2,display:"flex",gap:8}}>
+              <div style={{fontSize:12,color:"#808080",marginTop:2,display:"flex",gap:8}}>
                 <span>MRR {fk(d.mrr)}</span>
                 {d.otr>0&&<span>OTR {fk(d.otr)}</span>}
                 <span>{d.subs} subs</span>
@@ -4797,25 +4797,25 @@ function RevenueView({rawRev, csms, filterCoach, filterCSM, managerCoaches}) {
             const maxRegTot = Math.max(...["DR","US","ANZ"].map(r=>filteredAllRegions.filter(x=>x.region===r).reduce((s,x)=>s+x.tot,0)))||1;
             const REG_COL = {DR:"#FF5000",US:"#29355D",ANZ:"#5378FC"};
             return <div key={reg} style={{marginBottom:12,cursor:"pointer",opacity:regionFilter===reg||regionFilter==="all"?1:0.4}} onClick={()=>setRegionFilter(r=>r===reg?"all":reg)}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:11,marginBottom:4}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:13,marginBottom:4}}>
                 <span style={{display:"flex",alignItems:"center",gap:8}}>
                   <span style={{fontSize:13,fontWeight:700,color:REG_COL[reg],width:32}}>{reg}</span>
                   <span style={{fontWeight:500,color:"#29355D"}}>{regSubs} subs</span>
-                  {regionFilter===reg&&<span style={{fontSize:10,padding:"1px 7px",borderRadius:20,background:REG_COL[reg],color:"#fff"}}>filtered</span>}
+                  {regionFilter===reg&&<span style={{fontSize:12,padding:"1px 7px",borderRadius:20,background:REG_COL[reg],color:"#fff"}}>filtered</span>}
                 </span>
                 <span style={{fontWeight:600,color:REG_COL[reg]}}>{fk(regTot)}</span>
               </div>
               <div style={{height:8,background:"#ECEEF1",borderRadius:4,overflow:"hidden"}}>
                 <div style={{height:"100%",borderRadius:4,background:REG_COL[reg],width:(regTot/maxRegTot*100).toFixed(1)+"%"}}/>
               </div>
-              <div style={{fontSize:10,color:"#808080",marginTop:3,display:"flex",gap:10}}>
+              <div style={{fontSize:12,color:"#808080",marginTop:3,display:"flex",gap:10}}>
                 <span>MRR {fk(regMRR)}</span>
                 {regOTR>0&&<span>OTR {fk(regOTR)}</span>}
               </div>
             </div>;
           })}
           <div style={{height:"0.5px",background:"rgba(41,53,93,.08)",margin:"8px 0"}}/>
-          <div style={{fontSize:11,color:"#808080",textAlign:"center"}}>Click a region to filter · click again to clear</div>
+          <div style={{fontSize:13,color:"#808080",textAlign:"center"}}>Click a region to filter · click again to clear</div>
         </div>
 
         {/* Integration type split donut */}
@@ -4839,12 +4839,12 @@ function RevenueView({rawRev, csms, filterCoach, filterCSM, managerCoaches}) {
                   </span>
                   <div style={{textAlign:"right"}}>
                     <div style={{fontWeight:500}}>{d.val}</div>
-                    <div style={{fontSize:10,color:"#808080"}}>{Math.round(d.val/donutTotal*100)}%</div>
+                    <div style={{fontSize:12,color:"#808080"}}>{Math.round(d.val/donutTotal*100)}%</div>
                   </div>
                 </div>
               ))}
               <div style={{height:"0.5px",background:"rgba(41,53,93,.08)",margin:"8px 0"}}/>
-              <div style={{fontSize:11,color:"#808080"}}>
+              <div style={{fontSize:13,color:"#808080"}}>
                 <div style={{display:"flex",justifyContent:"space-between"}}><span>MRR value</span><span style={{fontWeight:500,color:"#FF5000"}}>{fk(totalMRR)}</span></div>
                 <div style={{display:"flex",justifyContent:"space-between",marginTop:3}}><span>OTR value</span><span style={{fontWeight:500,color:"#5378FC"}}>{fk(totalOTR)}</span></div>
               </div>
@@ -4857,7 +4857,7 @@ function RevenueView({rawRev, csms, filterCoach, filterCSM, managerCoaches}) {
       {regionFilter==="all"&&<div style={{...cardStyle,marginBottom:16}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
           <div style={secTitle}>Top 3 Revenue — By Region</div>
-          <div style={{fontSize:11,color:"#808080"}}>Click a region card to filter the full dashboard</div>
+          <div style={{fontSize:13,color:"#808080"}}>Click a region card to filter the full dashboard</div>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:16}}>
           {["DR","US","ANZ"].map(reg=>{
@@ -4875,9 +4875,9 @@ function RevenueView({rawRev, csms, filterCoach, filterCSM, managerCoaches}) {
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
                 <div>
                   <span style={{fontSize:18,fontWeight:700,color:REG_COL[reg],marginRight:8}}>{reg}</span>
-                  <span style={{fontSize:11,color:"#808080"}}>{REG_LABEL[reg]}</span>
+                  <span style={{fontSize:13,color:"#808080"}}>{REG_LABEL[reg]}</span>
                 </div>
-                <button onClick={()=>setRegionFilter(reg)} style={{fontSize:10,color:REG_COL[reg],background:"rgba(0,0,0,.05)",border:`0.5px solid ${REG_COL[reg]}`,borderRadius:20,padding:"2px 10px",cursor:"pointer"}}>Filter ↗</button>
+                <button onClick={()=>setRegionFilter(reg)} style={{fontSize:12,color:REG_COL[reg],background:"rgba(0,0,0,.05)",border:`0.5px solid ${REG_COL[reg]}`,borderRadius:20,padding:"2px 10px",cursor:"pointer"}}>Filter ↗</button>
               </div>
               {top3.length===0
                 ? <div style={{color:"#808080",fontSize:12,fontStyle:"italic"}}>No revenue data</div>
@@ -4886,7 +4886,7 @@ function RevenueView({rawRev, csms, filterCoach, filterCSM, managerCoaches}) {
                     <span style={{fontSize:18,width:24,flexShrink:0}}>{medals[idx]}</span>
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{fontSize:12,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.csm}</div>
-                      <div style={{fontSize:10,color:"#808080",marginTop:1}}>{c.subs} sub{c.subs!==1?"s":""}{c.mrr>0?" · MRR "+fk(c.mrr):""}{c.otr>0?" · OTR "+fk(c.otr):""}</div>
+                      <div style={{fontSize:12,color:"#808080",marginTop:1}}>{c.subs} sub{c.subs!==1?"s":""}{c.mrr>0?" · MRR "+fk(c.mrr):""}{c.otr>0?" · OTR "+fk(c.otr):""}</div>
                     </div>
                     <div style={{fontSize:14,fontWeight:600,color:REG_COL[reg],flexShrink:0}}>{fd(c.total)}</div>
                   </div>
@@ -4904,13 +4904,13 @@ function RevenueView({rawRev, csms, filterCoach, filterCSM, managerCoaches}) {
           <div style={secTitle}>Top MRR Integrations</div>
           {mrrTypeRows.map(([type,d],i)=>(
             <div key={type} style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
-              <span style={{width:16,fontSize:11,color:"#808080",flexShrink:0}}>{i+1}.</span>
+              <span style={{width:16,fontSize:13,color:"#808080",flexShrink:0}}>{i+1}.</span>
               <span style={{flex:1,fontSize:12,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{type}</span>
               <div style={{width:120,height:5,background:"#ECEEF1",borderRadius:3,overflow:"hidden",flexShrink:0}}>
                 <div style={{height:"100%",background:"#FF5000",opacity:.75,borderRadius:3,width:(d.amount/maxMrrAmt*100).toFixed(1)+"%"}}/>
               </div>
-              <span style={{width:20,fontSize:11,color:"#808080",textAlign:"right",flexShrink:0}}>{d.count}</span>
-              <span style={{width:60,fontSize:11,fontWeight:500,color:"#FF5000",textAlign:"right",flexShrink:0}}>{fk(d.amount)}</span>
+              <span style={{width:20,fontSize:13,color:"#808080",textAlign:"right",flexShrink:0}}>{d.count}</span>
+              <span style={{width:60,fontSize:13,fontWeight:500,color:"#FF5000",textAlign:"right",flexShrink:0}}>{fk(d.amount)}</span>
             </div>
           ))}
           {mrrTypeRows.length===0&&<div style={{color:"#808080",fontSize:12}}>No MRR data</div>}
@@ -4923,7 +4923,7 @@ function RevenueView({rawRev, csms, filterCoach, filterCSM, managerCoaches}) {
             {Object.entries(nrTypes).sort((a,b)=>b[1]-a[1]).map(([t,c])=>(
               <div key={t} style={{display:"flex",flexDirection:"column",alignItems:"center",background:"#F4F6FB",borderRadius:10,padding:"10px 14px",minWidth:80}}>
                 <div style={{fontSize:22,fontWeight:500,color:NR_COLORS[t]||"#29355D"}}>{c}</div>
-                <div style={{fontSize:10,color:"#808080",marginTop:2,textAlign:"center",lineHeight:1.3}}>{t}</div>
+                <div style={{fontSize:12,color:"#808080",marginTop:2,textAlign:"center",lineHeight:1.3}}>{t}</div>
               </div>
             ))}
           </div>
@@ -4939,7 +4939,7 @@ function RevenueView({rawRev, csms, filterCoach, filterCSM, managerCoaches}) {
       <div style={cardStyle}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
           <div style={secTitle}>CSM Leaderboard</div>
-          <div style={{fontSize:11,color:"#808080"}}>{lbRows.length} CSMs</div>
+          <div style={{fontSize:13,color:"#808080"}}>{lbRows.length} CSMs</div>
         </div>
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
           <thead><tr>
@@ -4963,8 +4963,8 @@ function RevenueView({rawRev, csms, filterCoach, filterCSM, managerCoaches}) {
                 <td style={tdS}>{rank<3?medals[rank]:(rank+1)+"."}</td>
                 <td style={{...tdS,fontWeight:500}}>{c.csm}</td>
                 <td style={tdS}><span style={{display:"inline-block",width:6,height:6,borderRadius:"50%",background:col,marginRight:4,verticalAlign:"middle"}}/><span style={{color:"#808080"}}>{st(info.t||c.team)}</span></td>
-                <td style={tdS}><span style={{fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:20,background:"#F4F6FB",color:"#29355D"}}>{tierLabel[c.tier]||c.tier||"--"}</span></td>
-                <td style={tdS}>{(()=>{const rg=region(c.csm);const RC={DR:"#FF5000",US:"#29355D",ANZ:"#5378FC"};return rg?<span style={{fontSize:10,fontWeight:600,color:RC[rg]||"#808080"}}>{rg}</span>:"--";})()}</td>
+                <td style={tdS}><span style={{fontSize:12,fontWeight:500,padding:"1px 7px",borderRadius:20,background:"#F4F6FB",color:"#29355D"}}>{tierLabel[c.tier]||c.tier||"--"}</span></td>
+                <td style={tdS}>{(()=>{const rg=region(c.csm);const RC={DR:"#FF5000",US:"#29355D",ANZ:"#5378FC"};return rg?<span style={{fontSize:12,fontWeight:600,color:RC[rg]||"#808080"}}>{rg}</span>:"--";})()}</td>
                 <td style={tdRS}>{c.subs}</td>
                 <td style={{...tdRS,color:c.mrr>0?"#FF5000":"#808080",fontWeight:c.mrr>0?500:400}}>{c.mrr>0?fd(c.mrr):"--"}</td>
                 <td style={{...tdRS,color:c.otr>0?"#5378FC":"#808080",fontWeight:c.otr>0?500:400}}>{c.otr>0?fd(c.otr):"--"}</td>
@@ -5110,7 +5110,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
   const totMcc = totChurned; // kept for compat
   const totBcc = 0;
 
-  const thS = {fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,padding:"0 8px 8px 0",textAlign:"left",borderBottom:"0.5px solid rgba(41,53,93,.08)",cursor:"pointer",whiteSpace:"nowrap"};
+  const thS = {fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500,padding:"0 8px 8px 0",textAlign:"left",borderBottom:"0.5px solid rgba(41,53,93,.08)",cursor:"pointer",whiteSpace:"nowrap"};
   const thRS= {...thS, textAlign:"right"};
   const tdS = {padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",fontSize:12,verticalAlign:"top"};
   const tdRS= {...tdS,textAlign:"right"};
@@ -5123,7 +5123,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
   );
 
   const pill = (p) => (
-    <span style={{display:"inline-block",fontSize:10,fontWeight:500,padding:"2px 8px",borderRadius:20,background:rBg(p),color:rFg(p)}}>
+    <span style={{display:"inline-block",fontSize:12,fontWeight:500,padding:"2px 8px",borderRadius:20,background:rBg(p),color:rFg(p)}}>
       {fmtP(p)}
     </span>
   );
@@ -5244,7 +5244,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
       const active = q2Sort.col === col;
       return (
         <th key={col} onClick={()=>setQ2Sort(s=>({col, dir: s.col===col&&s.dir==="asc"?"desc":"asc"}))}
-          style={{padding:"0 8px 8px 0",textAlign:right?"right":"left",fontSize:10,textTransform:"uppercase",
+          style={{padding:"0 8px 8px 0",textAlign:right?"right":"left",fontSize:12,textTransform:"uppercase",
             color:active?"#29355D":"#808080",fontWeight:active?700:500,cursor:"pointer",
             borderBottom:"0.5px solid rgba(41,53,93,.08)",userSelect:"none",whiteSpace:"nowrap"}}>
           {label}{active?(q2Sort.dir==="asc"?" ↑":" ↓"):""}
@@ -5259,9 +5259,9 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
           style={{background:active?"#29355D":"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",
             borderTop:"3px solid "+color,cursor:"pointer",transition:"all .15s",
             boxShadow:active?"0 2px 8px rgba(41,53,93,.15)":"none"}}>
-          <div style={{fontSize:10,textTransform:"uppercase",color:active?"rgba(255,255,255,.7)":"#808080",fontWeight:500,marginBottom:4}}>{label}</div>
+          <div style={{fontSize:12,textTransform:"uppercase",color:active?"rgba(255,255,255,.7)":"#808080",fontWeight:500,marginBottom:4}}>{label}</div>
           <div style={{fontSize:22,fontWeight:600,color:active?"#fff":color,lineHeight:1,marginBottom:4}}>{value}</div>
-          <div style={{fontSize:10,color:active?"rgba(255,255,255,.6)":"#808080"}}>{sub}</div>
+          <div style={{fontSize:12,color:active?"rgba(255,255,255,.6)":"#808080"}}>{sub}</div>
         </div>
       );
     };
@@ -5276,7 +5276,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
         unchanged:{bg:"#f3f4f6",fg:"#6b7280",label:"No Change"},
         adjustment:{bg:"#eff6ff",fg:"#1e40af",label:"Adjustment"},
       }[s]||{bg:"#f3f4f6",fg:"#374151",label:s};
-      return <span style={{fontSize:10,fontWeight:500,padding:"1px 7px",borderRadius:20,background:cfg.bg,color:cfg.fg}}>{cfg.label}</span>;
+      return <span style={{fontSize:12,fontWeight:500,padding:"1px 7px",borderRadius:20,background:cfg.bg,color:cfg.fg}}>{cfg.label}</span>;
     };
 
     const exportQ2CSV = () => {
@@ -5318,24 +5318,24 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
           <div onClick={()=>{ setQ2TileFilter(null); setQ2CSMFilter(null); }}
             style={{background:!q2TileFilter?"#29355D":"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",
               borderTop:"3px solid #29355D",cursor:"pointer",transition:"all .15s"}}>
-            <div style={{fontSize:10,textTransform:"uppercase",color:!q2TileFilter?"rgba(255,255,255,.7)":"#808080",fontWeight:500,marginBottom:4}}>Q2 Retention</div>
+            <div style={{fontSize:12,textTransform:"uppercase",color:!q2TileFilter?"rgba(255,255,255,.7)":"#808080",fontWeight:500,marginBottom:4}}>Q2 Retention</div>
             <div style={{fontSize:22,fontWeight:600,color:!q2TileFilter?"#fff":retCol(overallRet),lineHeight:1,marginBottom:4}}>{fmtPct(overallRet)}</div>
-            <div style={{fontSize:10,color:!q2TileFilter?"rgba(255,255,255,.6)":"#808080"}}>goal 91%</div>
+            <div style={{fontSize:12,color:!q2TileFilter?"rgba(255,255,255,.6)":"#808080"}}>goal 91%</div>
           </div>
           <div style={{background:"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",borderTop:"3px solid #5378FC"}}>
-            <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Beginning Book</div>
+            <div style={{fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Beginning Book</div>
             <div style={{fontSize:22,fontWeight:600,color:"#5378FC",lineHeight:1,marginBottom:4}}>{fmt$(totalBoqAdj)}</div>
-            <div style={{fontSize:10,color:"#808080"}}>{q2Data.length} CSMs</div>
+            <div style={{fontSize:12,color:"#808080"}}>{q2Data.length} CSMs</div>
           </div>
           <div style={{background:"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",borderTop:"3px solid #29355D"}}>
-            <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Ending Book</div>
+            <div style={{fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Ending Book</div>
             <div style={{fontSize:22,fontWeight:600,color:"#29355D",lineHeight:1,marginBottom:4}}>{fmt$(totalCurrent)}</div>
-            <div style={{fontSize:10,color:"#808080"}}>current billing</div>
+            <div style={{fontSize:12,color:"#808080"}}>current billing</div>
           </div>
           <div style={{background:"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",borderTop:"3px solid #6366f1"}}>
-            <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Accounts Assigned</div>
+            <div style={{fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Accounts Assigned</div>
             <div style={{fontSize:22,fontWeight:600,color:"#6366f1",lineHeight:1,marginBottom:4}}>{totalAcctsQ2}</div>
-            <div style={{fontSize:10,color:"#808080"}}>{avgAcctsQ2} avg / CSM</div>
+            <div style={{fontSize:12,color:"#808080"}}>{avgAcctsQ2} avg / CSM</div>
           </div>
           {tileBtn2("Increases",fmt$(totalIncrease),q2Data.reduce((s,c)=>s+c.acctRows.filter(r=>r.status==="increase").length,0)+" accounts","#16a34a","increase")}
           {tileBtn2("Decreases",fmt$(totalDecrease),q2Data.reduce((s,c)=>s+c.decreaseCount,0)+" accounts","#dc2626","decrease")}
@@ -5348,12 +5348,12 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
         {/* Sortable CSM table with inline expand */}
         <div style={{...S.card}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-            <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500}}>
+            <div style={{fontSize:13,textTransform:"uppercase",color:"#808080",fontWeight:500}}>
               {q2TileFilter ? sortedCSMs.length+" CSMs with "+q2TileFilter.replace(/_/g," ")+" — click name to expand" : "CSM Q2 Retention — click name to expand"}
             </div>
             <button onClick={exportQ2CSV}
               style={{padding:"4px 12px",borderRadius:20,border:"0.5px solid rgba(41,53,93,.2)",
-                background:"#fff",color:"#29355D",fontSize:11,fontWeight:500,cursor:"pointer"}}>
+                background:"#fff",color:"#29355D",fontSize:13,fontWeight:500,cursor:"pointer"}}>
               ⬇ Export CSV
             </button>
           </div>
@@ -5368,7 +5368,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
               {sortTh2("increaseMrr","Increase",true)}
               {sortTh2("decreaseMrr","Decrease",true)}
               {sortTh2("adjustmentMrr","Adjustment",true)}
-              <th key="retPct" onClick={()=>setQ2Sort(s=>({col:"retPct",dir:s.col==="retPct"&&s.dir==="asc"?"desc":"asc"}))} style={{padding:"0 8px 8px 24px",textAlign:"left",fontSize:10,textTransform:"uppercase",color:q2Sort.col==="retPct"?"#29355D":"#808080",fontWeight:q2Sort.col==="retPct"?700:500,cursor:"pointer",borderBottom:"0.5px solid rgba(41,53,93,.08)",userSelect:"none",whiteSpace:"nowrap"}}>{"Retention %"}{q2Sort.col==="retPct"?(q2Sort.dir==="asc"?" ↑":" ↓"):""}</th>
+              <th key="retPct" onClick={()=>setQ2Sort(s=>({col:"retPct",dir:s.col==="retPct"&&s.dir==="asc"?"desc":"asc"}))} style={{padding:"0 8px 8px 24px",textAlign:"left",fontSize:12,textTransform:"uppercase",color:q2Sort.col==="retPct"?"#29355D":"#808080",fontWeight:q2Sort.col==="retPct"?700:500,cursor:"pointer",borderBottom:"0.5px solid rgba(41,53,93,.08)",userSelect:"none",whiteSpace:"nowrap"}}>{"Retention %"}{q2Sort.col==="retPct"?(q2Sort.dir==="asc"?" ↑":" ↓"):""}</th>
             </tr></thead>
             <tbody>
               {sortedCSMs.map(c => {
@@ -5402,7 +5402,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                     </tr>
                     {isOpen && acctRows.length === 0 && (
                       <tr><td colSpan={10} style={{padding:"8px 0 8px 24px",borderBottom:"0.5px solid rgba(41,53,93,.08)",
-                        color:"#808080",fontSize:11,fontStyle:"italic"}}>
+                        color:"#808080",fontSize:13,fontStyle:"italic"}}>
                         No {q2TileFilter?q2TileFilter.replace(/_/g," "):"tracked changes"} for {dispName(c.name)} this quarter
                       </td></tr>
                     )}
@@ -5428,7 +5428,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                         const active = q2AcctSort.col===col;
                         return (
                           <th key={col} onClick={()=>setQ2AcctSort(s=>({col,dir:s.col===col&&s.dir==="asc"?"desc":"asc"}))}
-                            style={{padding:"4px 8px 4px 0",textAlign:right?"right":"left",fontSize:10,
+                            style={{padding:"4px 8px 4px 0",textAlign:right?"right":"left",fontSize:12,
                               textTransform:"uppercase",color:active?"#29355D":"#808080",fontWeight:active?700:500,
                               cursor:"pointer",userSelect:"none",whiteSpace:"nowrap"}}>
                             {label}{active?(q2AcctSort.dir==="asc"?" ↑":" ↓"):""}
@@ -5438,10 +5438,10 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                       return (
                       <tr>
                         <td colSpan={10} style={{padding:"0 0 12px 24px",borderBottom:"0.5px solid rgba(41,53,93,.08)",background:"rgba(41,53,93,.02)"}}>
-                          <div style={{fontSize:10,color:"#808080",padding:"6px 0 4px",fontStyle:"italic"}}>
+                          <div style={{fontSize:12,color:"#808080",padding:"6px 0 4px",fontStyle:"italic"}}>
                             {sortedAcctRows.length} accounts{q2TileFilter?" · filtered: "+q2TileFilter.replace(/_/g," "):""}
                           </div>
-                          <table style={{width:"100%",borderCollapse:"collapse",fontSize:11,tableLayout:"fixed"}}>
+                          <table style={{width:"100%",borderCollapse:"collapse",fontSize:13,tableLayout:"fixed"}}>
                             <colgroup>
                               <col style={{width:"28%"}}/><col style={{width:"8%"}}/><col style={{width:"8%"}}/>
                               <col style={{width:"7%"}}/><col style={{width:"7%"}}/><col style={{width:"7%"}}/>
@@ -5452,12 +5452,12 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                               {aTh("boqMrr","BOQ MRR")}
                               {aTh("curMrr","Current MRR")}
                               {aTh("netNewVal","Net New")}
-                              <th style={{padding:"4px 8px 4px 0",textAlign:"right",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,whiteSpace:"nowrap"}}>Removed</th>
+                              <th style={{padding:"4px 8px 4px 0",textAlign:"right",fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500,whiteSpace:"nowrap"}}>Removed</th>
                               {aTh("cancelledVal","Cancelled")}
                               {aTh("increaseVal","Increase")}
                               {aTh("decreaseVal","Decrease")}
                               {aTh("adjVal","Adjustment")}
-                              <th style={{padding:"4px 0 4px 24px",textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500}}>Status</th>
+                              <th style={{padding:"4px 0 4px 24px",textAlign:"left",fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500}}>Status</th>
                             </tr></thead>
                             <tbody>
                               {sortedAcctRows.map((r,i)=>{
@@ -5617,7 +5617,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
       const active = q2dSort.col === col;
       return (
         <th key={col} onClick={()=>setQ2dSort(s=>({col, dir: s.col===col&&s.dir==="asc"?"desc":"asc"}))}
-          style={{padding:"0 8px 8px 0",textAlign:right?"right":"left",fontSize:10,textTransform:"uppercase",
+          style={{padding:"0 8px 8px 0",textAlign:right?"right":"left",fontSize:12,textTransform:"uppercase",
             color:active?"#29355D":"#808080",fontWeight:active?700:500,cursor:"pointer",
             borderBottom:"0.5px solid rgba(41,53,93,.08)",userSelect:"none",whiteSpace:"nowrap"}}>
           {label}{active?(q2dSort.dir==="asc"?" ↑":" ↓"):""}
@@ -5632,9 +5632,9 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
           style={{background:active?"#29355D":"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",
             borderTop:"3px solid "+color,cursor:"pointer",transition:"all .15s",
             boxShadow:active?"0 2px 8px rgba(41,53,93,.15)":"none"}}>
-          <div style={{fontSize:10,textTransform:"uppercase",color:active?"rgba(255,255,255,.7)":"#808080",fontWeight:500,marginBottom:4}}>{label}</div>
+          <div style={{fontSize:12,textTransform:"uppercase",color:active?"rgba(255,255,255,.7)":"#808080",fontWeight:500,marginBottom:4}}>{label}</div>
           <div style={{fontSize:22,fontWeight:600,color:active?"#fff":color,lineHeight:1,marginBottom:4}}>{value}</div>
-          <div style={{fontSize:10,color:active?"rgba(255,255,255,.6)":"#808080"}}>{sub}</div>
+          <div style={{fontSize:12,color:active?"rgba(255,255,255,.6)":"#808080"}}>{sub}</div>
         </div>
       );
     };
@@ -5668,24 +5668,24 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
           <div onClick={()=>{ setQ2dTileFilter(null); setQ2dCSMFilter(null); }}
             style={{background:!q2dTileFilter?"#29355D":"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",
               borderTop:"3px solid #29355D",cursor:"pointer",transition:"all .15s"}}>
-            <div style={{fontSize:10,textTransform:"uppercase",color:!q2dTileFilter?"rgba(255,255,255,.7)":"#808080",fontWeight:500,marginBottom:4}}>Q2 Retention</div>
+            <div style={{fontSize:12,textTransform:"uppercase",color:!q2dTileFilter?"rgba(255,255,255,.7)":"#808080",fontWeight:500,marginBottom:4}}>Q2 Retention</div>
             <div style={{fontSize:22,fontWeight:600,color:!q2dTileFilter?"#fff":retCol(overallRet),lineHeight:1,marginBottom:4}}>{fmtPct(overallRet)}</div>
-            <div style={{fontSize:10,color:!q2dTileFilter?"rgba(255,255,255,.6)":"#808080"}}>goal 91%</div>
+            <div style={{fontSize:12,color:!q2dTileFilter?"rgba(255,255,255,.6)":"#808080"}}>goal 91%</div>
           </div>
           <div style={{background:"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",borderTop:"3px solid #5378FC"}}>
-            <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Beginning Book</div>
+            <div style={{fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Beginning Book</div>
             <div style={{fontSize:22,fontWeight:600,color:"#5378FC",lineHeight:1,marginBottom:4}}>{fmt$(totalBoq)}</div>
-            <div style={{fontSize:10,color:"#808080"}}>{q2dData.length} CSMs</div>
+            <div style={{fontSize:12,color:"#808080"}}>{q2dData.length} CSMs</div>
           </div>
           <div style={{background:"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",borderTop:"3px solid #29355D"}}>
-            <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Current MRR</div>
+            <div style={{fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Current MRR</div>
             <div style={{fontSize:22,fontWeight:600,color:"#29355D",lineHeight:1,marginBottom:4}}>{fmt$(totalCur)}</div>
-            <div style={{fontSize:10,color:"#808080"}}>end of quarter</div>
+            <div style={{fontSize:12,color:"#808080"}}>end of quarter</div>
           </div>
           <div style={{background:"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",borderTop:"3px solid #6366f1"}}>
-            <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Accounts Assigned</div>
+            <div style={{fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Accounts Assigned</div>
             <div style={{fontSize:22,fontWeight:600,color:"#6366f1",lineHeight:1,marginBottom:4}}>{totalAcctsQ2d}</div>
-            <div style={{fontSize:10,color:"#808080"}}>{avgAcctsQ2d} avg / CSM</div>
+            <div style={{fontSize:12,color:"#808080"}}>{avgAcctsQ2d} avg / CSM</div>
           </div>
           {tileBtn("Increases",fmt$(totalIncrease),q2dData.reduce((s,c)=>s+c.increaseCount,0)+" accounts","#16a34a","increase")}
           {tileBtn("Decreases",fmt$(totalDecrease),q2dData.reduce((s,c)=>s+c.decreaseCount,0)+" accounts","#dc2626","decrease")}
@@ -5698,12 +5698,12 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
         {/* Sortable CSM table with inline expand */}
         <div style={{...S.card}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-            <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500}}>
+            <div style={{fontSize:13,textTransform:"uppercase",color:"#808080",fontWeight:500}}>
               {q2dTileFilter ? sortedCSMs.length+" CSMs with "+q2dTileFilter.replace(/_/g," ")+" — click name to expand" : "CSM Retention — click name to expand"}
             </div>
             <button onClick={exportQ2dCSV}
               style={{padding:"4px 12px",borderRadius:20,border:"0.5px solid rgba(41,53,93,.2)",
-                background:"#fff",color:"#29355D",fontSize:11,fontWeight:500,cursor:"pointer"}}>
+                background:"#fff",color:"#29355D",fontSize:13,fontWeight:500,cursor:"pointer"}}>
               ⬇ Export CSV
             </button>
           </div>
@@ -5717,7 +5717,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
               {sortTh("cancelledMrr","Cancelled",true)}
               {sortTh("adjustmentMrr","Adjustment",true)}
               <th onClick={()=>setQ2dSort(s=>({col:"retPct",dir:s.col==="retPct"&&s.dir==="asc"?"desc":"asc"}))}
-                style={{padding:"0 8px 8px 24px",textAlign:"left",fontSize:10,textTransform:"uppercase",
+                style={{padding:"0 8px 8px 24px",textAlign:"left",fontSize:12,textTransform:"uppercase",
                   color:q2dSort.col==="retPct"?"#29355D":"#808080",fontWeight:q2dSort.col==="retPct"?700:500,
                   cursor:"pointer",userSelect:"none",whiteSpace:"nowrap"}}>
                 Retention %{q2dSort.col==="retPct"?(q2dSort.dir==="asc"?" ↑":" ↓"):""}
@@ -5753,7 +5753,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                     </tr>
                     {isOpen && acctRows.length === 0 && (
                       <tr><td colSpan={8} style={{padding:"8px 0 8px 24px",borderBottom:"0.5px solid rgba(41,53,93,.08)",
-                        color:"#808080",fontSize:11,fontStyle:"italic"}}>
+                        color:"#808080",fontSize:13,fontStyle:"italic"}}>
                         No {q2dTileFilter?q2dTileFilter.replace(/_/g," "):"tracked"} accounts for {dispName(c.name)}
                       </td></tr>
                     )}
@@ -5779,7 +5779,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                         const active = q2dAcctSort.col===col;
                         return (
                           <th key={col} onClick={()=>setQ2dAcctSort(s=>({col,dir:s.col===col&&s.dir==="asc"?"desc":"asc"}))}
-                            style={{padding:"4px 8px 4px 0",textAlign:right?"right":"left",fontSize:10,
+                            style={{padding:"4px 8px 4px 0",textAlign:right?"right":"left",fontSize:12,
                               textTransform:"uppercase",color:active?"#29355D":"#808080",fontWeight:active?700:500,
                               cursor:"pointer",userSelect:"none",whiteSpace:"nowrap"}}>
                             {label}{active?(q2dAcctSort.dir==="asc"?" ↑":" ↓"):""}
@@ -5789,10 +5789,10 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                       return (
                         <tr>
                           <td colSpan={8} style={{padding:"0 0 12px 24px",borderBottom:"0.5px solid rgba(41,53,93,.08)",background:"rgba(41,53,93,.02)"}}>
-                            <div style={{fontSize:10,color:"#808080",padding:"6px 0 4px",fontStyle:"italic"}}>
+                            <div style={{fontSize:12,color:"#808080",padding:"6px 0 4px",fontStyle:"italic"}}>
                               {sortedAcctRows.length} accounts{q2dTileFilter?" · filtered: "+q2dTileFilter.replace(/_/g," "):""}
                             </div>
-                            <table style={{width:"100%",borderCollapse:"collapse",fontSize:11,tableLayout:"fixed"}}>
+                            <table style={{width:"100%",borderCollapse:"collapse",fontSize:13,tableLayout:"fixed"}}>
                               <colgroup>
                                 <col style={{width:"24%"}}/><col style={{width:"11%"}}/><col style={{width:"9%"}}/>
                                 <col style={{width:"9%"}}/><col style={{width:"8%"}}/><col style={{width:"8%"}}/>
@@ -5800,7 +5800,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                               </colgroup>
                               <thead><tr style={{borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>
                                 {aTh("acct","Account",false)}
-                                <th style={{padding:"4px 8px 4px 0",textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500}}>EID</th>
+                                <th style={{padding:"4px 8px 4px 0",textAlign:"left",fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500}}>EID</th>
                                 {aTh("boq","BOQ")}
                                 {aTh("cur","Current")}
                                 {aTh("increase","Increase")}
@@ -5818,7 +5818,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                                   return (
                                   <tr key={i} style={{borderTop:"0.5px solid rgba(41,53,93,.05)"}}>
                                     <td style={{padding:"5px 8px 5px 0",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.acct}</td>
-                                    <td style={{padding:"5px 8px 5px 0",fontFamily:"monospace",fontSize:10,color:"#808080"}}>{r.eid||"--"}</td>
+                                    <td style={{padding:"5px 8px 5px 0",fontFamily:"monospace",fontSize:12,color:"#808080"}}>{r.eid||"--"}</td>
                                     <td style={{padding:"5px 8px 5px 0",textAlign:"right",color:"#808080"}}>{r.boq>0?fmt$(r.boq):"--"}</td>
                                     <td style={{padding:"5px 8px 5px 0",textAlign:"right"}}>{r.cur>0?fmt$(r.cur):"--"}</td>
                                     <td style={{padding:"5px 8px 5px 0",textAlign:"right",color:isIncrease?"#16a34a":"#808080"}}>{isIncrease?"+"+fmt$(r.delta):"--"}</td>
@@ -5984,7 +5984,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
 
     const thSort = (col, label) => (
       <th onClick={()=>setDomoSort(s=>({col, dir:s.col===col?(s.dir==="asc"?"desc":"asc"):"asc"}))}
-        style={{padding:"8px 10px",textAlign:"right",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,cursor:"pointer",whiteSpace:"nowrap",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>
+        style={{padding:"8px 10px",textAlign:"right",fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500,cursor:"pointer",whiteSpace:"nowrap",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>
         {label} {domoSort.col===col?(domoSort.dir==="asc"?"↑":"↓"):""}
       </th>
     );
@@ -5993,9 +5993,9 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
       <div onClick={()=>setDomoTileFilter(f=>f===key?null:key)}
         style={{background:domoTileFilter===key?col:"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",
           borderTop:"3px solid "+col,cursor:"pointer",transition:"all .15s"}}>
-        <div style={{fontSize:10,textTransform:"uppercase",color:domoTileFilter===key?"rgba(255,255,255,.7)":"#808080",fontWeight:500,marginBottom:4}}>{label}</div>
+        <div style={{fontSize:12,textTransform:"uppercase",color:domoTileFilter===key?"rgba(255,255,255,.7)":"#808080",fontWeight:500,marginBottom:4}}>{label}</div>
         <div style={{fontSize:22,fontWeight:600,color:domoTileFilter===key?"#fff":col,lineHeight:1,marginBottom:4}}>{val}</div>
-        <div style={{fontSize:10,color:domoTileFilter===key?"rgba(255,255,255,.6)":"#808080"}}>{sub}</div>
+        <div style={{fontSize:12,color:domoTileFilter===key?"rgba(255,255,255,.6)":"#808080"}}>{sub}</div>
       </div>
     );
 
@@ -6020,38 +6020,38 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
           <div onClick={()=>{setDomoTileFilter(null);}}
             style={{background:!domoTileFilter?"#29355D":"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",
               borderTop:"3px solid #29355D",cursor:"pointer",transition:"all .15s"}}>
-            <div style={{fontSize:10,textTransform:"uppercase",color:!domoTileFilter?"rgba(255,255,255,.7)":"#808080",fontWeight:500,marginBottom:4}}>Retention</div>
+            <div style={{fontSize:12,textTransform:"uppercase",color:!domoTileFilter?"rgba(255,255,255,.7)":"#808080",fontWeight:500,marginBottom:4}}>Retention</div>
             <div style={{fontSize:22,fontWeight:600,color:!domoTileFilter?"#fff":retCol(overallRet),lineHeight:1,marginBottom:4}}>{fmtPct(overallRet)}</div>
-            <div style={{fontSize:10,color:!domoTileFilter?"rgba(255,255,255,.6)":"#808080"}}>goal 91%</div>
+            <div style={{fontSize:12,color:!domoTileFilter?"rgba(255,255,255,.6)":"#808080"}}>goal 91%</div>
           </div>
           <div style={{background:"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",borderTop:"3px solid #5378FC"}}>
-            <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Beginning Book</div>
+            <div style={{fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Beginning Book</div>
             <div style={{fontSize:22,fontWeight:600,color:"#5378FC",lineHeight:1,marginBottom:4}}>{fmt$(totalBoq)}</div>
-            <div style={{fontSize:10,color:"#808080"}}>{domoData.length} CSMs</div>
+            <div style={{fontSize:12,color:"#808080"}}>{domoData.length} CSMs</div>
           </div>
           <div style={{background:"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",borderTop:"3px solid #29355D"}}>
-            <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Current MRR</div>
+            <div style={{fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Current MRR</div>
             <div style={{fontSize:22,fontWeight:600,color:"#29355D",lineHeight:1,marginBottom:4}}>{fmt$(totalCur)}</div>
-            <div style={{fontSize:10,color:"#808080"}}>BOQ + MTD Net Billing</div>
+            <div style={{fontSize:12,color:"#808080"}}>BOQ + MTD Net Billing</div>
           </div>
           <div style={{background:"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",borderTop:"3px solid #6366f1"}}>
-            <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Accounts Assigned</div>
+            <div style={{fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Accounts Assigned</div>
             <div style={{fontSize:22,fontWeight:600,color:"#6366f1",lineHeight:1,marginBottom:4}}>{totalAcctsDomo}</div>
-            <div style={{fontSize:10,color:"#808080"}}>{avgAcctsDomo} avg / CSM</div>
+            <div style={{fontSize:12,color:"#808080"}}>{avgAcctsDomo} avg / CSM</div>
           </div>
           {tileBtn("Increases",fmt$(totalIncrease),domoData.reduce((s,c)=>s+c.increaseCount,0)+" accounts","#16a34a","increase")}
           {tileBtn("Decreases",fmt$(totalDecrease),domoData.reduce((s,c)=>s+c.decreaseCount,0)+" accounts","#dc2626","decrease")}
           {tileBtn("Cancelled",fmt$(totalCancelled),domoData.reduce((s,c)=>s+c.cancelledCount,0)+" accounts","#d97706","cancelled")}
           <div style={{background:"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",borderTop:"3px solid #808080"}}>
-            <div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Net Change</div>
+            <div style={{fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Net Change</div>
             <div style={{fontSize:22,fontWeight:600,color:totalCur>=totalBoq?"#16a34a":"#dc2626",lineHeight:1,marginBottom:4}}>{fmtNet(totalCur-totalBoq)}</div>
-            <div style={{fontSize:10,color:"#808080"}}>vs beginning book</div>
+            <div style={{fontSize:12,color:"#808080"}}>vs beginning book</div>
           </div>
         </div>
 
         {/* Table header */}
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
-          <div style={{fontSize:11,color:"#808080",fontWeight:500,textTransform:"uppercase",letterSpacing:"0.05em"}}>
+          <div style={{fontSize:13,color:"#808080",fontWeight:500,textTransform:"uppercase",letterSpacing:"0.05em"}}>
             CSM Retention — Click name to expand
           </div>
           <button onClick={exportCSV}
@@ -6065,7 +6065,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
             <thead>
               <tr style={{borderBottom:"0.5px solid rgba(41,53,93,.1)"}}>
-                <th style={{padding:"8px 10px",textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>CSM</th>
+                <th style={{padding:"8px 10px",textAlign:"left",fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>CSM</th>
                 {thSort("boq","BOQ")}
                 {thSort("cur","Current MRR")}
                 {thSort("increaseMrr","Increase")}
@@ -6083,7 +6083,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                     <tr onClick={()=>setDomoExpanded(isExp?null:g.name)}
                       style={{cursor:"pointer",background:isExp?"rgba(41,53,93,.03)":"#fff",borderBottom:"0.5px solid rgba(41,53,93,.06)"}}>
                       <td style={{padding:"10px 10px",fontWeight:600,color:"#29355D"}}>
-                        <span style={{marginRight:6,fontSize:10,color:"#808080"}}>{isExp?"▼":"▶"}</span>
+                        <span style={{marginRight:6,fontSize:12,color:"#808080"}}>{isExp?"▼":"▶"}</span>
                         {dispName(g.name)}
                       </td>
                       <td style={{padding:"10px",textAlign:"right",color:"#5378FC",fontWeight:500}}>{fmt$(g.boq)}</td>
@@ -6101,11 +6101,11 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                     {isExp&&(
                       <tr style={{background:"rgba(41,53,93,.02)"}}>
                         <td colSpan={7} style={{padding:0}}>
-                          <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+                          <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
                             <thead>
                               <tr style={{borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>
                                 {["Account","EID","BOQ","Current MRR","Change","Status"].map((h,i)=>(
-                                  <th key={h} style={{padding:"6px 10px 6px "+(i===0?"24px":"10px"),textAlign:i>1?"right":"left",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500}}>{h}</th>
+                                  <th key={h} style={{padding:"6px 10px 6px "+(i===0?"24px":"10px"),textAlign:i>1?"right":"left",fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500}}>{h}</th>
                                 ))}
                               </tr>
                             </thead>
@@ -6115,12 +6115,12 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                                 return (
                                   <tr key={i} style={{borderBottom:"0.5px solid rgba(41,53,93,.04)"}}>
                                     <td style={{padding:"7px 10px 7px 24px",color:"#29355D",fontWeight:500}}>{r.acct||"—"}</td>
-                                    <td style={{padding:"7px 10px",color:"#808080",fontFamily:"monospace",fontSize:10}}>{r.eid||"—"}</td>
+                                    <td style={{padding:"7px 10px",color:"#808080",fontFamily:"monospace",fontSize:12}}>{r.eid||"—"}</td>
                                     <td style={{padding:"7px 10px",textAlign:"right",color:"#5378FC"}}>{fmt$(r.boq)}</td>
                                     <td style={{padding:"7px 10px",textAlign:"right",color:"#29355D",fontWeight:500}}>{fmt$(r.cur)}</td>
                                     <td style={{padding:"7px 10px",textAlign:"right",color:r.delta>=0?"#16a34a":"#dc2626"}}>{fmtNet(r.delta)}</td>
                                     <td style={{padding:"7px 10px",textAlign:"right"}}>
-                                      <span style={{fontSize:10,padding:"1px 7px",borderRadius:20,background:statusCol+"22",color:statusCol,fontWeight:500,textTransform:"capitalize"}}>{r.status.replace("_"," ")}</span>
+                                      <span style={{fontSize:12,padding:"1px 7px",borderRadius:20,background:statusCol+"22",color:statusCol,fontWeight:500,textTransform:"capitalize"}}>{r.status.replace("_"," ")}</span>
                                     </td>
                                   </tr>
                                 );
@@ -6155,8 +6155,8 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
       {recentAlerts.length>0&&<div style={{background:"rgba(220,38,38,.05)",border:"1px solid rgba(220,38,38,.25)",borderRadius:12,padding:16,marginBottom:16}}>
         <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
           <span style={{fontSize:16,fontWeight:600,color:"#dc2626"}}>🔴 New Churn Detected</span>
-          <span style={{fontSize:10,fontWeight:600,padding:"2px 8px",borderRadius:20,background:"rgba(220,38,38,.12)",color:"#991b1b"}}>{recentAlerts.length} account{recentAlerts.length!==1?"s":""} · {recentAlerts[0].date}</span>
-          <span style={{fontSize:11,color:"#808080",marginLeft:"auto",fontStyle:"italic"}}>Click a CSM to see detail</span>
+          <span style={{fontSize:12,fontWeight:600,padding:"2px 8px",borderRadius:20,background:"rgba(220,38,38,.12)",color:"#991b1b"}}>{recentAlerts.length} account{recentAlerts.length!==1?"s":""} · {recentAlerts[0].date}</span>
+          <span style={{fontSize:13,color:"#808080",marginLeft:"auto",fontStyle:"italic"}}>Click a CSM to see detail</span>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
           {recentAlerts.map((a,i)=>{
@@ -6165,9 +6165,9 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
               style={{background:"#fff",border:"0.5px solid rgba(220,38,38,.2)",borderLeft:"3px solid "+col,borderRadius:8,padding:"8px 12px",cursor:"pointer"}}
               onMouseEnter={e=>e.currentTarget.style.background="#FFF5F5"}
               onMouseLeave={e=>e.currentTarget.style.background="#fff"}>
-              <div style={{marginBottom:3}}><span style={{fontSize:10,fontWeight:600,padding:"1px 7px",borderRadius:20,background:a.type==="MC"?"rgba(220,38,38,.1)":"rgba(127,29,29,.1)",color:col}}>{a.type} Churn</span></div>
+              <div style={{marginBottom:3}}><span style={{fontSize:12,fontWeight:600,padding:"1px 7px",borderRadius:20,background:a.type==="MC"?"rgba(220,38,38,.1)":"rgba(127,29,29,.1)",color:col}}>{a.type} Churn</span></div>
               <div style={{fontSize:12,fontWeight:500,color:"#29355D",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.account}</div>
-              <div style={{fontSize:11,color:"#808080",marginTop:2}}>{a.csm}</div>
+              <div style={{fontSize:13,color:"#808080",marginTop:2}}>{a.csm}</div>
             </div>;
           })}
         </div>
@@ -6197,7 +6197,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
               <thead style={{position:"sticky",top:0,background:"#fff",zIndex:1}}>
                 <tr>
                   {["CSM","Coach","Account","Enterprise ID","Products"].map(h=>(
-                    <th key={h} style={{padding:"8px 8px 8px 0",borderBottom:"1.5px solid rgba(41,53,93,.1)",textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:600,whiteSpace:"nowrap"}}>{h}</th>
+                    <th key={h} style={{padding:"8px 8px 8px 0",borderBottom:"1.5px solid rgba(41,53,93,.1)",textAlign:"left",fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:600,whiteSpace:"nowrap"}}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -6207,11 +6207,11 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                     <td style={{padding:"8px 8px 8px 0",fontWeight:500,color:"#29355D",whiteSpace:"nowrap"}}>{r.csm}</td>
                     <td style={{padding:"8px 8px 8px 0",color:"#808080",whiteSpace:"nowrap"}}>{r.coach}</td>
                     <td style={{padding:"8px 8px 8px 0",maxWidth:220,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.account}</td>
-                    <td style={{padding:"8px 8px 8px 0",fontFamily:"monospace",color:"#808080",fontSize:11,whiteSpace:"nowrap"}}>{r.eid}</td>
+                    <td style={{padding:"8px 8px 8px 0",fontFamily:"monospace",color:"#808080",fontSize:13,whiteSpace:"nowrap"}}>{r.eid}</td>
                     <td style={{padding:"8px 8px 8px 0"}}>
                       <div style={{display:"flex",flexWrap:"wrap",gap:3}}>
                         {r.products.map((p,j)=>(
-                          <span key={j} style={{fontSize:10,padding:"1px 7px",borderRadius:20,background:"rgba(220,38,38,.08)",color:"#991b1b",fontWeight:500,whiteSpace:"nowrap"}}>{p}</span>
+                          <span key={j} style={{fontSize:12,padding:"1px 7px",borderRadius:20,background:"rgba(220,38,38,.08)",color:"#991b1b",fontWeight:500,whiteSpace:"nowrap"}}>{p}</span>
                         ))}
                       </div>
                     </td>
@@ -6361,7 +6361,7 @@ function PinLock({onUnlock}) {
           style={{width:"100%",padding:11,background:"#FF5000",border:"none",borderRadius:10,color:"#fff",fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"inherit",opacity:checking?0.7:1}}>
           {checking?"Checking...":"Sign In"}
         </button>
-        <div style={{fontSize:11,color:"#808080",marginTop:16}}>Contact your coach if you need your PIN</div>
+        <div style={{fontSize:13,color:"#808080",marginTop:16}}>Contact your coach if you need your PIN</div>
       </div>
     </div>
   );
@@ -6608,13 +6608,13 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
   const nonRevSubs = revRows.filter(r=>r.nr).length;
 
   const card={background:"#fff",borderRadius:12,padding:"20px 24px",boxShadow:"0 1px 4px rgba(41,53,93,.07)",marginBottom:16};
-  const lbl={fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:600,letterSpacing:"0.05em",marginBottom:8,display:"block"};
+  const lbl={fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:600,letterSpacing:"0.05em",marginBottom:8,display:"block"};
   const StatTile=({label,value,sub,col="#29355D",bar=null})=>(
     <div style={{background:"#fff",borderRadius:12,padding:"14px 18px",boxShadow:"0 1px 4px rgba(41,53,93,.07)",borderTop:"3px solid "+col}}>
       <div style={lbl}>{label}</div>
       <div style={{fontSize:24,fontWeight:700,color:col,lineHeight:1,marginBottom:4}}>{value}</div>
       {bar!=null&&<div style={{height:5,background:"rgba(0,0,0,.08)",borderRadius:3,overflow:"hidden",margin:"6px 0"}}><div style={{width:Math.min(bar*100,100).toFixed(1)+"%",height:"100%",background:col,borderRadius:3}}/></div>}
-      {sub&&<div style={{fontSize:11,color:"#808080",marginTop:2}}>{sub}</div>}
+      {sub&&<div style={{fontSize:13,color:"#808080",marginTop:2}}>{sub}</div>}
     </div>
   );
 
@@ -6641,7 +6641,7 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
           </button>
         ))}
 
-        <span style={{fontSize:11,color:"#808080",marginLeft:4}}>{dashLabel}</span>
+        <span style={{fontSize:13,color:"#808080",marginLeft:4}}>{dashLabel}</span>
       </div>
 
 
@@ -6653,24 +6653,24 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
         <div style={card}>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8,cursor:"pointer"}} onClick={()=>onNavigate("calls")}>
             <span style={lbl}>📞 Calls — {dashLabel}</span>
-            <span style={{fontSize:10,color:"#5378FC",fontWeight:500}}>View details →</span>
+            <span style={{fontSize:12,color:"#5378FC",fontWeight:500}}>View details →</span>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:10}}>
             {[{l:"Booked",v:week.total,c:"var(--text-primary)"},{l:"Completed",v:week.completed,c:"#16a34a"},
               {l:"No Shows",v:week.noShow,c:week.noShow>0?"#dc2626":"var(--text-secondary)"},
               {l:"Cancelled",v:week.cancelled,c:week.cancelled>0?"#d97706":"var(--text-secondary)"}].map(m=>(
-              <div key={m.l}><div style={{fontSize:10,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>{m.l}</div><div style={{fontSize:20,fontWeight:500,color:m.c}}>{m.v}</div></div>
+              <div key={m.l}><div style={{fontSize:12,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>{m.l}</div><div style={{fontSize:20,fontWeight:500,color:m.c}}>{m.v}</div></div>
             ))}
           </div>
           {week.compRate!=null&&<>
             <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
-              <span style={{fontSize:11,color:"var(--text-secondary)"}}>Completion rate <span style={{fontSize:10,color:"var(--text-muted)",fontWeight:400}}>(of resolved)</span></span>
-              <span style={{fontSize:11,fontWeight:500,color:cc(week.compRate)}}>{pp(week.compRate)}</span>
+              <span style={{fontSize:13,color:"var(--text-secondary)"}}>Completion rate <span style={{fontSize:12,color:"var(--text-muted)",fontWeight:400}}>(of resolved)</span></span>
+              <span style={{fontSize:13,fontWeight:500,color:cc(week.compRate)}}>{pp(week.compRate)}</span>
             </div>
             <div style={{height:5,background:"rgba(0,0,0,.08)",borderRadius:3,overflow:"hidden"}}>
               <div style={{width:(week.compRate*100).toFixed(1)+"%",height:"100%",background:cc(week.compRate),borderRadius:3}}/>
             </div>
-            <div style={{fontSize:10,color:"var(--text-secondary)",marginTop:5}}>
+            <div style={{fontSize:12,color:"var(--text-secondary)",marginTop:5}}>
               No-show: <span style={{color:nsc(week.nsRate),fontWeight:500}}>{pp(week.nsRate)}</span>
               {week.scheduled>0&&<span style={{color:"#5378FC",marginLeft:8}}>{week.scheduled} scheduled</span>}
             </div>
@@ -6683,15 +6683,15 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
           <span style={lbl}>✅ Cadence touchpoints — {dashLabel}</span>
           <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
             <div>
-              <div style={{fontSize:10,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Due</div>
+              <div style={{fontSize:12,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Due</div>
               <div style={{fontSize:20,fontWeight:500,color:"var(--text-primary)"}}>{cadDueInWindow.length}</div>
             </div>
             <div>
-              <div style={{fontSize:10,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Completed</div>
+              <div style={{fontSize:12,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Completed</div>
               <div style={{fontSize:20,fontWeight:500,color:"#16a34a"}}>{cadCompleted.length}</div>
             </div>
             <div>
-              <div style={{fontSize:10,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Open</div>
+              <div style={{fontSize:12,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Open</div>
               <div style={{fontSize:20,fontWeight:500,color:"var(--text-primary)"}}>{cadOpenAll.length}</div>
             </div>
           </div>
@@ -6702,17 +6702,17 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
         <div style={card}>
           <span style={lbl}>👥 Clients touched — {dashLabel}</span>
           <div style={{marginBottom:8}}>
-            <div style={{fontSize:10,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Total touchpoints</div>
+            <div style={{fontSize:12,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Total touchpoints</div>
             <div style={{fontSize:32,fontWeight:500,color:"var(--text-primary)"}}>{week.total + cadDueInWindow.length}</div>
-            <div style={{fontSize:11,color:"var(--text-secondary)",marginTop:4}}>calls + cadence due</div>
+            <div style={{fontSize:13,color:"var(--text-secondary)",marginTop:4}}>calls + cadence due</div>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginTop:10,paddingTop:10,borderTop:"0.5px solid var(--border)"}}>
             <div>
-              <div style={{fontSize:10,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Calls</div>
+              <div style={{fontSize:12,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Calls</div>
               <div style={{fontSize:18,fontWeight:500,color:"#5378FC"}}>{week.total}</div>
             </div>
             <div>
-              <div style={{fontSize:10,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Cadence due</div>
+              <div style={{fontSize:12,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Cadence due</div>
               <div style={{fontSize:18,fontWeight:500,color:"#6366f1"}}>{cadDueInWindow.length}</div>
             </div>
           </div>
@@ -6730,34 +6730,34 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
             <span style={lbl}>Client Engagement Roadmaps — Q3 {now.getFullYear()}</span>
           </div>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
-            <span style={{fontSize:11,color:"var(--text-secondary)",background:"var(--surface-1)",border:"0.5px solid var(--border)",padding:"2px 10px",borderRadius:20}}>Jul 1 – Sep 30</span>
-            <span style={{fontSize:10,color:"#5378FC",fontWeight:500}}>View details →</span>
+            <span style={{fontSize:13,color:"var(--text-secondary)",background:"var(--surface-1)",border:"0.5px solid var(--border)",padding:"2px 10px",borderRadius:20}}>Jul 1 – Sep 30</span>
+            <span style={{fontSize:12,color:"#5378FC",fontWeight:500}}>View details →</span>
           </div>
         </div>
         {cerAssignedQ.length>0||cerCompletedQ.length>0?(
           <>
             <div style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:12,marginBottom:14}}>
               <div style={{background:"var(--surface-1)",border:"0.5px solid var(--border)",borderTop:"3px solid #29355D",borderRadius:12,padding:"12px 16px"}}>
-                <div style={{fontSize:10,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:4}}>Assigned</div>
+                <div style={{fontSize:12,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:4}}>Assigned</div>
                 <div style={{fontSize:24,fontWeight:500,color:"var(--text-primary)",lineHeight:1,marginBottom:3}}>{cerAssignedQ.length}</div>
-                <div style={{fontSize:10,color:"var(--text-muted)"}}>form start in Q3</div>
+                <div style={{fontSize:12,color:"var(--text-muted)"}}>form start in Q3</div>
               </div>
               <div style={{background:"var(--surface-1)",border:"0.5px solid var(--border)",borderTop:"3px solid #16a34a",borderRadius:12,padding:"12px 16px"}}>
-                <div style={{fontSize:10,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:4}}>Completed</div>
+                <div style={{fontSize:12,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:4}}>Completed</div>
                 <div style={{fontSize:24,fontWeight:500,color:"#16a34a",lineHeight:1,marginBottom:3}}>{cerCompletedQ.length}</div>
-                <div style={{fontSize:10,color:"var(--text-muted)"}}>form end in Q3</div>
+                <div style={{fontSize:12,color:"var(--text-muted)"}}>form end in Q3</div>
               </div>
               <div style={{background:"var(--surface-1)",border:"0.5px solid var(--border)",borderTop:"3px solid #d97706",borderRadius:12,padding:"12px 16px"}}>
-                <div style={{fontSize:10,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:4}}>In progress / New</div>
+                <div style={{fontSize:12,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:4}}>In progress / New</div>
                 <div style={{fontSize:24,fontWeight:500,color:"#d97706",lineHeight:1,marginBottom:3}}>{cerInProgress+cerNew+cerOnHold}</div>
-                <div style={{fontSize:10,color:"var(--text-muted)"}}>open + on hold + new</div>
+                <div style={{fontSize:12,color:"var(--text-muted)"}}>open + on hold + new</div>
               </div>
             </div>
             <div style={{borderTop:"0.5px solid rgba(41,53,93,.08)",paddingTop:12,display:"flex",gap:8,flexWrap:"wrap"}}>
-              {cerCompletedQ.length>0&&<span style={{display:"inline-flex",alignItems:"center",gap:4,fontSize:11,padding:"3px 10px",borderRadius:20,background:"rgba(22,163,74,.08)",color:"#15803d",border:"0.5px solid rgba(22,163,74,.2)"}}>✓ Completed {cerCompletedQ.length}</span>}
-              {cerInProgress>0&&<span style={{display:"inline-flex",alignItems:"center",gap:4,fontSize:11,padding:"3px 10px",borderRadius:20,background:"rgba(217,119,6,.08)",color:"#b45309",border:"0.5px solid rgba(217,119,6,.2)"}}>⟳ In progress {cerInProgress}</span>}
-              {cerNew>0&&<span style={{display:"inline-flex",alignItems:"center",gap:4,fontSize:11,padding:"3px 10px",borderRadius:20,background:"rgba(41,53,93,.06)",color:"#808080",border:"0.5px solid rgba(41,53,93,.15)"}}>◦ New {cerNew}</span>}
-              {cerOnHold>0&&<span style={{display:"inline-flex",alignItems:"center",gap:4,fontSize:11,padding:"3px 10px",borderRadius:20,background:"rgba(41,53,93,.06)",color:"#808080",border:"0.5px solid rgba(41,53,93,.15)"}}>⏸ On hold {cerOnHold}</span>}
+              {cerCompletedQ.length>0&&<span style={{display:"inline-flex",alignItems:"center",gap:4,fontSize:13,padding:"3px 10px",borderRadius:20,background:"rgba(22,163,74,.08)",color:"#15803d",border:"0.5px solid rgba(22,163,74,.2)"}}>✓ Completed {cerCompletedQ.length}</span>}
+              {cerInProgress>0&&<span style={{display:"inline-flex",alignItems:"center",gap:4,fontSize:13,padding:"3px 10px",borderRadius:20,background:"rgba(217,119,6,.08)",color:"#b45309",border:"0.5px solid rgba(217,119,6,.2)"}}>⟳ In progress {cerInProgress}</span>}
+              {cerNew>0&&<span style={{display:"inline-flex",alignItems:"center",gap:4,fontSize:13,padding:"3px 10px",borderRadius:20,background:"rgba(41,53,93,.06)",color:"#808080",border:"0.5px solid rgba(41,53,93,.15)"}}>◦ New {cerNew}</span>}
+              {cerOnHold>0&&<span style={{display:"inline-flex",alignItems:"center",gap:4,fontSize:13,padding:"3px 10px",borderRadius:20,background:"rgba(41,53,93,.06)",color:"#808080",border:"0.5px solid rgba(41,53,93,.15)"}}>⏸ On hold {cerOnHold}</span>}
             </div>
           </>
         ):(
@@ -6769,61 +6769,61 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
       <div style={{...card,marginBottom:16}}>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8,cursor:"pointer"}} onClick={()=>{onSetBobTab("domo");onNavigate("bob");}}>
             <span style={lbl}>📋 Q3 Book of Business</span>
-            <span style={{fontSize:10,color:"#5378FC",fontWeight:500}}>View details →</span>
+            <span style={{fontSize:12,color:"#5378FC",fontWeight:500}}>View details →</span>
           </div>
           {totalAccts>0?(<>
             {/* Top row: key metrics */}
             <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:14}}>
-              <div><div style={{fontSize:10,color:"#808080",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Accounts</div><div style={{fontSize:22,fontWeight:700,color:"#29355D"}}>{totalAccts}</div></div>
-              <div><div style={{fontSize:10,color:"#808080",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Retention</div><div style={{fontSize:22,fontWeight:700,color:retColor(totalRet)}}>{totalRet!=null?(totalRet*100).toFixed(1)+"%":"--"}</div><div style={{fontSize:10,color:"#808080"}}>goal 91%</div></div>
-              <div style={{padding:"8px 10px",background:"rgba(41,53,93,.04)",borderRadius:8}}><div style={{fontSize:10,color:"#808080",marginBottom:2}}>BOQ</div><div style={{fontSize:16,fontWeight:700,color:"#5378FC"}}>{fk(totalBoq)}</div></div>
-              <div style={{padding:"8px 10px",background:"rgba(41,53,93,.04)",borderRadius:8}}><div style={{fontSize:10,color:"#808080",marginBottom:2}}>Current MRR</div><div style={{fontSize:16,fontWeight:700,color:"#29355D"}}>{fk(totalCur)}</div></div>
+              <div><div style={{fontSize:12,color:"#808080",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Accounts</div><div style={{fontSize:22,fontWeight:700,color:"#29355D"}}>{totalAccts}</div></div>
+              <div><div style={{fontSize:12,color:"#808080",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Retention</div><div style={{fontSize:22,fontWeight:700,color:retColor(totalRet)}}>{totalRet!=null?(totalRet*100).toFixed(1)+"%":"--"}</div><div style={{fontSize:12,color:"#808080"}}>goal 91%</div></div>
+              <div style={{padding:"8px 10px",background:"rgba(41,53,93,.04)",borderRadius:8}}><div style={{fontSize:12,color:"#808080",marginBottom:2}}>BOQ</div><div style={{fontSize:16,fontWeight:700,color:"#5378FC"}}>{fk(totalBoq)}</div></div>
+              <div style={{padding:"8px 10px",background:"rgba(41,53,93,.04)",borderRadius:8}}><div style={{fontSize:12,color:"#808080",marginBottom:2}}>Current MRR</div><div style={{fontSize:16,fontWeight:700,color:"#29355D"}}>{fk(totalCur)}</div></div>
             </div>
             {/* Account Increases, Decreases & Cancels */}
-            <div style={{marginBottom:8}}><div style={{fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:600,letterSpacing:"0.05em"}}>Account Increases, Decreases, &amp; Cancels</div><div style={{fontSize:10,color:"#aaa",marginTop:2}}>Change in MRR during current quarter</div></div>
+            <div style={{marginBottom:8}}><div style={{fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:600,letterSpacing:"0.05em"}}>Account Increases, Decreases, &amp; Cancels</div><div style={{fontSize:12,color:"#aaa",marginTop:2}}>Change in MRR during current quarter</div></div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:12}}>
               {/* Increases — green */}
               <div style={{padding:"12px 14px",background:"rgba(22,163,74,.06)",borderRadius:8,border:"0.5px solid rgba(22,163,74,.25)"}}>
-                <div style={{fontSize:10,color:"#15803d",fontWeight:600,textTransform:"uppercase",marginBottom:6,letterSpacing:"0.04em"}}>↑ Account Increases</div>
+                <div style={{fontSize:12,color:"#15803d",fontWeight:600,textTransform:"uppercase",marginBottom:6,letterSpacing:"0.04em"}}>↑ Account Increases</div>
                 <div style={{fontSize:22,fontWeight:700,color:"#15803d",marginBottom:2}}>{totalIncreaseCount}</div>
                 <div style={{fontSize:14,fontWeight:700,color:"#15803d",marginBottom:6}}>+{fk(totalIncreaseMrr)}</div>
-                <div style={{fontSize:10,color:"#166534"}}>accounts above BOQ</div>
+                <div style={{fontSize:12,color:"#166534"}}>accounts above BOQ</div>
                 {bobAlerts.filter(a=>a.type==="Increase").length>0&&(
                   <div style={{display:"flex",flexDirection:"column",gap:3,maxHeight:72,overflowY:"auto",marginTop:8}}>
                     {bobAlerts.filter(a=>a.type==="Increase").slice(0,4).map((a,i)=>(
-                      <div key={i} style={{fontSize:10,color:"#166534"}}>{a.acct} <span style={{fontWeight:600}}>{fk(a.boq)}→{fk(a.cur)}</span></div>
+                      <div key={i} style={{fontSize:12,color:"#166534"}}>{a.acct} <span style={{fontWeight:600}}>{fk(a.boq)}→{fk(a.cur)}</span></div>
                     ))}
-                    {bobAlerts.filter(a=>a.type==="Increase").length>4&&<div style={{fontSize:10,color:"#166534"}}>+{bobAlerts.filter(a=>a.type==="Increase").length-4} more</div>}
+                    {bobAlerts.filter(a=>a.type==="Increase").length>4&&<div style={{fontSize:12,color:"#166534"}}>+{bobAlerts.filter(a=>a.type==="Increase").length-4} more</div>}
                   </div>
                 )}
               </div>
               {/* Decreases — amber */}
               <div style={{padding:"12px 14px",background:"rgba(217,119,6,.06)",borderRadius:8,border:"0.5px solid rgba(217,119,6,.25)"}}>
-                <div style={{fontSize:10,color:"#b45309",fontWeight:600,textTransform:"uppercase",marginBottom:6,letterSpacing:"0.04em"}}>↓ Account Decreases</div>
+                <div style={{fontSize:12,color:"#b45309",fontWeight:600,textTransform:"uppercase",marginBottom:6,letterSpacing:"0.04em"}}>↓ Account Decreases</div>
                 <div style={{fontSize:22,fontWeight:700,color:"#b45309",marginBottom:2}}>{bobAlerts.filter(a=>a.type==="Decrease").length}</div>
                 <div style={{fontSize:14,fontWeight:700,color:"#b45309",marginBottom:6}}>-{fk(totalDecreaseMrr)}</div>
-                <div style={{fontSize:10,color:"#92400e"}}>accounts below BOQ</div>
+                <div style={{fontSize:12,color:"#92400e"}}>accounts below BOQ</div>
                 {bobAlerts.filter(a=>a.type==="Decrease").length>0&&(
                   <div style={{display:"flex",flexDirection:"column",gap:3,maxHeight:72,overflowY:"auto",marginTop:8}}>
                     {bobAlerts.filter(a=>a.type==="Decrease").slice(0,4).map((a,i)=>(
-                      <div key={i} style={{fontSize:10,color:"#92400e"}}>{a.acct} <span style={{fontWeight:600}}>{fk(a.boq)}→{fk(a.cur)}</span></div>
+                      <div key={i} style={{fontSize:12,color:"#92400e"}}>{a.acct} <span style={{fontWeight:600}}>{fk(a.boq)}→{fk(a.cur)}</span></div>
                     ))}
-                    {bobAlerts.filter(a=>a.type==="Decrease").length>4&&<div style={{fontSize:10,color:"#92400e"}}>+{bobAlerts.filter(a=>a.type==="Decrease").length-4} more</div>}
+                    {bobAlerts.filter(a=>a.type==="Decrease").length>4&&<div style={{fontSize:12,color:"#92400e"}}>+{bobAlerts.filter(a=>a.type==="Decrease").length-4} more</div>}
                   </div>
                 )}
               </div>
               {/* Cancels — red */}
               <div style={{padding:"12px 14px",background:"rgba(220,38,38,.06)",borderRadius:8,border:"0.5px solid rgba(220,38,38,.25)"}}>
-                <div style={{fontSize:10,color:"#b91c1c",fontWeight:600,textTransform:"uppercase",marginBottom:6,letterSpacing:"0.04em"}}>✕ Account Cancels</div>
+                <div style={{fontSize:12,color:"#b91c1c",fontWeight:600,textTransform:"uppercase",marginBottom:6,letterSpacing:"0.04em"}}>✕ Account Cancels</div>
                 <div style={{fontSize:22,fontWeight:700,color:"#b91c1c",marginBottom:2}}>{bobAlerts.filter(a=>a.type==="Cancel").length}</div>
                 <div style={{fontSize:14,fontWeight:700,color:"#b91c1c",marginBottom:6}}>-{fk(totalCancelMrr)}</div>
-                <div style={{fontSize:10,color:"#991b1b"}}>accounts churned</div>
+                <div style={{fontSize:12,color:"#991b1b"}}>accounts churned</div>
                 {bobAlerts.filter(a=>a.type==="Cancel").length>0&&(
                   <div style={{display:"flex",flexDirection:"column",gap:3,maxHeight:72,overflowY:"auto",marginTop:8}}>
                     {bobAlerts.filter(a=>a.type==="Cancel").slice(0,4).map((a,i)=>(
-                      <div key={i} style={{fontSize:10,color:"#991b1b"}}>{a.acct} <span style={{fontWeight:600}}>{fk(a.boq)}</span></div>
+                      <div key={i} style={{fontSize:12,color:"#991b1b"}}>{a.acct} <span style={{fontWeight:600}}>{fk(a.boq)}</span></div>
                     ))}
-                    {bobAlerts.filter(a=>a.type==="Cancel").length>4&&<div style={{fontSize:10,color:"#991b1b"}}>+{bobAlerts.filter(a=>a.type==="Cancel").length-4} more</div>}
+                    {bobAlerts.filter(a=>a.type==="Cancel").length>4&&<div style={{fontSize:12,color:"#991b1b"}}>+{bobAlerts.filter(a=>a.type==="Cancel").length-4} more</div>}
                   </div>
                 )}
               </div>
@@ -6832,27 +6832,27 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
             {totalRevTot>0&&(
               <div style={{padding:"12px 14px",background:"rgba(255,80,0,.05)",borderRadius:8,border:"0.5px solid rgba(255,80,0,.2)"}}>
                 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
-                  <div style={{fontSize:10,color:"#c2410c",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.04em"}}>💡 Revenue upgrades submitted by CSM — Q3</div>
+                  <div style={{fontSize:12,color:"#c2410c",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.04em"}}>💡 Revenue upgrades submitted by CSM — Q3</div>
                   <div style={{fontSize:14,fontWeight:700,color:"#FF5000"}}>+{fd(totalRevTot)}</div>
                 </div>
                 <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
                   <div style={{padding:"6px 10px",background:"rgba(255,80,0,.07)",borderRadius:6}}>
-                    <div style={{fontSize:10,color:"#c2410c",marginBottom:2}}>MRR Added</div>
+                    <div style={{fontSize:12,color:"#c2410c",marginBottom:2}}>MRR Added</div>
                     <div style={{fontSize:13,fontWeight:700,color:"#FF5000"}}>{fd(totalRevMrr)}</div>
-                    <div style={{fontSize:10,color:"#9a3412"}}>{mrrSubs} sub{mrrSubs!==1?"s":""}</div>
+                    <div style={{fontSize:12,color:"#9a3412"}}>{mrrSubs} sub{mrrSubs!==1?"s":""}</div>
                   </div>
                   <div style={{padding:"6px 10px",background:"rgba(255,80,0,.07)",borderRadius:6}}>
-                    <div style={{fontSize:10,color:"#c2410c",marginBottom:2}}>One-Time</div>
+                    <div style={{fontSize:12,color:"#c2410c",marginBottom:2}}>One-Time</div>
                     <div style={{fontSize:13,fontWeight:700,color:"#FF5000"}}>{fd(totalRevOtr)}</div>
-                    <div style={{fontSize:10,color:"#9a3412"}}>{otrSubs} sub{otrSubs!==1?"s":""}</div>
+                    <div style={{fontSize:12,color:"#9a3412"}}>{otrSubs} sub{otrSubs!==1?"s":""}</div>
                   </div>
                   <div style={{padding:"6px 10px",background:"rgba(255,80,0,.07)",borderRadius:6}}>
-                    <div style={{fontSize:10,color:"#c2410c",marginBottom:2}}>Non-Revenue</div>
+                    <div style={{fontSize:12,color:"#c2410c",marginBottom:2}}>Non-Revenue</div>
                     <div style={{fontSize:13,fontWeight:700,color:"#FF5000"}}>{nonRevSubs}</div>
-                    <div style={{fontSize:10,color:"#9a3412"}}>integrations</div>
+                    <div style={{fontSize:12,color:"#9a3412"}}>integrations</div>
                   </div>
                 </div>
-                <div style={{fontSize:10,color:"#9a3412",marginTop:6}}>Daily breakdown available once a submission date is added to the revenue form</div>
+                <div style={{fontSize:12,color:"#9a3412",marginTop:6}}>Daily breakdown available once a submission date is added to the revenue form</div>
               </div>
             )}
           </>):<div style={{fontSize:12,color:"#808080",textAlign:"center",padding:"12px 0"}}>No Q3 BoB data loaded yet</div>}
@@ -6865,9 +6865,9 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
             <span style={{fontSize:16}}>🚨</span>
             <div>
               <span style={lbl}>Account Increases, Decreases, &amp; Cancels</span>
-              <div style={{fontSize:10,color:"#aaa",marginTop:2,marginBottom:0}}>Change in MRR during current quarter</div>
+              <div style={{fontSize:12,color:"#aaa",marginTop:2,marginBottom:0}}>Change in MRR during current quarter</div>
             </div>
-            <span id="alert-badge" style={{marginLeft:"auto",fontSize:11,fontWeight:600,padding:"2px 10px",borderRadius:20,
+            <span id="alert-badge" style={{marginLeft:"auto",fontSize:13,fontWeight:600,padding:"2px 10px",borderRadius:20,
               background:alertFilter==="increase"?"rgba(22,163,74,.12)":alertFilter==="decrease"?"rgba(217,119,6,.12)":alertFilter==="cancel"?"rgba(220,38,38,.12)":"rgba(41,53,93,.06)",
               color:alertFilter==="increase"?"#15803d":alertFilter==="decrease"?"#b45309":alertFilter==="cancel"?"#991b1b":"#808080",
               border:"0.5px solid "+(alertFilter==="increase"?"rgba(22,163,74,.25)":alertFilter==="decrease"?"rgba(217,119,6,.25)":alertFilter==="cancel"?"rgba(220,38,38,.25)":"rgba(41,53,93,.15)")}}>
@@ -6893,7 +6893,7 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
                     color:alertFilter===v?(
                       v==="increase"?"#15803d":v==="decrease"?"#b45309":v==="cancel"?"#991b1b":"#fff"
                     ):(v==="increase"?"#15803d":v==="decrease"?"#b45309":v==="cancel"?"#991b1b":"#808080"),
-                    fontSize:11,fontWeight:alertFilter===v?600:400,cursor:"pointer"}}>
+                    fontSize:13,fontWeight:alertFilter===v?600:400,cursor:"pointer"}}>
                     {l}
                   </button>
                 ))}
@@ -6910,13 +6910,13 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
                     <div key={i} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",background:bg,borderRadius:8,border:"0.5px solid "+bdr}}>
                       <div style={{flex:1}}>
                         <div style={{fontSize:13,fontWeight:600,color:"#29355D"}}>{a.acct||"Unknown account"}</div>
-                        <div style={{fontSize:11,color:"#808080",marginTop:2}}>{!filterCSM&&`${dispName(a.csm)} · `}{a.boq!=null&&`BOQ: ${fk(a.boq)}`}{a.cur!=null&&a.cur>0&&` → ${fk(a.cur)}`}{a.mrr&&`${fk(a.mrr)}/mo`}</div>
+                        <div style={{fontSize:13,color:"#808080",marginTop:2}}>{!filterCSM&&`${dispName(a.csm)} · `}{a.boq!=null&&`BOQ: ${fk(a.boq)}`}{a.cur!=null&&a.cur>0&&` → ${fk(a.cur)}`}{a.mrr&&`${fk(a.mrr)}/mo`}</div>
                       </div>
-                      <span style={{fontSize:10,fontWeight:600,padding:"2px 8px",borderRadius:20,background:badgeBg,color:badgeCol}}>{a.type}</span>
+                      <span style={{fontSize:12,fontWeight:600,padding:"2px 8px",borderRadius:20,background:badgeBg,color:badgeCol}}>{a.type}</span>
                     </div>
                   );
                 })}
-                {filtered.length>30&&<div style={{fontSize:11,color:"#808080",textAlign:"center"}}>+{filtered.length-30} more</div>}
+                {filtered.length>30&&<div style={{fontSize:13,color:"#808080",textAlign:"center"}}>+{filtered.length-30} more</div>}
                 {filtered.length===0&&<div style={{fontSize:12,color:"#808080",textAlign:"center",padding:"8px 0"}}>No {alertFilter} accounts</div>}
               </div>
             </>);
@@ -6929,7 +6929,7 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
         <div style={card}>
           <span style={lbl}>📋 Activity by CSM — {dashLabel}</span>
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
-            <thead><tr>{[["CSM","left","#808080"],["Scheduled","right","#5378FC"],["Completed","right","#16a34a"],["No Shows","right","#dc2626"],["Cancelled","right","#d97706"]].map(([h,a,c])=>(<th key={h} style={{padding:"0 8px 8px 0",textAlign:a,fontSize:10,textTransform:"uppercase",color:c,fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>{h}</th>))}</tr></thead>
+            <thead><tr>{[["CSM","left","#808080"],["Scheduled","right","#5378FC"],["Completed","right","#16a34a"],["No Shows","right","#dc2626"],["Cancelled","right","#d97706"]].map(([h,a,c])=>(<th key={h} style={{padding:"0 8px 8px 0",textAlign:a,fontSize:12,textTransform:"uppercase",color:c,fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>{h}</th>))}</tr></thead>
             <tbody>{csmFiltered.map(r=>(<tr key={r.name}>
               <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",fontWeight:500,color:"#29355D"}}>{dispName(r.name)}</td>
               <td style={{padding:"8px 8px 8px 0",borderBottom:"0.5px solid rgba(41,53,93,.05)",textAlign:"right",color:r.scheduled>0?"#5378FC":"#ccc",fontWeight:r.scheduled>0?600:400}}>{r.scheduled||"—"}</td>
@@ -7064,14 +7064,14 @@ function CERView({cerAssigned=[], filterCoach="", filterCSM=""}) {
   };
 
   const statusPill = s => {
-    if (s==="completed")  return <span style={{fontSize:10,padding:"2px 8px",borderRadius:20,background:"rgba(22,163,74,.08)",color:"#15803d",border:"0.5px solid rgba(22,163,74,.2)",fontWeight:500}}>Completed</span>;
-    if (s==="inprogress") return <span style={{fontSize:10,padding:"2px 8px",borderRadius:20,background:"rgba(217,119,6,.08)",color:"#b45309",border:"0.5px solid rgba(217,119,6,.2)",fontWeight:500}}>In progress</span>;
-    return <span style={{fontSize:10,padding:"2px 8px",borderRadius:20,background:"rgba(41,53,93,.06)",color:"#808080",border:"0.5px solid rgba(41,53,93,.15)",fontWeight:500}}>New</span>;
+    if (s==="completed")  return <span style={{fontSize:12,padding:"2px 8px",borderRadius:20,background:"rgba(22,163,74,.08)",color:"#15803d",border:"0.5px solid rgba(22,163,74,.2)",fontWeight:500}}>Completed</span>;
+    if (s==="inprogress") return <span style={{fontSize:12,padding:"2px 8px",borderRadius:20,background:"rgba(217,119,6,.08)",color:"#b45309",border:"0.5px solid rgba(217,119,6,.2)",fontWeight:500}}>In progress</span>;
+    return <span style={{fontSize:12,padding:"2px 8px",borderRadius:20,background:"rgba(41,53,93,.06)",color:"#808080",border:"0.5px solid rgba(41,53,93,.15)",fontWeight:500}}>New</span>;
   };
 
   const S = {
     card:{background:"#fff",borderRadius:12,padding:"20px 24px",boxShadow:"0 1px 4px rgba(41,53,93,.07)",marginBottom:16},
-    th:{padding:"9px 12px",textAlign:"left",fontSize:10,textTransform:"uppercase",color:"#808080",fontWeight:500,letterSpacing:"0.05em",borderBottom:"0.5px solid rgba(41,53,93,.08)",cursor:"pointer",whiteSpace:"nowrap",userSelect:"none"},
+    th:{padding:"9px 12px",textAlign:"left",fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500,letterSpacing:"0.05em",borderBottom:"0.5px solid rgba(41,53,93,.08)",cursor:"pointer",whiteSpace:"nowrap",userSelect:"none"},
     td:{padding:"10px 12px",borderBottom:"0.5px solid rgba(41,53,93,.05)",color:"#29355D"},
   };
 
@@ -7109,9 +7109,9 @@ function CERView({cerAssigned=[], filterCoach="", filterCSM=""}) {
           {l:"New",        v:totalNew,        col:"#808080", sub:"not yet started"},
         ].map(t=>(
           <div key={t.l} style={{background:"#fff",border:"0.5px solid rgba(41,53,93,.1)",borderTop:"3px solid "+t.col,borderRadius:12,padding:"12px 16px",boxShadow:"0 1px 4px rgba(41,53,93,.05)"}}>
-            <div style={{fontSize:10,color:"#808080",textTransform:"uppercase",fontWeight:500,marginBottom:4}}>{t.l}</div>
+            <div style={{fontSize:12,color:"#808080",textTransform:"uppercase",fontWeight:500,marginBottom:4}}>{t.l}</div>
             <div style={{fontSize:24,fontWeight:700,color:t.col,marginBottom:3}}>{t.v}</div>
-            <div style={{fontSize:10,color:"#aaa"}}>{t.sub}</div>
+            <div style={{fontSize:12,color:"#aaa"}}>{t.sub}</div>
           </div>
         ))}
       </div>
@@ -7166,7 +7166,7 @@ function CERView({cerAssigned=[], filterCoach="", filterCSM=""}) {
                   <React.Fragment key={g.name}>
                     <tr onClick={()=>setCerExpanded(isExp?null:g.name)}
                       style={{cursor:"pointer",background:isExp?"rgba(41,53,93,.03)":"#fff",transition:"background .1s"}}>
-                      <td style={{...S.td,color:"#808080",fontSize:11,paddingLeft:14}}>{isExp?"▼":"▶"}</td>
+                      <td style={{...S.td,color:"#808080",fontSize:13,paddingLeft:14}}>{isExp?"▼":"▶"}</td>
                       <td style={{...S.td,fontWeight:600,color:"#29355D"}}>{dispName(g.name)}</td>
                       <td style={{...S.td,textAlign:"right"}}>{g.assigned}</td>
                       <td style={{...S.td,textAlign:"right",color:"#16a34a",fontWeight:g.completed>0?600:400}}>{g.completed||"—"}</td>
@@ -7176,7 +7176,7 @@ function CERView({cerAssigned=[], filterCoach="", filterCSM=""}) {
                     {isExp&&(
                       <tr>
                         <td colSpan={6} style={{padding:0,background:"rgba(41,53,93,.02)"}}>
-                          <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+                          <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
                             <thead>
                               <tr style={{borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>
                                 <th style={{...S.th,paddingLeft:44,fontSize:9}} onClick={()=>sortAcct("acct")}>Account <span style={{fontSize:8,opacity:.6}}>{sortAcctIcon("acct")}</span></th>
@@ -7653,13 +7653,13 @@ My question: ${aiCustom}`,
             <span style={{color:"rgba(255,255,255,.6)",fontSize:13}}>CSM Coaching Dashboard</span>
           </div>
           <div style={{display:"flex",alignItems:"center",gap:12}}>
-            {status==="loading"&&<span style={{fontSize:11,padding:"4px 10px",borderRadius:20,background:"rgba(255,255,255,.1)",color:"rgba(255,255,255,.6)"}}>⟳ Loading...</span>}
-            {status==="ok"&&<span style={{fontSize:11,padding:"4px 10px",borderRadius:20,background:"rgba(22,163,74,.25)",color:"#86efac"}}>✓ Live · Revenue syncs every 2 min{updatedAt?" · "+updatedAt:""}</span>}
-            {status==="error"&&<span style={{fontSize:11,padding:"4px 10px",borderRadius:20,background:"rgba(220,38,38,.25)",color:"#fca5a5"}}>✗ Sync error</span>}
+            {status==="loading"&&<span style={{fontSize:13,padding:"4px 10px",borderRadius:20,background:"rgba(255,255,255,.1)",color:"rgba(255,255,255,.6)"}}>⟳ Loading...</span>}
+            {status==="ok"&&<span style={{fontSize:13,padding:"4px 10px",borderRadius:20,background:"rgba(22,163,74,.25)",color:"#86efac"}}>✓ Live · Revenue syncs every 2 min{updatedAt?" · "+updatedAt:""}</span>}
+            {status==="error"&&<span style={{fontSize:13,padding:"4px 10px",borderRadius:20,background:"rgba(220,38,38,.25)",color:"#fca5a5"}}>✗ Sync error</span>}
             <div style={{display:"flex",alignItems:"center",gap:2,background:"rgba(255,255,255,.08)",borderRadius:6,padding:"3px 6px"}}>
               <button onClick={()=>changeFontScale(-0.1)} disabled={fontScale<=0.8}
                 style={{background:"none",border:"none",color:"rgba(255,255,255,.7)",fontSize:14,fontWeight:500,cursor:"pointer",padding:"2px 7px",borderRadius:4,lineHeight:1,opacity:fontScale<=0.8?0.4:1}}>A−</button>
-              <span style={{fontSize:11,color:"rgba(255,255,255,.5)",minWidth:30,textAlign:"center"}}>{Math.round(fontScale*100)}%</span>
+              <span style={{fontSize:13,color:"rgba(255,255,255,.5)",minWidth:30,textAlign:"center"}}>{Math.round(fontScale*100)}%</span>
               <button onClick={()=>changeFontScale(0.1)} disabled={fontScale>=1.4}
                 style={{background:"none",border:"none",color:"rgba(255,255,255,.9)",fontSize:16,fontWeight:500,cursor:"pointer",padding:"2px 7px",borderRadius:4,lineHeight:1,opacity:fontScale>=1.4?0.4:1}}>A+</button>
             </div>
@@ -7715,7 +7715,7 @@ My question: ${aiCustom}`,
                 <option value="">All my CSMs</option>
                 {allCSMNames.filter(n=>{const i=lk(n);return i&&i.c===filterCoach;}).map(n=><option key={n} value={n}>{n}</option>)}
               </select>
-              {filterCSM&&<span style={{background:"#FF5000",color:"#fff",fontSize:11,fontWeight:500,padding:"4px 10px",borderRadius:20,display:"inline-flex",alignItems:"center",gap:6}}>
+              {filterCSM&&<span style={{background:"#FF5000",color:"#fff",fontSize:13,fontWeight:500,padding:"4px 10px",borderRadius:20,display:"inline-flex",alignItems:"center",gap:6}}>
                 {dispName(filterCSM)}
                 <button onClick={()=>setFilterCSM("")} style={{background:"none",border:"none",color:"rgba(255,255,255,.8)",cursor:"pointer",fontSize:14,lineHeight:1,padding:0}}>✕</button>
               </span>}
@@ -7723,7 +7723,7 @@ My question: ${aiCustom}`,
           )}
           {isCsmView&&<div style={{fontSize:13,fontWeight:600,color:"#29355D",padding:"4px 10px",borderRadius:8,background:"#F4F6FB",border:"0.5px solid rgba(41,53,93,.15)"}}>{dispName(userSession.name)}</div>}
           {!isCoachView&&!isCsmView&&(filterManager||filterCoach||filterCSM)&&(
-            <span style={{background:"#FF5000",color:"#fff",fontSize:11,fontWeight:500,padding:"4px 10px",borderRadius:20,display:"inline-flex",alignItems:"center",gap:6}}>
+            <span style={{background:"#FF5000",color:"#fff",fontSize:13,fontWeight:500,padding:"4px 10px",borderRadius:20,display:"inline-flex",alignItems:"center",gap:6}}>
               {dispName(filterCSM)||filterCoach&&COACHES.find(c=>c.e===filterCoach)?.n||filterManager&&MANAGERS.find(m=>m.id===filterManager)?.n}
               <button onClick={()=>{setFilterManager("");setFilterCoach("");setFilterCSM("");}} style={{background:"none",border:"none",color:"rgba(255,255,255,.8)",cursor:"pointer",fontSize:14,lineHeight:1,padding:0}}>✕</button>
             </span>
@@ -7771,7 +7771,7 @@ My question: ${aiCustom}`,
         <div style={{background:"#29355D",padding:"16px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
           <div>
             <div style={{color:"#fff",fontSize:14,fontWeight:600}}>🤖 AI Coach</div>
-            <div style={{color:"rgba(255,255,255,.6)",fontSize:11,marginTop:2}}>
+            <div style={{color:"rgba(255,255,255,.6)",fontSize:13,marginTop:2}}>
               {filterCSM?"Focused on: "+filterCSM
                :filterCoach?"Focused on: "+COACHES.find(c=>c.e===filterCoach)?.n+"'s team"
                :filterManager?"Focused on: "+MANAGERS.find(m=>m.id===filterManager)?.n+"'s org"
@@ -7783,8 +7783,8 @@ My question: ${aiCustom}`,
 
         {/* Question picker */}
         {!aiResponse&&!aiLoading&&<div style={{padding:20,flex:1,overflowY:"auto"}}>
-          <div style={{fontSize:11,color:"#808080",marginBottom:4,fontWeight:600,textTransform:"uppercase",letterSpacing:".05em"}}>What would you like to explore?</div>
-          <div style={{fontSize:11,color:"#808080",marginBottom:14}}>Select a question → Claude opens with your data pre-loaded.</div>
+          <div style={{fontSize:13,color:"#808080",marginBottom:4,fontWeight:600,textTransform:"uppercase",letterSpacing:".05em"}}>What would you like to explore?</div>
+          <div style={{fontSize:13,color:"#808080",marginBottom:14}}>Select a question → Claude opens with your data pre-loaded.</div>
           {[
             {id:"coaching", icon:"🎯", label:"Coaching priorities",    sub:"Top focus areas and 1:1 talking points"},
             {id:"churn",    icon:"⚠️",  label:"Churn risk analysis",    sub:"At-risk accounts and retention concerns"},
@@ -7799,7 +7799,7 @@ My question: ${aiCustom}`,
                 <span style={{fontSize:20}}>{q.icon}</span>
                 <div style={{minWidth:0}}>
                   <div style={{fontSize:13,fontWeight:600,color:"#29355D"}}>{q.label}</div>
-                  <div style={{fontSize:11,color:"#808080",marginTop:2}}>{q.sub}</div>
+                  <div style={{fontSize:13,color:"#808080",marginTop:2}}>{q.sub}</div>
                 </div>
               </div>
               {q.id==="custom"&&aiQuestion==="custom"&&(
@@ -7848,7 +7848,7 @@ My question: ${aiCustom}`,
           <div style={{fontSize:15,fontWeight:700,color:"#29355D"}}>📋 Clipboard unavailable</div>
           <div style={{fontSize:12,color:"#808080"}}>Your browser blocked auto-copy. Select all the text below and copy it manually (Ctrl+A, Ctrl+C).</div>
           <textarea readOnly value={aiCustom||""} onClick={e=>e.target.select()}
-            style={{flex:1,minHeight:200,fontSize:11,padding:10,borderRadius:8,border:"1px solid rgba(41,53,93,.15)",resize:"none",fontFamily:"monospace",color:"#29355D"}}/>
+            style={{flex:1,minHeight:200,fontSize:13,padding:10,borderRadius:8,border:"1px solid rgba(41,53,93,.15)",resize:"none",fontFamily:"monospace",color:"#29355D"}}/>
           <a href="https://claude.ai/new" target="_blank" rel="noreferrer"
             style={{display:"block",padding:"10px",borderRadius:10,background:"#FF5000",color:"#fff",fontSize:13,fontWeight:600,textAlign:"center",textDecoration:"none"}}>
             Open Claude.ai ↗
