@@ -2411,7 +2411,7 @@ function OverviewView({csms, allCSMs, bobRaw, bobAdj, history, callData, filterC
 }
 
 // ── LEADERBOARD TAB ────────────────────────────────────────────────────────
-function LeaderboardView({csms, bobRaw, history=[], q2DomoBoq=[], domoBoq=[], q3BobCur=[], q3Supp=[], rawRev=[]}) {
+function LeaderboardView({csms, allCsms, bobRaw, history=[], q2DomoBoq=[], domoBoq=[], q3BobCur=[], q3Supp=[], rawRev=[]}) {
   const [sort, setSort]     = useState({col:"rev", dir:"desc"});
   const [period, setPeriod] = useState("current_quarter");
 
@@ -2606,6 +2606,17 @@ function LeaderboardView({csms, bobRaw, history=[], q2DomoBoq=[], domoBoq=[], q3
       cadPct:   hasHistory ? (a.cadTotal>0 ? a.cadComp/a.cadTotal : null) : (c.cadCount>0 ? c.cadPct : null),
       otPct:    hasHistory ? (a.otTotal>0  ? a.otWsum/a.otTotal   : null) : (c.otTotal>=3 ? c.otPct  : null),
       bobRet:   getRet(c),
+    };
+  });
+
+  // ── Build allRows from full org for rank calculation ──────────────────────
+  const allRows = (allCsms||csms).map(c => {
+    const a = agg[c.name]||{};
+    return {
+      c,
+      rev:    revByCsm[c.name]||0,
+      cadPct: hasHistory ? (a.cadTotal>0 ? a.cadComp/a.cadTotal : null) : (c.cadCount>0 ? c.cadPct : null),
+      bobRet: getRet(c),
     };
   });
 
@@ -2812,9 +2823,9 @@ function LeaderboardView({csms, bobRaw, history=[], q2DomoBoq=[], domoBoq=[], q3
               const reg  = getReg(c);
               const tcol = TEAM_COLS[info.t||c.team]||"#888";
               // Compute ranks within the regionFiltered list
-              const revRank = [...sorted].filter(r=>r.rev>rev).length+1;
-              const cadRank = cadPct==null?null:[...sorted].filter(r=>r.cadPct!=null&&r.cadPct>cadPct).length+1;
-              const retRank = bobRet==null?null:[...sorted].filter(r=>r.bobRet!=null&&r.bobRet>bobRet).length+1;
+              const revRank = [...allRows].filter(r=>r.rev>rev).length+1;
+              const cadRank = cadPct==null?null:[...allRows].filter(r=>r.cadPct!=null&&r.cadPct>cadPct).length+1;
+              const retRank = bobRet==null?null:[...allRows].filter(r=>r.bobRet!=null&&r.bobRet>bobRet).length+1;
               return (
                 <tr key={c.name} className="lb-row"
                   style={{borderBottom:"0.5px solid rgba(41,53,93,.05)",background:i<3?"rgba(255,215,0,.03)":"#fff",transition:"background .1s"}}>
@@ -7895,7 +7906,7 @@ My question: ${aiCustom}`,
             liveBobDet={liveBobDet} callData={callData} qamc={qamc} qass={qass} history={history}
             skippedCSMs={skippedCSMs.filter(c=>{const i=lk(c.name);if(filterCoach&&(i&&i.c)!==filterCoach)return false;if(filterCSM&&c.name!==filterCSM)return false;return true;})}
             bobAdj={bobAdj} getDet={getDet} domoBoq={domoBoq} q3BobCur={q3BobCur} q3Supp={q3Supp}/>}
-          {tab==="leaderboard"&&<LeaderboardView csms={filteredCSMs} bobRaw={bobRaw} history={history} q2DomoBoq={q2DomoBoq} domoBoq={domoBoq} q3BobCur={q3BobCur} q3Supp={q3Supp} rawRev={rawRev}/>}
+          {tab==="leaderboard"&&<LeaderboardView csms={filteredCSMs} allCsms={csms} bobRaw={bobRaw} history={history} q2DomoBoq={q2DomoBoq} domoBoq={domoBoq} q3BobCur={q3BobCur} q3Supp={q3Supp} rawRev={rawRev}/>}
           
           {tab==="revenue"&&<RevenueView rawRev={rawRev} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches}/>}
           {tab==="bob"&&<BobView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} churnAlerts={churnAlerts} onSelectCSM={selectCSMFn} liveBobDet={liveBobDet} bobAdj={bobAdj} q3BobCur={q3BobCur} domoBoq={domoBoq} q3Supp={q3Supp} q2DomoBoq={q2DomoBoq} bobTab={bobTab} setBobTab={setBobTab}/>}
