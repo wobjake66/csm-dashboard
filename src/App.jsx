@@ -5931,6 +5931,8 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
       return {eid:b.eid, csm:b.csm, acct:b.acct, boq:b.boq, cur, delta, ret, status, adjAmount:adjAmt};
     });
 
+    console.log("[allRows] count:", allRows.length, "totalBoq:", allRows.reduce((s,r)=>s+r.boq,0).toFixed(0), "totalCur:", allRows.reduce((s,r)=>s+r.cur,0).toFixed(0));
+
     // ── Scope by coach/manager/CSM filters ──────────────────────────────────
     const scopedRows = allRows.filter(r => {
       const i = lk(norm(r.csm)) || lk(r.csm);
