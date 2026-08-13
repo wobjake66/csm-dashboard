@@ -2513,37 +2513,22 @@ function LeaderboardView({csms, bobRaw, history=[], q2DomoBoq=[], domoBoq=[], q3
 
   // Q3: domoBoq (BOQ) joined with q3BobCur + q3Supp (current)
   const q3RetByCsm = (() => {
-    const getCol = (row,...keys) => { for(const k of keys){const found=Object.keys(row).find(x=>x.trim().toLowerCase()===k.toLowerCase());if(found)return row[found];}return ""; };
-    const pf = v => parseFloat(String(v||"").replace(/[$,]/g,""))||0;
+    const pf = v => { let s=String(v||"0").trim(); const neg=s.startsWith("(")&&s.endsWith(")"); s=s.replace(/[^0-9.\-]/g,""); const x=parseFloat(s); return isNaN(x)?0:(neg?-x:x); };
     const lfSwap = n => { if(!n)return n; const p=n.split(","); return p.length===2?p[1].trim()+" "+p[0].trim():n; };
-
-    const boqMap = {};
+    const eidMap = {};
     (domoBoq||[]).forEach(r => {
-      const csmRaw = String(getCol(r,"CSM Name")||"").trim();
-      if (!csmRaw || /TOTAL|GRAND/i.test(csmRaw)) return;
-      const eid = String(getCol(r,"Enterprise ID","Enterprise Id")||"").trim().toUpperCase();
-      if (!eid) return;
-      const boqAmt  = pf(getCol(r,"Beginning of Quarter"));
+      const csmRaw = String(r["CSM Name"]||"").trim();
+      if (!csmRaw || /TOTAL|GRAND/i.test(csmRaw) || /\bTOTAL$/i.test(csmRaw)) return;
+      const eid = String(r["Enterprise ID"]||r["Enterprise Id"]||"").trim().toUpperCase();
+      if (!eid || /count/i.test(eid)) return;
       const csmName = norm(lfSwap(csmRaw)) || lfSwap(csmRaw);
-      if (!boqMap[eid]) boqMap[eid] = {eid, csm:csmName, boq:0};
-      boqMap[eid].boq += boqAmt;
+      if (!eidMap[eid]) eidMap[eid] = {csm:csmName, boq:0, net:0};
+      eidMap[eid].boq += pf(r["Beginning of Quarter"]);
+      eidMap[eid].net += pf(r["MTD Net Billing"]);
     });
-
-    const sfMap = {}, suppMap = {};
-    (q3BobCur||[]).forEach(r => {
-      const eid = String(getCol(r,"Enterprise Id","Enterprise ID")||"").trim().toUpperCase();
-      if (!eid) return;
-      sfMap[eid] = (sfMap[eid]||0) + pf(getCol(r,"SaaS Revenue"));
-    });
-    (q3Supp||[]).forEach(r => {
-      const eid = String(getCol(r,"Enterprise Id","Enterprise ID")||"").trim().toUpperCase();
-      if (!eid) return;
-      suppMap[eid] = (suppMap[eid]||0) + pf(getCol(r,"SaaS Revenue"));
-    });
-
     const csmTotals = {};
-    Object.values(boqMap).forEach(b => {
-      const cur = (sfMap[b.eid]||0) + (suppMap[b.eid]||0);
+    Object.values(eidMap).forEach(b => {
+      const cur = b.boq + b.net;
       if (!csmTotals[b.csm]) csmTotals[b.csm] = {boq:0, cur:0};
       csmTotals[b.csm].boq += b.boq;
       csmTotals[b.csm].cur += cur;
@@ -2575,29 +2560,21 @@ function LeaderboardView({csms, bobRaw, history=[], q2DomoBoq=[], domoBoq=[], q3
       else       totals[csmName].cur += cur;
     });
 
-    // Add Q3 boq/cur via domoBoq + q3BobCur + q3Supp
-    const boqMap = {};
+    // Add Q3 boq/cur via single source: BOQ + MTD Net Billing
+    const q3pf = v => { let s=String(v||"0").trim(); const neg=s.startsWith("(")&&s.endsWith(")"); s=s.replace(/[^0-9.\-]/g,""); const x=parseFloat(s); return isNaN(x)?0:(neg?-x:x); };
+    const eidMap = {};
     (domoBoq||[]).forEach(r => {
-      const csmRaw = String(getCol(r,"CSM Name")||"").trim();
-      if (!csmRaw || /TOTAL|GRAND/i.test(csmRaw)) return;
-      const eid = String(getCol(r,"Enterprise ID","Enterprise Id")||"").trim().toUpperCase();
-      if (!eid) return;
-      const boqAmt  = pf(getCol(r,"Beginning of Quarter"));
+      const csmRaw = String(r["CSM Name"]||"").trim();
+      if (!csmRaw || /TOTAL|GRAND/i.test(csmRaw) || /\bTOTAL$/i.test(csmRaw)) return;
+      const eid = String(r["Enterprise ID"]||r["Enterprise Id"]||"").trim().toUpperCase();
+      if (!eid || /count/i.test(eid)) return;
       const csmName = norm(lfSwap(csmRaw)) || lfSwap(csmRaw);
-      if (!boqMap[eid]) boqMap[eid] = {eid, csm:csmName, boq:0};
-      boqMap[eid].boq += boqAmt;
+      if (!eidMap[eid]) eidMap[eid] = {csm:csmName, boq:0, net:0};
+      eidMap[eid].boq += q3pf(r["Beginning of Quarter"]);
+      eidMap[eid].net += q3pf(r["MTD Net Billing"]);
     });
-    const sfMap = {}, suppMap = {};
-    (q3BobCur||[]).forEach(r => {
-      const eid = String(getCol(r,"Enterprise Id","Enterprise ID")||"").trim().toUpperCase();
-      if (eid) sfMap[eid] = (sfMap[eid]||0) + pf(getCol(r,"SaaS Revenue"));
-    });
-    (q3Supp||[]).forEach(r => {
-      const eid = String(getCol(r,"Enterprise Id","Enterprise ID")||"").trim().toUpperCase();
-      if (eid) suppMap[eid] = (suppMap[eid]||0) + pf(getCol(r,"SaaS Revenue"));
-    });
-    Object.values(boqMap).forEach(b => {
-      const cur = (sfMap[b.eid]||0) + (suppMap[b.eid]||0);
+    Object.values(eidMap).forEach(b => {
+      const cur = b.boq + b.net;
       if (!totals[b.csm]) totals[b.csm] = {boq:0, cur:0};
       totals[b.csm].boq += b.boq;
       totals[b.csm].cur += cur;
