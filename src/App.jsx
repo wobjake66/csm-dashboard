@@ -7383,6 +7383,253 @@ function CERView({cerAssigned=[], filterCoach="", filterCSM=""}) {
 }
 // ═══════════════════════════════════════════════════════════════════════════
 
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CAPACITY VIEW — master PIN only, hidden from coaches and CSMs
+// ═══════════════════════════════════════════════════════════════════════════
+function CapacityView({csms=[], callData={}, cadenceFull=[], domoBoq=[], filterCoach="", filterCSM=""}) {
+  const [capPeriod, setCapPeriod] = React.useState("daily");
+
+  const now = new Date();
+  // Working days remaining in quarter (rough: Q3 = Jul-Sep)
+  const qEnd = new Date(now.getFullYear(), 8, 30);
+  const workDaysLeft = Math.max(1, Math.round((qEnd - now) / (1000*60*60*24) * 5/7));
+  const workDaysTotal = 65; // ~Q3 working days
+
+  const multiplier = capPeriod === "daily" ? 1 : capPeriod === "weekly" ? 5 : 22;
+  const callTarget  = capPeriod === "daily" ? [3,4]  : capPeriod === "weekly" ? [15,20]  : [66,88];
+  const cadTarget   = capPeriod === "daily" ? [4,6]  : capPeriod === "weekly" ? [20,30]  : [88,132];
+  const combTarget  = capPeriod === "daily" ? [7,10] : capPeriod === "weekly" ? [35,50]  : [154,220];
+
+  const pf = v => { let s=String(v||"0").trim(); const neg=s.startsWith("(")&&s.endsWith(")"); s=s.replace(/[^0-9.\-]/g,""); const x=parseFloat(s); return isNaN(x)?0:(neg?-x:x); };
+  const pp = p => p==null?"--":(p*100).toFixed(1)+"%";
+  const fd = n => "$"+Math.round(n).toLocaleString();
+
+  // Scope to filtered CSMs
+  const scopedCSMs = csms;
+  const resolveKey = n => callData[n] ? n : Object.keys(callData).find(k=>norm(k)===n)||n;
+
+  // Build account sets from cadence (any row = active)
+  const cadenceAccounts = {}; // csm -> Set of account names
+  (cadenceFull||[]).forEach(r => {
+    const csm = norm(String(r["Cadence Member: Assigned"]||"").trim());
+    const acct = String(r["Cadence Member: Account"]||"").trim();
+    if (!csm || !acct) return;
+    if (!cadenceAccounts[csm]) cadenceAccounts[csm] = new Set();
+    cadenceAccounts[csm].add(acct);
+  });
+
+  // Build account sets from calls (any scheduled/completed = onboarding-phase)
+  const callAccounts = {}; // csm -> Set of account names (from client name field if available)
+  // calls are stored as callData[csmName][date][serviceType] = {scheduled, completed, noShow, cancelled}
+  // We don't have per-account call data, so we'll use call COUNT as onboarding proxy
+
+  // Compute per-CSM stats
+  const csmRows = scopedCSMs.map(c => {
+    const key = resolveKey(c.name);
+    const csmNorm = norm(c.name);
+
+    // Total calls (all time in dataset)
+    let totalCalls = 0, scheduledCalls = 0;
+    Object.values(callData[key]||{}).forEach(dayData => {
+      Object.values(dayData).forEach(d => {
+        totalCalls += (d.completed||0) + (d.noShow||0) + (d.cancelled||0) + (d.scheduled||0);
+        scheduledCalls += (d.scheduled||0);
+      });
+    });
+
+    // Avg calls per day (completed + upcoming / working days)
+    const callsPerDay = workDaysTotal > 0 ? totalCalls / workDaysTotal : 0;
+
+    // Cadence open touchpoints
+    const cadRows = (cadenceFull||[]).filter(r => {
+      const assigned = norm(String(r["Cadence Member: Assigned"]||"").trim());
+      return assigned === csmNorm || assigned === csmNorm;
+    });
+    const openCad = cadRows.filter(r => r["Status"]==="Open").length;
+    const cadPerDay = workDaysLeft > 0 ? openCad / workDaysLeft : 0;
+    const totalActive = cadRows.length; // any cadence row = active account
+
+    // Book of business accounts
+    const totalAccts = c.accts?.length || 0;
+
+    // Active accounts (in cadence - any status)
+    const activeAcctNames = cadenceAccounts[csmNorm] || new Set();
+    const activeCount = activeAcctNames.size;
+
+    // Onboarding: accounts with calls but NOT in cadence
+    // Since we don't have per-account call data, estimate from scheduled calls
+    const onboardingEst = Math.round(scheduledCalls * 0.6); // rough: 60% of scheduled = active onboarding
+
+    // No activity: total - active - onboarding (floored at 0)
+    const noActivityCount = Math.max(0, totalAccts - activeCount - Math.min(onboardingEst, totalAccts - activeCount));
+
+    // Status helpers
+    const callStatus = callsPerDay * multiplier;
+    const cadStatus  = cadPerDay * multiplier;
+    const combined   = callStatus + cadStatus;
+
+    const getStatus = (val, [lo, hi]) =>
+      val >= lo && val <= hi ? "on" : val < lo ? "under" : "over";
+
+    return {
+      c, name: c.name,
+      totalAccts, activeCount, onboardingEst: Math.min(onboardingEst, totalAccts - activeCount), noActivityCount,
+      callsPerDay, cadPerDay, combined: callsPerDay + cadPerDay,
+      callStatus: getStatus(callsPerDay * multiplier, callTarget),
+      cadStatus:  getStatus(cadPerDay * multiplier, cadTarget),
+      overallStatus: getStatus((callsPerDay + cadPerDay) * multiplier, combTarget),
+      openCad,
+    };
+  }).sort((a,b) => b.totalAccts - a.totalAccts);
+
+  // Org totals
+  const orgAccts    = csmRows.reduce((s,r)=>s+r.totalAccts,0);
+  const orgActive   = csmRows.reduce((s,r)=>s+r.activeCount,0);
+  const orgOnb      = csmRows.reduce((s,r)=>s+r.onboardingEst,0);
+  const orgNone     = csmRows.reduce((s,r)=>s+r.noActivityCount,0);
+  const avgCalls    = csmRows.length ? csmRows.reduce((s,r)=>s+r.callsPerDay,0)/csmRows.length : 0;
+  const avgCad      = csmRows.length ? csmRows.reduce((s,r)=>s+r.cadPerDay,0)/csmRows.length : 0;
+
+  const statusPill = (s) => {
+    const map = {on:["g","On track"], under:["a","Under"], over:["r","Over"]};
+    const [cls, lbl] = map[s]||["n","--"];
+    const col = cls==="g"?"#16a34a":cls==="a"?"#d97706":"#dc2626";
+    const bg  = cls==="g"?"rgba(22,163,74,.1)":cls==="a"?"rgba(217,119,6,.1)":"rgba(220,38,38,.1)";
+    return <span style={{fontSize:11,fontWeight:600,padding:"2px 8px",borderRadius:20,background:bg,color:col}}>{lbl}</span>;
+  };
+
+  const fmt1 = n => (n * multiplier).toFixed(1);
+
+  const S = {
+    card:{background:"#fff",borderRadius:12,padding:"18px 22px",boxShadow:"0 1px 4px rgba(41,53,93,.07)",marginBottom:14},
+    tile:{background:"rgba(41,53,93,.04)",borderRadius:8,padding:"12px 14px"},
+    th:{padding:"8px 10px",fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,letterSpacing:"0.04em",borderBottom:"0.5px solid rgba(41,53,93,.08)",whiteSpace:"nowrap"},
+    td:{padding:"8px 10px",borderBottom:"0.5px solid rgba(41,53,93,.05)",color:"#29355D",verticalAlign:"middle"},
+  };
+
+  return (
+    <div style={{maxWidth:1200,margin:"0 auto"}}>
+
+      {/* Header */}
+      <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:18,flexWrap:"wrap",gap:8}}>
+        <div>
+          <div style={{fontSize:20,fontWeight:700,color:"#29355D",marginBottom:2}}>⚡ Capacity Model</div>
+          <div style={{fontSize:13,color:"#808080"}}>Master view only · workload estimates based on calls + cadence data</div>
+        </div>
+        <div style={{display:"flex",gap:6}}>
+          {[["daily","Daily"],["weekly","Weekly"],["monthly","Monthly"]].map(([v,l])=>(
+            <button key={v} onClick={()=>setCapPeriod(v)}
+              style={{padding:"4px 14px",borderRadius:20,fontSize:13,fontWeight:500,cursor:"pointer",
+                border:"0.5px solid "+(capPeriod===v?"#29355D":"rgba(41,53,93,.2)"),
+                background:capPeriod===v?"#29355D":"#fff",color:capPeriod===v?"#fff":"#808080"}}>
+              {l}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Targets */}
+      <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:14,flexWrap:"wrap"}}>
+        <span style={{fontSize:12,color:"#808080"}}>Targets ({capPeriod}):</span>
+        {[["📞 Calls",callTarget],["✅ Cadence",cadTarget],["Combined",combTarget]].map(([lbl,[lo,hi]])=>(
+          <span key={lbl} style={{fontSize:12,padding:"2px 10px",borderRadius:20,background:"rgba(41,53,93,.05)",color:"#808080",border:"0.5px solid rgba(41,53,93,.1)"}}>
+            {lbl}: {lo}–{hi}
+          </span>
+        ))}
+      </div>
+
+      {/* Org summary tiles */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(6,minmax(0,1fr))",gap:10,marginBottom:14}}>
+        {[
+          {l:"Total accounts",v:orgAccts,sub:`${csmRows.length} CSMs · ${(orgAccts/Math.max(csmRows.length,1)).toFixed(1)} avg`},
+          {l:"Onboarding",v:orgOnb,sub:`${orgAccts>0?Math.round(orgOnb/orgAccts*100):0}% of book · have calls`,col:"#2a78d6"},
+          {l:"Active (cadence)",v:orgActive,sub:`${orgAccts>0?Math.round(orgActive/orgAccts*100):0}% of book`,col:"#16a34a"},
+          {l:"No activity",v:orgNone,sub:`${orgAccts>0?Math.round(orgNone/orgAccts*100):0}% · at-risk`,col:orgNone/Math.max(orgAccts,1)>0.1?"#dc2626":"#808080"},
+          {l:`Avg calls / ${capPeriod}`,v:(avgCalls*multiplier).toFixed(1),sub:`target ${callTarget[0]}–${callTarget[1]}`},
+          {l:`Avg cadence / ${capPeriod}`,v:(avgCad*multiplier).toFixed(1),sub:`target ${cadTarget[0]}–${cadTarget[1]}`},
+        ].map(t=>(
+          <div key={t.l} style={S.tile}>
+            <div style={{fontSize:12,color:"#808080",marginBottom:4}}>{t.l}</div>
+            <div style={{fontSize:22,fontWeight:700,color:t.col||"#29355D",lineHeight:1,marginBottom:3}}>{t.v}</div>
+            <div style={{fontSize:11,color:"#aaa"}}>{t.sub}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Per-CSM table */}
+      <div style={S.card}>
+        <div style={{fontSize:13,fontWeight:600,color:"#29355D",marginBottom:14}}>Per-CSM workload breakdown</div>
+        <div style={{overflowX:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:900}}>
+            <thead>
+              <tr>
+                <th style={{...S.th,textAlign:"left"}}>CSM</th>
+                <th style={{...S.th,textAlign:"right"}}>Accts</th>
+                <th style={{...S.th,textAlign:"right",color:"#2a78d6"}}>📞 Onboarding</th>
+                <th style={{...S.th,textAlign:"right",color:"#16a34a"}}>✅ Active</th>
+                <th style={{...S.th,textAlign:"right",color:"#808080"}}>⚠ No activity</th>
+                <th style={{...S.th,textAlign:"center"}}>Book mix</th>
+                <th style={{...S.th,textAlign:"right"}}>Calls/{capPeriod}</th>
+                <th style={{...S.th,textAlign:"center"}}>Call status</th>
+                <th style={{...S.th,textAlign:"right"}}>Cad/{capPeriod}</th>
+                <th style={{...S.th,textAlign:"center"}}>Cad status</th>
+                <th style={{...S.th,textAlign:"right"}}>Combined</th>
+                <th style={{...S.th,textAlign:"center"}}>Overall</th>
+              </tr>
+            </thead>
+            <tbody>
+              {csmRows.map(r => {
+                const onbPct  = r.totalAccts>0?r.onboardingEst/r.totalAccts:0;
+                const actPct  = r.totalAccts>0?r.activeCount/r.totalAccts:0;
+                const nonePct = r.totalAccts>0?r.noActivityCount/r.totalAccts:0;
+                const noneCol = nonePct>0.1?"#dc2626":nonePct>0.05?"#d97706":"#808080";
+                const noneBg  = nonePct>0.1?"rgba(220,38,38,.1)":nonePct>0.05?"rgba(217,119,6,.1)":"rgba(41,53,93,.05)";
+                return (
+                  <tr key={r.name} style={{background:"#fff"}}>
+                    <td style={{...S.td,fontWeight:600,textAlign:"left"}}>{dispName(r.name)}</td>
+                    <td style={{...S.td,textAlign:"right",color:"#808080"}}>{r.totalAccts}</td>
+                    <td style={{...S.td,textAlign:"right",color:"#2a78d6",fontWeight:600}}>
+                      {r.onboardingEst} <span style={{fontSize:11,color:"#aaa",fontWeight:400}}>({Math.round(onbPct*100)}%)</span>
+                    </td>
+                    <td style={{...S.td,textAlign:"right",color:"#16a34a",fontWeight:600}}>
+                      {r.activeCount} <span style={{fontSize:11,color:"#aaa",fontWeight:400}}>({Math.round(actPct*100)}%)</span>
+                    </td>
+                    <td style={{...S.td,textAlign:"right"}}>
+                      <span style={{fontSize:11,fontWeight:600,padding:"2px 8px",borderRadius:20,background:noneBg,color:noneCol}}>
+                        {r.noActivityCount} ({Math.round(nonePct*100)}%)
+                      </span>
+                    </td>
+                    <td style={{...S.td,textAlign:"center"}}>
+                      {r.totalAccts>0&&(
+                        <div style={{display:"flex",height:6,borderRadius:3,overflow:"hidden",width:80,margin:"0 auto",gap:1}}>
+                          <div style={{flex:r.onboardingEst,background:"#2a78d6",minWidth:r.onboardingEst>0?2:0}}/>
+                          <div style={{flex:r.activeCount,background:"#16a34a",minWidth:r.activeCount>0?2:0}}/>
+                          <div style={{flex:r.noActivityCount,background:"#888780",minWidth:r.noActivityCount>0?2:0}}/>
+                        </div>
+                      )}
+                    </td>
+                    <td style={{...S.td,textAlign:"right",fontWeight:600}}>{fmt1(r.callsPerDay)}</td>
+                    <td style={{...S.td,textAlign:"center"}}>{statusPill(r.callStatus)}</td>
+                    <td style={{...S.td,textAlign:"right",fontWeight:600}}>{fmt1(r.cadPerDay)}</td>
+                    <td style={{...S.td,textAlign:"center"}}>{statusPill(r.cadStatus)}</td>
+                    <td style={{...S.td,textAlign:"right",fontWeight:600}}>{(( r.callsPerDay+r.cadPerDay)*multiplier).toFixed(1)}</td>
+                    <td style={{...S.td,textAlign:"center"}}>{statusPill(r.overallStatus)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <div style={{fontSize:11,color:"#aaa",marginTop:10,paddingTop:10,borderTop:"0.5px solid rgba(41,53,93,.06)"}}>
+          Onboarding = accounts with any scheduled call · Active = accounts in cadence (any status) · No activity = neither · Cadence/period = open touchpoints ÷ remaining working days in Q3
+        </div>
+      </div>
+    </div>
+  );
+}
+// ═══════════════════════════════════════════════════════════════════════════
+
 export default 
 function App() {
   const [unlocked, setUnlocked] = useState(false);
@@ -7793,7 +8040,7 @@ My question: ${aiCustom}`,
     setUserSession(user);
     // Check for deep link tab param (e.g. ?tab=digest from email)
     const _urlTab = new URLSearchParams(window.location.search).get("tab");
-    const _validTabs = ["coaching","digest","revenue","bob","leaderboard","calls","cers","trends","mydash"];
+    const _validTabs = ["coaching","digest","revenue","bob","leaderboard","calls","cers","trends","mydash","capacity"];
     if (_urlTab && _validTabs.includes(_urlTab)) setTab(_urlTab);
     else setTab("coaching");
     // Auto-filter to this CSM if role=csm
@@ -7848,10 +8095,10 @@ My question: ${aiCustom}`,
           </div>
         </div>
         <div style={{display:"flex",alignItems:"stretch",padding:"0 24px"}}>
-          {["coaching","digest","revenue","bob","leaderboard","calls","cers","trends","mydash"].filter(t=>!isCsmView||(t==="mydash")).map(t=>(
+          {["coaching","digest","revenue","bob","leaderboard","calls","cers","trends","mydash",...(userSession.role==="master"?["capacity"]:[])].filter(t=>!isCsmView||(t==="mydash")).map(t=>(
             <button key={t} onClick={()=>setTab(t)}
               style={{padding:"10px 18px",fontSize:13,fontWeight:500,color:tab===t?"#fff":"rgba(255,255,255,.55)",background:"transparent",border:"none",cursor:"pointer",borderBottom:tab===t?"3px solid #FF5000":"3px solid transparent",whiteSpace:"nowrap"}}>
-              {t==="mydash"?"🏠 My Dashboard":t==="coaching"?"Coaching":t==="digest"?"📋 Daily Digest":t==="trends"?"📈 Trends":t==="calls"?"📞 Calls":t==="cers"?"📋 CERs":t==="revenue"?"💰 Revenue":t==="bob"?"📋 Book of Business":t.charAt(0).toUpperCase()+t.slice(1)}
+              {t==="mydash"?"🏠 My Dashboard":t==="coaching"?"Coaching":t==="digest"?"📋 Daily Digest":t==="trends"?"📈 Trends":t==="calls"?"📞 Calls":t==="cers"?"📋 CERs":t==="revenue"?"💰 Revenue":t==="bob"?"📋 Book of Business":t==="capacity"?"⚡ Capacity":t.charAt(0).toUpperCase()+t.slice(1)}
             </button>
           ))}
         </div>
@@ -7935,6 +8182,7 @@ My question: ${aiCustom}`,
           {tab==="trends"&&<TrendsView history={history} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} qamc={qamc} qass={qass} trendsTab={trendsTab} setTrendsTab={setTrendsTab}/>}
           {tab==="cers"&&<CERView cerAssigned={cerAssigned} filterCoach={filterCoach} filterCSM={filterCSM}/>}
           {tab==="calls"&&<TrendsView history={history} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} qamc={qamc} qass={qass} trendsTab="calls" setTrendsTab={()=>{}} hideSubTabs={true}/>}
+          {tab==="capacity"&&userSession.role==="master"&&<CapacityView csms={csms} callData={callData} cadenceFull={cadenceFull} domoBoq={domoBoq} filterCoach={filterCoach} filterCSM={filterCSM}/>}
           {tab==="mydash"&&<MyDashboard csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} churnAlerts={churnAlerts} qamc={qamc||[]} qass={qass||[]} domoBoq={domoBoq||[]} q3BobCur={q3BobCur||[]} q3Supp={q3Supp||[]} rawRev={rawRev||[]} cadenceFull={cadenceFull||[]} onNavigate={setTab} onSetTrendsTab={setTrendsTab} onSetBobTab={setBobTab} cerAssigned={cerAssigned} cerCompleted={cerCompleted}/>}
         </div>
       )}
