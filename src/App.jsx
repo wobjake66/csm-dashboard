@@ -7414,7 +7414,7 @@ function CapacityView({csms=[], callData={}, callRaw=[], cadenceFull=[], domoBoq
 
   // ── Calls: unique client accounts per CSM (dedupe by email — repeat calls
   //    to the same client are ONE account, not N) + a dated activity log ────
-  const callAcctsByCsm = {};    // normName -> Set of client emails (cumulative)
+  const callAcctsByCsm = {};    // normName -> {monthKey (YYYY-MM) -> Set of client emails that month}
   const callActivityByCsm = {}; // normName -> [{date}] real, non-cancelled calls
   const seenBooking = new Set(); // same booking re-uploaded (Scheduled -> Completed) shouldn't double count
   callRaw.forEach(r => {
@@ -7436,11 +7436,15 @@ function CapacityView({csms=[], callData={}, callRaw=[], cadenceFull=[], domoBoq
     if (seenBooking.has(dedupKey)) return;
     seenBooking.add(dedupKey);
 
-    if (!callAcctsByCsm[csm]) { callAcctsByCsm[csm] = new Set(); callActivityByCsm[csm] = []; }
-    callAcctsByCsm[csm].add(emailRaw);
-
     const apptDate = parseDate(apptTime);
-    if (apptDate) callActivityByCsm[csm].push({date: apptDate});
+    if (!apptDate) return;
+    const monthKey = apptDate.getFullYear() + "-" + String(apptDate.getMonth()+1).padStart(2,"0");
+
+    if (!callAcctsByCsm[csm]) { callAcctsByCsm[csm] = {}; callActivityByCsm[csm] = []; }
+    if (!callAcctsByCsm[csm][monthKey]) callAcctsByCsm[csm][monthKey] = new Set();
+    callAcctsByCsm[csm][monthKey].add(emailRaw);
+
+    callActivityByCsm[csm].push({date: apptDate});
   });
 
   // ── Resolve a canonical (roster) name to whichever key a data source used ──
@@ -7465,7 +7469,17 @@ function CapacityView({csms=[], callData={}, callRaw=[], cadenceFull=[], domoBoq
     const activeCount = (openAcctByCsm[cadKey] || new Set()).size; // true active-cadence count
 
     const callKey = resolveKey(csmNorm, callAcctsByCsm);
-    const onboardingCount = (callAcctsByCsm[callKey] || new Set()).size; // unique clients w/ a call, by email
+    // Onboarding = AVERAGE unique clients called per month, by email — not a
+    // lifetime cumulative count. A cumulative count picks up years of call
+    // history (former clients, reassigned accounts, one-off outreach) and
+    // balloons far past the current book size. Averaging per calendar month
+    // gives a steady-state "how many distinct clients does this CSM typically
+    // call in a month" figure instead.
+    const monthlyClientSets = Object.values(callAcctsByCsm[callKey] || {});
+    const onboardingCount = monthlyClientSets.length
+      ? monthlyClientSets.reduce((s,set)=>s+set.size,0) / monthlyClientSets.length
+      : 0;
+    const onboardingMonths = monthlyClientSets.length;
 
     // "Actively working" = cadence accounts + call accounts. This is a simple
     // sum, not a de-duplicated union — cadence is keyed by company name and
@@ -7484,7 +7498,7 @@ function CapacityView({csms=[], callData={}, callRaw=[], cadenceFull=[], domoBoq
     const getStatus = (val, [lo,hi]) => val>=lo&&val<=hi?"on":val<lo?"under":"over";
 
     return {
-      c, name: c.name, totalAccts, activeCount, onboardingCount, workingCount, workingPct,
+      c, name: c.name, totalAccts, activeCount, onboardingCount, onboardingMonths, workingCount, workingPct,
       cadInPeriod, callInPeriod, callsPerDay, cadPerDay, combined,
       callStatus:    getStatus(callsPerDay, dailyCallTarget),
       cadStatus:     getStatus(cadPerDay,   dailyCadTarget),
@@ -7552,8 +7566,8 @@ function CapacityView({csms=[], callData={}, callRaw=[], cadenceFull=[], domoBoq
         {[
           {l:"Total accounts (BoB)",  v:orgAccts,  sub:`${csmRows.length} CSMs · ${(orgAccts/Math.max(csmRows.length,1)).toFixed(1)} avg`, col:"#29355D"},
           {l:"In cadence (active)",   v:orgActive, sub:`${orgAccts>0?Math.round(orgActive/orgAccts*100):0}% of book`, col:"#16a34a"},
-          {l:"Onboarding (calls)",    v:orgOnb,    sub:"unique clients w/ a call, by email", col:"#2a78d6"},
-          {l:"Actively working",      v:orgWorking,sub:`cadence + calls · ${orgAccts>0?Math.round(orgWorking/orgAccts*100):0}% of book`, col:"#7c3aed"},
+          {l:"Onboarding (calls, avg/mo)", v:orgOnb.toFixed(1), sub:"avg unique clients/month, by email", col:"#2a78d6"},
+          {l:"Actively working",      v:orgWorking.toFixed(1),sub:`cadence + calls avg · ${orgAccts>0?Math.round(orgWorking/orgAccts*100):0}% of book`, col:"#7c3aed"},
           {l:`Avg calls / day (${period.label})`,  v:fmt1(avgCalls), sub:`target ${dailyCallTarget[0]}–${dailyCallTarget[1]}`, col:"#29355D"},
           {l:`Avg cadence / day (${period.label})`,v:fmt1(avgCad),   sub:`target ${dailyCadTarget[0]}–${dailyCadTarget[1]}`, col:"#29355D"},
         ].map(t=>(
@@ -7575,7 +7589,7 @@ function CapacityView({csms=[], callData={}, callRaw=[], cadenceFull=[], domoBoq
                 <th style={{...S.th,textAlign:"left"}}>CSM</th>
                 <th style={{...S.th,textAlign:"right"}}>BoB Accts</th>
                 <th style={{...S.th,textAlign:"right",color:"#16a34a"}}>✅ Active (cadence)</th>
-                <th style={{...S.th,textAlign:"right",color:"#2a78d6"}}>📞 Onboarding (calls)</th>
+                <th style={{...S.th,textAlign:"right",color:"#2a78d6"}}>📞 Onboarding (avg/mo)</th>
                 <th style={{...S.th,textAlign:"right",color:"#7c3aed"}}>🔥 Actively working</th>
                 <th style={{...S.th,textAlign:"right"}}>Calls/day</th>
                 <th style={{...S.th,textAlign:"center"}}>Call status</th>
@@ -7597,10 +7611,11 @@ function CapacityView({csms=[], callData={}, callRaw=[], cadenceFull=[], domoBoq
                       {r.activeCount} {actPct!=null && <span style={{fontSize:11,color:"#aaa",fontWeight:400}}>({Math.round(actPct*100)}%)</span>}
                     </td>
                     <td style={{...S.td,textAlign:"right",color:"#2a78d6",fontWeight:600}}>
-                      {r.onboardingCount}
+                      {fmt1(r.onboardingCount)}
+                      <div style={{fontSize:10,color:"#aaa"}}>avg/mo · {r.onboardingMonths} mo data</div>
                     </td>
                     <td style={{...S.td,textAlign:"right",color:"#7c3aed",fontWeight:600}}>
-                      {r.workingCount} {wrkPct!=null && <span style={{fontSize:11,color:"#aaa",fontWeight:400}}>({Math.round(wrkPct*100)}%)</span>}
+                      {fmt1(r.workingCount)} {wrkPct!=null && <span style={{fontSize:11,color:"#aaa",fontWeight:400}}>({Math.round(wrkPct*100)}%)</span>}
                     </td>
                     <td style={{...S.td,textAlign:"right",fontWeight:600}}>
                       {fmt1(r.callsPerDay)}
@@ -7621,7 +7636,7 @@ function CapacityView({csms=[], callData={}, callRaw=[], cadenceFull=[], domoBoq
           </table>
         </div>
         <div style={{fontSize:11,color:"#aaa",marginTop:10,paddingTop:10,borderTop:"0.5px solid rgba(41,53,93,.06)"}}>
-          Active = unique accounts w/ an open cadence touchpoint (no BoB name-matching) · Onboarding = unique clients w/ a logged call, deduped by email · Actively working = Active + Onboarding (simple sum — the two sources use different identifiers, so this can double-count an account that's in both cadence and calls) · Calls/Cad per day = real activity in the selected period ÷ {elapsedDays} working day{elapsedDays===1?"":"s"} elapsed so far, not a projection.
+          Active = unique accounts w/ an open cadence touchpoint (no BoB name-matching) · Onboarding = average unique clients called per calendar month, deduped by email (a lifetime cumulative count would include years of former/reassigned clients and balloon past book size) · Actively working = Active + Onboarding avg (simple sum — the two sources use different identifiers, so this can double-count an account that's in both cadence and calls) · Calls/Cad per day = real activity in the selected period ÷ {elapsedDays} working day{elapsedDays===1?"":"s"} elapsed so far, not a projection.
         </div>
       </div>
     </div>
