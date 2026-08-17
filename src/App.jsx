@@ -92,7 +92,7 @@ const NAME_NORM = {
   "chelsea dingus":"Chelsea Dingus",
   "eric johnson":"Eric Johnson","robert johnson":"Eric Johnson",
   "florence francois nova":"Florence Francois Nova","florence francois":"Florence Francois Nova","florence nova":"Florence Francois Nova",
-  "joseph guillermo carmona garcia":"Joseph Guillermo Carmona Garcia","joseph carmona":"Joseph Guillermo Carmona Garcia",
+  "joseph guillermo carmona garcia":"Joseph Guillermo Carmona Garcia","joseph carmona":"Joseph Guillermo Carmona Garcia","joseph carmona garcia":"Joseph Guillermo Carmona Garcia","carmona garcia, joseph":"Joseph Guillermo Carmona Garcia",
   "misty decatur":"Misty Decatur",
   "sarah swanson":"Sarah Swanson",
   "scott mather":"Scott Mather",
@@ -113,7 +113,7 @@ const NAME_NORM = {
   "ashley shaffer":"Ashley Shaffer",
   "karissa hernandez":"Karissa Hernandez",
   "karmita turner":"Karmita Turner",
-  "katelyn ankrom":"Katelyn Ankrom",
+  "katelyn ankrom":"Katelyn Ankrom","katelyn anderson":"Katelyn Ankrom","anderson, katelyn":"Katelyn Ankrom",
   "libby booher":"Libby Booher",
   "mj brielmann":"MJ Brielmann","merve brielmann":"MJ Brielmann",
   "mark velazquez":"Mark Velazquez","william velazquez":"Mark Velazquez",
@@ -123,25 +123,25 @@ const NAME_NORM = {
   // Mia O'Dirling — DR
   "darling danais santos taveras":"Darling Danais Santos Taveras","darling":"Darling Danais Santos Taveras","darling santos":"Darling Danais Santos Taveras",
   "heidi torres uribe":"Heidi Torres Uribe","heidi":"Heidi Torres Uribe","heidi torres":"Heidi Torres Uribe",
-  "irina larianni molina molina":"Irina Larianni Molina Molina","irini":"Irina Larianni Molina Molina","irina molina":"Irina Larianni Molina Molina",
+  "irina larianni molina molina":"Irina Larianni Molina Molina","irini":"Irina Larianni Molina Molina","irina molina":"Irina Larianni Molina Molina","irina molina molina":"Irina Larianni Molina Molina","molina molina, irina":"Irina Larianni Molina Molina",
   "ironelis cabrera bautista":"Ironelis Cabrera Bautista","ironelis":"Ironelis Cabrera Bautista","ironelis cabrera":"Ironelis Cabrera Bautista","ironelis bautista":"Ironelis Cabrera Bautista",
   "jathzelyn elizabeth fortuna paulino":"Jathzelyn Elizabeth Fortuna Paulino","jathzelyn":"Jathzelyn Elizabeth Fortuna Paulino","jazz":"Jathzelyn Elizabeth Fortuna Paulino","jathzelyn fortuna":"Jathzelyn Elizabeth Fortuna Paulino","jazz fortuna":"Jathzelyn Elizabeth Fortuna Paulino",
   "juan sanchez":"Juan Sanchez","juan sanchez sanchez":"Juan Sanchez",
   "lisbeth gruning soriano":"Lisbeth Gruning Soriano","lisbeth":"Lisbeth Gruning Soriano","lisbeth gruning":"Lisbeth Gruning Soriano",
   "samuel frias de paula":"Samuel Frias De Paula","sam":"Samuel Frias De Paula","samuel":"Samuel Frias De Paula","sam frias":"Samuel Frias De Paula","samuel frial":"Samuel Frias De Paula",
-  "sati ananda pimentel malespin":"Sati Ananda Pimentel Malespin","sati":"Sati Ananda Pimentel Malespin","sati pimentel":"Sati Ananda Pimentel Malespin",
+  "sati ananda pimentel malespin":"Sati Ananda Pimentel Malespin","sati":"Sati Ananda Pimentel Malespin","sati pimentel":"Sati Ananda Pimentel Malespin","sati pimentel malespin":"Sati Ananda Pimentel Malespin","pimentel malespin, sati":"Sati Ananda Pimentel Malespin",
   "victor abner moscoso fernandez":"Victor Abner Moscoso Fernandez","victor":"Victor Abner Moscoso Fernandez","victor moscoso":"Victor Abner Moscoso Fernandez",
   "yessica montero urena":"Yessica Montero Urena","yessica":"Yessica Montero Urena","yessica montero":"Yessica Montero Urena",
   // Trisha Stalnaker — US/DR
   "ashley vasquez mena":"Ashley Vasquez Mena","ashley vasquez":"Ashley Vasquez Mena",
   "dorka frias lantigua":"Dorka Frias Lantigua","dorka frias":"Dorka Frias Lantigua","dorka":"Dorka Frias Lantigua",
   "felix caba jimenez":"Felix Caba Jimenez","felix caba":"Felix Caba Jimenez","felix jimenez":"Felix Caba Jimenez",
-  "jaelene alejo rodriguez":"Jaelene Alejo Rodriguez","jaelene alejo":"Jaelene Alejo Rodriguez","jaelene rodriguez":"Jaelene Alejo Rodriguez",
+  "jaelene alejo rodriguez":"Jaelene Alejo Rodriguez","alejo rodriguez, jaelene":"Jaelene Alejo Rodriguez","jaelene alejo":"Jaelene Alejo Rodriguez","jaelene rodriguez":"Jaelene Alejo Rodriguez",
   "jose gonzalez robles":"Jose Gonzalez Robles","jose gonzalez":"Jose Gonzalez Robles","jose":"Jose Gonzalez Robles","robles":"Jose Gonzalez Robles",
   "karen capellan tavarez":"Karen Capellan Tavarez","karen capellan":"Karen Capellan Tavarez",
   "kellie lester":"Kellie Lester",
   "kyle dye":"Kyle Dye",
-  "rafael sencion sencion":"Rafael Sencion Sencion","rafael sencion":"Rafael Sencion Sencion",
+  "rafael sencion sencion":"Rafael Sencion Sencion","rafael sencion":"Rafael Sencion Sencion","rafael sencion leon":"Rafael Sencion Sencion","sencion leon, rafael":"Rafael Sencion Sencion",
   "saira julian guzman":"Saira Julian Guzman",
   "taylor kidd":"Taylor Kidd",
 };
@@ -7384,13 +7384,39 @@ function CapacityView({csms=[], callData={}, cadenceFull=[], domoBoq=[], filterC
   const csmRows = csms.map(c => {
     const csmNorm = norm(c.name);
 
+    // Resolve bobByCsm key — the BoB sheet may use a different name form (e.g. maiden name,
+    // partial name). Try the direct norm first, then scan NAME_NORM aliases for any key that
+    // maps to this canonical name and exists in bobByCsm.
+    const resolveBobKey = (canonicalNorm) => {
+      if (bobByCsm[canonicalNorm]) return canonicalNorm;
+      // scan NAME_NORM for aliases pointing to this canonical
+      const canonical = Object.values(NAME_NORM).find(v => norm(v) === canonicalNorm);
+      if (canonical) {
+        const aliasKey = Object.keys(NAME_NORM).find(k => NAME_NORM[k] === canonical && bobByCsm[k]);
+        if (aliasKey) return aliasKey;
+      }
+      return canonicalNorm;
+    };
+    const bobKey = resolveBobKey(csmNorm);
+
     // BoB accounts (from domoBoq)
-    const bobEids  = bobByCsm[csmNorm] || new Set();
-    const bobNames = bobAcctNames[csmNorm] || new Set();
+    const bobEids  = bobByCsm[bobKey] || new Set();
+    const bobNames = bobAcctNames[bobKey] || new Set();
     const totalAccts = bobEids.size;
 
     // Cadence accounts (active = in cadence)
-    const cadNames = cadByCsm[csmNorm] || new Set();
+    // Resolve cadence key similarly
+    const resolveCadKey = (canonicalNorm) => {
+      if (cadByCsm[canonicalNorm]) return canonicalNorm;
+      const canonical = Object.values(NAME_NORM).find(v => norm(v) === canonicalNorm);
+      if (canonical) {
+        const aliasKey = Object.keys(NAME_NORM).find(k => NAME_NORM[k] === canonical && cadByCsm[k]);
+        if (aliasKey) return aliasKey;
+      }
+      return canonicalNorm;
+    };
+    const cadKey = resolveCadKey(csmNorm);
+    const cadNames = cadByCsm[cadKey] || new Set();
     const activeCount = cadNames.size;
 
     // Cross-reference: cadence accounts that are also in BoB
@@ -7416,7 +7442,7 @@ function CapacityView({csms=[], callData={}, cadenceFull=[], domoBoq=[], filterC
     const noActivityCount = Math.max(0, onboardingCount - Math.round(scheduledCalls));
 
     // Cadence/day = open touchpoints ÷ working days left in quarter
-    const openCad = openCadByCsm[csmNorm] || 0;
+    const openCad = openCadByCsm[cadKey] || 0;
     const cadPerDay = workDaysLeft > 0 ? openCad / workDaysLeft : 0;
     const combined = callsPerDay + cadPerDay;
 
