@@ -7328,162 +7328,178 @@ function CERView({cerAssigned=[], filterCoach="", filterCSM=""}) {
 // ═══════════════════════════════════════════════════════════════════════════
 // CAPACITY VIEW — master PIN only, hidden from coaches and CSMs
 // ═══════════════════════════════════════════════════════════════════════════
-function CapacityView({csms=[], callData={}, cadenceFull=[], domoBoq=[], filterCoach="", filterCSM=""}) {
-  const [capPeriod, setCapPeriod] = React.useState("daily");
+function CapacityView({csms=[], callData={}, callRaw=[], cadenceFull=[], domoBoq=[], filterCoach="", filterCSM=""}) {
+  const [capPeriod, setCapPeriod] = React.useState("today"); // today | week | month | quarter
 
   const now = new Date();
-  // Remaining working days in Q3 (Jul-Sep)
-  const qEnd = new Date(now.getFullYear(), 8, 30, 23, 59, 59);
-  const msPerDay = 1000*60*60*24;
-  const calDaysLeft = Math.max(1, Math.round((qEnd - now) / msPerDay));
-  const workDaysLeft = Math.max(1, Math.round(calDaysLeft * 5/7));
-  const workDaysTotal = 65; // ~Q3 working days elapsed estimate
+  const startOfDay = d => { const x = new Date(d); x.setHours(0,0,0,0); return x; };
+  const todayStart = startOfDay(now);
 
-  const multiplier = capPeriod==="daily" ? 1 : capPeriod==="weekly" ? 5 : 22;
-  const callTarget = capPeriod==="daily"?[3,4]:capPeriod==="weekly"?[15,20]:[66,88];
-  const cadTarget  = capPeriod==="daily"?[4,6]:capPeriod==="weekly"?[20,30]:[88,132];
-  const combTarget = capPeriod==="daily"?[7,10]:capPeriod==="weekly"?[35,50]:[154,220];
+  // ── Real period boundaries (local time) ──────────────────────────────────
+  const dow = todayStart.getDay(); // 0=Sun..6=Sat
+  const mondayOffset = dow===0 ? 6 : dow-1;
+  const weekStart = new Date(todayStart); weekStart.setDate(weekStart.getDate()-mondayOffset);
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const qStartMonth = Math.floor(now.getMonth()/3)*3;
+  const quarterStart = new Date(now.getFullYear(), qStartMonth, 1);
 
-  const pf = v => { let s=String(v||"0").trim(); const neg=s.startsWith("(")&&s.endsWith(")"); s=s.replace(/[^0-9.\-]/g,""); const x=parseFloat(s); return isNaN(x)?0:(neg?-x:x); };
+  const PERIODS = {
+    today:   {label:"Today",           start: todayStart},
+    week:    {label:"This week (WTD)", start: weekStart},
+    month:   {label:"Month to date",   start: monthStart},
+    quarter: {label:"Quarter to date", start: quarterStart},
+  };
+  const period = PERIODS[capPeriod];
 
-  // ── Build BoB account list per CSM from domoBoq ──────────────────────────
+  // Working days elapsed in the period so far (Mon–Fri, inclusive of today) —
+  // this is what "average per day" divides by, so it's a real trailing average,
+  // not a forward-looking projection.
+  const workDaysElapsed = (start) => {
+    let n = 0;
+    const d = new Date(start);
+    while (d <= todayStart) {
+      const wd = d.getDay();
+      if (wd!==0 && wd!==6) n++;
+      d.setDate(d.getDate()+1);
+    }
+    return Math.max(1, n);
+  };
+  const elapsedDays = workDaysElapsed(period.start);
+
+  // Daily targets — always expressed per working day, regardless of which
+  // period is selected, so "avg/day" is apples-to-apples across Today/WTD/MTD/QTD.
+  const dailyCallTarget = [3,4];
+  const dailyCadTarget  = [4,6];
+  const dailyCombTarget = [7,10];
+
+  const parseDate = s => { const d = new Date(s); return isNaN(d) ? null : d; };
+  const inPeriod  = (date, start) => date >= start && date <= now;
+
+  // ── BoB accounts per CSM (unchanged — from domoBoq) ───────────────────────
   const lfSwap = n => { if(!n)return n; const p=n.split(","); return p.length===2?p[1].trim()+" "+p[0].trim():n; };
-  const bobByCsm = {}; // normName -> Set of EIDs (account identifiers)
-  const bobAcctNames = {}; // normName -> Set of account names
+  const bobByCsm = {}; // normName -> Set of EIDs
   domoBoq.forEach(r => {
     const csmRaw = String(r["CSM Name"]||"").trim();
     if (!csmRaw || /TOTAL|GRAND/i.test(csmRaw) || /\bTOTAL$/i.test(csmRaw)) return;
     const eid  = String(r["Enterprise ID"]||r["Enterprise Id"]||"").trim().toUpperCase();
-    const acct = String(r["Account Name"]||"").trim();
     if (!eid || /count/i.test(eid)) return;
     const csmNorm = norm(lfSwap(csmRaw)) || lfSwap(csmRaw);
-    if (!bobByCsm[csmNorm]) { bobByCsm[csmNorm] = new Set(); bobAcctNames[csmNorm] = new Set(); }
+    if (!bobByCsm[csmNorm]) bobByCsm[csmNorm] = new Set();
     bobByCsm[csmNorm].add(eid);
-    if (acct) bobAcctNames[csmNorm].add(acct.toLowerCase().trim());
   });
 
-  // ── Build cadence account set per CSM from cadenceFull ────────────────────
-  // cadByCsm        = every account that appears in cadence at all (any status)
-  // openAcctByCsm   = unique accounts with >=1 Open touchpoint — this is the
-  //                   TRUE "active cadence" account count, sourced entirely
-  //                   from the cadence export itself (no BoB name-matching).
-  // openCadByCsm    = raw count of Open touchpoint rows (used for cadence/day pacing)
-  const cadByCsm = {}; // normName -> Set of account names
-  const openAcctByCsm = {}; // normName -> Set of accounts with >=1 open touchpoint
-  const openCadByCsm = {}; // normName -> count of open touchpoints (rows, not accounts)
+  // ── Cadence: true active-cadence accounts + a dated activity log ─────────
+  // openAcctByCsm   = unique accounts per CSM with >=1 Open touchpoint (the
+  //                   real "active cadence" count — no BoB name-matching).
+  // cadActivityByCsm = dated log of Completed/Open touchpoints (work actually
+  //                    completed or currently assigned), used for period averages.
+  const openAcctByCsm = {};
+  const cadActivityByCsm = {};
   cadenceFull.forEach(r => {
     const assigned = String(r["Cadence Member: Assigned"]||"").trim();
     const acct     = String(r["Cadence Member: Account"]||"").trim();
     const status   = String(r["Status"]||"").trim();
     if (!assigned || !acct) return;
     const csmNorm = norm(assigned) || assigned;
-    if (!cadByCsm[csmNorm]) { cadByCsm[csmNorm] = new Set(); openAcctByCsm[csmNorm] = new Set(); openCadByCsm[csmNorm] = 0; }
+    if (!openAcctByCsm[csmNorm]) { openAcctByCsm[csmNorm] = new Set(); cadActivityByCsm[csmNorm] = []; }
     const acctKey = acct.toLowerCase().trim();
-    cadByCsm[csmNorm].add(acctKey);
-    if (status === "Open") {
-      openAcctByCsm[csmNorm].add(acctKey);
-      openCadByCsm[csmNorm]++;
+    if (status === "Open") openAcctByCsm[csmNorm].add(acctKey);
+    // "Work completed or assigned" = Completed (done) or Open (currently due) —
+    // Skipped/Removed rows are neither, so they're excluded from the activity log.
+    if (status === "Completed" || status === "Open") {
+      const due = parseDate(r["Due Date/Time"]);
+      if (due) cadActivityByCsm[csmNorm].push({date: due});
     }
   });
 
-  // ── Resolve CSM name from csms array to norm key ─────────────────────────
-  const resolveCallKey = n => callData[n] ? n : Object.keys(callData).find(k=>norm(k)===n)||n;
+  // ── Calls: unique client accounts per CSM (dedupe by email — repeat calls
+  //    to the same client are ONE account, not N) + a dated activity log ────
+  const callAcctsByCsm = {};    // normName -> Set of client emails (cumulative)
+  const callActivityByCsm = {}; // normName -> [{date}] real, non-cancelled calls
+  const seenBooking = new Set(); // same booking re-uploaded (Scheduled -> Completed) shouldn't double count
+  callRaw.forEach(r => {
+    const apptTime = String(r["Appointment Time"] || r["appointment_time"] || "").trim();
+    const staffRaw = String(r["Staff Name"] || r["Staff"] || r["csm_name"] || r["Assigned To"] || "").trim();
+    const svcRaw   = String(r["Service Name"] || r["Service"] || r["service_type"] || r["Appointment Type"] || "").trim();
+    const emailRaw = String(r["Client Email"] || r["email"] || "").trim().toLowerCase();
+    if (!staffRaw || !apptTime || !emailRaw) return;
+    const csm = norm(staffRaw) || staffRaw;
+    const apptStatus = String(r["Appointment Status"] || r["Status"] || r["status"] || "").toLowerCase().trim();
+    let statusKey = null;
+    if      (apptStatus.includes("complet"))                                                             statusKey = "completed";
+    else if (apptStatus.includes("no show") || apptStatus.includes("noshow") || apptStatus.includes("no-show")) statusKey = "no show";
+    else if (apptStatus.includes("cancel"))                                                              statusKey = "cancelled";
+    else if (apptStatus.includes("schedul") || apptStatus.includes("created"))                          statusKey = "scheduled";
+    if (!statusKey || statusKey === "cancelled") return; // a cancelled call didn't work the account
+
+    const dedupKey = [apptTime, emailRaw, svcRaw].join("|");
+    if (seenBooking.has(dedupKey)) return;
+    seenBooking.add(dedupKey);
+
+    if (!callAcctsByCsm[csm]) { callAcctsByCsm[csm] = new Set(); callActivityByCsm[csm] = []; }
+    callAcctsByCsm[csm].add(emailRaw);
+
+    const apptDate = parseDate(apptTime);
+    if (apptDate) callActivityByCsm[csm].push({date: apptDate});
+  });
+
+  // ── Resolve a canonical (roster) name to whichever key a data source used ──
+  const resolveKey = (canonicalNorm, map) => {
+    if (map[canonicalNorm]) return canonicalNorm;
+    const canonical = Object.values(NAME_NORM).find(v => norm(v) === canonicalNorm);
+    if (canonical) {
+      const aliasKey = Object.keys(NAME_NORM).find(k => NAME_NORM[k] === canonical && map[k]);
+      if (aliasKey) return aliasKey;
+    }
+    return canonicalNorm;
+  };
 
   // ── Per-CSM stats ─────────────────────────────────────────────────────────
   const csmRows = csms.map(c => {
     const csmNorm = norm(c.name);
 
-    // Resolve bobByCsm key — the BoB sheet may use a different name form (e.g. maiden name,
-    // partial name). Try the direct norm first, then scan NAME_NORM aliases for any key that
-    // maps to this canonical name and exists in bobByCsm.
-    const resolveBobKey = (canonicalNorm) => {
-      if (bobByCsm[canonicalNorm]) return canonicalNorm;
-      // scan NAME_NORM for aliases pointing to this canonical
-      const canonical = Object.values(NAME_NORM).find(v => norm(v) === canonicalNorm);
-      if (canonical) {
-        const aliasKey = Object.keys(NAME_NORM).find(k => NAME_NORM[k] === canonical && bobByCsm[k]);
-        if (aliasKey) return aliasKey;
-      }
-      return canonicalNorm;
-    };
-    const bobKey = resolveBobKey(csmNorm);
+    const bobKey = resolveKey(csmNorm, bobByCsm);
+    const totalAccts = (bobByCsm[bobKey] || new Set()).size;
 
-    // BoB accounts (from domoBoq)
-    const bobEids  = bobByCsm[bobKey] || new Set();
-    const bobNames = bobAcctNames[bobKey] || new Set();
-    const totalAccts = bobEids.size;
+    const cadKey = resolveKey(csmNorm, openAcctByCsm);
+    const activeCount = (openAcctByCsm[cadKey] || new Set()).size; // true active-cadence count
 
-    // Cadence accounts (active = in cadence)
-    // Resolve cadence key similarly
-    const resolveCadKey = (canonicalNorm) => {
-      if (cadByCsm[canonicalNorm]) return canonicalNorm;
-      const canonical = Object.values(NAME_NORM).find(v => norm(v) === canonicalNorm);
-      if (canonical) {
-        const aliasKey = Object.keys(NAME_NORM).find(k => NAME_NORM[k] === canonical && cadByCsm[k]);
-        if (aliasKey) return aliasKey;
-      }
-      return canonicalNorm;
-    };
-    const cadKey = resolveCadKey(csmNorm);
-    const cadNames = cadByCsm[cadKey] || new Set();
+    const callKey = resolveKey(csmNorm, callAcctsByCsm);
+    const onboardingCount = (callAcctsByCsm[callKey] || new Set()).size; // unique clients w/ a call, by email
 
-    // TRUE active-cadence count: unique accounts with >=1 Open touchpoint,
-    // sourced directly from the cadence export. No BoB name-matching —
-    // company names differ too much between the cadence tool and Domo BoQ
-    // (LLC vs L.L.C., "&" vs "and", DBA vs legal name, etc.) for exact-match
-    // cross-referencing to be a reliable "how many are active" count.
-    const activeCount = (openAcctByCsm[cadKey] || new Set()).size;
+    // "Actively working" = cadence accounts + call accounts. This is a simple
+    // sum, not a de-duplicated union — cadence is keyed by company name and
+    // calls by client email, and there's no shared key today to reconcile
+    // overlap between the two sources. Cross-referenced against total book size.
+    const workingCount = activeCount + onboardingCount;
+    const workingPct = totalAccts > 0 ? workingCount / totalAccts : null;
 
-    // Cross-reference: cadence accounts that are also in BoB (by exact name
-    // match). This is ONLY used below to estimate which BoB accounts haven't
-    // shown up in cadence yet ("onboarding") — it is NOT the active-cadence
-    // count, and is still subject to the same name-mismatch undercount.
-    const activeInBob = [...cadNames].filter(n => bobNames.has(n)).length;
-
-    // Onboarding = BoB accounts NOT matched to cadence by name
-    const onboardingCount = Math.max(0, totalAccts - activeInBob);
-
-    // No activity = BoB accounts not in cadence AND no recent calls
-    // Approximate: onboarding - scheduled calls (rough proxy)
-    const key = resolveCallKey(c.name);
-    let totalCalls = 0, scheduledCalls = 0;
-    Object.values(callData[key]||{}).forEach(dayData => {
-      Object.values(dayData).forEach(d => {
-        totalCalls    += (d.completed||0)+(d.noShow||0)+(d.cancelled||0)+(d.scheduled||0);
-        scheduledCalls += (d.scheduled||0);
-      });
-    });
-
-    // Accounts with no activity = in BoB, not in cadence, no upcoming calls
-    // Use scheduled calls as proxy for accounts being actively worked in onboarding
-    const callsPerDay = workDaysTotal > 0 ? totalCalls / workDaysTotal : 0;
-    const noActivityCount = Math.max(0, onboardingCount - Math.round(scheduledCalls));
-
-    // Cadence/day = open touchpoints ÷ working days left in quarter
-    const openCad = openCadByCsm[cadKey] || 0;
-    const cadPerDay = workDaysLeft > 0 ? openCad / workDaysLeft : 0;
-    const combined = callsPerDay + cadPerDay;
+    // ── Real, period-based averages (not a forward projection) ─────────────
+    const cadInPeriod  = (cadActivityByCsm[cadKey]   || []).filter(a => inPeriod(a.date, period.start)).length;
+    const callInPeriod = (callActivityByCsm[callKey] || []).filter(a => inPeriod(a.date, period.start)).length;
+    const callsPerDay = callInPeriod / elapsedDays;
+    const cadPerDay   = cadInPeriod  / elapsedDays;
+    const combined    = callsPerDay + cadPerDay;
 
     const getStatus = (val, [lo,hi]) => val>=lo&&val<=hi?"on":val<lo?"under":"over";
 
     return {
-      c, name: c.name, totalAccts, activeCount,
-      onboardingCount, noActivityCount: Math.min(noActivityCount, onboardingCount),
-      callsPerDay, cadPerDay, openCad, combined,
-      callStatus:    getStatus(callsPerDay*multiplier, callTarget),
-      cadStatus:     getStatus(cadPerDay*multiplier,   cadTarget),
-      overallStatus: getStatus(combined*multiplier,    combTarget),
+      c, name: c.name, totalAccts, activeCount, onboardingCount, workingCount, workingPct,
+      cadInPeriod, callInPeriod, callsPerDay, cadPerDay, combined,
+      callStatus:    getStatus(callsPerDay, dailyCallTarget),
+      cadStatus:     getStatus(cadPerDay,   dailyCadTarget),
+      overallStatus: getStatus(combined,    dailyCombTarget),
     };
-  }).filter(r => r.totalAccts > 0 || r.callsPerDay > 0)
+  }).filter(r => r.totalAccts > 0 || r.activeCount > 0 || r.onboardingCount > 0 || r.callInPeriod > 0)
     .sort((a,b) => b.totalAccts - a.totalAccts);
 
   // ── Org totals ─────────────────────────────────────────────────────────────
-  const orgAccts   = csmRows.reduce((s,r)=>s+r.totalAccts,0);
-  const orgActive  = csmRows.reduce((s,r)=>s+r.activeCount,0);
-  const orgOnb     = csmRows.reduce((s,r)=>s+r.onboardingCount,0);
-  const orgNone    = csmRows.reduce((s,r)=>s+r.noActivityCount,0);
-  const avgCalls   = csmRows.length ? csmRows.reduce((s,r)=>s+r.callsPerDay,0)/csmRows.length : 0;
-  const avgCad     = csmRows.length ? csmRows.reduce((s,r)=>s+r.cadPerDay,0)/csmRows.length : 0;
+  const orgAccts    = csmRows.reduce((s,r)=>s+r.totalAccts,0);
+  const orgActive   = csmRows.reduce((s,r)=>s+r.activeCount,0);
+  const orgOnb      = csmRows.reduce((s,r)=>s+r.onboardingCount,0);
+  const orgWorking  = csmRows.reduce((s,r)=>s+r.workingCount,0);
+  const avgCalls    = csmRows.length ? csmRows.reduce((s,r)=>s+r.callsPerDay,0)/csmRows.length : 0;
+  const avgCad      = csmRows.length ? csmRows.reduce((s,r)=>s+r.cadPerDay,0)/csmRows.length : 0;
 
   const statusPill = s => {
     const col = s==="on"?"#16a34a":s==="under"?"#d97706":"#dc2626";
@@ -7499,7 +7515,7 @@ function CapacityView({csms=[], callData={}, cadenceFull=[], domoBoq=[], filterC
     td:{padding:"8px 10px",borderBottom:"0.5px solid rgba(41,53,93,.05)",color:"#29355D",verticalAlign:"middle"},
   };
 
-  const fmt1 = (n,m) => (n*m).toFixed(1);
+  const fmt1 = n => Number(n||0).toFixed(1);
 
   return (
     <div style={{maxWidth:1200,margin:"0 auto"}}>
@@ -7507,10 +7523,10 @@ function CapacityView({csms=[], callData={}, cadenceFull=[], domoBoq=[], filterC
       <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:16,flexWrap:"wrap",gap:8}}>
         <div>
           <div style={{fontSize:20,fontWeight:700,color:"#29355D",marginBottom:2}}>⚡ Capacity Model</div>
-          <div style={{fontSize:13,color:"#808080"}}>Master view only · {workDaysLeft} working days left in Q3</div>
+          <div style={{fontSize:13,color:"#808080"}}>Master view only · {period.label} · {elapsedDays} working day{elapsedDays===1?"":"s"} elapsed</div>
         </div>
         <div style={{display:"flex",gap:6}}>
-          {[["daily","Daily"],["weekly","Weekly"],["monthly","Monthly"]].map(([v,l])=>(
+          {[["today","Today"],["week","Week"],["month","MTD"],["quarter","QTD"]].map(([v,l])=>(
             <button key={v} onClick={()=>setCapPeriod(v)}
               style={{padding:"4px 14px",borderRadius:20,fontSize:13,fontWeight:500,cursor:"pointer",
                 border:"0.5px solid "+(capPeriod===v?"#29355D":"rgba(41,53,93,.2)"),
@@ -7521,10 +7537,10 @@ function CapacityView({csms=[], callData={}, cadenceFull=[], domoBoq=[], filterC
         </div>
       </div>
 
-      {/* Targets */}
+      {/* Targets — always per working day, so they're comparable across periods */}
       <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:14,flexWrap:"wrap"}}>
-        <span style={{fontSize:12,color:"#808080"}}>Targets ({capPeriod}):</span>
-        {[["📞 Calls",callTarget],["✅ Cadence",cadTarget],["Combined",combTarget]].map(([lbl,[lo,hi]])=>(
+        <span style={{fontSize:12,color:"#808080"}}>Targets (per working day):</span>
+        {[["📞 Calls",dailyCallTarget],["✅ Cadence",dailyCadTarget],["Combined",dailyCombTarget]].map(([lbl,[lo,hi]])=>(
           <span key={lbl} style={{fontSize:12,padding:"2px 10px",borderRadius:20,background:"rgba(41,53,93,.05)",color:"#808080",border:"0.5px solid rgba(41,53,93,.1)"}}>
             {lbl}: {lo}–{hi}
           </span>
@@ -7536,10 +7552,10 @@ function CapacityView({csms=[], callData={}, cadenceFull=[], domoBoq=[], filterC
         {[
           {l:"Total accounts (BoB)",  v:orgAccts,  sub:`${csmRows.length} CSMs · ${(orgAccts/Math.max(csmRows.length,1)).toFixed(1)} avg`, col:"#29355D"},
           {l:"In cadence (active)",   v:orgActive, sub:`${orgAccts>0?Math.round(orgActive/orgAccts*100):0}% of book`, col:"#16a34a"},
-          {l:"Not in cadence (onboarding)",v:orgOnb,sub:`${orgAccts>0?Math.round(orgOnb/orgAccts*100):0}% of book — have calls`, col:"#2a78d6"},
-          {l:"No activity",           v:orgNone,   sub:`${orgAccts>0?Math.round(orgNone/orgAccts*100):0}% — at risk`, col:orgNone/Math.max(orgAccts,1)>0.1?"#dc2626":"#808080"},
-          {l:`Avg calls / ${capPeriod}`,  v:(avgCalls*multiplier).toFixed(1), sub:`target ${callTarget[0]}–${callTarget[1]}`, col:"#29355D"},
-          {l:`Avg cadence / ${capPeriod}`,v:(avgCad*multiplier).toFixed(1),   sub:`target ${cadTarget[0]}–${cadTarget[1]}`, col:"#29355D"},
+          {l:"Onboarding (calls)",    v:orgOnb,    sub:"unique clients w/ a call, by email", col:"#2a78d6"},
+          {l:"Actively working",      v:orgWorking,sub:`cadence + calls · ${orgAccts>0?Math.round(orgWorking/orgAccts*100):0}% of book`, col:"#7c3aed"},
+          {l:`Avg calls / day (${period.label})`,  v:fmt1(avgCalls), sub:`target ${dailyCallTarget[0]}–${dailyCallTarget[1]}`, col:"#29355D"},
+          {l:`Avg cadence / day (${period.label})`,v:fmt1(avgCad),   sub:`target ${dailyCadTarget[0]}–${dailyCadTarget[1]}`, col:"#29355D"},
         ].map(t=>(
           <div key={t.l} style={S.tile}>
             <div style={{fontSize:12,color:"#808080",marginBottom:4}}>{t.l}</div>
@@ -7559,12 +7575,11 @@ function CapacityView({csms=[], callData={}, cadenceFull=[], domoBoq=[], filterC
                 <th style={{...S.th,textAlign:"left"}}>CSM</th>
                 <th style={{...S.th,textAlign:"right"}}>BoB Accts</th>
                 <th style={{...S.th,textAlign:"right",color:"#16a34a"}}>✅ Active (cadence)</th>
-                <th style={{...S.th,textAlign:"right",color:"#2a78d6"}}>📞 Onboarding</th>
-                <th style={{...S.th,textAlign:"right",color:"#808080"}}>⚠ No activity</th>
-                <th style={{...S.th,textAlign:"center"}}>Book mix</th>
-                <th style={{...S.th,textAlign:"right"}}>Calls/{capPeriod}</th>
+                <th style={{...S.th,textAlign:"right",color:"#2a78d6"}}>📞 Onboarding (calls)</th>
+                <th style={{...S.th,textAlign:"right",color:"#7c3aed"}}>🔥 Actively working</th>
+                <th style={{...S.th,textAlign:"right"}}>Calls/day</th>
                 <th style={{...S.th,textAlign:"center"}}>Call status</th>
-                <th style={{...S.th,textAlign:"right"}}>Cad/{capPeriod}</th>
+                <th style={{...S.th,textAlign:"right"}}>Cad/day</th>
                 <th style={{...S.th,textAlign:"center"}}>Cad status</th>
                 <th style={{...S.th,textAlign:"right"}}>Combined</th>
                 <th style={{...S.th,textAlign:"center"}}>Overall</th>
@@ -7572,43 +7587,32 @@ function CapacityView({csms=[], callData={}, cadenceFull=[], domoBoq=[], filterC
             </thead>
             <tbody>
               {csmRows.map(r => {
-                const actPct  = r.totalAccts>0?r.activeCount/r.totalAccts:0;
-                const onbPct  = r.totalAccts>0?r.onboardingCount/r.totalAccts:0;
-                const nonePct = r.totalAccts>0?r.noActivityCount/r.totalAccts:0;
-                const noneCol = nonePct>0.1?"#dc2626":nonePct>0.05?"#d97706":"#808080";
-                const noneBg  = nonePct>0.1?"rgba(220,38,38,.1)":nonePct>0.05?"rgba(217,119,6,.1)":"rgba(41,53,93,.05)";
+                const actPct = r.totalAccts>0 ? r.activeCount/r.totalAccts : null;
+                const wrkPct = r.workingPct;
                 return (
                   <tr key={r.name} style={{background:"#fff"}}>
                     <td style={{...S.td,fontWeight:600,textAlign:"left"}}>{dispName(r.name)}</td>
                     <td style={{...S.td,textAlign:"right",color:"#808080"}}>{r.totalAccts}</td>
                     <td style={{...S.td,textAlign:"right",color:"#16a34a",fontWeight:600}}>
-                      {r.activeCount} <span style={{fontSize:11,color:"#aaa",fontWeight:400}}>({Math.round(actPct*100)}%)</span>
+                      {r.activeCount} {actPct!=null && <span style={{fontSize:11,color:"#aaa",fontWeight:400}}>({Math.round(actPct*100)}%)</span>}
                     </td>
                     <td style={{...S.td,textAlign:"right",color:"#2a78d6",fontWeight:600}}>
-                      {r.onboardingCount} <span style={{fontSize:11,color:"#aaa",fontWeight:400}}>({Math.round(onbPct*100)}%)</span>
+                      {r.onboardingCount}
                     </td>
-                    <td style={{...S.td,textAlign:"right"}}>
-                      <span style={{fontSize:11,fontWeight:600,padding:"2px 8px",borderRadius:20,background:noneBg,color:noneCol}}>
-                        {r.noActivityCount} ({Math.round(nonePct*100)}%)
-                      </span>
+                    <td style={{...S.td,textAlign:"right",color:"#7c3aed",fontWeight:600}}>
+                      {r.workingCount} {wrkPct!=null && <span style={{fontSize:11,color:"#aaa",fontWeight:400}}>({Math.round(wrkPct*100)}%)</span>}
                     </td>
-                    <td style={{...S.td,textAlign:"center"}}>
-                      {r.totalAccts>0&&(
-                        <div style={{display:"flex",height:6,borderRadius:3,overflow:"hidden",width:80,margin:"0 auto",gap:1}}>
-                          <div style={{flex:Math.max(r.activeCount,0.1),background:"#16a34a"}}/>
-                          <div style={{flex:Math.max(r.onboardingCount,0.1),background:"#2a78d6"}}/>
-                          <div style={{flex:Math.max(r.noActivityCount,0.1),background:"#d1d0c8"}}/>
-                        </div>
-                      )}
+                    <td style={{...S.td,textAlign:"right",fontWeight:600}}>
+                      {fmt1(r.callsPerDay)}
+                      <div style={{fontSize:10,color:"#aaa"}}>{r.callInPeriod} in period</div>
                     </td>
-                    <td style={{...S.td,textAlign:"right",fontWeight:600}}>{fmt1(r.callsPerDay,multiplier)}</td>
                     <td style={{...S.td,textAlign:"center"}}>{statusPill(r.callStatus)}</td>
                     <td style={{...S.td,textAlign:"right",fontWeight:600}}>
-                      {fmt1(r.cadPerDay,multiplier)}
-                      <div style={{fontSize:10,color:"#aaa"}}>{r.openCad} open</div>
+                      {fmt1(r.cadPerDay)}
+                      <div style={{fontSize:10,color:"#aaa"}}>{r.cadInPeriod} in period</div>
                     </td>
                     <td style={{...S.td,textAlign:"center"}}>{statusPill(r.cadStatus)}</td>
-                    <td style={{...S.td,textAlign:"right",fontWeight:600}}>{fmt1(r.combined,multiplier)}</td>
+                    <td style={{...S.td,textAlign:"right",fontWeight:600}}>{fmt1(r.combined)}</td>
                     <td style={{...S.td,textAlign:"center"}}>{statusPill(r.overallStatus)}</td>
                   </tr>
                 );
@@ -7617,7 +7621,7 @@ function CapacityView({csms=[], callData={}, cadenceFull=[], domoBoq=[], filterC
           </table>
         </div>
         <div style={{fontSize:11,color:"#aaa",marginTop:10,paddingTop:10,borderTop:"0.5px solid rgba(41,53,93,.06)"}}>
-          Active = BoB accounts matched to cadence roster · Onboarding = BoB accounts not yet in cadence · No activity = onboarding accounts with no upcoming calls · Cadence/period = open touchpoints ÷ {workDaysLeft} working days left in Q3
+          Active = unique accounts w/ an open cadence touchpoint (no BoB name-matching) · Onboarding = unique clients w/ a logged call, deduped by email · Actively working = Active + Onboarding (simple sum — the two sources use different identifiers, so this can double-count an account that's in both cadence and calls) · Calls/Cad per day = real activity in the selected period ÷ {elapsedDays} working day{elapsedDays===1?"":"s"} elapsed so far, not a projection.
         </div>
       </div>
     </div>
@@ -7658,6 +7662,7 @@ function App() {
   const [liveBobDet, setLiveBobDet] = useState({});
   const [bobAdj, setBobAdj]         = useState({});
   const [callData, setCallData]     = useState({});
+  const [callRaw, setCallRaw]       = useState([]); // raw calls export rows — needed for per-account (email) identity in Capacity view
   const [qamc, setQamc]             = useState({});
   const [qass, setQass]             = useState({});
   const [mcChurn, setMcChurn] = useState({});
@@ -7761,7 +7766,7 @@ function App() {
         setBobRaw(mapBob(bobRows));
         if (bobDetRows&&bobDetRows.length>0) setLiveBobDet(mapBobDet(bobDetRows));
         if (bobAdjRows&&bobAdjRows.length>0) setBobAdj(mapBobAdj(bobAdjRows));
-        if (callRows&&callRows.length>0) setCallData(mapCalls(callRows));
+        if (callRows&&callRows.length>0) { setCallData(mapCalls(callRows)); setCallRaw(callRows); }
         if (qaMcRows&&qaMcRows.length>0) setQamc(mapQA(qaMcRows,"mc"));
         if (qaSSRows&&qaSSRows.length>0) setQass(mapQA(qaSSRows,"ss"));
         setMcChurn(mapChurn(mcRows));
@@ -8177,7 +8182,7 @@ My question: ${aiCustom}`,
           {tab==="trends"&&<TrendsView history={history} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} qamc={qamc} qass={qass} trendsTab={trendsTab} setTrendsTab={setTrendsTab}/>}
           {tab==="cers"&&<CERView cerAssigned={cerAssigned} filterCoach={filterCoach} filterCSM={filterCSM}/>}
           {tab==="calls"&&<TrendsView history={history} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} qamc={qamc} qass={qass} trendsTab="calls" setTrendsTab={()=>{}} hideSubTabs={true}/>}
-          {tab==="capacity"&&userSession.role==="master"&&<CapacityView csms={csms} callData={callData} cadenceFull={cadenceFull} domoBoq={domoBoq} filterCoach={filterCoach} filterCSM={filterCSM}/>}
+          {tab==="capacity"&&userSession.role==="master"&&<CapacityView csms={csms} callData={callData} callRaw={callRaw} cadenceFull={cadenceFull} domoBoq={domoBoq} filterCoach={filterCoach} filterCSM={filterCSM}/>}
           {tab==="mydash"&&<MyDashboard csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} churnAlerts={churnAlerts} qamc={qamc||[]} qass={qass||[]} domoBoq={domoBoq||[]} q3BobCur={q3BobCur||[]} q3Supp={q3Supp||[]} rawRev={rawRev||[]} cadenceFull={cadenceFull||[]} onNavigate={setTab} onSetTrendsTab={setTrendsTab} onSetBobTab={setBobTab} cerAssigned={cerAssigned} cerCompleted={cerCompleted}/>}
         </div>
       )}
