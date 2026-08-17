@@ -4872,6 +4872,23 @@ function RevenueView({rawRev, csms, filterCoach, filterCSM, managerCoaches}) {
   const cardStyle = {background:"#fff",border:"0.5px solid rgba(41,53,93,.09)",borderRadius:12,padding:16};
   const secTitle = {fontSize:13,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:12};
 
+  // ── Export CSV ────────────────────────────────────────────────────────────
+  const exportRevCSV = () => {
+    const headers = ["CSM","Team","Region","Quarter","Business Name","Type","MRR Added","OTR Added","Total Revenue","Non-Revenue Integration"];
+    const csvRows = filtered.map(r => [
+      dispName(r.csm), r.team, r.region, r.qtr, r.biz, r.type||r.nr||"",
+      r.mrr>0?r.mrr.toFixed(2):"",
+      r.otr>0?r.otr.toFixed(2):"",
+      r.tot>0?r.tot.toFixed(2):"",
+      r.nr||""
+    ]);
+    const csv = [headers, ...csvRows].map(row => row.map(v => `"${String(v||"").replace(/"/g,'""')}"`).join(",")).join("\n");
+    const a = document.createElement("a");
+    a.href = "data:text/csv;charset=utf-8," + encodeURIComponent(csv);
+    a.download = `revenue_submissions_${quarterFilter}_${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+  };
+
   return (
     <div>
       {/* ── Quarter filter bar ── */}
@@ -4888,6 +4905,11 @@ function RevenueView({rawRev, csms, filterCoach, filterCSM, managerCoaches}) {
         {quarterFilter!=="all"&&<span style={{fontSize:13,color:"#808080",marginLeft:4}}>
           · filtering revenue rows by "Quarter for Consideration"
         </span>}
+        <button onClick={exportRevCSV}
+          style={{marginLeft:"auto",padding:"5px 16px",borderRadius:8,border:"0.5px solid rgba(41,53,93,.2)",
+            background:"#29355D",color:"#fff",fontSize:13,fontWeight:500,cursor:"pointer",whiteSpace:"nowrap"}}>
+          ↓ Export CSV ({filtered.length} rows)
+        </button>
       </div>
 
       {/* ── Top metric tiles ── */}
