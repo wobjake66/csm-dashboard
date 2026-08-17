@@ -7363,18 +7363,27 @@ function CapacityView({csms=[], callData={}, cadenceFull=[], domoBoq=[], filterC
   });
 
   // ── Build cadence account set per CSM from cadenceFull ────────────────────
-  // Active = any account that appears in cadence (any status)
+  // cadByCsm        = every account that appears in cadence at all (any status)
+  // openAcctByCsm   = unique accounts with >=1 Open touchpoint — this is the
+  //                   TRUE "active cadence" account count, sourced entirely
+  //                   from the cadence export itself (no BoB name-matching).
+  // openCadByCsm    = raw count of Open touchpoint rows (used for cadence/day pacing)
   const cadByCsm = {}; // normName -> Set of account names
-  const openCadByCsm = {}; // normName -> count of open touchpoints
+  const openAcctByCsm = {}; // normName -> Set of accounts with >=1 open touchpoint
+  const openCadByCsm = {}; // normName -> count of open touchpoints (rows, not accounts)
   cadenceFull.forEach(r => {
     const assigned = String(r["Cadence Member: Assigned"]||"").trim();
     const acct     = String(r["Cadence Member: Account"]||"").trim();
     const status   = String(r["Status"]||"").trim();
     if (!assigned || !acct) return;
     const csmNorm = norm(assigned) || assigned;
-    if (!cadByCsm[csmNorm]) { cadByCsm[csmNorm] = new Set(); openCadByCsm[csmNorm] = 0; }
-    cadByCsm[csmNorm].add(acct.toLowerCase().trim());
-    if (status === "Open") openCadByCsm[csmNorm]++;
+    if (!cadByCsm[csmNorm]) { cadByCsm[csmNorm] = new Set(); openAcctByCsm[csmNorm] = new Set(); openCadByCsm[csmNorm] = 0; }
+    const acctKey = acct.toLowerCase().trim();
+    cadByCsm[csmNorm].add(acctKey);
+    if (status === "Open") {
+      openAcctByCsm[csmNorm].add(acctKey);
+      openCadByCsm[csmNorm]++;
+    }
   });
 
   // ── Resolve CSM name from csms array to norm key ─────────────────────────
@@ -7417,12 +7426,21 @@ function CapacityView({csms=[], callData={}, cadenceFull=[], domoBoq=[], filterC
     };
     const cadKey = resolveCadKey(csmNorm);
     const cadNames = cadByCsm[cadKey] || new Set();
-    const activeCount = cadNames.size;
 
-    // Cross-reference: cadence accounts that are also in BoB
+    // TRUE active-cadence count: unique accounts with >=1 Open touchpoint,
+    // sourced directly from the cadence export. No BoB name-matching —
+    // company names differ too much between the cadence tool and Domo BoQ
+    // (LLC vs L.L.C., "&" vs "and", DBA vs legal name, etc.) for exact-match
+    // cross-referencing to be a reliable "how many are active" count.
+    const activeCount = (openAcctByCsm[cadKey] || new Set()).size;
+
+    // Cross-reference: cadence accounts that are also in BoB (by exact name
+    // match). This is ONLY used below to estimate which BoB accounts haven't
+    // shown up in cadence yet ("onboarding") — it is NOT the active-cadence
+    // count, and is still subject to the same name-mismatch undercount.
     const activeInBob = [...cadNames].filter(n => bobNames.has(n)).length;
 
-    // Onboarding = BoB accounts NOT in cadence
+    // Onboarding = BoB accounts NOT matched to cadence by name
     const onboardingCount = Math.max(0, totalAccts - activeInBob);
 
     // No activity = BoB accounts not in cadence AND no recent calls
@@ -7449,7 +7467,7 @@ function CapacityView({csms=[], callData={}, cadenceFull=[], domoBoq=[], filterC
     const getStatus = (val, [lo,hi]) => val>=lo&&val<=hi?"on":val<lo?"under":"over";
 
     return {
-      c, name: c.name, totalAccts, activeCount: activeInBob,
+      c, name: c.name, totalAccts, activeCount,
       onboardingCount, noActivityCount: Math.min(noActivityCount, onboardingCount),
       callsPerDay, cadPerDay, openCad, combined,
       callStatus:    getStatus(callsPerDay*multiplier, callTarget),
