@@ -6362,7 +6362,7 @@ const USER_CREDS = {
   "daab3aa68185b677bd3c8d63f12e48eacb0851d98d635137e531fd579a452486": {"name": "Carrie Reece", "role": "manager"},
   "da5d26410ae112bfd2513b4d4eb0497ccf8eeb095cd613fee834e521705d8f20": {"name": "Aaron Taylor", "role": "coach"},
   "9d95bba7023609ee9e3da95b119f27d8f0a7c2412c1c773010f6bd5b8cea0d94": {"name": "Kendra Morelli", "role": "coach"},
-  "689e02bf0aac5af7db656b4af619d2c212def8a3a28cd1254ed62627a4abc095": {"name": "Mia O'Dirling", "role": "coach"},
+  "689e02bf0aac5af7db656b4af619d2c212def8a3a28cd1254ed62627a4abc095": {"name": "Mia O\u2019Dirling", "role": "coach"},
   "1fdc5156dff53e1ed8febfd0bfdfeedba271cde3e7bae67acd44e715a1badc78": {"name": "Chase Boyd", "role": "coach"},
   "d8c4d37261d7aaa4bbafe4ccfe334e09fbe181c84de22e9a561dfe02b0958aa0": {"name": "Elizabeth White", "role": "coach"},
   "cc28d893176b8cd8875730d1fe25151723d643debede6e093f742befdcf1ff0f": {"name": "Trisha Stalnaker", "role": "coach"},
@@ -8083,7 +8083,12 @@ My question: ${aiCustom}`,
     if (user.role==="csm") { setFilterCSM(user.name); setTab("mydash"); }
     // Auto-filter to coach's team if role=coach
     if (user.role==="coach") {
-      const c = COACHES.find(c=>c.n===user.name);
+      // Normalize apostrophe variants (' vs \u2019 vs `) before matching — a
+      // straight-vs-curly-quote mismatch between USER_CREDS and COACHES here
+      // silently left filterCoach unset, which showed the ENTIRE org to a
+      // coach instead of just their team (e.g. Mia O'Dirling / Mia O\u2019Dirling).
+      const normApos = s => String(s||"").replace(/[\u2018\u2019\u0060]/g, "'");
+      const c = COACHES.find(c=>normApos(c.n)===normApos(user.name));
       if (c) { setFilterCoach(c.e); setTab("mydash"); }
     }
   }}/>;
