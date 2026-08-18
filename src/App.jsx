@@ -7663,6 +7663,322 @@ function CapacityView({csms=[], callData={}, callRaw=[], cadenceFull=[], domoBoq
     </div>
   );
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// STRATEGIC CONTENT CREATION (SCC) — CHURN VIEW
+// Restricted to master + Chase Boyd (see canSeeSCC in App()).
+//
+// DATA SOURCE: manually transcribed from SCC_Churn_YTD.xlsx ("SCC Churn" tab)
+// as of 2026-08-18. This is a static snapshot, NOT a live feed — there is no
+// published Google Sheet/CSV for this yet. When one exists, replace
+// SCC_CHURN_RAW below with a CSV_SCC_CHURN fetch the same way cadenceFull/
+// callRaw/domoBoq are loaded elsewhere in this file.
+//
+// NOTE for whoever refreshes this: the source workbook's own "Exec Summary"
+// tab is already stale relative to its "SCC Churn" tab — its formulas are
+// scoped to a fixed row range (its own header says "rows 2–25") that doesn't
+// extend to rows appended after that range was set, so newly-added churn
+// events silently drop out of the Exec Summary's totals. Every number below
+// is computed live off the full raw list, not copied from that tab, to avoid
+// inheriting the same staleness.
+// ═══════════════════════════════════════════════════════════════════════════
+const SCC_CHURN_RAW = [
+  {account:"Edlins Coins & Stamps", id:"6956347570", ssm:null, date:"2026-08-05", qty:1, active:0, category:"Order/Process Error", detail:"Client hardship — never met with client, looks like an immediate cancel; not assigned to anyone; possible order error"},
+  {account:"River's Truck Center", id:"3334624089", ssm:"Alejandro Rodriguez-Medina", date:"2026-07-14", qty:2, active:1, category:"Order/Process Error", detail:"Keying issues — 2 SCC cancelled, 1 left active"},
+  {account:"Law Office of Carlos Molinar", id:"3144240571", ssm:"Chelsea Dingus", date:"2026-07-08", qty:1, active:0, category:"Order/Process Error", detail:"Added in error — SEO was supposed to be added instead"},
+  {account:"TriS Pest Control Service", id:"3351161278", ssm:"Misty Decatur", date:"2026-06-15", qty:1, active:1, category:"Retained / Active", detail:"Asset live"},
+  {account:"Hughs Mechanical LLC", id:"6957427046", ssm:null, date:"2026-06-03", qty:2, active:0, category:"Downgrade Request", detail:"Client called in wanting to downgrade to $49 social post and social ads", flag:"Keyed twice — counts x2 on churn report"},
+  {account:"TXB Roofing", id:"6957416316", ssm:"Eric Johnson", date:"2026-05-30", qty:1, active:0, category:"Cancellation -- No Reason Given", detail:"Client called in wanting to cancel; no other context from case"},
+  {account:"McGrew Well Drilling Inc", id:"3103797420", ssm:"Chelsea Dingus", date:"2026-05-29", qty:1, active:0, category:"Cancellation -- No Reason Given", detail:"Churned"},
+  {account:"Epping Counselling Centre", id:"6956042276", ssm:"Matt Daly", date:"2026-05-26", qty:1, active:0, category:"Client Hardship", detail:"Client hardship"},
+  {account:"Organize Plus Cleaning LLC", id:"6957385443", ssm:"Chelsea Dingus", date:"2026-05-21", qty:1, active:0, category:"Client Hardship", detail:"Requested to downgrade due to inability to afford service"},
+  {account:"A Precise Sign", id:"5204934034", ssm:"Alejandro Rodriguez-Medina", date:"2026-05-19", qty:2, active:1, category:"Order/Process Error", detail:"Still has live asset/current investment (2 were keyed, one was cancelled)"},
+  {account:"GKG Maintenance and Management", id:"6957320128", ssm:"Misty Decatur", date:"2026-04-30", qty:1, active:0, category:"Billing / Payment Issue", detail:"Continuous decline of card — all assets cancelled"},
+  {account:"Rogers Family Roofing", id:"6957296887", ssm:"Scott Mather", date:"2026-04-20", qty:1, active:0, category:"Reallocation", detail:"Reallocated funds for SEO + Power Boost"},
+  {account:"TJ's Painting & Handyman Service", id:"6957128259", ssm:"Scott Mather", date:"2026-04-10", qty:1, active:0, category:"Billing / Payment Issue", detail:"Account locked — client disputed charges as not agreed to; account went to collections"},
+  {account:"EXT Enhancements Roofing & Siding LLC", id:"6954579792", ssm:"Eric Johnson", date:"2026-03-30", qty:1, active:0, category:"Client Preference (DIY/Competitor)", detail:"Client decided they wanted to do their own social posts"},
+  {account:"Mcgrew Well Drilling", id:null, ssm:null, date:null, qty:1, active:0, category:"Client Preference (DIY/Competitor)", detail:"Cancelled all services, only kept phonebook — has other digital services provider", flag:"Possible duplicate of \u201cMcGrew Well Drilling Inc\u201d above — no ID, SSM, or churn date recorded"},
+  {account:"Kinnext Wellness", id:"6957120524", ssm:"Chelsea Dingus", date:"2026-03-27", qty:1, active:0, category:"Client Hardship", detail:"Client hardship — cancelled all services"},
+  {account:"The Beloved Label", id:"6957127758", ssm:"Chelsea Dingus", date:"2026-03-24", qty:1, active:0, category:"Client Hardship", detail:"Client hardship — business did not launch"},
+  {account:"Great LLC", id:"6949136296", ssm:"Mark Velazquez", date:"2026-03-23", qty:1, active:0, category:"Service Dissatisfaction", detail:"Content did not meet client expectations"},
+  {account:"Mid America Merchandising", id:"6957072321", ssm:"Misty Decatur", date:"2026-03-24", qty:1, active:0, category:"Service Dissatisfaction", detail:"Content did not meet client expectations"},
+  {account:"Holyoke Adult Care Center", id:"BSFQ1599", ssm:"Chelsea Dingus", date:"2026-03-12", qty:1, active:0, category:"Unspecified", detail:"No details provided"},
+  {account:"Todd East Attorney", id:"1330362043", ssm:"Scott Mather", date:"2026-03-19", qty:1, active:0, category:"Unspecified", detail:"No details provided"},
+  {account:"Vance S Landscape Supply", id:"2112934664", ssm:"Eric Johnson", date:"2026-03-19", qty:1, active:0, category:"Billing / Payment Issue", detail:"Charged for strategic content client was told would be removed; wants cancellation + refund. Secondary: dissatisfaction with ad performance despite business expansion; also delayed due to account reassignment/no SD"},
+  {account:"General Tso's Restaurant & Catering", id:"6957117347", ssm:"Scott Mather", date:"2026-03-23", qty:1, active:0, category:"Client Hardship", detail:"Client unable to open business"},
+  {account:"Sunshine Services", id:"6954996231", ssm:"Scott Mather", date:"2026-07-22", qty:1, active:0, category:"Service Dissatisfaction", detail:"Minimal detail — didn't do what was expected"},
+  {account:"6221 Shallowford Road, Suite 102", id:"6957155161", ssm:"Alejandro Rodriguez-Medina", date:"2026-08-13", qty:1, active:0, category:"Client Preference (DIY/Competitor)", detail:"Same day cancel request — buyer's remorse"},
+  {account:"Palm & Pineapple Roofing and Exterior", id:null, ssm:"Eric Johnson", date:"2026-08-18", qty:1, active:0, category:"Service Dissatisfaction", detail:""},
+];
+
+// Categories the source report classifies as internally addressable — process,
+// billing, or undocumented — as opposed to hardship/competitive/product-fit.
+const SCC_AVOIDABLE_CATEGORIES = new Set(["Order/Process Error", "Billing / Payment Issue", "Cancellation -- No Reason Given", "Unspecified"]);
+const SCC_NOT_TRUE_LOSS = new Set(["Retained / Active", "Reallocation"]); // asset still live, or spend just moved
+
+const SCC_CATEGORY_READ = {
+  "Client Hardship": "Uncontrollable — businesses closing, failing to launch, or unable to pay",
+  "Order/Process Error": "Self-inflicted — double-keying and wrong-product adds; largely reversible",
+  "Billing / Payment Issue": "Card declines, disputed charges, one account to collections",
+  "Service Dissatisfaction": "Content quality gap — output did not meet expectations",
+  "Downgrade Request": "Revenue retained at a lower tier, not a lost logo",
+  "Client Preference (DIY/Competitor)": "Competitive / in-housing loss — hardest to win back",
+  "Cancellation -- No Reason Given": "No save attempt documented; root cause unknown",
+  "Unspecified": "Blank case notes — a reporting failure, not a churn reason",
+  "Reallocation": "Budget moved elsewhere — wallet retained",
+  "Retained / Active": "Logged as churn in error; asset is live",
+};
+
+// Manually-curated commentary — mirrors SCC_Churn_Trends_Report. Update this
+// alongside the raw list above when the underlying report refreshes.
+const SCC_KEY_INSIGHTS = [
+  "Tighten the keying/order-entry QA step. Order/Process Error is the top category and is concentrated on one SSM's book — a second-set-of-eyes check at setup could prevent a meaningful share of this churn.",
+  "Look at time-to-first-touch after signup. A meaningful share of churn happened before an SSM was ever assigned because the cancellation came in that fast — worth checking whether an earlier welcome/onboarding touch (even pre-assignment) could catch these accounts in time.",
+  "Review billing/dispute workflow. Billing/Payment Issue churn spans multiple SSMs, suggesting a systemic process gap (card-decline handling, dispute resolution) rather than an individual coaching issue.",
+  "Exclude Retained/Active and Reallocation from headline churn totals going forward — counting them inflates the number without reflecting real revenue loss.",
+  "Continue monitoring the trend from March into August; confirm whether the March spike was tied to a specific batch, campaign, or seasonal renewal cycle.",
+];
+
+function SCCView() {
+  const rows = SCC_CHURN_RAW;
+
+  const grossQty   = rows.reduce((s,r)=>s+r.qty, 0);
+  const activeUnits = rows.filter(r=>r.active===1).length; // each flagged row = 1 still-active unit, regardless of that row's qty
+  const netQty     = grossQty - activeUnits;
+  const accountsAffected = rows.length;
+
+  const avoidableQty = rows.filter(r=>SCC_AVOIDABLE_CATEGORIES.has(r.category)).reduce((s,r)=>s+r.qty,0);
+  const avoidablePct = grossQty>0 ? avoidableQty/grossQty : 0;
+
+  const dated = rows.filter(r=>r.date);
+  const undated = rows.length - dated.length;
+  const minDate = dated.reduce((m,r)=> r.date<m?r.date:m, dated[0]?.date||"");
+  const maxDate = dated.reduce((m,r)=> r.date>m?r.date:m, dated[0]?.date||"");
+  const fmtMon = d => new Date(d+"T00:00:00").toLocaleDateString("en-US",{month:"short",year:"2-digit"});
+
+  // ── By category ────────────────────────────────────────────────────────
+  const byCategory = {};
+  rows.forEach(r=>{
+    if (!byCategory[r.category]) byCategory[r.category] = {accounts:0, qty:0, active:0};
+    byCategory[r.category].accounts++;
+    byCategory[r.category].qty += r.qty;
+    if (r.active===1) byCategory[r.category].active++;
+  });
+  const categoryRows = Object.entries(byCategory)
+    .map(([cat,v])=>({cat, ...v, net:v.qty-v.active, pct:grossQty>0?v.qty/grossQty:0}))
+    .sort((a,b)=>b.qty-a.qty);
+
+  // ── By SSM ─────────────────────────────────────────────────────────────
+  const bySsm = {};
+  rows.forEach(r=>{
+    const key = r.ssm || "Unassigned / N-A";
+    if (!bySsm[key]) bySsm[key] = {qty:0, cats:{}};
+    bySsm[key].qty += r.qty;
+    bySsm[key].cats[r.category] = (bySsm[key].cats[r.category]||0) + r.qty;
+  });
+  const ssmRows = Object.entries(bySsm).map(([ssm,v])=>{
+    const topCat = Object.entries(v.cats).sort((a,b)=>b[1]-a[1])[0]?.[0] || "—";
+    return {ssm, qty:v.qty, pct: grossQty>0?v.qty/grossQty:0, topCat};
+  }).sort((a,b)=>b.qty-a.qty);
+
+  // ── Monthly trend ──────────────────────────────────────────────────────
+  const byMonth = {};
+  dated.forEach(r=>{
+    const mk = r.date.slice(0,7);
+    byMonth[mk] = (byMonth[mk]||0) + r.qty;
+  });
+  const monthRows = Object.entries(byMonth).sort(([a],[b])=>a<b?-1:1);
+  const maxMonthQty = Math.max(1, ...monthRows.map(([,q])=>q));
+
+  // ── Still-live-asset accounts (false churn) ───────────────────────────
+  const stillLive = rows.filter(r=>r.active===1);
+
+  // ── Spotlight: Service Dissatisfaction ────────────────────────────────
+  const dissatisfaction = rows.filter(r=>r.category==="Service Dissatisfaction");
+
+  // ── Data integrity flags — anything with a manually-noted flag, plus any
+  //    account name appearing more than once (a real dedupe signal, computed
+  //    rather than hand-maintained so it can't silently go stale) ─────────
+  const manualFlags = rows.filter(r=>r.flag);
+  const missingFieldRows = rows.filter(r=>!r.id || !r.ssm || !r.date);
+
+  const S = {
+    card:{background:"#fff",borderRadius:12,padding:"18px 22px",boxShadow:"0 1px 4px rgba(41,53,93,.07)",marginBottom:14},
+    tile:{background:"rgba(41,53,93,.04)",borderRadius:8,padding:"12px 14px"},
+    th:{padding:"8px 10px",fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,letterSpacing:"0.04em",borderBottom:"0.5px solid rgba(41,53,93,.08)",whiteSpace:"nowrap"},
+    td:{padding:"8px 10px",borderBottom:"0.5px solid rgba(41,53,93,.05)",color:"#29355D",verticalAlign:"middle"},
+    bar:(pct,color)=>(<div style={{display:"flex",alignItems:"center",gap:8}}>
+      <div style={{flex:1,height:6,borderRadius:3,background:"rgba(41,53,93,.08)",overflow:"hidden",minWidth:60}}>
+        <div style={{width:Math.min(100,pct*100)+"%",height:"100%",background:color}}/>
+      </div>
+      <span style={{fontSize:12,fontWeight:600,color:"#29355D",width:38,textAlign:"right"}}>{Math.round(pct*100)}%</span>
+    </div>),
+  };
+
+  return (
+    <div style={{maxWidth:1200,margin:"0 auto"}}>
+      {/* Header / cover strip */}
+      <div style={{background:"#29355D",borderRadius:12,padding:"20px 24px",marginBottom:14,color:"#fff"}}>
+        <div style={{fontSize:12,letterSpacing:"0.08em",opacity:.7,marginBottom:4}}>STRATEGIC CONTENT CREATION (SCC)</div>
+        <div style={{fontSize:22,fontWeight:700,marginBottom:2}}>Churn Trends</div>
+        <div style={{fontSize:13,opacity:.75}}>{fmtMon(minDate)} – {fmtMon(maxDate)} · updated as new rows are added to the source list</div>
+      </div>
+
+      {/* KPI tiles */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(5,minmax(0,1fr))",gap:10,marginBottom:14}}>
+        {[
+          {l:"Gross assets churned",  v:grossQty, sub:"Sum of Quantity Churned", col:"#29355D"},
+          {l:"Still-active (false churn)", v:activeUnits, sub:"flagged Active — never truly lost", col:"#16a34a"},
+          {l:"Net true churn",        v:netQty,   sub:"Gross less still-active units", col:"#dc2626"},
+          {l:"Accounts affected",     v:accountsAffected, sub:"line items on the churn list", col:"#29355D"},
+          {l:"Avoidable share",       v:Math.round(avoidablePct*100)+"%", sub:`${avoidableQty} of ${grossQty} — process/billing/unexplained`, col:"#d97706"},
+        ].map(t=>(
+          <div key={t.l} style={S.tile}>
+            <div style={{fontSize:12,color:"#808080",marginBottom:4}}>{t.l}</div>
+            <div style={{fontSize:22,fontWeight:700,color:t.col,lineHeight:1,marginBottom:3}}>{t.v}</div>
+            <div style={{fontSize:11,color:"#aaa"}}>{t.sub}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Monthly trend */}
+      <div style={S.card}>
+        <div style={{fontSize:13,fontWeight:600,color:"#29355D",marginBottom:4}}>Monthly churn trend</div>
+        <div style={{fontSize:12,color:"#808080",marginBottom:14}}>Assets churned (gross units) by month{undated>0?` · ${undated} record${undated===1?"":"s"} missing a churn date, excluded here`:""}</div>
+        <div style={{display:"flex",alignItems:"flex-end",gap:10,height:140,paddingTop:10}}>
+          {monthRows.map(([mk,qty])=>(
+            <div key={mk} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:6}}>
+              <div style={{fontSize:12,fontWeight:700,color:"#29355D"}}>{qty}</div>
+              <div style={{width:"60%",height:Math.max(4,(qty/maxMonthQty)*90)+"px",background:"#FF5000",borderRadius:"4px 4px 0 0"}}/>
+              <div style={{fontSize:11,color:"#808080"}}>{fmtMon(mk+"-01")}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Category + SSM side by side */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
+        <div style={S.card}>
+          <div style={{fontSize:13,fontWeight:600,color:"#29355D",marginBottom:14}}>Churn by category</div>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+            <thead><tr>
+              <th style={{...S.th,textAlign:"left"}}>Category</th>
+              <th style={{...S.th,textAlign:"right"}}>Qty</th>
+              <th style={{...S.th,textAlign:"left"}}>% of gross</th>
+            </tr></thead>
+            <tbody>
+              {categoryRows.map(c=>(
+                <tr key={c.cat}>
+                  <td style={{...S.td,textAlign:"left"}} title={SCC_CATEGORY_READ[c.cat]||""}>
+                    {c.cat}{SCC_NOT_TRUE_LOSS.has(c.cat) && <span style={{fontSize:10,color:"#16a34a",marginLeft:6}}>not a loss</span>}
+                  </td>
+                  <td style={{...S.td,textAlign:"right",fontWeight:600}}>{c.qty}</td>
+                  <td style={{...S.td,minWidth:120}}>{S.bar(c.pct,"#FF5000")}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div style={S.card}>
+          <div style={{fontSize:13,fontWeight:600,color:"#29355D",marginBottom:14}}>Churn by Success Service Manager (SSM)</div>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+            <thead><tr>
+              <th style={{...S.th,textAlign:"left"}}>SSM</th>
+              <th style={{...S.th,textAlign:"right"}}>Qty</th>
+              <th style={{...S.th,textAlign:"left"}}>Top driver</th>
+            </tr></thead>
+            <tbody>
+              {ssmRows.map(s=>(
+                <tr key={s.ssm}>
+                  <td style={{...S.td,textAlign:"left",fontWeight:600}}>{s.ssm}</td>
+                  <td style={{...S.td,textAlign:"right",fontWeight:600}}>{s.qty} <span style={{color:"#aaa",fontWeight:400}}>({Math.round(s.pct*100)}%)</span></td>
+                  <td style={{...S.td,textAlign:"left",fontSize:11,color:"#808080"}}>{s.topCat}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Still-live-asset accounts */}
+      {stillLive.length>0 && (
+        <div style={S.card}>
+          <div style={{fontSize:13,fontWeight:600,color:"#16a34a",marginBottom:4}}>✅ Accounts with a still-live asset ({stillLive.length})</div>
+          <div style={{fontSize:12,color:"#808080",marginBottom:14}}>These aren't full client losses — the account still has an active asset even though part of what they had churned.</div>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+            <thead><tr>
+              <th style={{...S.th,textAlign:"left"}}>Account</th>
+              <th style={{...S.th,textAlign:"left"}}>SSM</th>
+              <th style={{...S.th,textAlign:"left"}}>Note</th>
+            </tr></thead>
+            <tbody>
+              {stillLive.map(r=>(
+                <tr key={r.account}>
+                  <td style={{...S.td,textAlign:"left",fontWeight:600}}>{r.account}</td>
+                  <td style={{...S.td,textAlign:"left"}}>{r.ssm||"—"}</td>
+                  <td style={{...S.td,textAlign:"left",fontSize:11,color:"#808080"}}>{r.detail}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Spotlight: Service Dissatisfaction */}
+      {dissatisfaction.length>0 && (
+        <div style={S.card}>
+          <div style={{fontSize:13,fontWeight:600,color:"#29355D",marginBottom:4}}>🔦 Spotlight: Service Dissatisfaction ({dissatisfaction.length})</div>
+          <div style={{fontSize:12,color:"#808080",marginBottom:14}}>Clients who churned specifically because content or ad performance didn't meet expectations — the category most directly tied to the quality of the work itself.</div>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+            <thead><tr>
+              <th style={{...S.th,textAlign:"left"}}>Account</th>
+              <th style={{...S.th,textAlign:"left"}}>SSM</th>
+              <th style={{...S.th,textAlign:"left"}}>Date</th>
+              <th style={{...S.th,textAlign:"left"}}>Detail</th>
+            </tr></thead>
+            <tbody>
+              {dissatisfaction.map(r=>(
+                <tr key={r.account}>
+                  <td style={{...S.td,textAlign:"left",fontWeight:600}}>{r.account}</td>
+                  <td style={{...S.td,textAlign:"left"}}>{r.ssm||"—"}</td>
+                  <td style={{...S.td,textAlign:"left"}}>{r.date?fmtMon(r.date):"—"}</td>
+                  <td style={{...S.td,textAlign:"left",fontSize:11,color:"#808080"}}>{r.detail||"—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Data integrity flags — computed + manually noted */}
+      {(manualFlags.length>0 || missingFieldRows.length>0) && (
+        <div style={S.card}>
+          <div style={{fontSize:13,fontWeight:600,color:"#d97706",marginBottom:14}}>⚠ Data integrity flags</div>
+          <ul style={{margin:0,paddingLeft:18,fontSize:12,color:"#29355D",lineHeight:1.8}}>
+            {manualFlags.map(r=>(
+              <li key={r.account}><b>{r.account}</b> — {r.flag}</li>
+            ))}
+            {missingFieldRows.filter(r=>!manualFlags.includes(r)).map(r=>(
+              <li key={r.account+"-missing"}><b>{r.account}</b> — missing {[!r.id&&"account ID",!r.ssm&&"SSM",!r.date&&"churn date"].filter(Boolean).join(", ")}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Key insights & recommendations */}
+      <div style={S.card}>
+        <div style={{fontSize:13,fontWeight:600,color:"#29355D",marginBottom:14}}>💡 Key insights & recommendations</div>
+        <ul style={{margin:0,paddingLeft:18,fontSize:13,color:"#29355D",lineHeight:1.9}}>
+          {SCC_KEY_INSIGHTS.map((t,i)=><li key={i}>{t}</li>)}
+        </ul>
+        <div style={{fontSize:11,color:"#aaa",marginTop:14,paddingTop:10,borderTop:"0.5px solid rgba(41,53,93,.06)"}}>
+          Source: SCC_Churn_YTD.xlsx ("SCC Churn" tab), transcribed 2026-08-18 · mirrors SCC_Churn_Trends_Report_8-13-26.docx methodology. All figures on this page are computed from the full current row list above, not copied from the workbook's Exec Summary tab.
+        </div>
+      </div>
+    </div>
+  );
+}
 // ═══════════════════════════════════════════════════════════════════════════
 
 export default 
@@ -7671,6 +7987,11 @@ function App() {
   const [userSession, setUserSession] = useState({role:"master",name:""});
   const isCsmView   = userSession.role==="csm";
   const isCoachView = userSession.role==="coach";
+  // Strategic Content Creation (SCC) churn page — restricted to master + Chase
+  // Boyd only for now. Widen this (e.g. to individual CSMs) once permissions
+  // are extended; don't gate it off filterCoach, since master's team filter
+  // selection shouldn't affect master's own access to this page.
+  const canSeeSCC = userSession.role==="master" || (isCoachView && userSession.name==="Chase Boyd");
   const [fontScale, setFontScale] = useState(()=>{try{return parseFloat(sessionStorage.getItem(FONT_KEY)||"1");}catch(e){return 1;}});
   const changeFontScale = (delta) => setFontScale(s=>{
     const next = Math.min(1.4, Math.max(0.8, Math.round((s+delta)*10)/10));
@@ -8136,10 +8457,10 @@ My question: ${aiCustom}`,
           </div>
         </div>
         <div style={{display:"flex",alignItems:"stretch",padding:"0 24px"}}>
-          {["coaching","digest","revenue","bob","leaderboard","calls","cers","trends","mydash",...(userSession.role==="master"?["capacity"]:[])].filter(t=>!isCsmView||(t==="mydash")).map(t=>(
+          {["coaching","digest","revenue","bob","leaderboard","calls","cers","trends","mydash",...(userSession.role==="master"?["capacity"]:[]),...(canSeeSCC?["scc"]:[])].filter(t=>!isCsmView||(t==="mydash")).map(t=>(
             <button key={t} onClick={()=>setTab(t)}
               style={{padding:"10px 18px",fontSize:13,fontWeight:500,color:tab===t?"#fff":"rgba(255,255,255,.55)",background:"transparent",border:"none",cursor:"pointer",borderBottom:tab===t?"3px solid #FF5000":"3px solid transparent",whiteSpace:"nowrap"}}>
-              {t==="mydash"?"🏠 My Dashboard":t==="coaching"?"Coaching":t==="digest"?"📋 Daily Digest":t==="trends"?"📈 Trends":t==="calls"?"📞 Calls":t==="cers"?"📋 CERs":t==="revenue"?"💰 Revenue":t==="bob"?"📋 Book of Business":t==="capacity"?"⚡ Capacity":t.charAt(0).toUpperCase()+t.slice(1)}
+              {t==="mydash"?"🏠 My Dashboard":t==="coaching"?"Coaching":t==="digest"?"📋 Daily Digest":t==="trends"?"📈 Trends":t==="calls"?"📞 Calls":t==="cers"?"📋 CERs":t==="revenue"?"💰 Revenue":t==="bob"?"📋 Book of Business":t==="capacity"?"⚡ Capacity":t==="scc"?"✍️ Strategic Content":t.charAt(0).toUpperCase()+t.slice(1)}
             </button>
           ))}
         </div>
@@ -8224,6 +8545,7 @@ My question: ${aiCustom}`,
           {tab==="cers"&&<CERView cerAssigned={cerAssigned} filterCoach={filterCoach} filterCSM={filterCSM}/>}
           {tab==="calls"&&<TrendsView history={history} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} qamc={qamc} qass={qass} trendsTab="calls" setTrendsTab={()=>{}} hideSubTabs={true}/>}
           {tab==="capacity"&&userSession.role==="master"&&<CapacityView csms={csms} callData={callData} callRaw={callRaw} cadenceFull={cadenceFull} domoBoq={domoBoq} filterCoach={filterCoach} filterCSM={filterCSM}/>}
+          {tab==="scc"&&canSeeSCC&&<SCCView/>}
           {tab==="mydash"&&<MyDashboard csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} churnAlerts={churnAlerts} qamc={qamc||[]} qass={qass||[]} domoBoq={domoBoq||[]} q3BobCur={q3BobCur||[]} q3Supp={q3Supp||[]} rawRev={rawRev||[]} cadenceFull={cadenceFull||[]} onNavigate={setTab} onSetTrendsTab={setTrendsTab} onSetBobTab={setBobTab} cerAssigned={cerAssigned} cerCompleted={cerCompleted}/>}
         </div>
       )}
