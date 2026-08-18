@@ -34,6 +34,7 @@ const CSV_CALLS   = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGw
 const CSV_QA_MC   = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=1435312575&single=true&output=csv"; // MC Activation QA
 const CSV_QA_SS   = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=2091285368&single=true&output=csv"; // Setup & Strategy QA
 const CSV_BC_CHURN= "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=295771282&single=true&output=csv"; // BC churn by coach/rep
+const CSV_SCC_CHURN = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTyJal8aVZyNXSU7kdYxA9M0TUQvy9iD49Y9I051DdUcI_bgsPQHkJKUFqorZlCx2hx2T3P4uTSANFd/pub?gid=0&single=true&output=csv"; // SCC Churn — Strategic Content Creation churn log
 const CSV_MC_CHURN= "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=1002996767&single=true&output=csv"; // MC churn by coach/rep
 const CSV_CHURN_ALERTS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=724984916&single=true&output=csv"; // daily new churn alerts
 
@@ -7711,10 +7712,36 @@ const SCC_CHURN_RAW = [
   {account:"Palm & Pineapple Roofing and Exterior", id:null, ssm:"Eric Johnson", date:"2026-08-18", qty:1, active:0, category:"Service Dissatisfaction", detail:""},
 ];
 
-// Categories the source report classifies as internally addressable — process,
-// billing, or undocumented — as opposed to hardship/competitive/product-fit.
 const SCC_AVOIDABLE_CATEGORIES = new Set(["Order/Process Error", "Billing / Payment Issue", "Cancellation -- No Reason Given", "Unspecified"]);
 const SCC_NOT_TRUE_LOSS = new Set(["Retained / Active", "Reallocation"]); // asset still live, or spend just moved
+
+// Parses the live "SCC Churn" sheet export into the same row shape SCCView
+// works with. Column headers below match SCC_Churn_YTD.xlsx exactly — if the
+// published sheet renames a column, update the fallbacks here rather than
+// the row shape everywhere else.
+function mapSCCChurn(rows) {
+  if (!rows || rows.length === 0) return [];
+  const parseDate = s => {
+    const str = String(s||"").trim();
+    if (!str) return null;
+    const d = new Date(str);
+    if (isNaN(d)) return null;
+    return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  };
+  return rows.map(r => {
+    const account = String(r["Account"] || r["Account "] || "").trim();
+    if (!account) return null;
+    const id  = String(r["Kgen/ EID/ Thryv ID"] || r["Kgen/EID/Thryv ID"] || "").replace(/[\t\n\r]/g,"").trim() || null;
+    const ssmRaw = String(r["SSM"] || "").trim();
+    const ssm = (!ssmRaw || ssmRaw.toUpperCase()==="N/A") ? null : ssmRaw;
+    const date = parseDate(r["Date Churned"]);
+    const qty  = parseInt(String(r["Quantity Churned"]||"1").replace(/[^0-9\-]/g,""), 10) || 1;
+    const active = parseInt(String(r["Active"]||"0").replace(/[^0-9\-]/g,""), 10) === 1 ? 1 : 0;
+    const category = String(r["Churn Category"] || "Unspecified").trim();
+    const detail = String(r["Churn Sub-Category / Detail"] || r["Churn Sub-Category/Detail"] || "").trim();
+    return {account, id, ssm, date, qty, active, category, detail};
+  }).filter(Boolean);
+}
 
 const SCC_CATEGORY_READ = {
   "Client Hardship": "Uncontrollable — businesses closing, failing to launch, or unable to pay",
@@ -7739,26 +7766,27 @@ const SCC_KEY_INSIGHTS = [
   "Continue monitoring the trend from March into August; confirm whether the March spike was tied to a specific batch, campaign, or seasonal renewal cycle.",
 ];
 
-function SCCView() {
-  const rows = SCC_CHURN_RAW;
+function SCCView({rows}) {
+  const isLive = !!(rows && rows.length>0);
+  const useRows = isLive ? rows : SCC_CHURN_RAW;
 
-  const grossQty   = rows.reduce((s,r)=>s+r.qty, 0);
-  const activeUnits = rows.filter(r=>r.active===1).length; // each flagged row = 1 still-active unit, regardless of that row's qty
+  const grossQty   = useRows.reduce((s,r)=>s+r.qty, 0);
+  const activeUnits = useRows.filter(r=>r.active===1).length; // each flagged row = 1 still-active unit, regardless of that row's qty
   const netQty     = grossQty - activeUnits;
-  const accountsAffected = rows.length;
+  const accountsAffected = useRows.length;
 
-  const avoidableQty = rows.filter(r=>SCC_AVOIDABLE_CATEGORIES.has(r.category)).reduce((s,r)=>s+r.qty,0);
+  const avoidableQty = useRows.filter(r=>SCC_AVOIDABLE_CATEGORIES.has(r.category)).reduce((s,r)=>s+r.qty,0);
   const avoidablePct = grossQty>0 ? avoidableQty/grossQty : 0;
 
-  const dated = rows.filter(r=>r.date);
-  const undated = rows.length - dated.length;
+  const dated = useRows.filter(r=>r.date);
+  const undated = useRows.length - dated.length;
   const minDate = dated.reduce((m,r)=> r.date<m?r.date:m, dated[0]?.date||"");
   const maxDate = dated.reduce((m,r)=> r.date>m?r.date:m, dated[0]?.date||"");
   const fmtMon = d => new Date(d+"T00:00:00").toLocaleDateString("en-US",{month:"short",year:"2-digit"});
 
   // ── By category ────────────────────────────────────────────────────────
   const byCategory = {};
-  rows.forEach(r=>{
+  useRows.forEach(r=>{
     if (!byCategory[r.category]) byCategory[r.category] = {accounts:0, qty:0, active:0};
     byCategory[r.category].accounts++;
     byCategory[r.category].qty += r.qty;
@@ -7770,7 +7798,7 @@ function SCCView() {
 
   // ── By SSM ─────────────────────────────────────────────────────────────
   const bySsm = {};
-  rows.forEach(r=>{
+  useRows.forEach(r=>{
     const key = r.ssm || "Unassigned / N-A";
     if (!bySsm[key]) bySsm[key] = {qty:0, cats:{}};
     bySsm[key].qty += r.qty;
@@ -7791,16 +7819,24 @@ function SCCView() {
   const maxMonthQty = Math.max(1, ...monthRows.map(([,q])=>q));
 
   // ── Still-live-asset accounts (false churn) ───────────────────────────
-  const stillLive = rows.filter(r=>r.active===1);
+  const stillLive = useRows.filter(r=>r.active===1);
 
   // ── Spotlight: Service Dissatisfaction ────────────────────────────────
-  const dissatisfaction = rows.filter(r=>r.category==="Service Dissatisfaction");
+  const dissatisfaction = useRows.filter(r=>r.category==="Service Dissatisfaction");
 
-  // ── Data integrity flags — anything with a manually-noted flag, plus any
-  //    account name appearing more than once (a real dedupe signal, computed
-  //    rather than hand-maintained so it can't silently go stale) ─────────
-  const manualFlags = rows.filter(r=>r.flag);
-  const missingFieldRows = rows.filter(r=>!r.id || !r.ssm || !r.date);
+  // ── Data integrity flags — computed, not hand-maintained, so this stays
+  //    accurate as the live sheet changes: (1) any account name appearing
+  //    more than once (normalized match — catches the same duplicate-keying
+  //    pattern seen in the source workbook), (2) any row missing an ID, SSM,
+  //    or churn date. A row can optionally carry a manual .flag string (used
+  //    by the static fallback dataset) for a human-written note; the live
+  //    CSV won't have that field, so this degrades gracefully to just the
+  //    computed checks. ─────────────────────────────────────────────────
+  const nameCounts = {};
+  useRows.forEach(r=>{ const k=r.account.toLowerCase().trim(); nameCounts[k]=(nameCounts[k]||0)+1; });
+  const duplicateNameRows = useRows.filter(r=>nameCounts[r.account.toLowerCase().trim()]>1);
+  const manualFlags = useRows.filter(r=>r.flag);
+  const missingFieldRows = useRows.filter(r=>!r.id || !r.ssm || !r.date);
 
   const S = {
     card:{background:"#fff",borderRadius:12,padding:"18px 22px",boxShadow:"0 1px 4px rgba(41,53,93,.07)",marginBottom:14},
@@ -7952,14 +7988,17 @@ function SCCView() {
       )}
 
       {/* Data integrity flags — computed + manually noted */}
-      {(manualFlags.length>0 || missingFieldRows.length>0) && (
+      {(manualFlags.length>0 || missingFieldRows.length>0 || duplicateNameRows.length>0) && (
         <div style={S.card}>
           <div style={{fontSize:13,fontWeight:600,color:"#d97706",marginBottom:14}}>⚠ Data integrity flags</div>
           <ul style={{margin:0,paddingLeft:18,fontSize:12,color:"#29355D",lineHeight:1.8}}>
             {manualFlags.map(r=>(
-              <li key={r.account}><b>{r.account}</b> — {r.flag}</li>
+              <li key={r.account+"-manual"}><b>{r.account}</b> — {r.flag}</li>
             ))}
-            {missingFieldRows.filter(r=>!manualFlags.includes(r)).map(r=>(
+            {duplicateNameRows.filter(r=>!manualFlags.includes(r)).map(r=>(
+              <li key={r.account+"-dup"}><b>{r.account}</b> — appears more than once on the churn list; check for duplicate keying or a possible near-duplicate account name</li>
+            ))}
+            {missingFieldRows.filter(r=>!manualFlags.includes(r)&&!duplicateNameRows.includes(r)).map(r=>(
               <li key={r.account+"-missing"}><b>{r.account}</b> — missing {[!r.id&&"account ID",!r.ssm&&"SSM",!r.date&&"churn date"].filter(Boolean).join(", ")}</li>
             ))}
           </ul>
@@ -7973,7 +8012,10 @@ function SCCView() {
           {SCC_KEY_INSIGHTS.map((t,i)=><li key={i}>{t}</li>)}
         </ul>
         <div style={{fontSize:11,color:"#aaa",marginTop:14,paddingTop:10,borderTop:"0.5px solid rgba(41,53,93,.06)"}}>
-          Source: SCC_Churn_YTD.xlsx ("SCC Churn" tab), transcribed 2026-08-18 · mirrors SCC_Churn_Trends_Report_8-13-26.docx methodology. All figures on this page are computed from the full current row list above, not copied from the workbook's Exec Summary tab.
+          {isLive
+            ? "Source: live \"SCC Churn\" sheet — refreshes automatically as rows are added or edited."
+            : "Source: SCC_Churn_YTD.xlsx (\"SCC Churn\" tab), static fallback transcribed 2026-08-18 — CSV_SCC_CHURN isn't wired to a live sheet yet, so this page is showing a frozen snapshot."}
+          {" "}All figures on this page are computed from the full current row list, not copied from the workbook's Exec Summary tab (whose own formulas are scoped to a fixed row range and go stale as new rows are appended).
         </div>
       </div>
     </div>
@@ -8028,6 +8070,7 @@ function App() {
   const [cadenceFull, setCadenceFull] = useState([]);
   const [cerAssigned,  setCerAssigned]  = useState([]);
   const [cerCompleted, setCerCompleted] = useState([]);
+  const [sccChurn, setSccChurn] = useState([]); // Strategic Content Creation churn log — live once CSV_SCC_CHURN is wired to the published sheet
 
   // AI Coach panel state
   const [aiOpen,     setAiOpen]     = useState(false);
@@ -8088,7 +8131,8 @@ function App() {
         fetchCSV(CSV_CADENCE_FULL).catch(()=>[]),
         fetchCSV(CSV_CER_ASSIGNED).catch(()=>[]),
         fetchCSV(CSV_CER_COMPLETED).catch(()=>[]),
-      ]).then(([revRows, emailRows, cadRows, dueRows, ontimeRows, historyRows, skippedRows, bobRows, bobDetRows, bobAdjRows, callRows, qaMcRows, qaSSRows, mcRows, bcRows, churnAlertRows, q3BobCurRows, domoBoqRows, q3SuppRows, q2DomoBoqRows, cadenceFullRows, cerAssignedRows, cerCompletedRows]) => {
+        fetchCSV(CSV_SCC_CHURN).catch(()=>[]),
+      ]).then(([revRows, emailRows, cadRows, dueRows, ontimeRows, historyRows, skippedRows, bobRows, bobDetRows, bobAdjRows, callRows, qaMcRows, qaSSRows, mcRows, bcRows, churnAlertRows, q3BobCurRows, domoBoqRows, q3SuppRows, q2DomoBoqRows, cadenceFullRows, cerAssignedRows, cerCompletedRows, sccChurnRows]) => {
         latestEmail   = emailRows;
         latestCad          = cadRows;
         latestDue          = dueRows;
@@ -8099,6 +8143,7 @@ function App() {
         setCadenceFull(latestCadenceFull);
         setCerAssigned(cerAssignedRows||[]);
         setCerCompleted(cerCompletedRows||[]);
+        try { setSccChurn(mapSCCChurn(sccChurnRows||[])); } catch(e) { console.error("mapSCCChurn failed:", e); setSccChurn([]); }
         latestBob         = bobRows;
         latestBobDet      = bobDetRows||[];
         latestBobAdj      = bobAdjRows||[];
@@ -8545,7 +8590,7 @@ My question: ${aiCustom}`,
           {tab==="cers"&&<CERView cerAssigned={cerAssigned} filterCoach={filterCoach} filterCSM={filterCSM}/>}
           {tab==="calls"&&<TrendsView history={history} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} qamc={qamc} qass={qass} trendsTab="calls" setTrendsTab={()=>{}} hideSubTabs={true}/>}
           {tab==="capacity"&&userSession.role==="master"&&<CapacityView csms={csms} callData={callData} callRaw={callRaw} cadenceFull={cadenceFull} domoBoq={domoBoq} filterCoach={filterCoach} filterCSM={filterCSM}/>}
-          {tab==="scc"&&canSeeSCC&&<SCCView/>}
+          {tab==="scc"&&canSeeSCC&&<SCCView rows={sccChurn}/>}
           {tab==="mydash"&&<MyDashboard csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} churnAlerts={churnAlerts} qamc={qamc||[]} qass={qass||[]} domoBoq={domoBoq||[]} q3BobCur={q3BobCur||[]} q3Supp={q3Supp||[]} rawRev={rawRev||[]} cadenceFull={cadenceFull||[]} onNavigate={setTab} onSetTrendsTab={setTrendsTab} onSetBobTab={setBobTab} cerAssigned={cerAssigned} cerCompleted={cerCompleted}/>}
         </div>
       )}
