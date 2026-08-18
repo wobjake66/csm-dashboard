@@ -7412,10 +7412,11 @@ function CapacityView({csms=[], callData={}, callRaw=[], cadenceFull=[], domoBoq
     }
   });
 
-  // ── Calls: unique client accounts per CSM (dedupe by email — repeat calls
-  //    to the same client are ONE account, not N) + a dated activity log ────
-  const callAcctsByCsm = {};    // normName -> {monthKey (YYYY-MM) -> Set of client emails that month}
-  const callActivityByCsm = {}; // normName -> [{date}] real, non-cancelled calls
+  // ── Onboarding: unique client accounts per CSM per month, by email ────────
+  // This pass is intentionally separate from call-volume counting below — it
+  // NEEDS an email to identify a distinct client, so rows without one are
+  // correctly excluded here (they simply can't be attributed to an account).
+  const callAcctsByCsm = {}; // normName -> {monthKey (YYYY-MM) -> Set of client emails that month}
   const seenBooking = new Set(); // same booking re-uploaded (Scheduled -> Completed) shouldn't double count
   callRaw.forEach(r => {
     const apptTime = String(r["Appointment Time"] || r["appointment_time"] || "").trim();
@@ -7440,11 +7441,24 @@ function CapacityView({csms=[], callData={}, callRaw=[], cadenceFull=[], domoBoq
     if (!apptDate) return;
     const monthKey = apptDate.getFullYear() + "-" + String(apptDate.getMonth()+1).padStart(2,"0");
 
-    if (!callAcctsByCsm[csm]) { callAcctsByCsm[csm] = {}; callActivityByCsm[csm] = []; }
+    if (!callAcctsByCsm[csm]) callAcctsByCsm[csm] = {};
     if (!callAcctsByCsm[csm][monthKey]) callAcctsByCsm[csm][monthKey] = new Set();
     callAcctsByCsm[csm][monthKey].add(emailRaw);
+  });
 
-    callActivityByCsm[csm].push({date: apptDate});
+  // ── Call volume per day, per CSM — built from `callData`, the SAME
+  //    already-deduped aggregation the Calls page itself displays (handles
+  //    pre-aggregated legacy rows and doesn't require an email on every row,
+  //    unlike the email-keyed onboarding pass above). This is what "calls
+  //    today / this week / etc." should match against the Calls tab. ──────
+  const callVolByCsmDay = {}; // normName -> {dayKey -> count}  (completed+scheduled+noShow, excludes cancelled)
+  Object.entries(callData).forEach(([csm, days]) => {
+    callVolByCsmDay[csm] = {};
+    Object.entries(days).forEach(([dayKey, svcs]) => {
+      let n = 0;
+      Object.values(svcs).forEach(s => { n += (s.completed||0) + (s.scheduled||0) + (s.noShow||0); });
+      callVolByCsmDay[csm][dayKey] = n;
+    });
   });
 
   // ── Resolve a canonical (roster) name to whichever key a data source used ──
@@ -7468,14 +7482,16 @@ function CapacityView({csms=[], callData={}, callRaw=[], cadenceFull=[], domoBoq
     const cadKey = resolveKey(csmNorm, openAcctByCsm);
     const activeCount = (openAcctByCsm[cadKey] || new Set()).size; // true active-cadence count
 
-    const callKey = resolveKey(csmNorm, callAcctsByCsm);
+    const callKey = resolveKey(csmNorm, callVolByCsmDay);
+
     // Onboarding = AVERAGE unique clients called per month, by email — not a
     // lifetime cumulative count. A cumulative count picks up years of call
     // history (former clients, reassigned accounts, one-off outreach) and
     // balloons far past the current book size. Averaging per calendar month
     // gives a steady-state "how many distinct clients does this CSM typically
     // call in a month" figure instead.
-    const monthlyClientSets = Object.values(callAcctsByCsm[callKey] || {});
+    const onbKey = resolveKey(csmNorm, callAcctsByCsm);
+    const monthlyClientSets = Object.values(callAcctsByCsm[onbKey] || {});
     const onboardingCount = monthlyClientSets.length
       ? monthlyClientSets.reduce((s,set)=>s+set.size,0) / monthlyClientSets.length
       : 0;
@@ -7489,8 +7505,13 @@ function CapacityView({csms=[], callData={}, callRaw=[], cadenceFull=[], domoBoq
     const workingPct = totalAccts > 0 ? workingCount / totalAccts : null;
 
     // ── Real, period-based averages (not a forward projection) ─────────────
-    const cadInPeriod  = (cadActivityByCsm[cadKey]   || []).filter(a => inPeriod(a.date, period.start)).length;
-    const callInPeriod = (callActivityByCsm[callKey] || []).filter(a => inPeriod(a.date, period.start)).length;
+    const cadInPeriod  = (cadActivityByCsm[cadKey] || []).filter(a => inPeriod(a.date, period.start)).length;
+    const callInPeriod = Object.entries(callVolByCsmDay[callKey] || {})
+      .filter(([dayKey]) => {
+        const [y,m,d] = dayKey.split("-").map(Number);
+        return inPeriod(new Date(y, m-1, d), period.start); // local-time construction — a bare "YYYY-MM-DD" string parses as UTC and can land on the wrong local day
+      })
+      .reduce((s,[,n]) => s+n, 0);
     const callsPerDay = callInPeriod / elapsedDays;
     const cadPerDay   = cadInPeriod  / elapsedDays;
     const combined    = callsPerDay + cadPerDay;
