@@ -122,11 +122,11 @@ const NAME_NORM = {
   "stacy roers":"Stacy Roers",
   "steven saunders":"Steven Saunders","steve saunders":"Steven Saunders",
   // Mia O'Dirling — DR
-  "darling danais santos taveras":"Darling Danais Santos Taveras","darling":"Darling Danais Santos Taveras","darling santos":"Darling Danais Santos Taveras",
+  "darling danais santos taveras":"Darling Danais Santos Taveras","darling":"Darling Danais Santos Taveras","darling santos":"Darling Danais Santos Taveras","darling santos taveras":"Darling Danais Santos Taveras",
   "heidi torres uribe":"Heidi Torres Uribe","heidi":"Heidi Torres Uribe","heidi torres":"Heidi Torres Uribe",
   "irina larianni molina molina":"Irina Larianni Molina Molina","irini":"Irina Larianni Molina Molina","irina molina":"Irina Larianni Molina Molina","irina molina molina":"Irina Larianni Molina Molina","molina molina, irina":"Irina Larianni Molina Molina",
   "ironelis cabrera bautista":"Ironelis Cabrera Bautista","ironelis":"Ironelis Cabrera Bautista","ironelis cabrera":"Ironelis Cabrera Bautista","ironelis bautista":"Ironelis Cabrera Bautista",
-  "jathzelyn elizabeth fortuna paulino":"Jathzelyn Elizabeth Fortuna Paulino","jathzelyn":"Jathzelyn Elizabeth Fortuna Paulino","jazz":"Jathzelyn Elizabeth Fortuna Paulino","jathzelyn fortuna":"Jathzelyn Elizabeth Fortuna Paulino","jazz fortuna":"Jathzelyn Elizabeth Fortuna Paulino",
+  "jathzelyn elizabeth fortuna paulino":"Jathzelyn Elizabeth Fortuna Paulino","jathzelyn":"Jathzelyn Elizabeth Fortuna Paulino","jazz":"Jathzelyn Elizabeth Fortuna Paulino","jathzelyn fortuna":"Jathzelyn Elizabeth Fortuna Paulino","jazz fortuna":"Jathzelyn Elizabeth Fortuna Paulino","jazz fortuna paulino":"Jathzelyn Elizabeth Fortuna Paulino",
   "juan sanchez":"Juan Sanchez","juan sanchez sanchez":"Juan Sanchez",
   "lisbeth gruning soriano":"Lisbeth Gruning Soriano","lisbeth":"Lisbeth Gruning Soriano","lisbeth gruning":"Lisbeth Gruning Soriano",
   "samuel frias de paula":"Samuel Frias De Paula","sam":"Samuel Frias De Paula","samuel":"Samuel Frias De Paula","sam frias":"Samuel Frias De Paula","samuel frial":"Samuel Frias De Paula",
@@ -6053,6 +6053,21 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
       return true;
     });
 
+    // ── Diagnostic: roster CSMs on this coach's team who have ZERO rows at
+    //    all in the Q3 Domo BOQ export — these silently vanish from the
+    //    table below (nothing to group, since there's no row for them),
+    //    which looks identical to "the dashboard dropped them" from the
+    //    outside. Surfacing it explicitly turns a support round-trip into a
+    //    one-glance diagnosis: either their name doesn't match anything in
+    //    this specific export's CSM Name column, or they truly have no
+    //    accounts in it yet (new hire, pending transfer, Domo sync lag). ──
+    const domoCsmNamesResolved = new Set(allRows.map(r=>norm(r.csm)).filter(Boolean));
+    const missingFromQ3 = filterCoach ? Object.keys(ROSTER)
+      .filter(key => ROSTER[key].c === filterCoach)
+      .map(key => norm(key))
+      .filter(name => !domoCsmNamesResolved.has(name))
+      : [];
+
     // ── Group by CSM ─────────────────────────────────────────────────────────
     const csmGroups = {};
     scopedRows.forEach(r => {
@@ -6131,6 +6146,11 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
 
     return (
       <div>
+        {missingFromQ3.length>0 && (
+          <div style={{background:"rgba(217,119,6,.08)",border:"0.5px solid rgba(217,119,6,.3)",borderRadius:8,padding:"10px 14px",marginBottom:14,fontSize:12,color:"#92400e"}}>
+            ⚠ {missingFromQ3.length} team member{missingFromQ3.length===1?"":"s"} {missingFromQ3.length===1?"has":"have"} no rows in this Q3 Domo BOQ export, so {missingFromQ3.length===1?"they're":"they're"} not appearing below: <b>{missingFromQ3.join(", ")}</b>. Either their name doesn't match anything in this export's CSM Name column, or they genuinely have no Q3 accounts loaded yet.
+          </div>
+        )}
         {/* Tiles */}
         <div style={{display:"grid",gridTemplateColumns:"repeat(8,minmax(0,1fr))",gap:10,marginBottom:16}}>
           <div onClick={()=>{setDomoTileFilter(null);}}
