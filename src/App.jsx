@@ -8576,8 +8576,8 @@ function FulfillmentView({filterCoach="", filterCSM=""}) {
                   <td style={S.td}>{r.ofOwner}</td>
                   <td style={S.td}>{r.account}</td>
                   <td style={S.td}>
-                    {r.func}
-                    {urgent && <span style={{marginLeft:6,fontSize:10,fontWeight:700,padding:"1px 6px",borderRadius:20,background:"#dc2626",color:"#fff"}}>🚨 URGENT</span>}
+                    <div>{r.func}</div>
+                    {urgent && <div style={{marginTop:3}}><span style={{fontSize:10,fontWeight:700,padding:"1px 6px",borderRadius:20,background:"#dc2626",color:"#fff",whiteSpace:"nowrap",display:"inline-block"}}>🚨 URGENT</span></div>}
                   </td>
                   <td style={{...S.td,textAlign:"right",fontWeight:600,color:urgent?"#dc2626":r.aging>10?"#d97706":"#29355D"}}>{fmt1(r.aging)}</td>
                   <td style={S.td}>{r.fiNum}</td>
