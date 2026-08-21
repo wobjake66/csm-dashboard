@@ -8420,15 +8420,25 @@ function FulfillmentView({filterCoach="", filterCSM=""}) {
   const [sortCol, setSortCol] = React.useState("fiOwner");
   const [sortDir, setSortDir] = React.useState("asc");
   const [typeFilter, setTypeFilter] = React.useState(""); // "" | "Social FI" | "Website FI"
+  const [funcFilter, setFuncFilter] = React.useState(""); // "" | a Current Function value, scoped to typeFilter
   const [urgentOnly, setUrgentOnly] = React.useState(false);
 
+  const onSelectType = v => { setTypeFilter(v); setFuncFilter(""); }; // changing type invalidates any function picked under the old type
+
   const unmappedCoaches = [...new Set(FI_RAW.map(r=>r.coach))].filter(c=>!FI_COACH_EMAIL_MAP[c]);
+
+  // Functions available within whatever type is currently selected (or all
+  // types, if "All" is active) — this is what populates the function dropdown.
+  const availableFunctions = [...new Set(
+    FI_RAW.filter(r => !typeFilter || r.fiType===typeFilter).map(r=>r.func)
+  )].sort();
 
   const scoped = FI_RAW.filter(r => {
     const coachEmail = FI_COACH_EMAIL_MAP[r.coach] || null;
     if (filterCoach && coachEmail !== filterCoach) return false;
     if (filterCSM && r.fiOwner !== filterCSM && r.ofOwner !== filterCSM) return false;
     if (typeFilter && r.fiType !== typeFilter) return false;
+    if (funcFilter && r.func !== funcFilter) return false;
     if (urgentOnly && !fiIsUrgent(r)) return false;
     return true;
   });
@@ -8470,12 +8480,6 @@ function FulfillmentView({filterCoach="", filterCSM=""}) {
       <div style={{fontSize:20,fontWeight:700,color:"#29355D",marginBottom:4}}>📋 Fulfillment Items</div>
       <div style={{fontSize:13,color:"#808080",marginBottom:14}}>Static snapshot, transcribed 2026-08-21 — not yet wired to a live sheet</div>
 
-      {unmappedCoaches.length>0 && (
-        <div style={{background:"rgba(217,119,6,.08)",border:"0.5px solid rgba(217,119,6,.3)",borderRadius:8,padding:"10px 14px",marginBottom:14,fontSize:12,color:"#92400e"}}>
-          ⚠ {unmappedCoaches.length} coach name{unmappedCoaches.length===1?"":"s"} in this data don't match anyone in the coach roster, so their rows won't show up under any coach filter: <b>{unmappedCoaches.join(", ")}</b>. "KendraLeary" is tentatively mapped to Kendra Morelli — please confirm.
-        </div>
-      )}
-
       <div style={{display:"grid",gridTemplateColumns:"repeat(5,minmax(0,1fr))",gap:10,marginBottom:14}}>
         {[
           {l:"Total FIs",   v:total, sub:"in current scope", col:"#29355D"},
@@ -8492,15 +8496,23 @@ function FulfillmentView({filterCoach="", filterCSM=""}) {
         ))}
       </div>
 
-      <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
+      <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap",alignItems:"center"}}>
         {[["","All"],["Social FI","Social FI"],["Website FI","Website FI"]].map(([v,l])=>(
-          <button key={v} onClick={()=>setTypeFilter(v)}
+          <button key={v} onClick={()=>onSelectType(v)}
             style={{padding:"4px 12px",borderRadius:20,fontSize:12,fontWeight:500,cursor:"pointer",
               border:"0.5px solid "+(typeFilter===v?"#29355D":"rgba(41,53,93,.2)"),
               background:typeFilter===v?"#29355D":"#fff",color:typeFilter===v?"#fff":"#808080"}}>
             {l}
           </button>
         ))}
+        {typeFilter && (
+          <select value={funcFilter} onChange={e=>setFuncFilter(e.target.value)}
+            style={{padding:"4px 10px",borderRadius:20,fontSize:12,fontWeight:500,cursor:"pointer",
+              border:"0.5px solid #29355D",background:"#fff",color:"#29355D"}}>
+            <option value="">All functions ({typeFilter})</option>
+            {availableFunctions.map(f => <option key={f} value={f}>{f}</option>)}
+          </select>
+        )}
         <button onClick={()=>setUrgentOnly(u=>!u)}
           style={{padding:"4px 12px",borderRadius:20,fontSize:12,fontWeight:600,cursor:"pointer",
             border:"0.5px solid "+(urgentOnly?"#dc2626":"rgba(220,38,38,.3)"),
@@ -8532,7 +8544,7 @@ function FulfillmentView({filterCoach="", filterCSM=""}) {
 
       <div style={S.card}>
         <div style={{fontSize:13,fontWeight:600,color:"#29355D",marginBottom:14}}>
-          All Fulfillment Items ({sorted.length}) — sorted by FI Owner, then Onboarding Form Owner
+          {typeFilter||funcFilter ? [typeFilter,funcFilter].filter(Boolean).join(" — ") : "All Fulfillment Items"} ({sorted.length}) — sorted by FI Owner, then Onboarding Form Owner
         </div>
         <div style={{overflowX:"auto"}}>
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:1000}}>
