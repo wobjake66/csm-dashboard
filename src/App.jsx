@@ -3205,6 +3205,9 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
         // This week: Mon–Sun of current calendar week
         const thisWeekMon = getMondayOf(now);
         const thisWeekSun = new Date(thisWeekMon); thisWeekSun.setDate(thisWeekMon.getDate()+6); thisWeekSun.setHours(23,59,59,999);
+        // Next week: Mon–Sun of the upcoming calendar week
+        const nextWeekMon = new Date(thisWeekMon); nextWeekMon.setDate(thisWeekMon.getDate()+7);
+        const nextWeekSun = new Date(nextWeekMon); nextWeekSun.setDate(nextWeekMon.getDate()+6); nextWeekSun.setHours(23,59,59,999);
         // Last week: Mon–Sun of prior calendar week
         const lastWeekMon = new Date(thisWeekMon); lastWeekMon.setDate(thisWeekMon.getDate()-7);
         const lastWeekSun = new Date(thisWeekMon); lastWeekSun.setDate(thisWeekMon.getDate()-1); lastWeekSun.setHours(23,59,59,999);
@@ -3224,6 +3227,7 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
           if (callDateFilter==="yesterday")    return wd >= yestStart   && wd <= yestEnd;
           if (callDateFilter==="tomorrow")     return wd >= tmrwStart   && wd <= tmrwEnd;
           if (callDateFilter==="this_week")    return wd >= thisWeekMon  && wd <= thisWeekSun;
+          if (callDateFilter==="next_week")    return wd >= nextWeekMon  && wd <= nextWeekSun;
           if (callDateFilter==="last_week")    return wd >= lastWeekMon  && wd <= lastWeekSun;
           if (callDateFilter==="last_month")   return wd >= lastMonthStart && wd <= lastMonthEnd;
           if (callDateFilter==="last_quarter") return wd >= lastQStart   && wd <= lastQEnd;
@@ -3448,6 +3452,7 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
                   callDateFilter==="yesterday"    ? `Yesterday — ${yestStart.toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"})}` :
                   callDateFilter==="tomorrow"     ? `Tomorrow — ${tmrwStart.toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"})}` :
                   callDateFilter==="this_week"    ? `This week (${thisWeekMon.toLocaleDateString("en-US",{month:"short",day:"numeric"})} – ${thisWeekSun.toLocaleDateString("en-US",{month:"short",day:"numeric"})})` :
+                  callDateFilter==="next_week"    ? `Next week (${nextWeekMon.toLocaleDateString("en-US",{month:"short",day:"numeric"})} – ${nextWeekSun.toLocaleDateString("en-US",{month:"short",day:"numeric"})})` :
                   callDateFilter==="last_week"    ? `Last week (${lastWeekMon.toLocaleDateString("en-US",{month:"short",day:"numeric"})} – ${lastWeekSun.toLocaleDateString("en-US",{month:"short",day:"numeric"})})` :
                   callDateFilter==="last_month"   ? `${lastMonthStart.toLocaleDateString("en-US",{month:"long",year:"numeric"})}` :
                   callDateFilter==="last_quarter" ? `Q${Math.floor(lastQStart.getMonth()/3)+1} ${lastQStart.getFullYear()} (${lastQStart.toLocaleDateString("en-US",{month:"short",day:"numeric"})} – ${lastQEnd.toLocaleDateString("en-US",{month:"short",day:"numeric"})})` :
@@ -3457,7 +3462,7 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
               </div>
               <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
                 {/* Date filter pills */}
-                {[["today","Today"],["yesterday","Yesterday"],["tomorrow","Tomorrow"],["this_week","This week"],["last_week","Last week"],["last_month","Last month"],["last_quarter","Last quarter"],["all","All"],["custom","Custom"]].map(([v,l])=>(
+                {[["today","Today"],["yesterday","Yesterday"],["tomorrow","Tomorrow"],["this_week","This week"],["next_week","Next week"],["last_week","Last week"],["last_month","Last month"],["last_quarter","Last quarter"],["all","All"],["custom","Custom"]].map(([v,l])=>(
                   <button key={v} onClick={()=>setCallDateFilter(v)}
                     style={{padding:"4px 10px",borderRadius:20,border:"0.5px solid "+(callDateFilter===v?"#29355D":"rgba(41,53,93,.15)"),
                       background:callDateFilter===v?"#29355D":"#fff",color:callDateFilter===v?"#fff":"#808080",
