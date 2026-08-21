@@ -129,7 +129,7 @@ const NAME_NORM = {
   "jathzelyn elizabeth fortuna paulino":"Jathzelyn Elizabeth Fortuna Paulino","jathzelyn":"Jathzelyn Elizabeth Fortuna Paulino","jazz":"Jathzelyn Elizabeth Fortuna Paulino","jathzelyn fortuna":"Jathzelyn Elizabeth Fortuna Paulino","jazz fortuna":"Jathzelyn Elizabeth Fortuna Paulino","jazz fortuna paulino":"Jathzelyn Elizabeth Fortuna Paulino",
   "juan sanchez":"Juan Sanchez","juan sanchez sanchez":"Juan Sanchez",
   "lisbeth gruning soriano":"Lisbeth Gruning Soriano","lisbeth":"Lisbeth Gruning Soriano","lisbeth gruning":"Lisbeth Gruning Soriano",
-  "samuel frias de paula":"Samuel Frias De Paula","sam":"Samuel Frias De Paula","samuel":"Samuel Frias De Paula","sam frias":"Samuel Frias De Paula","samuel frial":"Samuel Frias De Paula",
+  "samuel frias de paula":"Samuel Frias De Paula","sam":"Samuel Frias De Paula","samuel":"Samuel Frias De Paula","sam frias":"Samuel Frias De Paula","samuel frial":"Samuel Frias De Paula","sam frias de paula":"Samuel Frias De Paula",
   "sati ananda pimentel malespin":"Sati Ananda Pimentel Malespin","sati":"Sati Ananda Pimentel Malespin","sati pimentel":"Sati Ananda Pimentel Malespin","sati pimentel malespin":"Sati Ananda Pimentel Malespin","pimentel malespin, sati":"Sati Ananda Pimentel Malespin",
   "victor abner moscoso fernandez":"Victor Abner Moscoso Fernandez","victor":"Victor Abner Moscoso Fernandez","victor moscoso":"Victor Abner Moscoso Fernandez",
   "yessica montero urena":"Yessica Montero Urena","yessica":"Yessica Montero Urena","yessica montero":"Yessica Montero Urena",
