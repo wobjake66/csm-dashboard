@@ -6639,6 +6639,7 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
   });
   const myFISocial  = myFI.filter(r=>r.fiType==="Social FI").length;
   const myFIWebsite = myFI.filter(r=>r.fiType==="Website FI").length;
+  const myFIUrgent  = (typeof fiIsUrgent === "function" ? myFI.filter(fiIsUrgent) : []).sort((a,b)=>b.aging-a.aging);
   const myFIAging   = [...myFI].sort((a,b)=>b.aging-a.aging).slice(0,5);
 
   // ── CER processing — Q3 calendar quarter (Jul 1 – Sep 30) ──────────────────
@@ -6875,7 +6876,7 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
         {/* Fulfillment Items */}
         <div style={card}>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8,cursor:"pointer"}} onClick={()=>onNavigate("fi")}>
-            <span style={lbl}>📋 Fulfillment Items</span>
+            <span style={lbl}>📋 Fulfillment Items{myFIUrgent.length>0 && <span style={{marginLeft:6,fontSize:11,fontWeight:700,padding:"1px 6px",borderRadius:20,background:"#dc2626",color:"#fff"}}>🚨 {myFIUrgent.length}</span>}</span>
             <span style={{fontSize:12,color:"#5378FC",fontWeight:500}}>View details →</span>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:10}}>
@@ -6883,9 +6884,14 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
             <div><div style={{fontSize:12,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Social</div><div style={{fontSize:20,fontWeight:500,color:"#d97706"}}>{myFISocial}</div></div>
             <div><div style={{fontSize:12,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Website</div><div style={{fontSize:20,fontWeight:500,color:"#2a78d6"}}>{myFIWebsite}</div></div>
           </div>
-          {myFIAging.length>0 ? (
+          {myFIUrgent.length>0 ? (
+            <div style={{fontSize:11,color:"#dc2626",marginTop:6,fontWeight:600}}>
+              🚨 {myFIUrgent[0].account} — {FI_ALWAYS_URGENT_FUNCTIONS.has(myFIUrgent[0].func) ? "Unengaged" : myFIUrgent[0].func+", "+myFIUrgent[0].aging.toFixed(1)+"d"}
+              {myFIUrgent.length>1 && <span style={{color:"#991b1b",fontWeight:400}}> (+{myFIUrgent.length-1} more urgent)</span>}
+            </div>
+          ) : myFIAging.length>0 ? (
             <div style={{fontSize:11,color:"var(--text-secondary)",marginTop:6}}>
-              Oldest in current function: <b style={{color:myFIAging[0].aging>20?"#dc2626":"#29355D"}}>{myFIAging[0].account}</b> ({myFIAging[0].aging.toFixed(1)}d)
+              Oldest in current function: <b style={{color:"#29355D"}}>{myFIAging[0].account}</b> ({myFIAging[0].aging.toFixed(1)}d)
             </div>
           ) : (
             <div style={{fontSize:12,color:"var(--text-secondary)",textAlign:"center",padding:"8px 0"}}>No Fulfillment Items in scope</div>
@@ -8395,10 +8401,26 @@ const FI_RAW = [
   {fiType:"Social FI",coach:"AaronTaylor",fiOwner:"Zoltan Rudolf",ofOwner:"Zoltan Rudolf",account:"Lower north roofing",func:"Voice of the Client",aging:5.21,fiNum:"272591",ofNum:"202665"},
 ];
 
+// ── "Danger Will Robinson" aging thresholds, per Current Function ──────────
+// An FI is flagged urgent if it's been sitting in its Current Function longer
+// than its threshold — OR if it's in a function that's ALWAYS urgent
+// regardless of aging (Unengaged: an unengaged client is a fire the moment
+// it's noticed, not after N days).
+// "Launch" doesn't appear anywhere in the current data, but the threshold is
+// wired in now so it's ready the moment that function shows up.
+const FI_SLA_DAYS = { "Consultation": 5, "Review": 2, "Launch": 1, "Voice of the Client": 2 };
+const FI_ALWAYS_URGENT_FUNCTIONS = new Set(["Unengaged"]);
+function fiIsUrgent(r) {
+  if (FI_ALWAYS_URGENT_FUNCTIONS.has(r.func)) return true;
+  const threshold = FI_SLA_DAYS[r.func];
+  return threshold != null && r.aging > threshold;
+}
+
 function FulfillmentView({filterCoach="", filterCSM=""}) {
   const [sortCol, setSortCol] = React.useState("fiOwner");
   const [sortDir, setSortDir] = React.useState("asc");
   const [typeFilter, setTypeFilter] = React.useState(""); // "" | "Social FI" | "Website FI"
+  const [urgentOnly, setUrgentOnly] = React.useState(false);
 
   const unmappedCoaches = [...new Set(FI_RAW.map(r=>r.coach))].filter(c=>!FI_COACH_EMAIL_MAP[c]);
 
@@ -8407,7 +8429,15 @@ function FulfillmentView({filterCoach="", filterCSM=""}) {
     if (filterCoach && coachEmail !== filterCoach) return false;
     if (filterCSM && r.fiOwner !== filterCSM && r.ofOwner !== filterCSM) return false;
     if (typeFilter && r.fiType !== typeFilter) return false;
+    if (urgentOnly && !fiIsUrgent(r)) return false;
     return true;
+  });
+
+  const urgentItems = [...scoped].filter(fiIsUrgent).sort((a,b)=>{
+    // Always-urgent functions (Unengaged) first, then worst-aging first
+    const aAlways = FI_ALWAYS_URGENT_FUNCTIONS.has(a.func), bAlways = FI_ALWAYS_URGENT_FUNCTIONS.has(b.func);
+    if (aAlways !== bAlways) return aAlways ? -1 : 1;
+    return b.aging - a.aging;
   });
 
   const onSort = col => { if (sortCol===col) setSortDir(d=>d==="asc"?"desc":"asc"); else { setSortCol(col); setSortDir("asc"); } };
@@ -8446,9 +8476,10 @@ function FulfillmentView({filterCoach="", filterCSM=""}) {
         </div>
       )}
 
-      <div style={{display:"grid",gridTemplateColumns:"repeat(4,minmax(0,1fr))",gap:10,marginBottom:14}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(5,minmax(0,1fr))",gap:10,marginBottom:14}}>
         {[
           {l:"Total FIs",   v:total, sub:"in current scope", col:"#29355D"},
+          {l:"🚨 Urgent",   v:urgentItems.length, sub:total?Math.round(urgentItems.length/total*100)+"% of scope":"—", col:"#dc2626"},
           {l:"Social FI",   v:social, sub:total?Math.round(social/total*100)+"% of total":"—", col:"#d97706"},
           {l:"Website FI",  v:website, sub:total?Math.round(website/total*100)+"% of total":"—", col:"#2a78d6"},
           {l:"Avg Function Aging", v:fmt1(avgAging)+"d", sub:"days in current function", col:"#7c3aed"},
@@ -8461,7 +8492,7 @@ function FulfillmentView({filterCoach="", filterCSM=""}) {
         ))}
       </div>
 
-      <div style={{display:"flex",gap:6,marginBottom:14}}>
+      <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
         {[["","All"],["Social FI","Social FI"],["Website FI","Website FI"]].map(([v,l])=>(
           <button key={v} onClick={()=>setTypeFilter(v)}
             style={{padding:"4px 12px",borderRadius:20,fontSize:12,fontWeight:500,cursor:"pointer",
@@ -8470,7 +8501,34 @@ function FulfillmentView({filterCoach="", filterCSM=""}) {
             {l}
           </button>
         ))}
+        <button onClick={()=>setUrgentOnly(u=>!u)}
+          style={{padding:"4px 12px",borderRadius:20,fontSize:12,fontWeight:600,cursor:"pointer",
+            border:"0.5px solid "+(urgentOnly?"#dc2626":"rgba(220,38,38,.3)"),
+            background:urgentOnly?"#dc2626":"#fff",color:urgentOnly?"#fff":"#dc2626"}}>
+          🚨 Urgent only
+        </button>
       </div>
+
+      {urgentItems.length>0 && (
+        <div style={{background:"rgba(220,38,38,.06)",border:"0.5px solid rgba(220,38,38,.35)",borderRadius:12,padding:"16px 20px",marginBottom:14}}>
+          <div style={{fontSize:14,fontWeight:700,color:"#7f1d1d",marginBottom:4}}>🚨 Danger, Will Robinson — {urgentItems.length} Fulfillment Item{urgentItems.length===1?"":"s"} need attention</div>
+          <div style={{fontSize:12,color:"#991b1b",marginBottom:12}}>
+            Unengaged is always urgent · Consultation &gt; {FI_SLA_DAYS["Consultation"]}d · Review &gt; {FI_SLA_DAYS["Review"]}d · Voice of the Client &gt; {FI_SLA_DAYS["Voice of the Client"]}d · Launch &gt; {FI_SLA_DAYS["Launch"]}d
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:8}}>
+            {urgentItems.slice(0,12).map(r=>(
+              <div key={r.fiNum} style={{background:"#fff",borderRadius:8,padding:"8px 12px",borderLeft:"3px solid #dc2626"}}>
+                <div style={{fontSize:12,fontWeight:600,color:"#29355D"}}>{r.account}</div>
+                <div style={{fontSize:11,color:"#808080"}}>{r.fiOwner} · {r.func}</div>
+                <div style={{fontSize:11,fontWeight:600,color:"#dc2626"}}>
+                  {FI_ALWAYS_URGENT_FUNCTIONS.has(r.func) ? "Unengaged" : fmt1(r.aging)+"d in function"}
+                </div>
+              </div>
+            ))}
+          </div>
+          {urgentItems.length>12 && <div style={{fontSize:11,color:"#991b1b",marginTop:8}}>+{urgentItems.length-12} more — check "🚨 Urgent only" below to see the full list.</div>}
+        </div>
+      )}
 
       <div style={S.card}>
         <div style={{fontSize:13,fontWeight:600,color:"#29355D",marginBottom:14}}>
@@ -8492,8 +8550,10 @@ function FulfillmentView({filterCoach="", filterCSM=""}) {
               </tr>
             </thead>
             <tbody>
-              {sorted.map((r,i) => (
-                <tr key={r.fiNum+"-"+i}>
+              {sorted.map((r,i) => {
+                const urgent = fiIsUrgent(r);
+                return (
+                <tr key={r.fiNum+"-"+i} style={urgent?{background:"rgba(220,38,38,.05)"}:undefined}>
                   <td style={S.td}>
                     <span style={{fontSize:11,fontWeight:600,padding:"2px 8px",borderRadius:20,
                       background:r.fiType==="Social FI"?"rgba(217,119,6,.1)":"rgba(42,120,214,.1)",
@@ -8503,12 +8563,16 @@ function FulfillmentView({filterCoach="", filterCSM=""}) {
                   <td style={{...S.td,fontWeight:600}}>{r.fiOwner}</td>
                   <td style={S.td}>{r.ofOwner}</td>
                   <td style={S.td}>{r.account}</td>
-                  <td style={S.td}>{r.func}</td>
-                  <td style={{...S.td,textAlign:"right",fontWeight:600,color:r.aging>20?"#dc2626":r.aging>10?"#d97706":"#29355D"}}>{fmt1(r.aging)}</td>
+                  <td style={S.td}>
+                    {r.func}
+                    {urgent && <span style={{marginLeft:6,fontSize:10,fontWeight:700,padding:"1px 6px",borderRadius:20,background:"#dc2626",color:"#fff"}}>🚨 URGENT</span>}
+                  </td>
+                  <td style={{...S.td,textAlign:"right",fontWeight:600,color:urgent?"#dc2626":r.aging>10?"#d97706":"#29355D"}}>{fmt1(r.aging)}</td>
                   <td style={S.td}>{r.fiNum}</td>
                   <td style={S.td}>{r.ofNum}</td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
