@@ -35,6 +35,7 @@ const CSV_QA_MC   = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGw
 const CSV_QA_SS   = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=2091285368&single=true&output=csv"; // Setup & Strategy QA
 const CSV_BC_CHURN= "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=295771282&single=true&output=csv"; // BC churn by coach/rep
 const CSV_SCC_CHURN = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTyJal8aVZyNXSU7kdYxA9M0TUQvy9iD49Y9I051DdUcI_bgsPQHkJKUFqorZlCx2hx2T3P4uTSANFd/pub?gid=0&single=true&output=csv"; // SCC Churn — Strategic Content Creation churn log
+const CSV_FI = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=1693409175&single=true&output=csv"; // FIs Needing Action — raw Fulfillment Items export
 const CSV_MC_CHURN= "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=1002996767&single=true&output=csv"; // MC churn by coach/rep
 const CSV_CHURN_ALERTS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=724984916&single=true&output=csv"; // daily new churn alerts
 
@@ -6514,7 +6515,7 @@ function PinLock({onUnlock}) {
 // MY DASHBOARD — self-contained. To revert: remove this block + 3 lines below.
 // ═══════════════════════════════════════════════════════════════════════════
 function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
-  churnAlerts=[], qamc=[], qass=[], domoBoq=[], q3BobCur=[], q3Supp=[], rawRev=[], cadenceFull=[], onNavigate=()=>{}, onSetTrendsTab=()=>{}, onSetBobTab=()=>{}, cerAssigned=[], cerCompleted=[]}) {
+  churnAlerts=[], qamc=[], qass=[], domoBoq=[], q3BobCur=[], q3Supp=[], rawRev=[], cadenceFull=[], onNavigate=()=>{}, onSetTrendsTab=()=>{}, onSetBobTab=()=>{}, cerAssigned=[], cerCompleted=[], fiRows=[]}) {
   const [dashDateFilter, setDashDateFilter] = React.useState("today");
   const [dashCustomFrom, setDashCustomFrom] = React.useState("");
   const [dashCustomTo,   setDashCustomTo]   = React.useState("");
@@ -6632,7 +6633,8 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
   // No explicit "due date" field exists in the FI data (unlike Cadence's Due
   // Date/Time), so this isn't filtered by dashDateFilter the way calls/cadence
   // are — it shows everything currently open in scope, sorted worst-aging-first.
-  const myFI = (typeof FI_RAW !== "undefined" ? FI_RAW : []).filter(r => {
+  const fiSource = (fiRows && fiRows.length>0) ? fiRows : (typeof FI_RAW !== "undefined" ? FI_RAW : []);
+  const myFI = fiSource.filter(r => {
     if (!filterCoach && !filterCSM) return true;
     const fiN = norm(r.fiOwner)||r.fiOwner, ofN = norm(r.ofOwner)||r.ofOwner;
     return csmNorms.has((fiN||"").toLowerCase()) || csmNorms.has((ofN||"").toLowerCase());
@@ -8401,6 +8403,34 @@ const FI_RAW = [
   {fiType:"Social FI",coach:"AaronTaylor",fiOwner:"Zoltan Rudolf",ofOwner:"Zoltan Rudolf",account:"Lower north roofing",func:"Voice of the Client",aging:5.21,fiNum:"272591",ofNum:"202665"},
 ];
 
+// Parses the live "FIs Needing Action" sheet export into the same row shape
+// FulfillmentView and the My Dashboard card already work with. Column headers
+// match fis.xlsx exactly (verified against a fresh live pull on 2026-08-21).
+function mapFI(rows) {
+  if (!rows || rows.length === 0) return [];
+  return rows.map(r => {
+    const fiOwner = String(r["Fulfillment Item: Owner Name"]||"").trim();
+    const account = String(r["Account"]||"").trim();
+    if (!fiOwner || !account) return null;
+    const udac = String(r["UDAC"]||"").toUpperCase();
+    const fiType = udac.includes("SOC") ? "Social FI"
+                 : (udac.includes("WEB") || udac.includes("SITE")) ? "Website FI"
+                 : "Other";
+    const aging = parseFloat(String(r["Function Aging (Days)"]||"0").replace(/[^0-9.\-]/g,"")) || 0;
+    return {
+      fiType,
+      coach: String(r["Onboarding Form: CSM Coach Name"]||"").trim(),
+      fiOwner,
+      ofOwner: String(r["Onboarding Form Owner"]||"").trim(),
+      account,
+      func: String(r["Current Function"]||"").trim(),
+      aging,
+      fiNum: String(r["Fulfillment Item: Fulfillment Item ID"]||"").trim(),
+      ofNum: String(r["Onboarding Form: Onboarding Form ID"]||"").trim(),
+    };
+  }).filter(Boolean);
+}
+
 // ── "Danger Will Robinson" aging thresholds, per Current Function ──────────
 // An FI is flagged urgent if it's been sitting in its Current Function longer
 // than its threshold — OR if it's in a function that's ALWAYS urgent
@@ -8416,7 +8446,9 @@ function fiIsUrgent(r) {
   return threshold != null && r.aging > threshold;
 }
 
-function FulfillmentView({filterCoach="", filterCSM=""}) {
+function FulfillmentView({filterCoach="", filterCSM="", rows}) {
+  const isLive = !!(rows && rows.length>0);
+  const dataRows = isLive ? rows : FI_RAW;
   const [sortCol, setSortCol] = React.useState("fiOwner");
   const [sortDir, setSortDir] = React.useState("asc");
   const [typeFilter, setTypeFilter] = React.useState(""); // "" | "Social FI" | "Website FI"
@@ -8425,15 +8457,15 @@ function FulfillmentView({filterCoach="", filterCSM=""}) {
 
   const onSelectType = v => { setTypeFilter(v); setFuncFilter(""); }; // changing type invalidates any function picked under the old type
 
-  const unmappedCoaches = [...new Set(FI_RAW.map(r=>r.coach))].filter(c=>!FI_COACH_EMAIL_MAP[c]);
+  const unmappedCoaches = [...new Set(dataRows.map(r=>r.coach))].filter(c=>!FI_COACH_EMAIL_MAP[c]);
 
   // Functions available within whatever type is currently selected (or all
   // types, if "All" is active) — this is what populates the function dropdown.
   const availableFunctions = [...new Set(
-    FI_RAW.filter(r => !typeFilter || r.fiType===typeFilter).map(r=>r.func)
+    dataRows.filter(r => !typeFilter || r.fiType===typeFilter).map(r=>r.func)
   )].sort();
 
-  const scoped = FI_RAW.filter(r => {
+  const scoped = dataRows.filter(r => {
     const coachEmail = FI_COACH_EMAIL_MAP[r.coach] || null;
     if (filterCoach && coachEmail !== filterCoach) return false;
     if (filterCSM && r.fiOwner !== filterCSM && r.ofOwner !== filterCSM) return false;
@@ -8478,7 +8510,7 @@ function FulfillmentView({filterCoach="", filterCSM=""}) {
   return (
     <div style={{maxWidth:1200,margin:"0 auto"}}>
       <div style={{fontSize:20,fontWeight:700,color:"#29355D",marginBottom:4}}>📋 Fulfillment Items</div>
-      <div style={{fontSize:13,color:"#808080",marginBottom:14}}>Static snapshot, transcribed 2026-08-21 — not yet wired to a live sheet</div>
+      <div style={{fontSize:13,color:"#808080",marginBottom:14}}>{isLive ? "Live — refreshes automatically from the \"FIs Needing Action\" sheet" : "Static snapshot, transcribed 2026-08-21 — CSV_FI isn't returning data yet, showing the fallback snapshot"}</div>
 
       <div style={{display:"grid",gridTemplateColumns:"repeat(5,minmax(0,1fr))",gap:10,marginBottom:14}}>
         {[
@@ -8643,6 +8675,7 @@ function App() {
   const [cerAssigned,  setCerAssigned]  = useState([]);
   const [cerCompleted, setCerCompleted] = useState([]);
   const [sccChurn, setSccChurn] = useState([]); // Strategic Content Creation churn log — live once CSV_SCC_CHURN is wired to the published sheet
+  const [fiRows, setFiRows] = useState([]); // Fulfillment Items — live from CSV_FI ("FIs Needing Action" sheet)
 
   // AI Coach panel state
   const [aiOpen,     setAiOpen]     = useState(false);
@@ -8704,7 +8737,8 @@ function App() {
         fetchCSV(CSV_CER_ASSIGNED).catch(()=>[]),
         fetchCSV(CSV_CER_COMPLETED).catch(()=>[]),
         fetchCSV(CSV_SCC_CHURN).catch(()=>[]),
-      ]).then(([revRows, emailRows, cadRows, dueRows, ontimeRows, historyRows, skippedRows, bobRows, bobDetRows, bobAdjRows, callRows, qaMcRows, qaSSRows, mcRows, bcRows, churnAlertRows, q3BobCurRows, domoBoqRows, q3SuppRows, q2DomoBoqRows, cadenceFullRows, cerAssignedRows, cerCompletedRows, sccChurnRows]) => {
+        fetchCSV(CSV_FI).catch(()=>[]),
+      ]).then(([revRows, emailRows, cadRows, dueRows, ontimeRows, historyRows, skippedRows, bobRows, bobDetRows, bobAdjRows, callRows, qaMcRows, qaSSRows, mcRows, bcRows, churnAlertRows, q3BobCurRows, domoBoqRows, q3SuppRows, q2DomoBoqRows, cadenceFullRows, cerAssignedRows, cerCompletedRows, sccChurnRows, fiRawRows]) => {
         latestEmail   = emailRows;
         latestCad          = cadRows;
         latestDue          = dueRows;
@@ -8716,6 +8750,7 @@ function App() {
         setCerAssigned(cerAssignedRows||[]);
         setCerCompleted(cerCompletedRows||[]);
         try { setSccChurn(mapSCCChurn(sccChurnRows||[])); } catch(e) { console.error("mapSCCChurn failed:", e); setSccChurn([]); }
+        try { setFiRows(mapFI(fiRawRows||[])); } catch(e) { console.error("mapFI failed:", e); setFiRows([]); }
         latestBob         = bobRows;
         latestBobDet      = bobDetRows||[];
         latestBobAdj      = bobAdjRows||[];
@@ -9163,8 +9198,8 @@ My question: ${aiCustom}`,
           {tab==="calls"&&<TrendsView history={history} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} qamc={qamc} qass={qass} trendsTab="calls" setTrendsTab={()=>{}} hideSubTabs={true}/>}
           {tab==="capacity"&&userSession.role==="master"&&<CapacityView csms={csms} callData={callData} callRaw={callRaw} cadenceFull={cadenceFull} domoBoq={domoBoq} filterCoach={filterCoach} filterCSM={filterCSM}/>}
           {tab==="scc"&&canSeeSCC&&<SCCView rows={sccChurn}/>}
-          {tab==="fi"&&<FulfillmentView filterCoach={filterCoach} filterCSM={filterCSM}/>}
-          {tab==="mydash"&&<MyDashboard csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} churnAlerts={churnAlerts} qamc={qamc||[]} qass={qass||[]} domoBoq={domoBoq||[]} q3BobCur={q3BobCur||[]} q3Supp={q3Supp||[]} rawRev={rawRev||[]} cadenceFull={cadenceFull||[]} onNavigate={setTab} onSetTrendsTab={setTrendsTab} onSetBobTab={setBobTab} cerAssigned={cerAssigned} cerCompleted={cerCompleted}/>}
+          {tab==="fi"&&<FulfillmentView filterCoach={filterCoach} filterCSM={filterCSM} rows={fiRows}/>}
+          {tab==="mydash"&&<MyDashboard csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} churnAlerts={churnAlerts} qamc={qamc||[]} qass={qass||[]} domoBoq={domoBoq||[]} q3BobCur={q3BobCur||[]} q3Supp={q3Supp||[]} rawRev={rawRev||[]} cadenceFull={cadenceFull||[]} onNavigate={setTab} onSetTrendsTab={setTrendsTab} onSetBobTab={setBobTab} cerAssigned={cerAssigned} cerCompleted={cerCompleted} fiRows={fiRows}/>}
         </div>
       )}
 
