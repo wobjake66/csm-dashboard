@@ -6628,6 +6628,19 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
   // Build a set of all normalized name variants for the filtered CSMs
   const csmNorms=new Set(csmNames.flatMap(n=>[norm(n),n.toLowerCase()].filter(Boolean)));
 
+  // ── Fulfillment Items scoped to this view (own FIs OR onboarding forms) ────
+  // No explicit "due date" field exists in the FI data (unlike Cadence's Due
+  // Date/Time), so this isn't filtered by dashDateFilter the way calls/cadence
+  // are — it shows everything currently open in scope, sorted worst-aging-first.
+  const myFI = (typeof FI_RAW !== "undefined" ? FI_RAW : []).filter(r => {
+    if (!filterCoach && !filterCSM) return true;
+    const fiN = norm(r.fiOwner)||r.fiOwner, ofN = norm(r.ofOwner)||r.ofOwner;
+    return csmNorms.has((fiN||"").toLowerCase()) || csmNorms.has((ofN||"").toLowerCase());
+  });
+  const myFISocial  = myFI.filter(r=>r.fiType==="Social FI").length;
+  const myFIWebsite = myFI.filter(r=>r.fiType==="Website FI").length;
+  const myFIAging   = [...myFI].sort((a,b)=>b.aging-a.aging).slice(0,5);
+
   // ── CER processing — Q3 calendar quarter (Jul 1 – Sep 30) ──────────────────
   const cerQStart = new Date(now.getFullYear(), 6, 1);   // Jul 1
   const cerQEnd   = new Date(now.getFullYear(), 8, 30, 23, 59, 59); // Sep 30
@@ -6787,8 +6800,8 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
 
 
 
-      {/* Three activity cards: Calls | Cadence touchpoints | Clients worked */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:12,marginBottom:16}}>
+      {/* Activity cards: Calls | Cadence touchpoints | Clients worked | Fulfillment Items */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(4,minmax(0,1fr))",gap:12,marginBottom:16}}>
 
         {/* Calls */}
         <div style={card}>
@@ -6857,6 +6870,26 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
               <div style={{fontSize:18,fontWeight:500,color:"#6366f1"}}>{cadDueInWindow.length}</div>
             </div>
           </div>
+        </div>
+
+        {/* Fulfillment Items */}
+        <div style={card}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8,cursor:"pointer"}} onClick={()=>onNavigate("fi")}>
+            <span style={lbl}>📋 Fulfillment Items</span>
+            <span style={{fontSize:12,color:"#5378FC",fontWeight:500}}>View details →</span>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:10}}>
+            <div><div style={{fontSize:12,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Total</div><div style={{fontSize:20,fontWeight:500,color:"var(--text-primary)"}}>{myFI.length}</div></div>
+            <div><div style={{fontSize:12,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Social</div><div style={{fontSize:20,fontWeight:500,color:"#d97706"}}>{myFISocial}</div></div>
+            <div><div style={{fontSize:12,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Website</div><div style={{fontSize:20,fontWeight:500,color:"#2a78d6"}}>{myFIWebsite}</div></div>
+          </div>
+          {myFIAging.length>0 ? (
+            <div style={{fontSize:11,color:"var(--text-secondary)",marginTop:6}}>
+              Oldest in current function: <b style={{color:myFIAging[0].aging>20?"#dc2626":"#29355D"}}>{myFIAging[0].account}</b> ({myFIAging[0].aging.toFixed(1)}d)
+            </div>
+          ) : (
+            <div style={{fontSize:12,color:"var(--text-secondary)",textAlign:"center",padding:"8px 0"}}>No Fulfillment Items in scope</div>
+          )}
         </div>
 
       </div>
@@ -8046,6 +8079,444 @@ function SCCView({rows}) {
     </div>
   );
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FULFILLMENT ITEMS
+// DATA SOURCE: manually transcribed from fis.xlsx ("Fulfillment Items" tab,
+// itself computed from the "FI Raw Export" tab) as of 2026-08-21. Static
+// snapshot, NOT a live feed yet — swap FI_RAW for a CSV_FI fetch (mapFI(rows))
+// once this is published as a Google Sheet, same pattern as CSV_SCC_CHURN.
+//
+// FI Type rule: UDAC contains "SOC" -> Social FI; UDAC contains "WEB" or
+// "SITE" -> Website FI. Computed once during transcription — if this becomes
+// a live sheet, recompute with SEARCH(), the same way SCC's FI Type was done
+// in the Excel version, rather than hardcoding the label.
+//
+// Coach mapping: the raw "Onboarding Form: CSM Coach Name" field has no space
+// between first/last name (e.g. "ChaseBoyd", "MiaO'Dirling"). Two of the 7
+// distinct coach names in this data — "CarrieReece" and "JacobBaldwin" — do
+// NOT match anyone in the COACHES roster at all. "KendraLeary" doesn't match
+// either; COACHES has "Kendra Morelli" for that team, so I'm ASSUMING they're
+// the same person (name change?) — flagged in the UI banner below rather than
+// silently guessing. Confirm all three before this goes live.
+// ═══════════════════════════════════════════════════════════════════════════
+const FI_COACH_EMAIL_MAP = {
+  "AaronTaylor": "aaron.taylor@thryv.com",
+  "ChaseBoyd": "chase.boyd@thryv.com",
+  "MiaO'Dirling": "odirlm01@thryv.com",
+  "TrishaStalnaker": "trisha.stalnaker@thryv.com",
+  "KendraLeary": "kendra.morelli@thryv.com", // ASSUMPTION — confirm this is the same person as "Kendra Morelli"
+  // "CarrieReece" and "JacobBaldwin" intentionally have no entry — see banner in FulfillmentView
+};
+
+const FI_RAW = [
+  {fiType:"Website FI",coach:"JacobBaldwin",fiOwner:"Aaron Taylor",ofOwner:"Aaron Taylor",account:"MWS Containers",func:"Consultation",aging:0.56,fiNum:"272821",ofNum:"202853"},
+  {fiType:"Social FI",coach:"KendraLeary",fiOwner:"Adrian Hilario Cabral",ofOwner:"Katelyn Ankrom",account:"Pacific Islands Group Construction",func:"Voice of the Client",aging:2.08,fiNum:"272712",ofNum:"202746"},
+  {fiType:"Website FI",coach:"ChaseBoyd",fiOwner:"Alejandro Rodriguez-Medina",ofOwner:"Alejandro Rodriguez-Medina",account:"Bensons Lock Service",func:"Review",aging:9.27,fiNum:"271966",ofNum:"202073"},
+  {fiType:"Social FI",coach:"CarrieReece",fiOwner:"Alejandro Rodriguez-Medina",ofOwner:"Chase Boyd",account:"New England Roofing",func:"Voice of the Client",aging:6.98,fiNum:"272580",ofNum:"202655"},
+  {fiType:"Social FI",coach:"CarrieReece",fiOwner:"Anthony Yen",ofOwner:"Elizabeth White",account:"Bulk Foods",func:"Unengaged",aging:14.99,fiNum:"271497",ofNum:"201679"},
+  {fiType:"Website FI",coach:"KendraLeary",fiOwner:"Ashley Shaffer",ofOwner:"Ashley Shaffer",account:"All Clear Pool & Spa Repair",func:"Consultation",aging:3.02,fiNum:"271320",ofNum:"201081"},
+  {fiType:"Website FI",coach:"KendraLeary",fiOwner:"Ashley Shaffer",ofOwner:"Ashley Shaffer",account:"Aqua Pressure Washing and Softwash LLC",func:"Consultation",aging:8.05,fiNum:"272529",ofNum:"202624"},
+  {fiType:"Website FI",coach:"KendraLeary",fiOwner:"Ashley Shaffer",ofOwner:"Ashley Shaffer",account:"Arc Roofing and Exteriors",func:"Consultation",aging:21.18,fiNum:"271720",ofNum:"201931"},
+  {fiType:"Website FI",coach:"KendraLeary",fiOwner:"Ashley Shaffer",ofOwner:"Ashley Shaffer",account:"Fury Auto Accessories",func:"Consultation",aging:7.97,fiNum:"272541",ofNum:"202633"},
+  {fiType:"Social FI",coach:"KendraLeary",fiOwner:"Ashley Shaffer",ofOwner:"Ashley Shaffer",account:"Hillside Dental",func:"Voice of the Client",aging:18.27,fiNum:"271933",ofNum:"202043"},
+  {fiType:"Website FI",coach:"KendraLeary",fiOwner:"Ashley Shaffer",ofOwner:"Ashley Shaffer",account:"Hotel Carmel",func:"Review",aging:3.22,fiNum:"271116",ofNum:"201298"},
+  {fiType:"Website FI",coach:"KendraLeary",fiOwner:"Ashley Shaffer",ofOwner:"Ashley Shaffer",account:"Joyful Corporate Wellness",func:"Consultation",aging:4.15,fiNum:"272617",ofNum:"202732"},
+  {fiType:"Social FI",coach:"TrishaStalnaker",fiOwner:"Ashley Vasquez Mena",ofOwner:"Ashley Vasquez Mena",account:"All Roads Fireplace & Chimney",func:"Voice of the Client",aging:9.15,fiNum:"272295",ofNum:"202353"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Ashley Vasquez Mena",ofOwner:"Ashley Vasquez Mena",account:"Decorative Concrete Specialties Inc",func:"Consultation",aging:14.9,fiNum:"272258",ofNum:"202267"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Ashley Vasquez Mena",ofOwner:"Ashley Vasquez Mena",account:"Drain Hero",func:"Review",aging:0.97,fiNum:"272326",ofNum:"202375"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Ashley Vasquez Mena",ofOwner:"Ashley Vasquez Mena",account:"Finishing Touch RV Detailing Services",func:"Review",aging:4.19,fiNum:"272259",ofNum:"202308"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Ashley Vasquez Mena",ofOwner:"Ashley Vasquez Mena",account:"HAC Control Services",func:"Review",aging:11.09,fiNum:"271004",ofNum:"201172"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Ashley Vasquez Mena",ofOwner:"Ashley Vasquez Mena",account:"Master Lock & Key",func:"Review",aging:11.12,fiNum:"271417",ofNum:"201577"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Ashley Vasquez Mena",ofOwner:"Ashley Vasquez Mena",account:"Neer Food Mart",func:"Review",aging:15.21,fiNum:"271413",ofNum:"201376"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Ashley Vasquez Mena",ofOwner:"Ashley Vasquez Mena",account:"World of Pets LLC",func:"Consultation",aging:3.01,fiNum:"271674",ofNum:"201886"},
+  {fiType:"Website FI",coach:"ChaseBoyd",fiOwner:"Barbara Larrosa",ofOwner:"Barbara Larrosa",account:"Binninger Family Dentistry",func:"Review",aging:0.13,fiNum:"272318",ofNum:"201435"},
+  {fiType:"Website FI",coach:"ChaseBoyd",fiOwner:"Barbara Larrosa",ofOwner:"Sarah Swanson",account:"Insurance Girl",func:"Review",aging:14.02,fiNum:"270961",ofNum:"201186"},
+  {fiType:"Website FI",coach:"ChaseBoyd",fiOwner:"Chelsea Dingus",ofOwner:"Chelsea Dingus",account:"Working Under Pressure LLC",func:"Review",aging:1.15,fiNum:"271474",ofNum:"201643"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Darling Santos Taveras",ofOwner:"Darling Santos Taveras",account:"Law Office of Stacie B Robb",func:"Review",aging:1.9,fiNum:"272268",ofNum:"201500"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Darling Santos Taveras",ofOwner:"Darling Santos Taveras",account:"NORC Concrete LLC",func:"Review",aging:2.21,fiNum:"272078",ofNum:"202185"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Darling Santos Taveras",ofOwner:"Darling Santos Taveras",account:"Nova Solutions",func:"Review",aging:0.95,fiNum:"271316",ofNum:"201494"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Darling Santos Taveras",ofOwner:"Darling Santos Taveras",account:"Sara's Cocina",func:"Review",aging:16.07,fiNum:"271101",ofNum:"201290"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Darling Santos Taveras",ofOwner:"Darling Santos Taveras",account:"WRS Fencing and Repair",func:"Review",aging:10.9,fiNum:"271580",ofNum:"201556"},
+  {fiType:"Social FI",coach:"AaronTaylor",fiOwner:"Dave Crisler",ofOwner:"Dave Crisler",account:"Elite Tyre & Autocare Sunbury",func:"Voice of the Client",aging:4.7,fiNum:"272594",ofNum:"202664"},
+  {fiType:"Website FI",coach:"AaronTaylor",fiOwner:"Dave Crisler",ofOwner:"Dave Crisler",account:"MCCLELLAN GRIMMER EDGAR OPTOMETRISTS LIMITED",func:"Consultation",aging:1.89,fiNum:"271708",ofNum:"201728"},
+  {fiType:"Website FI",coach:"AaronTaylor",fiOwner:"Dave Crisler",ofOwner:"Tracy-Ann Gaudencio",account:"JOSEPHS EARTHMOVING LIMITED",func:"Consultation",aging:9.62,fiNum:"272428",ofNum:"202453"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Dorka Frias Lantigua",ofOwner:"Dorka Frias Lantigua",account:"Anything Roofing and Construction",func:"Review",aging:10.21,fiNum:"271377",ofNum:"201557"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Dorka Frias Lantigua",ofOwner:"Dorka Frias Lantigua",account:"BFG Holding PLLC",func:"Review",aging:1.08,fiNum:"271758",ofNum:"201144"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Dorka Frias Lantigua",ofOwner:"Dorka Frias Lantigua",account:"Casperson Outdoor Services",func:"Review",aging:1.92,fiNum:"270968",ofNum:"201167"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Dorka Frias Lantigua",ofOwner:"Dorka Frias Lantigua",account:"Crumbs Well Drilling",func:"Unengaged",aging:0.91,fiNum:"271523",ofNum:"201693"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Dorka Frias Lantigua",ofOwner:"Dorka Frias Lantigua",account:"Lift & Ramp Solutions LLC",func:"Review",aging:9.95,fiNum:"271515",ofNum:"201686"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Dorka Frias Lantigua",ofOwner:"Dorka Frias Lantigua",account:"Pearson Service Company",func:"Consultation",aging:1.75,fiNum:"272762",ofNum:"202598"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Dorka Frias Lantigua",ofOwner:"Dorka Frias Lantigua",account:"Super Builders",func:"Review",aging:1.99,fiNum:"271759",ofNum:"201458"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Dorka Frias Lantigua",ofOwner:"Dorka Frias Lantigua",account:"all nj pools",func:"Consultation",aging:8.03,fiNum:"272534",ofNum:"202566"},
+  {fiType:"Social FI",coach:"CarrieReece",fiOwner:"Elizabeth White",ofOwner:"Elizabeth White",account:"Bulk Foods",func:"Unengaged",aging:14.99,fiNum:"271498",ofNum:"201679"},
+  {fiType:"Website FI",coach:"AaronTaylor",fiOwner:"Ellise Payne",ofOwner:"Ellise Payne",account:"Command Star",func:"Consultation",aging:1.88,fiNum:"272550",ofNum:"202599"},
+  {fiType:"Social FI",coach:"AaronTaylor",fiOwner:"Ellise Payne",ofOwner:"Ellise Payne",account:"Command Star",func:"Voice of the Client",aging:1.88,fiNum:"272551",ofNum:"202599"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Felix Caba Jimenez",ofOwner:"Felix Caba Jimenez",account:"A-1 Water Wagon",func:"Review",aging:0.87,fiNum:"271150",ofNum:"201338"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Felix Caba Jimenez",ofOwner:"Felix Caba Jimenez",account:"Arment Structural",func:"Review",aging:10.98,fiNum:"271195",ofNum:"201389"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Felix Caba Jimenez",ofOwner:"Felix Caba Jimenez",account:"Bill's Sewer & Drain Service",func:"Consultation",aging:18.27,fiNum:"271931",ofNum:"202020"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Felix Caba Jimenez",ofOwner:"Felix Caba Jimenez",account:"Blanos Soft Wash Power Wash",func:"Review",aging:8.8,fiNum:"271572",ofNum:"201754"},
+  {fiType:"Social FI",coach:"TrishaStalnaker",fiOwner:"Felix Caba Jimenez",ofOwner:"Felix Caba Jimenez",account:"Blanos Soft Wash Power Wash",func:"Voice of the Client",aging:0.19,fiNum:"271930",ofNum:"201754"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Felix Caba Jimenez",ofOwner:"Felix Caba Jimenez",account:"Diamond Mind Consulting Services, Llc.",func:"Review",aging:0.23,fiNum:"272325",ofNum:"202281"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Felix Caba Jimenez",ofOwner:"Felix Caba Jimenez",account:"Healthy Insurance Group, LLC",func:"Review",aging:0.84,fiNum:"271564",ofNum:"201744"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Felix Caba Jimenez",ofOwner:"Felix Caba Jimenez",account:"Homeless Services Foundation",func:"Consultation",aging:10.17,fiNum:"272381",ofNum:"202346"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Felix Caba Jimenez",ofOwner:"Felix Caba Jimenez",account:"J&D Topsoil",func:"Review",aging:14.17,fiNum:"271468",ofNum:"201631"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Felix Caba Jimenez",ofOwner:"Felix Caba Jimenez",account:"Jayco Air Conditioning & Heating Service Co",func:"Review",aging:9.17,fiNum:"271549",ofNum:"201715"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Felix Caba Jimenez",ofOwner:"Felix Caba Jimenez",account:"People Beauty Supply",func:"Consultation",aging:0.04,fiNum:"272845",ofNum:"202625"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Felix Caba Jimenez",ofOwner:"Felix Caba Jimenez",account:"Polya Construction",func:"Review",aging:7.02,fiNum:"271764",ofNum:"201958"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Felix Caba Jimenez",ofOwner:"Felix Caba Jimenez",account:"The Do It All Brother's",func:"Consultation",aging:3.08,fiNum:"272661",ofNum:"202561"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Felix Caba Jimenez",ofOwner:"Felix Caba Jimenez",account:"Total House Cleaning LLC",func:"Consultation",aging:3.83,fiNum:"272640",ofNum:"202651"},
+  {fiType:"Website FI",coach:"ChaseBoyd",fiOwner:"Florence Francois Nova",ofOwner:"Florence Francois Nova",account:"BB's AllCare",func:"Review",aging:0.95,fiNum:"271752",ofNum:"201987"},
+  {fiType:"Social FI",coach:"ChaseBoyd",fiOwner:"Florence Francois Nova",ofOwner:"Florence Francois Nova",account:"Brent Adams & Associates",func:"Voice of the Client",aging:2.1,fiNum:"272710",ofNum:"202714"},
+  {fiType:"Website FI",coach:"ChaseBoyd",fiOwner:"Florence Francois Nova",ofOwner:"Florence Francois Nova",account:"Mid-Nebraska Seamless Gutters",func:"Consultation",aging:21.25,fiNum:"271711",ofNum:"201423"},
+  {fiType:"Website FI",coach:"ChaseBoyd",fiOwner:"Florence Francois Nova",ofOwner:"Florence Francois Nova",account:"PHP Agency",func:"Review",aging:15.02,fiNum:"271520",ofNum:"201691"},
+  {fiType:"Website FI",coach:"ChaseBoyd",fiOwner:"Florence Francois Nova",ofOwner:"Florence Francois Nova",account:"Palmer RoofingSheet Metal",func:"Consultation",aging:7.08,fiNum:"272575",ofNum:"202555"},
+  {fiType:"Website FI",coach:"ChaseBoyd",fiOwner:"Florence Francois Nova",ofOwner:"Florence Francois Nova",account:"Phillips Power Washing",func:"Review",aging:9.99,fiNum:"271640",ofNum:"201833"},
+  {fiType:"Website FI",coach:"ChaseBoyd",fiOwner:"Florence Francois Nova",ofOwner:"Florence Francois Nova",account:"Putnam Valley Grille",func:"Review",aging:8.78,fiNum:"271753",ofNum:"201990"},
+  {fiType:"Social FI",coach:"ChaseBoyd",fiOwner:"Florence Francois Nova",ofOwner:"Florence Francois Nova",account:"Putnam Valley Grille",func:"Voice of the Client",aging:0.05,fiNum:"272190",ofNum:"201990"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Heidi Torres Uribe",ofOwner:"Heidi Torres Uribe",account:"Altitude Roofing LTD",func:"Review",aging:1.25,fiNum:"271431",ofNum:"201227"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Heidi Torres Uribe",ofOwner:"Heidi Torres Uribe",account:"Eastern Shore Transfer",func:"Review",aging:15.0,fiNum:"271530",ofNum:"201703"},
+  {fiType:"Social FI",coach:"MiaO'Dirling",fiOwner:"Heidi Torres Uribe",ofOwner:"Heidi Torres Uribe",account:"Meadow Valley Homes LLC",func:"Voice of the Client",aging:20.79,fiNum:"271788",ofNum:"201984"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Heidi Torres Uribe",ofOwner:"Heidi Torres Uribe",account:"Meadow Valley Homes LLC",func:"Review",aging:2.73,fiNum:"271789",ofNum:"201984"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Heidi Torres Uribe",ofOwner:"Heidi Torres Uribe",account:"New Record Services",func:"Review",aging:1.84,fiNum:"271598",ofNum:"201781"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Heidi Torres Uribe",ofOwner:"Heidi Torres Uribe",account:"Schiller Heating & Cooling",func:"Review",aging:1.23,fiNum:"271098",ofNum:"201284"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Heidi Torres Uribe",ofOwner:"Heidi Torres Uribe",account:"South Central Well & Pump",func:"Consultation",aging:3.01,fiNum:"271508",ofNum:"201685"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Heidi Torres Uribe",ofOwner:"Heidi Torres Uribe",account:"Treasure Valley Roof Renewal",func:"Consultation",aging:17.75,fiNum:"272024",ofNum:"202113"},
+  {fiType:"Social FI",coach:"KendraLeary",fiOwner:"Heidi Torres Uribe",ofOwner:"Mark Velazquez",account:"As Canvas",func:"Voice of the Client",aging:1.81,fiNum:"272761",ofNum:"202795"},
+  {fiType:"Website FI",coach:"CarrieReece",fiOwner:"Heidi Torres Uribe",ofOwner:"Mia O'Dirling",account:"Elites Motor SportsAuto Accessories LLC",func:"Consultation",aging:10.99,fiNum:"272352",ofNum:"202304"},
+  {fiType:"Social FI",coach:"CarrieReece",fiOwner:"Heidi Torres Uribe",ofOwner:"Mia O'Dirling",account:"R J L Electric Systems Corp",func:"Voice of the Client",aging:21.87,fiNum:"271697",ofNum:"201898"},
+  {fiType:"Website FI",coach:"JacobBaldwin",fiOwner:"Indu Vijay",ofOwner:"Aaron Taylor",account:"R & N Auto Electrical Katoomba",func:"Consultation",aging:1.74,fiNum:"272765",ofNum:"202796"},
+  {fiType:"Website FI",coach:"AaronTaylor",fiOwner:"Indu Vijay",ofOwner:"Indu Vijay",account:"Allys Shower Screens",func:"Consultation",aging:7.75,fiNum:"272552",ofNum:"202584"},
+  {fiType:"Social FI",coach:"AaronTaylor",fiOwner:"Indu Vijay",ofOwner:"Indu Vijay",account:"Ann Roberts School Of Dancing",func:"Voice of the Client",aging:15.78,fiNum:"272202",ofNum:"202251"},
+  {fiType:"Website FI",coach:"AaronTaylor",fiOwner:"Indu Vijay",ofOwner:"Indu Vijay",account:"Central West C & C Plastering",func:"Consultation",aging:12.22,fiNum:"272306",ofNum:"202349"},
+  {fiType:"Website FI",coach:"AaronTaylor",fiOwner:"Indu Vijay",ofOwner:"Indu Vijay",account:"Gary's Audio Visual",func:"Consultation",aging:2.84,fiNum:"271638",ofNum:"201829"},
+  {fiType:"Website FI",coach:"AaronTaylor",fiOwner:"Indu Vijay",ofOwner:"Indu Vijay",account:"OnePort Finance",func:"Review",aging:1.39,fiNum:"272015",ofNum:"201950"},
+  {fiType:"Website FI",coach:"AaronTaylor",fiOwner:"Indu Vijay",ofOwner:"Indu Vijay",account:"Phil's Tree Service",func:"Review",aging:7.09,fiNum:"272138",ofNum:"202198"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Irina Molina Molina",ofOwner:"Irina Molina Molina",account:"ARD PARTY RENTAL LLC",func:"Consultation",aging:2.93,fiNum:"272581",ofNum:"202467"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Irina Molina Molina",ofOwner:"Irina Molina Molina",account:"Advantage Hail Repair",func:"Review",aging:4.18,fiNum:"272277",ofNum:"201653"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Irina Molina Molina",ofOwner:"Irina Molina Molina",account:"Bloom Within",func:"Review",aging:1.2,fiNum:"271313",ofNum:"201373"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Irina Molina Molina",ofOwner:"Irina Molina Molina",account:"Brot Fine Cabinetry",func:"Review",aging:7.02,fiNum:"272231",ofNum:"201645"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Irina Molina Molina",ofOwner:"Irina Molina Molina",account:"Cuyahoga Valley Glass",func:"Review",aging:1.08,fiNum:"272179",ofNum:"202222"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Irina Molina Molina",ofOwner:"Irina Molina Molina",account:"Frank Matos Drywall & Painting LLC.",func:"Review",aging:1.2,fiNum:"272348",ofNum:"202337"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Irina Molina Molina",ofOwner:"Irina Molina Molina",account:"Willis Cargo Modern Movers",func:"Review",aging:2.22,fiNum:"272122",ofNum:"202107"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Irina Molina Molina",ofOwner:"Rosa Zorrilla Sosa",account:"Modern Outdoor Services LLC",func:"Review",aging:1.94,fiNum:"271795",ofNum:"202034"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Ironelis Cabrera Bautista",ofOwner:"Ironelis Cabrera Bautista",account:"D.I. Ready Cleaning Service Inc.",func:"Review",aging:1.13,fiNum:"272221",ofNum:"202284"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Ironelis Cabrera Bautista",ofOwner:"Ironelis Cabrera Bautista",account:"Helpers Contracting",func:"Consultation",aging:7.12,fiNum:"271766",ofNum:"202022"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Ironelis Cabrera Bautista",ofOwner:"Ironelis Cabrera Bautista",account:"New Leaf Graphics Inc",func:"Review",aging:4.23,fiNum:"271998",ofNum:"202110"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Jathzelyn Fortuna Paulino",ofOwner:"Jathzelyn Fortuna Paulino",account:"Crystal Inn",func:"Consultation",aging:1.97,fiNum:"272736",ofNum:"202880"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Jathzelyn Fortuna Paulino",ofOwner:"Jathzelyn Fortuna Paulino",account:"Farahay Family Dental Care",func:"Review",aging:2.18,fiNum:"272237",ofNum:"201219"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Jathzelyn Fortuna Paulino",ofOwner:"Jathzelyn Fortuna Paulino",account:"Tyler online hospital and billing course",func:"Review",aging:4.23,fiNum:"271941",ofNum:"201970"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Jathzelyn Fortuna Paulino",ofOwner:"0",account:"First Hands On Home Health Care",func:"Consultation",aging:3.02,fiNum:"271494",ofNum:"201475"},
+  {fiType:"Website FI",coach:"ChaseBoyd",fiOwner:"Joseph Carmona Garcia",ofOwner:"Joseph Carmona Garcia",account:"Corona's Landscaping",func:"Consultation",aging:2.98,fiNum:"272375",ofNum:"202439"},
+  {fiType:"Website FI",coach:"ChaseBoyd",fiOwner:"Joseph Carmona Garcia",ofOwner:"Joseph Carmona Garcia",account:"Kercher Kevin",func:"Consultation",aging:14.14,fiNum:"272281",ofNum:"202315"},
+  {fiType:"Website FI",coach:"ChaseBoyd",fiOwner:"Joseph Carmona Garcia",ofOwner:"Joseph Carmona Garcia",account:"Mississippi Spice Company",func:"Review",aging:9.84,fiNum:"271761",ofNum:"201981"},
+  {fiType:"Website FI",coach:"ChaseBoyd",fiOwner:"Joseph Carmona Garcia",ofOwner:"Joseph Carmona Garcia",account:"Peak Painting",func:"Consultation",aging:3.03,fiNum:"271118",ofNum:"201303"},
+  {fiType:"Website FI",coach:"ChaseBoyd",fiOwner:"Joseph Carmona Garcia",ofOwner:"Joseph Carmona Garcia",account:"Supreme Windows Inc",func:"Review",aging:8.26,fiNum:"271485",ofNum:"201666"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Juan Sanchez Sanchez",ofOwner:"Juan Sanchez Sanchez",account:"Danielsons Express Detailing LLC",func:"Review",aging:0.23,fiNum:"272012",ofNum:"202082"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Karen Capellan Tavarez",ofOwner:"Karen Capellan Tavarez",account:"Always Ready... A Graceful Connection Homecare LLC",func:"Consultation",aging:2.93,fiNum:"272678",ofNum:"202570"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Karen Capellan Tavarez",ofOwner:"Karen Capellan Tavarez",account:"Garden State Holiday Lighting & Decor",func:"Consultation",aging:1.09,fiNum:"272801",ofNum:"202916"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Karen Capellan Tavarez",ofOwner:"Karen Capellan Tavarez",account:"Gotham Builders",func:"Review",aging:8.77,fiNum:"271756",ofNum:"201228"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Karen Capellan Tavarez",ofOwner:"Karen Capellan Tavarez",account:"Iron Buck Home Services",func:"Review",aging:15.17,fiNum:"271139",ofNum:"201330"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Karen Capellan Tavarez",ofOwner:"Karen Capellan Tavarez",account:"Luxury Decor Romo's",func:"Review",aging:10.2,fiNum:"271643",ofNum:"201838"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Karen Capellan Tavarez",ofOwner:"Karen Capellan Tavarez",account:"Proverbs Construction",func:"Review",aging:1.81,fiNum:"271184",ofNum:"201366"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Karen Capellan Tavarez",ofOwner:"Karen Capellan Tavarez",account:"SPF Window Tinting LLC",func:"Review",aging:0.9,fiNum:"272289",ofNum:"202357"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Karen Capellan Tavarez",ofOwner:"Karen Capellan Tavarez",account:"Sunshine Magnet Cleaning Service",func:"Consultation",aging:7.94,fiNum:"272543",ofNum:"202637"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Karen Capellan Tavarez",ofOwner:"Karen Capellan Tavarez",account:"Wash Our House",func:"Consultation",aging:0.27,fiNum:"272831",ofNum:"202884"},
+  {fiType:"Website FI",coach:"KendraLeary",fiOwner:"Karissa Hernandez",ofOwner:"Karissa Hernandez",account:"Albatross Ventures",func:"Consultation",aging:0.92,fiNum:"272809",ofNum:"202904"},
+  {fiType:"Website FI",coach:"KendraLeary",fiOwner:"Karissa Hernandez",ofOwner:"Karissa Hernandez",account:"Armani Landscaping",func:"Review",aging:0.63,fiNum:"271981",ofNum:"202018"},
+  {fiType:"Website FI",coach:"KendraLeary",fiOwner:"Karissa Hernandez",ofOwner:"Karissa Hernandez",account:"Central Sewer and Septic",func:"Review",aging:4.26,fiNum:"272175",ofNum:"201657"},
+  {fiType:"Website FI",coach:"KendraLeary",fiOwner:"Karissa Hernandez",ofOwner:"Karissa Hernandez",account:"Coastal Wellness Family Medicine",func:"Consultation",aging:14.91,fiNum:"272254",ofNum:"202216"},
+  {fiType:"Website FI",coach:"KendraLeary",fiOwner:"Karissa Hernandez",ofOwner:"Karissa Hernandez",account:"FS Autoworx",func:"Review",aging:0.95,fiNum:"271261",ofNum:"201449"},
+  {fiType:"Website FI",coach:"KendraLeary",fiOwner:"Karissa Hernandez",ofOwner:"Karissa Hernandez",account:"Gospo Electric LLC",func:"Review",aging:10.24,fiNum:"271190",ofNum:"201327"},
+  {fiType:"Website FI",coach:"KendraLeary",fiOwner:"Karissa Hernandez",ofOwner:"Karissa Hernandez",account:"Hamilton Contractors",func:"Consultation",aging:2.03,fiNum:"272724",ofNum:"202828"},
+  {fiType:"Social FI",coach:"KendraLeary",fiOwner:"Karissa Hernandez",ofOwner:"Karissa Hernandez",account:"JSX Hauling`",func:"Voice of the Client",aging:16.95,fiNum:"272101",ofNum:"202088"},
+  {fiType:"Website FI",coach:"KendraLeary",fiOwner:"Karissa Hernandez",ofOwner:"Karissa Hernandez",account:"Maverick HVAC-R LLC",func:"Consultation",aging:15.06,fiNum:"272236",ofNum:"201800"},
+  {fiType:"Website FI",coach:"KendraLeary",fiOwner:"Karissa Hernandez",ofOwner:"Karissa Hernandez",account:"Spring Valley Sod Farm",func:"Consultation",aging:4.17,fiNum:"272610",ofNum:"202699"},
+  {fiType:"Website FI",coach:"KendraLeary",fiOwner:"Karmita Turner",ofOwner:"Brian Constanza de la Cruz",account:"King Concrete",func:"Review",aging:7.18,fiNum:"271354",ofNum:"201502"},
+  {fiType:"Website FI",coach:"KendraLeary",fiOwner:"Katelyn Ankrom",ofOwner:"Katelyn Ankrom",account:"Better Roofing with Travis",func:"Consultation",aging:8.05,fiNum:"272531",ofNum:"202376"},
+  {fiType:"Website FI",coach:"KendraLeary",fiOwner:"Katelyn Ankrom",ofOwner:"Katelyn Ankrom",account:"Jeff Dumas Concrete Construction",func:"Consultation",aging:8.96,fiNum:"272464",ofNum:"202523"},
+  {fiType:"Website FI",coach:"KendraLeary",fiOwner:"Katelyn Ankrom",ofOwner:"Katelyn Ankrom",account:"Michaels Asphalt Paving",func:"Consultation",aging:15.22,fiNum:"272156",ofNum:"202190"},
+  {fiType:"Website FI",coach:"KendraLeary",fiOwner:"Katelyn Ankrom",ofOwner:"Katelyn Ankrom",account:"Pacific Islands Group Construction",func:"Consultation",aging:3.1,fiNum:"272660",ofNum:"202746"},
+  {fiType:"Social FI",coach:"KendraLeary",fiOwner:"Katelyn Ankrom",ofOwner:"Katelyn Ankrom",account:"Smithwick Pump Service",func:"Voice of the Client",aging:8.04,fiNum:"272533",ofNum:"202623"},
+  {fiType:"Website FI",coach:"KendraLeary",fiOwner:"Katelyn Ankrom",ofOwner:"Katelyn Ankrom",account:"SoLit Electric Louisiana",func:"Unengaged",aging:1.21,fiNum:"271626",ofNum:"200910"},
+  {fiType:"Social FI",coach:"MiaO'Dirling",fiOwner:"Kellie Lester",ofOwner:"Jathzelyn Fortuna Paulino",account:"Woods Septic Tank Service",func:"Voice of the Client",aging:11.19,fiNum:"271939",ofNum:"201873"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Kellie Lester",ofOwner:"Kellie Lester",account:"Apex Dumpsters",func:"Consultation",aging:4.18,fiNum:"272611",ofNum:"202713"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Kellie Lester",ofOwner:"Kellie Lester",account:"Carls Auto Care & Towing",func:"Consultation",aging:14.9,fiNum:"272256",ofNum:"202264"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Kellie Lester",ofOwner:"Kellie Lester",account:"DJ Bug Away, LLC",func:"Review",aging:0.16,fiNum:"271337",ofNum:"201526"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Kellie Lester",ofOwner:"Kellie Lester",account:"Glass & Mirror Inc",func:"Review",aging:1.4,fiNum:"271597",ofNum:"201785"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Kellie Lester",ofOwner:"Kellie Lester",account:"Hall's Wallpaper & Painting",func:"Consultation",aging:3.93,fiNum:"272629",ofNum:"202757"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Kellie Lester",ofOwner:"Kellie Lester",account:"Loyalty Roofing & Construction",func:"Consultation",aging:8.11,fiNum:"272523",ofNum:"202417"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Kellie Lester",ofOwner:"Kellie Lester",account:"M L Raab & Sons Roofing",func:"Review",aging:7.15,fiNum:"271131",ofNum:"201321"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Kellie Lester",ofOwner:"Kellie Lester",account:"Sip Tea Mentorship & Counsel",func:"Review",aging:4.12,fiNum:"271692",ofNum:"201817"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Kellie Lester",ofOwner:"Kellie Lester",account:"Well Done Roofing",func:"Consultation",aging:4.25,fiNum:"272604",ofNum:"201955"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Kyle Dye",ofOwner:"Kyle Dye",account:"Ace Chimney Service & Repair Llc",func:"Consultation",aging:8.17,fiNum:"272518",ofNum:"202541"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Kyle Dye",ofOwner:"Kyle Dye",account:"E-Z Out Inc",func:"Review",aging:0.21,fiNum:"272377",ofNum:"202354"},
+  {fiType:"Social FI",coach:"TrishaStalnaker",fiOwner:"Kyle Dye",ofOwner:"Kyle Dye",account:"Everest Houses LTD",func:"Voice of the Client",aging:1.97,fiNum:"272734",ofNum:"202656"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Kyle Dye",ofOwner:"Kyle Dye",account:"Finish Coat",func:"Consultation",aging:3.02,fiNum:"271335",ofNum:"201519"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Kyle Dye",ofOwner:"Kyle Dye",account:"High Desert Veterinary Service",func:"Review",aging:14.88,fiNum:"271509",ofNum:"201681"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Kyle Dye",ofOwner:"Kyle Dye",account:"Lotus Title & Escrow",func:"Consultation",aging:0.05,fiNum:"272676",ofNum:"202710"},
+  {fiType:"Social FI",coach:"TrishaStalnaker",fiOwner:"Kyle Dye",ofOwner:"Kyle Dye",account:"RC Enterprises",func:"Voice of the Client",aging:24.2,fiNum:"271467",ofNum:"201528"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Kyle Dye",ofOwner:"Kyle Dye",account:"RC Enterprises",func:"Consultation",aging:3.01,fiNum:"271558",ofNum:"201528"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Kyle Dye",ofOwner:"Kyle Dye",account:"Remax Regency",func:"Consultation",aging:0.34,fiNum:"272823",ofNum:"202951"},
+  {fiType:"Website FI",coach:"KendraLeary",fiOwner:"Libby Booher",ofOwner:"Libby Booher",account:"J & J Painting",func:"Review",aging:4.19,fiNum:"272044",ofNum:"202145"},
+  {fiType:"Website FI",coach:"KendraLeary",fiOwner:"Libby Booher",ofOwner:"Libby Booher",account:"Parts-Dash Express services",func:"Consultation",aging:8.04,fiNum:"272532",ofNum:"202410"},
+  {fiType:"Website FI",coach:"KendraLeary",fiOwner:"Libby Booher",ofOwner:"Libby Booher",account:"The Royal Grooming Academy",func:"Consultation",aging:0.82,fiNum:"272813",ofNum:"202933"},
+  {fiType:"Website FI",coach:"KendraLeary",fiOwner:"Libby Booher",ofOwner:"Libby Booher",account:"Trash Talkers Demo & Disposal LLC",func:"Review",aging:2.18,fiNum:"271238",ofNum:"201368"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Lisbeth Gruning Soriano",ofOwner:"Lisbeth Gruning Soriano",account:"AS1 AutoGlass",func:"Consultation",aging:1.72,fiNum:"271648",ofNum:"201849"},
+  {fiType:"Social FI",coach:"MiaO'Dirling",fiOwner:"Lisbeth Gruning Soriano",ofOwner:"Lisbeth Gruning Soriano",account:"Ideal Automotive Sales of S I",func:"Voice of the Client",aging:0.05,fiNum:"272570",ofNum:"202687"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Lisbeth Gruning Soriano",ofOwner:"Lisbeth Gruning Soriano",account:"Mark's Maintenance",func:"Consultation",aging:2.28,fiNum:"272696",ofNum:"202789"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Lisbeth Gruning Soriano",ofOwner:"Lisbeth Gruning Soriano",account:"Wilcox Equipment",func:"Review",aging:8.99,fiNum:"271181",ofNum:"201364"},
+  {fiType:"Website FI",coach:"KendraLeary",fiOwner:"MJ Brielmann",ofOwner:"MJ Brielmann",account:"Blakkoutt Ink",func:"Review",aging:9.22,fiNum:"271385",ofNum:"201434"},
+  {fiType:"Website FI",coach:"KendraLeary",fiOwner:"MJ Brielmann",ofOwner:"MJ Brielmann",account:"Crimson Creek Appliance Works",func:"Review",aging:4.21,fiNum:"272023",ofNum:"202124"},
+  {fiType:"Website FI",coach:"KendraLeary",fiOwner:"MJ Brielmann",ofOwner:"MJ Brielmann",account:"D&J Plumbing",func:"Review",aging:9.99,fiNum:"271689",ofNum:"201908"},
+  {fiType:"Social FI",coach:"KendraLeary",fiOwner:"MJ Brielmann",ofOwner:"MJ Brielmann",account:"HOPE of Evansville",func:"Voice of the Client",aging:1.25,fiNum:"272778",ofNum:"202898"},
+  {fiType:"Social FI",coach:"KendraLeary",fiOwner:"MJ Brielmann",ofOwner:"MJ Brielmann",account:"Rick Hoaglin DMD General & Family Dentistry",func:"Voice of the Client",aging:18.22,fiNum:"271944",ofNum:"202060"},
+  {fiType:"Website FI",coach:"KendraLeary",fiOwner:"MJ Brielmann",ofOwner:"MJ Brielmann",account:"Trace Automotive Inc",func:"Unengaged",aging:0.91,fiNum:"271943",ofNum:"201969"},
+  {fiType:"Social FI",coach:"TrishaStalnaker",fiOwner:"Marielle Castillo",ofOwner:"Rafael Sencion",account:"Bridgewater Jewelers Llc",func:"Voice of the Client",aging:4.14,fiNum:"272071",ofNum:"202089"},
+  {fiType:"Social FI",coach:"TrishaStalnaker",fiOwner:"Marielle Castillo",ofOwner:"Rafael Sencion",account:"First Glance Florist & Creative Arts",func:"Voice of the Client",aging:2.15,fiNum:"272649",ofNum:"202328"},
+  {fiType:"Website FI",coach:"KendraLeary",fiOwner:"Mark Velazquez",ofOwner:"Mark Velazquez",account:"Dot N Sons Heating & Air",func:"Consultation",aging:1.18,fiNum:"272788",ofNum:"202903"},
+  {fiType:"Website FI",coach:"KendraLeary",fiOwner:"Mark Velazquez",ofOwner:"Mark Velazquez",account:"Patriot Mechanical",func:"Review",aging:0.98,fiNum:"271594",ofNum:"201780"},
+  {fiType:"Website FI",coach:"KendraLeary",fiOwner:"Mark Velazquez",ofOwner:"Mark Velazquez",account:"Peake Property Solutions",func:"Consultation",aging:0.89,fiNum:"272612",ofNum:"202711"},
+  {fiType:"Website FI",coach:"KendraLeary",fiOwner:"Mark Velazquez",ofOwner:"Mark Velazquez",account:"Porch Post",func:"Consultation",aging:16.92,fiNum:"272108",ofNum:"202160"},
+  {fiType:"Website FI",coach:"KendraLeary",fiOwner:"Mark Velazquez",ofOwner:"Mark Velazquez",account:"Shepherd?s Handyman Service LLC",func:"Review",aging:9.15,fiNum:"271187",ofNum:"201377"},
+  {fiType:"Website FI",coach:"KendraLeary",fiOwner:"Mark Velazquez",ofOwner:"Thryv Support",account:"Anthony Hirschenberger Dds",func:"Review",aging:6.89,fiNum:"271240",ofNum:"201388"},
+  {fiType:"Website FI",coach:"CarrieReece",fiOwner:"Mia O'Dirling",ofOwner:"Mia O'Dirling",account:"CorBits Coring And Cutting LLC",func:"Consultation",aging:3.02,fiNum:"271443",ofNum:"201493"},
+  {fiType:"Website FI",coach:"CarrieReece",fiOwner:"Mia O'Dirling",ofOwner:"Mia O'Dirling",account:"Hertog's Criminal Defense",func:"Consultation",aging:3.01,fiNum:"271695",ofNum:"201911"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Michael Furlong",ofOwner:"Jaelene Alejo Rodriguez",account:"MYM Outdoor Design",func:"Consultation",aging:0.95,fiNum:"272807",ofNum:"202955"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Michael Furlong",ofOwner:"Jaelene Alejo Rodriguez",account:"Nehez Recruiting",func:"Consultation",aging:1.24,fiNum:"272779",ofNum:"202890"},
+  {fiType:"Website FI",coach:"KendraLeary",fiOwner:"Misti Dixon",ofOwner:"Misti Dixon",account:"B&B Environmental contractor",func:"Consultation",aging:1.9,fiNum:"272743",ofNum:"202560"},
+  {fiType:"Website FI",coach:"KendraLeary",fiOwner:"Misti Dixon",ofOwner:"Misti Dixon",account:"DBR Builders",func:"Review",aging:7.23,fiNum:"272100",ofNum:"202159"},
+  {fiType:"Social FI",coach:"KendraLeary",fiOwner:"Misti Dixon",ofOwner:"Misti Dixon",account:"LCR Contracting, LLC",func:"Voice of the Client",aging:1.9,fiNum:"272744",ofNum:"202856"},
+  {fiType:"Website FI",coach:"KendraLeary",fiOwner:"Misti Dixon",ofOwner:"Misti Dixon",account:"LCR Contracting, LLC",func:"Consultation",aging:1.9,fiNum:"272745",ofNum:"202856"},
+  {fiType:"Website FI",coach:"AaronTaylor",fiOwner:"Nikita Siepen-Bowers",ofOwner:"Nikita Siepen-Bowers",account:"AUCKLAND REINFORCING SERVICES(1995) LIMITED",func:"Consultation",aging:21.17,fiNum:"271694",ofNum:"201811"},
+  {fiType:"Website FI",coach:"AaronTaylor",fiOwner:"Nikita Siepen-Bowers",ofOwner:"Nikita Siepen-Bowers",account:"David Paul Hearmon Jones",func:"Consultation",aging:17.7,fiNum:"272029",ofNum:"202016"},
+  {fiType:"Website FI",coach:"AaronTaylor",fiOwner:"Nikita Siepen-Bowers",ofOwner:"Nikita Siepen-Bowers",account:"David Paul Hearmon Jones",func:"Consultation",aging:17.7,fiNum:"272030",ofNum:"202016"},
+  {fiType:"Website FI",coach:"AaronTaylor",fiOwner:"Nikita Siepen-Bowers",ofOwner:"Nikita Siepen-Bowers",account:"Nicola Garneys Trading As Cooloola Coast Furniture & Bedding",func:"Review",aging:0.48,fiNum:"272366",ofNum:"202431"},
+  {fiType:"Website FI",coach:"AaronTaylor",fiOwner:"Nikita Siepen-Bowers",ofOwner:"Nikita Siepen-Bowers",account:"OCG construction group",func:"Consultation",aging:8.81,fiNum:"272481",ofNum:"202517"},
+  {fiType:"Website FI",coach:"AaronTaylor",fiOwner:"Nikita Siepen-Bowers",ofOwner:"Nikita Siepen-Bowers",account:"Valley Property Maintenance",func:"Review",aging:1.49,fiNum:"272034",ofNum:"201903"},
+  {fiType:"Website FI",coach:"KendraLeary",fiOwner:"Ninoska (Nina) Uribe Castillo",ofOwner:"Thryv Support",account:"A & S Slate Roofing Corp",func:"Unengaged",aging:0.85,fiNum:"270900",ofNum:"201095"},
+  {fiType:"Social FI",coach:"AaronTaylor",fiOwner:"Peter Manalac",ofOwner:"Peter Manalac",account:"Coffs Harbour Hardwoods",func:"Voice of the Client",aging:2.81,fiNum:"272688",ofNum:"202685"},
+  {fiType:"Website FI",coach:"AaronTaylor",fiOwner:"Peter Manalac",ofOwner:"Peter Manalac",account:"Nykko's Earthworks",func:"Consultation",aging:7.99,fiNum:"272536",ofNum:"201988"},
+  {fiType:"Social FI",coach:"TrishaStalnaker",fiOwner:"Rafael Sencion",ofOwner:"Rafael Sencion",account:"Attaway TROPHIES",func:"Voice of the Client",aging:1.99,fiNum:"272732",ofNum:"202607"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Rafael Sencion",ofOwner:"Rafael Sencion",account:"Carbone Thomas J Insurance Agency",func:"Review",aging:0.23,fiNum:"272513",ofNum:"202590"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Rafael Sencion",ofOwner:"Rafael Sencion",account:"Counterpoint Software Inc",func:"Review",aging:0.05,fiNum:"271731",ofNum:"201622"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Rafael Sencion",ofOwner:"Rafael Sencion",account:"Detail Cartel",func:"Consultation",aging:17.14,fiNum:"272072",ofNum:"202097"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Rafael Sencion",ofOwner:"Rafael Sencion",account:"Finish Line General Contracting LLC",func:"Review",aging:1.16,fiNum:"271309",ofNum:"201489"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Rafael Sencion",ofOwner:"Rafael Sencion",account:"First Glance Florist & Creative Arts",func:"Review",aging:1.25,fiNum:"272300",ofNum:"202328"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Rafael Sencion",ofOwner:"Rafael Sencion",account:"Handwriting Experts",func:"Review",aging:11.16,fiNum:"271334",ofNum:"201517"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Rafael Sencion",ofOwner:"Rafael Sencion",account:"Luxury Voyage Travels",func:"Review",aging:2.01,fiNum:"271324",ofNum:"201510"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Rafael Sencion",ofOwner:"Rafael Sencion",account:"Megans Beauty Shoppe",func:"Consultation",aging:4.28,fiNum:"272599",ofNum:"202654"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Rafael Sencion",ofOwner:"Rafael Sencion",account:"RCH Construction LLC",func:"Review",aging:4.05,fiNum:"271592",ofNum:"201773"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Rafael Sencion",ofOwner:"Rafael Sencion",account:"Renehan Joseph Hugh",func:"Review",aging:8.16,fiNum:"271073",ofNum:"201266"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Rafael Sencion",ofOwner:"Rafael Sencion",account:"Rucker & Rucker PC",func:"Consultation",aging:10.03,fiNum:"272393",ofNum:"202177"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Romulo Siragusa Taveras",ofOwner:"Irina Molina Molina",account:"Zartarian Salon",func:"Review",aging:3.99,fiNum:"270870",ofNum:"200967"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Romulo Siragusa Taveras",ofOwner:"0",account:"Bon Products Inc",func:"Review",aging:3.93,fiNum:"271135",ofNum:"200377"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Sabrina Paulino Rodriguez",ofOwner:"Sam Frias De Paula",account:"JDH Custom Millwork",func:"Consultation",aging:17.93,fiNum:"272000",ofNum:"201292"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Saira Julian Guzman",ofOwner:"Saira Julian Guzman",account:"Ambit Plumbing",func:"Review",aging:1.94,fiNum:"271713",ofNum:"201912"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Saira Julian Guzman",ofOwner:"Saira Julian Guzman",account:"Commander Concrete",func:"Unengaged",aging:1.26,fiNum:"272672",ofNum:"202772"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Saira Julian Guzman",ofOwner:"Saira Julian Guzman",account:"Commander Concrete",func:"Unengaged",aging:1.26,fiNum:"272673",ofNum:"202772"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Saira Julian Guzman",ofOwner:"Saira Julian Guzman",account:"Kong Sheds",func:"Unengaged",aging:0.94,fiNum:"272121",ofNum:"201890"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Saira Julian Guzman",ofOwner:"Saira Julian Guzman",account:"MT Paving & Concrete",func:"Review",aging:2.0,fiNum:"271730",ofNum:"201796"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Saira Julian Guzman",ofOwner:"Saira Julian Guzman",account:"Nails by Lizz",func:"Unengaged",aging:8.2,fiNum:"272252",ofNum:"202200"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Saira Julian Guzman",ofOwner:"Saira Julian Guzman",account:"Stephen Mauck Hardwood Floors",func:"Consultation",aging:16.04,fiNum:"272180",ofNum:"202112"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Saira Julian Guzman",ofOwner:"Saira Julian Guzman",account:"Sundance Audio & Tint",func:"Consultation",aging:1.97,fiNum:"272733",ofNum:"202866"},
+  {fiType:"Website FI",coach:"CarrieReece",fiOwner:"Sam Frias De Paula",ofOwner:"Mia O'Dirling",account:"Canoga Fence & Supply Co",func:"Consultation",aging:17.28,fiNum:"272045",ofNum:"202131"},
+  {fiType:"Website FI",coach:"CarrieReece",fiOwner:"Sam Frias De Paula",ofOwner:"Mia O'Dirling",account:"Trust Guard Courier Delivery",func:"Consultation",aging:3.02,fiNum:"271278",ofNum:"201474"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Sam Frias De Paula",ofOwner:"Sam Frias De Paula",account:"Blue Phoenix",func:"Review",aging:2.24,fiNum:"270912",ofNum:"201149"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Sam Frias De Paula",ofOwner:"Sam Frias De Paula",account:"DFW Housing Partners",func:"Review",aging:2.89,fiNum:"271432",ofNum:"201616"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Sam Frias De Paula",ofOwner:"Sam Frias De Paula",account:"Elie masonry concrete",func:"Review",aging:1.9,fiNum:"272293",ofNum:"202086"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Sam Frias De Paula",ofOwner:"Sam Frias De Paula",account:"Kaon Roofs",func:"Consultation",aging:2.04,fiNum:"272721",ofNum:"202865"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Sam Frias De Paula",ofOwner:"Sam Frias De Paula",account:"Lutrick's Mobile Mechanic",func:"Consultation",aging:3.01,fiNum:"271613",ofNum:"201804"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Sam Frias De Paula",ofOwner:"Sam Frias De Paula",account:"Precious Jewels Private School",func:"Consultation",aging:8.27,fiNum:"272502",ofNum:"202469"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Sam Frias De Paula",ofOwner:"Sam Frias De Paula",account:"Resilient Martial ArtsFitness",func:"Consultation",aging:0.2,fiNum:"272836",ofNum:"202964"},
+  {fiType:"Social FI",coach:"MiaO'Dirling",fiOwner:"Sam Frias De Paula",ofOwner:"Sam Frias De Paula",account:"Total Home Renovation",func:"Voice of the Client",aging:14.89,fiNum:"272261",ofNum:"202197"},
+  {fiType:"Website FI",coach:"ChaseBoyd",fiOwner:"Sarah Swanson",ofOwner:"Sarah Swanson",account:"A Pony Party Amusement & Entertainment",func:"Review",aging:2.06,fiNum:"271473",ofNum:"201593"},
+  {fiType:"Website FI",coach:"ChaseBoyd",fiOwner:"Sarah Swanson",ofOwner:"Sarah Swanson",account:"Aisling Construction",func:"Consultation",aging:3.15,fiNum:"272657",ofNum:"202641"},
+  {fiType:"Website FI",coach:"ChaseBoyd",fiOwner:"Sarah Swanson",ofOwner:"Sarah Swanson",account:"H and H Home Improvements",func:"Review",aging:2.04,fiNum:"272124",ofNum:"202095"},
+  {fiType:"Social FI",coach:"ChaseBoyd",fiOwner:"Sarah Swanson",ofOwner:"Sarah Swanson",account:"SBK Services",func:"Voice of the Client",aging:1.06,fiNum:"272537",ofNum:"202610"},
+  {fiType:"Website FI",coach:"CarrieReece",fiOwner:"Sati Pimentel Malespin",ofOwner:"Mia O'Dirling",account:"Brick and Beyond Masonry",func:"Consultation",aging:16.85,fiNum:"272126",ofNum:"202220"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Sati Pimentel Malespin",ofOwner:"Sati Pimentel Malespin",account:"Ben Neville Disposal Service",func:"Review",aging:11.05,fiNum:"271651",ofNum:"201362"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Sati Pimentel Malespin",ofOwner:"Sati Pimentel Malespin",account:"Detail x Mobile Detailing",func:"Consultation",aging:3.02,fiNum:"271340",ofNum:"201527"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Sati Pimentel Malespin",ofOwner:"Sati Pimentel Malespin",account:"JBE Marine",func:"Review",aging:4.19,fiNum:"271757",ofNum:"202011"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Sati Pimentel Malespin",ofOwner:"Sati Pimentel Malespin",account:"RG BROS GENERAL CONSTRUCTION LLC",func:"Review",aging:6.89,fiNum:"272061",ofNum:"201746"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Sati Pimentel Malespin",ofOwner:"Sati Pimentel Malespin",account:"Splitrock Co",func:"Review",aging:8.23,fiNum:"271982",ofNum:"202094"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Sati Pimentel Malespin",ofOwner:"Sati Pimentel Malespin",account:"Sun Country Engineering & Surveying",func:"Review",aging:8.12,fiNum:"271783",ofNum:"202049"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Sati Pimentel Malespin",ofOwner:"0",account:"Teambama LLC",func:"Review",aging:23.19,fiNum:"271110",ofNum:"201269"},
+  {fiType:"Website FI",coach:"KendraLeary",fiOwner:"Stacy Roers",ofOwner:"Stacy Roers",account:"Brown Billone Club The",func:"Review",aging:1.16,fiNum:"272123",ofNum:"202210"},
+  {fiType:"Website FI",coach:"KendraLeary",fiOwner:"Stacy Roers",ofOwner:"Stacy Roers",account:"Richards-Wellness",func:"Consultation",aging:1.85,fiNum:"272755",ofNum:"202837"},
+  {fiType:"Website FI",coach:"KendraLeary",fiOwner:"Steven Saunders",ofOwner:"Steven Saunders",account:"ABC Cake Decorating Supplies",func:"Review",aging:0.98,fiNum:"272052",ofNum:"202019"},
+  {fiType:"Website FI",coach:"KendraLeary",fiOwner:"Steven Saunders",ofOwner:"Steven Saunders",account:"All Rain Gutter Repair Services",func:"Consultation",aging:2.02,fiNum:"272727",ofNum:"202673"},
+  {fiType:"Website FI",coach:"KendraLeary",fiOwner:"Steven Saunders",ofOwner:"Steven Saunders",account:"Auto Trim Designs & Tint",func:"Review",aging:2.89,fiNum:"271684",ofNum:"201902"},
+  {fiType:"Website FI",coach:"KendraLeary",fiOwner:"Steven Saunders",ofOwner:"Steven Saunders",account:"Larry Denton Well Drilling",func:"Review",aging:14.09,fiNum:"271084",ofNum:"201272"},
+  {fiType:"Website FI",coach:"KendraLeary",fiOwner:"Steven Saunders",ofOwner:"Steven Saunders",account:"Rogue Custom Construction & Excavation",func:"Review",aging:2.19,fiNum:"270955",ofNum:"201177"},
+  {fiType:"Website FI",coach:"KendraLeary",fiOwner:"Steven Saunders",ofOwner:"Steven Saunders",account:"United Allstar Advisors LLC",func:"Review",aging:2.83,fiNum:"272103",ofNum:"201564"},
+  {fiType:"Website FI",coach:"KendraLeary",fiOwner:"Steven Saunders",ofOwner:"Steven Saunders",account:"Veteran Home Watch",func:"Review",aging:0.8,fiNum:"272059",ofNum:"202119"},
+  {fiType:"Website FI",coach:"AaronTaylor",fiOwner:"Sylvia Appla",ofOwner:"Sylvia Appla",account:"Cheeky Players limited",func:"Review",aging:8.24,fiNum:"271627",ofNum:"201806"},
+  {fiType:"Website FI",coach:"AaronTaylor",fiOwner:"Sylvia Appla",ofOwner:"Sylvia Appla",account:"Euroserve Automotive Pty Ltd",func:"Review",aging:1.23,fiNum:"272270",ofNum:"202297"},
+  {fiType:"Social FI",coach:"AaronTaylor",fiOwner:"Sylvia Appla",ofOwner:"Sylvia Appla",account:"KCP Physiotherapy Paraparaumu",func:"Voice of the Client",aging:0.75,fiNum:"272817",ofNum:"202899"},
+  {fiType:"Social FI",coach:"AaronTaylor",fiOwner:"Sylvia Appla",ofOwner:"Sylvia Appla",account:"Mobile Glass",func:"Voice of the Client",aging:0.77,fiNum:"272816",ofNum:"202662"},
+  {fiType:"Website FI",coach:"AaronTaylor",fiOwner:"Sylvia Appla",ofOwner:"Sylvia Appla",account:"Park Ridge Eyewear",func:"Review",aging:2.22,fiNum:"271710",ofNum:"201002"},
+  {fiType:"Website FI",coach:"AaronTaylor",fiOwner:"Sylvia Appla",ofOwner:"Thryv Support",account:"EYETEAM LIMITED",func:"Consultation",aging:0.1,fiNum:"271586",ofNum:"201772"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Taylor Kidd",ofOwner:"Taylor Kidd",account:"Better Roofing with Travis",func:"Consultation",aging:7.25,fiNum:"272559",ofNum:"202340"},
+  {fiType:"Website FI",coach:"AaronTaylor",fiOwner:"Tracy-Ann Gaudencio",ofOwner:"Tracy-Ann Gaudencio",account:"Beechey's Service Centre",func:"Consultation",aging:7.66,fiNum:"272554",ofNum:"202600"},
+  {fiType:"Website FI",coach:"AaronTaylor",fiOwner:"Tracy-Ann Gaudencio",ofOwner:"Tracy-Ann Gaudencio",account:"Cloud Cabinetry",func:"Review",aging:1.39,fiNum:"271419",ofNum:"201602"},
+  {fiType:"Website FI",coach:"AaronTaylor",fiOwner:"Tracy-Ann Gaudencio",ofOwner:"Tracy-Ann Gaudencio",account:"Fiona's Pet Services",func:"Review",aging:2.47,fiNum:"271707",ofNum:"201768"},
+  {fiType:"Website FI",coach:"AaronTaylor",fiOwner:"Tracy-Ann Gaudencio",ofOwner:"Tracy-Ann Gaudencio",account:"Lyons den driving school",func:"Review",aging:3.64,fiNum:"272027",ofNum:"201235"},
+  {fiType:"Website FI",coach:"AaronTaylor",fiOwner:"Tracy-Ann Gaudencio",ofOwner:"Tracy-Ann Gaudencio",account:"McKoy Street Storage",func:"Review",aging:0.81,fiNum:"271308",ofNum:"201487"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Victor Abner Moscoso Fernandez",ofOwner:"Victor Abner Moscoso Fernandez",account:"A & C Fence LLC",func:"Unengaged",aging:0.9,fiNum:"272609",ofNum:"202493"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Victor Abner Moscoso Fernandez",ofOwner:"Victor Abner Moscoso Fernandez",account:"Creadore Air Conditioning Inc",func:"Review",aging:2.06,fiNum:"272238",ofNum:"201962"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Victor Abner Moscoso Fernandez",ofOwner:"Victor Abner Moscoso Fernandez",account:"GRADE A PAINTING & CONST LLC",func:"Consultation",aging:1.85,fiNum:"272756",ofNum:"202738"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Victor Abner Moscoso Fernandez",ofOwner:"Victor Abner Moscoso Fernandez",account:"Kam Mechanical Services",func:"Review",aging:15.21,fiNum:"271372",ofNum:"201497"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Victor Abner Moscoso Fernandez",ofOwner:"Victor Abner Moscoso Fernandez",account:"Kish Enclosures Inc",func:"Consultation",aging:0.97,fiNum:"272805",ofNum:"202785"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Victor Abner Moscoso Fernandez",ofOwner:"Victor Abner Moscoso Fernandez",account:"Palmer Janitorial",func:"Review",aging:2.9,fiNum:"271496",ofNum:"201648"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Victor Abner Moscoso Fernandez",ofOwner:"Victor Abner Moscoso Fernandez",account:"Proof in the Prints",func:"Consultation",aging:0.23,fiNum:"272832",ofNum:"202835"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Victor Abner Moscoso Fernandez",ofOwner:"Victor Abner Moscoso Fernandez",account:"Simply Trees",func:"Review",aging:2.9,fiNum:"271949",ofNum:"202030"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Victor Abner Moscoso Fernandez",ofOwner:"Victor Abner Moscoso Fernandez",account:"Steven Bernal Realtor",func:"Review",aging:4.18,fiNum:"272233",ofNum:"200998"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Victor Abner Moscoso Fernandez",ofOwner:"Victor Abner Moscoso Fernandez",account:"We Store It",func:"Consultation",aging:1.15,fiNum:"272795",ofNum:"202572"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Victor Abner Moscoso Fernandez",ofOwner:"Victor Abner Moscoso Fernandez",account:"Wood and Stone LLC",func:"Review",aging:2.0,fiNum:"271559",ofNum:"201737"},
+  {fiType:"Website FI",coach:"AaronTaylor",fiOwner:"Warda Gul",ofOwner:"Warda Gul",account:"Balmain East Locksmiths",func:"Consultation",aging:15.64,fiNum:"272206",ofNum:"201926"},
+  {fiType:"Website FI",coach:"AaronTaylor",fiOwner:"Warda Gul",ofOwner:"Warda Gul",account:"BuiltWright Renovations",func:"Consultation",aging:18.48,fiNum:"271144",ofNum:"201336"},
+  {fiType:"Social FI",coach:"AaronTaylor",fiOwner:"Warda Gul",ofOwner:"Warda Gul",account:"Fletcher Metal Roofing",func:"Voice of the Client",aging:2.21,fiNum:"272021",ofNum:"201445"},
+  {fiType:"Website FI",coach:"AaronTaylor",fiOwner:"Warda Gul",ofOwner:"Warda Gul",account:"Mandurah Dental Surgery",func:"Consultation",aging:3.78,fiNum:"272641",ofNum:"202753"},
+  {fiType:"Website FI",coach:"AaronTaylor",fiOwner:"Warda Gul",ofOwner:"Warda Gul",account:"Mark Salmon Electrical",func:"Review",aging:2.86,fiNum:"271546",ofNum:"201246"},
+  {fiType:"Website FI",coach:"AaronTaylor",fiOwner:"Warda Gul",ofOwner:"Warda Gul",account:"Tandem Drive Truck Suspension Repairs",func:"Review",aging:1.5,fiNum:"271630",ofNum:"201813"},
+  {fiType:"Website FI",coach:"AaronTaylor",fiOwner:"Warda Gul",ofOwner:"Warda Gul",account:"The Boulevarde Denture Clinic",func:"Review",aging:2.95,fiNum:"271452",ofNum:"201199"},
+  {fiType:"Website FI",coach:"TrishaStalnaker",fiOwner:"Wilson Mercedes",ofOwner:"Rafael Sencion",account:"Panchos Place",func:"Consultation",aging:17.92,fiNum:"271980",ofNum:"202032"},
+  {fiType:"Social FI",coach:"CarrieReece",fiOwner:"Yessica Montero Urena",ofOwner:"Mia O'Dirling",account:"Independent Electrical Services LLC",func:"Voice of the Client",aging:31.0,fiNum:"271113",ofNum:"200888"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Yessica Montero Urena",ofOwner:"Yessica Montero Urena",account:"Braaten & Company",func:"Review",aging:9.0,fiNum:"271013",ofNum:"201211"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Yessica Montero Urena",ofOwner:"Yessica Montero Urena",account:"Capitol Exterior",func:"Consultation",aging:3.01,fiNum:"271551",ofNum:"201637"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Yessica Montero Urena",ofOwner:"Yessica Montero Urena",account:"Triinity Asphalt Paving",func:"Review",aging:1.91,fiNum:"272371",ofNum:"201713"},
+  {fiType:"Website FI",coach:"MiaO'Dirling",fiOwner:"Yessica Montero Urena",ofOwner:"Yessica Montero Urena",account:"Unified Home Solutions LTD",func:"Consultation",aging:3.01,fiNum:"271661",ofNum:"201869"},
+  {fiType:"Website FI",coach:"AaronTaylor",fiOwner:"Zoltan Rudolf",ofOwner:"Nikita Siepen-Bowers",account:"Stutchbury Jaques Pty Ltd",func:"Consultation",aging:1.62,fiNum:"272774",ofNum:"202786"},
+  {fiType:"Website FI",coach:"AaronTaylor",fiOwner:"Zoltan Rudolf",ofOwner:"Peter Manalac",account:"Groundbreak plumbing",func:"Consultation",aging:1.84,fiNum:"272548",ofNum:"202457"},
+  {fiType:"Website FI",coach:"AaronTaylor",fiOwner:"Zoltan Rudolf",ofOwner:"Zoltan Rudolf",account:"Damon House Relocators",func:"Review",aging:0.79,fiNum:"272014",ofNum:"202015"},
+  {fiType:"Social FI",coach:"AaronTaylor",fiOwner:"Zoltan Rudolf",ofOwner:"Zoltan Rudolf",account:"Denman Finance",func:"Voice of the Client",aging:2.71,fiNum:"272692",ofNum:"202737"},
+  {fiType:"Social FI",coach:"AaronTaylor",fiOwner:"Zoltan Rudolf",ofOwner:"Zoltan Rudolf",account:"Denman Finance",func:"Voice of the Client",aging:1.31,fiNum:"272776",ofNum:"201301"},
+  {fiType:"Social FI",coach:"AaronTaylor",fiOwner:"Zoltan Rudolf",ofOwner:"Zoltan Rudolf",account:"Lower north roofing",func:"Voice of the Client",aging:5.21,fiNum:"272591",ofNum:"202665"},
+];
+
+function FulfillmentView({filterCoach="", filterCSM=""}) {
+  const [sortCol, setSortCol] = React.useState("fiOwner");
+  const [sortDir, setSortDir] = React.useState("asc");
+  const [typeFilter, setTypeFilter] = React.useState(""); // "" | "Social FI" | "Website FI"
+
+  const unmappedCoaches = [...new Set(FI_RAW.map(r=>r.coach))].filter(c=>!FI_COACH_EMAIL_MAP[c]);
+
+  const scoped = FI_RAW.filter(r => {
+    const coachEmail = FI_COACH_EMAIL_MAP[r.coach] || null;
+    if (filterCoach && coachEmail !== filterCoach) return false;
+    if (filterCSM && r.fiOwner !== filterCSM && r.ofOwner !== filterCSM) return false;
+    if (typeFilter && r.fiType !== typeFilter) return false;
+    return true;
+  });
+
+  const onSort = col => { if (sortCol===col) setSortDir(d=>d==="asc"?"desc":"asc"); else { setSortCol(col); setSortDir("asc"); } };
+
+  const sorted = [...scoped].sort((a,b) => {
+    const av = a[sortCol], bv = b[sortCol];
+    let cmp;
+    if (typeof av === "number") cmp = av - bv;
+    else cmp = String(av||"").toLowerCase().localeCompare(String(bv||"").toLowerCase());
+    if (cmp === 0 && sortCol === "fiOwner") cmp = String(a.ofOwner||"").toLowerCase().localeCompare(String(b.ofOwner||"").toLowerCase());
+    return sortDir==="asc" ? cmp : -cmp;
+  });
+
+  const total = scoped.length;
+  const social = scoped.filter(r=>r.fiType==="Social FI").length;
+  const website = scoped.filter(r=>r.fiType==="Website FI").length;
+  const avgAging = total ? (scoped.reduce((s,r)=>s+r.aging,0)/total) : 0;
+
+  const S = {
+    card:{background:"#fff",borderRadius:12,padding:"18px 22px",boxShadow:"0 1px 4px rgba(41,53,93,.07)",marginBottom:14},
+    tile:{background:"rgba(41,53,93,.04)",borderRadius:8,padding:"12px 14px"},
+    th:{padding:"8px 10px",fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,letterSpacing:"0.04em",borderBottom:"0.5px solid rgba(41,53,93,.08)",whiteSpace:"nowrap",cursor:"pointer",userSelect:"none"},
+    td:{padding:"8px 10px",borderBottom:"0.5px solid rgba(41,53,93,.05)",color:"#29355D",verticalAlign:"middle"},
+  };
+  const sortArrow = col => sortCol===col ? (sortDir==="asc"?" ↑":" ↓") : "";
+  const fmt1 = n => Number(n||0).toFixed(1);
+
+  return (
+    <div style={{maxWidth:1200,margin:"0 auto"}}>
+      <div style={{fontSize:20,fontWeight:700,color:"#29355D",marginBottom:4}}>📋 Fulfillment Items</div>
+      <div style={{fontSize:13,color:"#808080",marginBottom:14}}>Static snapshot, transcribed 2026-08-21 — not yet wired to a live sheet</div>
+
+      {unmappedCoaches.length>0 && (
+        <div style={{background:"rgba(217,119,6,.08)",border:"0.5px solid rgba(217,119,6,.3)",borderRadius:8,padding:"10px 14px",marginBottom:14,fontSize:12,color:"#92400e"}}>
+          ⚠ {unmappedCoaches.length} coach name{unmappedCoaches.length===1?"":"s"} in this data don't match anyone in the coach roster, so their rows won't show up under any coach filter: <b>{unmappedCoaches.join(", ")}</b>. "KendraLeary" is tentatively mapped to Kendra Morelli — please confirm.
+        </div>
+      )}
+
+      <div style={{display:"grid",gridTemplateColumns:"repeat(4,minmax(0,1fr))",gap:10,marginBottom:14}}>
+        {[
+          {l:"Total FIs",   v:total, sub:"in current scope", col:"#29355D"},
+          {l:"Social FI",   v:social, sub:total?Math.round(social/total*100)+"% of total":"—", col:"#d97706"},
+          {l:"Website FI",  v:website, sub:total?Math.round(website/total*100)+"% of total":"—", col:"#2a78d6"},
+          {l:"Avg Function Aging", v:fmt1(avgAging)+"d", sub:"days in current function", col:"#7c3aed"},
+        ].map(t=>(
+          <div key={t.l} style={S.tile}>
+            <div style={{fontSize:12,color:"#808080",marginBottom:4}}>{t.l}</div>
+            <div style={{fontSize:22,fontWeight:700,color:t.col,lineHeight:1,marginBottom:3}}>{t.v}</div>
+            <div style={{fontSize:11,color:"#aaa"}}>{t.sub}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{display:"flex",gap:6,marginBottom:14}}>
+        {[["","All"],["Social FI","Social FI"],["Website FI","Website FI"]].map(([v,l])=>(
+          <button key={v} onClick={()=>setTypeFilter(v)}
+            style={{padding:"4px 12px",borderRadius:20,fontSize:12,fontWeight:500,cursor:"pointer",
+              border:"0.5px solid "+(typeFilter===v?"#29355D":"rgba(41,53,93,.2)"),
+              background:typeFilter===v?"#29355D":"#fff",color:typeFilter===v?"#fff":"#808080"}}>
+            {l}
+          </button>
+        ))}
+      </div>
+
+      <div style={S.card}>
+        <div style={{fontSize:13,fontWeight:600,color:"#29355D",marginBottom:14}}>
+          All Fulfillment Items ({sorted.length}) — sorted by FI Owner, then Onboarding Form Owner
+        </div>
+        <div style={{overflowX:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:1000}}>
+            <thead>
+              <tr>
+                <th style={S.th} onClick={()=>onSort("fiType")}>FI Type{sortArrow("fiType")}</th>
+                <th style={S.th} onClick={()=>onSort("coach")}>Coach{sortArrow("coach")}</th>
+                <th style={S.th} onClick={()=>onSort("fiOwner")}>FI Owner{sortArrow("fiOwner")}</th>
+                <th style={S.th} onClick={()=>onSort("ofOwner")}>Onboarding Form Owner{sortArrow("ofOwner")}</th>
+                <th style={S.th} onClick={()=>onSort("account")}>Account{sortArrow("account")}</th>
+                <th style={S.th} onClick={()=>onSort("func")}>Current Function{sortArrow("func")}</th>
+                <th style={{...S.th,textAlign:"right"}} onClick={()=>onSort("aging")}>Function Aging (Days){sortArrow("aging")}</th>
+                <th style={S.th} onClick={()=>onSort("fiNum")}>FI Number{sortArrow("fiNum")}</th>
+                <th style={S.th} onClick={()=>onSort("ofNum")}>Onboarding Form Number{sortArrow("ofNum")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map((r,i) => (
+                <tr key={r.fiNum+"-"+i}>
+                  <td style={S.td}>
+                    <span style={{fontSize:11,fontWeight:600,padding:"2px 8px",borderRadius:20,
+                      background:r.fiType==="Social FI"?"rgba(217,119,6,.1)":"rgba(42,120,214,.1)",
+                      color:r.fiType==="Social FI"?"#d97706":"#2a78d6"}}>{r.fiType}</span>
+                  </td>
+                  <td style={S.td}>{FI_COACH_EMAIL_MAP[r.coach] ? r.coach.replace(/([a-z])([A-Z])/g,"$1 $2").replace(/O'/,"O\u2019") : <span style={{color:"#d97706"}}>{r.coach} ⚠</span>}</td>
+                  <td style={{...S.td,fontWeight:600}}>{r.fiOwner}</td>
+                  <td style={S.td}>{r.ofOwner}</td>
+                  <td style={S.td}>{r.account}</td>
+                  <td style={S.td}>{r.func}</td>
+                  <td style={{...S.td,textAlign:"right",fontWeight:600,color:r.aging>20?"#dc2626":r.aging>10?"#d97706":"#29355D"}}>{fmt1(r.aging)}</td>
+                  <td style={S.td}>{r.fiNum}</td>
+                  <td style={S.td}>{r.ofNum}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 
 export default 
@@ -8527,10 +8998,10 @@ My question: ${aiCustom}`,
           </div>
         </div>
         <div style={{display:"flex",alignItems:"stretch",padding:"0 24px"}}>
-          {["coaching","digest","revenue","bob","leaderboard","calls","cers","trends","mydash",...(userSession.role==="master"?["capacity"]:[]),...(canSeeSCC?["scc"]:[])].filter(t=>!isCsmView||(t==="mydash")).map(t=>(
+          {["coaching","digest","revenue","bob","leaderboard","calls","cers","trends","mydash",...(userSession.role==="master"?["capacity"]:[]),...(canSeeSCC?["scc"]:[]),"fi"].filter(t=>!isCsmView||(t==="mydash")).map(t=>(
             <button key={t} onClick={()=>setTab(t)}
               style={{padding:"10px 18px",fontSize:13,fontWeight:500,color:tab===t?"#fff":"rgba(255,255,255,.55)",background:"transparent",border:"none",cursor:"pointer",borderBottom:tab===t?"3px solid #FF5000":"3px solid transparent",whiteSpace:"nowrap"}}>
-              {t==="mydash"?"🏠 My Dashboard":t==="coaching"?"Coaching":t==="digest"?"📋 Daily Digest":t==="trends"?"📈 Trends":t==="calls"?"📞 Calls":t==="cers"?"📋 CERs":t==="revenue"?"💰 Revenue":t==="bob"?"📋 Book of Business":t==="capacity"?"⚡ Capacity":t==="scc"?"✍️ Strategic Content":t.charAt(0).toUpperCase()+t.slice(1)}
+              {t==="mydash"?"🏠 My Dashboard":t==="coaching"?"Coaching":t==="digest"?"📋 Daily Digest":t==="trends"?"📈 Trends":t==="calls"?"📞 Calls":t==="cers"?"📋 CERs":t==="revenue"?"💰 Revenue":t==="bob"?"📋 Book of Business":t==="capacity"?"⚡ Capacity":t==="scc"?"✍️ Strategic Content":t==="fi"?"📋 Fulfillment Items":t.charAt(0).toUpperCase()+t.slice(1)}
             </button>
           ))}
         </div>
@@ -8616,6 +9087,7 @@ My question: ${aiCustom}`,
           {tab==="calls"&&<TrendsView history={history} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} qamc={qamc} qass={qass} trendsTab="calls" setTrendsTab={()=>{}} hideSubTabs={true}/>}
           {tab==="capacity"&&userSession.role==="master"&&<CapacityView csms={csms} callData={callData} callRaw={callRaw} cadenceFull={cadenceFull} domoBoq={domoBoq} filterCoach={filterCoach} filterCSM={filterCSM}/>}
           {tab==="scc"&&canSeeSCC&&<SCCView rows={sccChurn}/>}
+          {tab==="fi"&&<FulfillmentView filterCoach={filterCoach} filterCSM={filterCSM}/>}
           {tab==="mydash"&&<MyDashboard csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} churnAlerts={churnAlerts} qamc={qamc||[]} qass={qass||[]} domoBoq={domoBoq||[]} q3BobCur={q3BobCur||[]} q3Supp={q3Supp||[]} rawRev={rawRev||[]} cadenceFull={cadenceFull||[]} onNavigate={setTab} onSetTrendsTab={setTrendsTab} onSetBobTab={setBobTab} cerAssigned={cerAssigned} cerCompleted={cerCompleted}/>}
         </div>
       )}
