@@ -36,6 +36,8 @@ const CSV_QA_SS   = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGw
 const CSV_BC_CHURN= "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=295771282&single=true&output=csv"; // BC churn by coach/rep
 const CSV_SCC_CHURN = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTyJal8aVZyNXSU7kdYxA9M0TUQvy9iD49Y9I051DdUcI_bgsPQHkJKUFqorZlCx2hx2T3P4uTSANFd/pub?gid=0&single=true&output=csv"; // SCC Churn — Strategic Content Creation churn log
 const CSV_FI = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=1693409175&single=true&output=csv"; // FIs Needing Action — raw Fulfillment Items export
+const CSV_Q3_SF_BOQ     = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=40086456&single=true&output=csv"; // Q3 BoQ — per-L2-line beginning-of-quarter revenue, sum by EID
+const CSV_Q3_SF_CURRENT = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=2052442781&single=true&output=csv"; // Current SaaS Revenue — fresh Salesforce pull, account-level. NOTE: values are in local currency (USD/AUD/NZD), NOT FX-converted.
 const CSV_MC_CHURN= "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=1002996767&single=true&output=csv"; // MC churn by coach/rep
 const CSV_CHURN_ALERTS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=724984916&single=true&output=csv"; // daily new churn alerts
 
@@ -12949,7 +12951,7 @@ const SF_BOB_RAW = [
 ["TOTAL","None","None",3949771.05,3480829.88,""]
 ];
 
-function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChurn, churnAlerts, onSelectCSM, liveBobDet={}, bobAdj={}, q3BobCur=[], domoBoq=[], q3Supp=[], q2DomoBoq=[], bobTab="overview", setBobTab=()=>{}}) {
+function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChurn, churnAlerts, onSelectCSM, liveBobDet={}, bobAdj={}, q3BobCur=[], domoBoq=[], q3Supp=[], q2DomoBoq=[], bobTab="overview", setBobTab=()=>{}, sfBobRows=[]}) {
   const [bobSubTab, setBobSubTab] = useState("current"); // "current" | "q3"
   const getDet = n => {
     const base = liveBobDet[n]||liveBobDet[norm(n)]||BOB_DETAIL[n]||BOB_DETAIL[norm(n)]||{};
@@ -14113,22 +14115,29 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
   };
 
   const renderSFPreview = () => {
-    // ── PRE-BUILD PREVIEW — static snapshot from q3_BoB_8-25.xlsx ────────────
-    // This is NOT wired to a live sheet. Source: the "SF BoB" / "SF retention
-    // detail" / "BoB Retention" / "CSM Retention" tabs in that workbook, which
-    // compare Q2 End of Quarter revenue against a fresh Salesforce SaaS
-    // Revenue pull. Per that workbook's own rule: an account with no Q2
-    // record ("Added") counts its current value as its own BOQ — 100%
-    // retained by definition — rather than showing as infinite/undefined growth.
+    // ── Q3 SF-based BoB — live once sfBobRows is populated, otherwise falls
+    // back to the static pre-build snapshot from q3_BoB_8-25.xlsx. Source
+    // methodology mirrors that workbook's "SF retention detail" / "BoB
+    // Retention" / "CSM Retention" tabs: compare Q3 BoQ (per-L2-line,
+    // beginning-of-quarter) against a fresh Salesforce Current SaaS Revenue
+    // pull. Per that workbook's own rule: an account with no BOQ record
+    // ("Added") counts its current value as its own BOQ — 100% retained by
+    // definition — rather than showing as infinite/undefined growth.
     //
-    // WORTH KNOWING BEFORE THIS GOES LIVE: 3,680 of 7,783 accounts (47%) are
-    // classified "Added" in this pull — i.e. no matching Q2 record was found
-    // for them. That's a very large share to be "new logos" in one quarter.
-    // Retention with Added accounts included: 88.1%. Excluding them entirely
-    // (both sides): 85.7%. The likely explanation is that this fresh
-    // Salesforce-sourced pull is simply more complete than whatever process
-    // built the Q2 baseline, not that ~half the book is genuinely brand new —
-    // worth confirming before trusting the headline % as-is.
+    // WORTH KNOWING: in the original static snapshot, 3,680 of 7,783 accounts
+    // (47%) were classified "Added" — i.e. no matching BOQ record was found.
+    // That's a very large share to be "new logos" in one quarter; the likely
+    // explanation is that the Salesforce-sourced pull is more complete than
+    // whatever process built the prior baseline, not that half the book is
+    // genuinely brand new. Worth periodically re-checking this % once live.
+    //
+    // CAUTION: Current SaaS Revenue values are in LOCAL CURRENCY (USD/AUD/NZD)
+    // and are NOT FX-converted (several CSMs — Dave Crisler, Sylvia Appla,
+    // Warda Gul, Matt Daly, Tracy-Ann Gaudencio — have AU/NZ books). Any $
+    // total spanning those CSMs blends currencies as if equivalent. This is a
+    // limitation of the source data, not something introduced here.
+    const isLive = !!(sfBobRows && sfBobRows.length>0);
+    const dataSource = isLive ? sfBobRows : SF_BOB_RAW;
     const fmt$   = n => n==null?"--":"$"+Math.abs(n).toLocaleString("en-US",{minimumFractionDigits:0,maximumFractionDigits:0});
     const fmtPct = p => p==null?"--":(p*100).toFixed(1)+"%";
     const fmtNet = n => n==null?"--":(n>=0?"+":"")+fmt$(n);
@@ -14144,7 +14153,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
       return s;
     };
 
-    const allRows = SF_BOB_RAW.map(([csmRaw, eid, acct, boq, cur, status]) => {
+    const allRows = dataSource.map(([csmRaw, eid, acct, boq, cur, status]) => {
       const csm = norm(lfSwap(csmRaw)) || lfSwap(csmRaw);
       const delta = cur - boq;
       const ret = boq > 0 ? cur/boq : (status==="Added" ? 1 : null);
@@ -14232,8 +14241,8 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
 
     return (
       <div>
-        <div style={{background:"rgba(83,120,252,.08)",border:"0.5px solid rgba(83,120,252,.35)",borderRadius:8,padding:"12px 16px",marginBottom:14,fontSize:12,color:"#29355D"}}>
-          🔬 <b>Pre-build preview</b> — static snapshot from q3_BoB_8-25.xlsx, not wired to a live sheet. {totalAcctsSF>0 && <>{sfData.reduce((s,c)=>s+c.addedCount,0)} of {totalAcctsSF} accounts ({totalAcctsSF>0?Math.round(sfData.reduce((s,c)=>s+c.addedCount,0)/totalAcctsSF*100):0}%) are classified "Added" (no matching Q2 record found) and count as 100% retained by this workbook's own rule — worth confirming that's not just Q2's baseline being incomplete before trusting this number as final.</>}
+        <div style={{background:isLive?"rgba(22,163,74,.08)":"rgba(83,120,252,.08)",border:"0.5px solid "+(isLive?"rgba(22,163,74,.35)":"rgba(83,120,252,.35)"),borderRadius:8,padding:"12px 16px",marginBottom:14,fontSize:12,color:"#29355D"}}>
+          {isLive ? "✅ Live — refreshes automatically from the Q3 BoQ + Current SaaS Revenue sheets." : "🔬 Static pre-build preview — from q3_BoB_8-25.xlsx, CSV_Q3_SF_BOQ/CSV_Q3_SF_CURRENT aren't returning data yet."} {totalAcctsSF>0 && <>{sfData.reduce((s,c)=>s+c.addedCount,0)} of {totalAcctsSF} accounts ({totalAcctsSF>0?Math.round(sfData.reduce((s,c)=>s+c.addedCount,0)/totalAcctsSF*100):0}%) are classified "Added" (no matching BOQ record found) and count as 100% retained by this methodology's own rule — worth periodically confirming that's not just the baseline being incomplete. Also note: Current SaaS Revenue values are in local currency (USD/AUD/NZD), not FX-converted.</>}
         </div>
         {missingFromSF.length>0 && (
           <div style={{background:"rgba(217,119,6,.08)",border:"0.5px solid rgba(217,119,6,.3)",borderRadius:8,padding:"10px 14px",marginBottom:14,fontSize:12,color:"#92400e"}}>
@@ -14444,7 +14453,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
 
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
         <div style={{display:"flex",gap:2,background:"#ECEEF1",borderRadius:8,padding:3}}>
-          {[["overview","Q2 Domo BoB"],["domo","Q3 Domo BoB"],["sfpreview","🔬 Q3 SF Preview"]].map(([t,l])=>(
+          {[["overview","Q2 Domo BoB"],["domo","Q3 Domo BoB (legacy)"],["sfpreview","✅ Q3 BoB (SF)"]].map(([t,l])=>(
             <button key={t} onClick={()=>setBobTab(t)}
               style={{padding:"5px 14px",fontSize:12,fontWeight:500,border:"none",borderRadius:6,cursor:"pointer",
                 background:bobTab===t?"#fff":"transparent",color:bobTab===t?"#29355D":"#808080",
@@ -16511,7 +16520,83 @@ function mapFI(rows) {
   }).filter(Boolean);
 }
 
-// ── "Danger Will Robinson" aging thresholds, per Current Function ──────────
+// ── Live Q3 SF-based BoB join ────────────────────────────────────────────
+// Mirrors the exact methodology from q3_BoB_8-25.xlsx's "SF retention detail"
+// / "BoB Retention" tabs:
+//   - BOQ = sum of per-L2-line "End of Quarter" values for that EID, from the
+//     Q3 BoQ export (CSM always comes from this side when the EID exists here).
+//   - Current = "SaaS Revenue" for that EID from the Current SaaS Revenue
+//     export (a fresh Salesforce pull, account-level).
+//   - An EID with no BOQ record ("Added") counts its current value as its own
+//     BOQ — 100% retained by definition — rather than showing as an
+//     undefined/infinite increase.
+//   - An EID with no current record ("Lost") keeps its BOQ with current = 0.
+// CAUTION: "SaaS Revenue" on the Current side is in LOCAL CURRENCY
+// (USD/AUD/NZD) and is NOT FX-converted — several CSMs (Dave Crisler, Sylvia
+// Appla, Warda Gul, Matt Daly, Tracy-Ann Gaudencio, etc.) have AU/NZ books, so
+// summed dollar totals blend currencies as if they were equivalent. This
+// matches the source workbook's own known limitation — it isn't something
+// introduced here — but it means any BOQ/Current $ total that spans those
+// CSMs is not a true apples-to-apples USD figure.
+function buildSFBobRows(boqRows, curRows) {
+  if ((!boqRows || boqRows.length===0) && (!curRows || curRows.length===0)) return [];
+
+  const pf = v => {
+    let s = String(v||"0").trim();
+    const neg = s.startsWith("(") && s.endsWith(")");
+    s = s.replace(/[^0-9.\-]/g,"");
+    const x = parseFloat(s);
+    return isNaN(x) ? 0 : (neg ? -Math.abs(x) : x);
+  };
+
+  // BOQ side — sum per EID across L2 lines, capture CSM name (raw "Last, First")
+  const boqByEid = {}; // eid -> {csm, boq}
+  (boqRows||[]).forEach(r => {
+    const eid = String(r["Enterprise ID"]||"").trim().toUpperCase();
+    if (!eid) return;
+    const csm = String(r["CSM Name"]||"").trim();
+    const val = pf(r["End of Quarter"]);
+    if (!boqByEid[eid]) boqByEid[eid] = {csm, boq: 0, acct: String(r["Account Name"]||"").trim()};
+    boqByEid[eid].boq += val;
+    if (!boqByEid[eid].csm && csm) boqByEid[eid].csm = csm;
+  });
+
+  // Current side — one row per account already
+  const curByEid = {}; // eid -> {csm, cur, acct}
+  (curRows||[]).forEach(r => {
+    const eid = String(r["Enterprise Id"]||r["Enterprise ID"]||"").trim().toUpperCase();
+    if (!eid) return;
+    curByEid[eid] = {
+      csm: String(r["Client Success Manager"]||"").trim(),
+      cur: pf(r["SaaS Revenue"]),
+      acct: String(r["Account Name"]||"").trim(),
+    };
+  });
+
+  const allEids = new Set([...Object.keys(boqByEid), ...Object.keys(curByEid)]);
+  const rows = [];
+  allEids.forEach(eid => {
+    const b = boqByEid[eid];
+    const c = curByEid[eid];
+    const cur = c ? c.cur : 0;
+    const boqRaw = b ? b.boq : 0;
+    const isAdded = !b; // no BOQ record at all for this EID
+    const boq = isAdded ? cur : boqRaw; // Added accounts: BOQ = current, 100% retained
+    const csm = (b && b.csm) || (c && c.csm) || "";
+    const acct = (b && b.acct) || (c && c.acct) || "";
+    let status;
+    if (isAdded) status = "Added";
+    else if (!c || cur===0) status = "Lost";
+    else if (cur > boq) status = "Increase";
+    else if (cur < boq) status = "Decrease";
+    else status = "No Change";
+    if (!csm) return; // can't attribute to anyone — drop rather than show blank
+    rows.push([csm, eid, acct, Math.round(boq*100)/100, Math.round(cur*100)/100, status]);
+  });
+  return rows;
+}
+
+
 // An FI is flagged urgent if it's been sitting in its Current Function longer
 // than its threshold — OR if it's in a function that's ALWAYS urgent
 // regardless of aging (Unengaged: an unengaged client is a fire the moment
@@ -16756,6 +16841,7 @@ function App() {
   const [cerCompleted, setCerCompleted] = useState([]);
   const [sccChurn, setSccChurn] = useState([]); // Strategic Content Creation churn log — live once CSV_SCC_CHURN is wired to the published sheet
   const [fiRows, setFiRows] = useState([]); // Fulfillment Items — live from CSV_FI ("FIs Needing Action" sheet)
+  const [sfBobLive, setSfBobLive] = useState([]); // Q3 SF-based BoB — live join of CSV_Q3_SF_BOQ + CSV_Q3_SF_CURRENT
 
   // AI Coach panel state
   const [aiOpen,     setAiOpen]     = useState(false);
@@ -16841,7 +16927,9 @@ function App() {
         ()=>fetchCSV(CSV_CER_COMPLETED).catch(()=>[]),
         ()=>fetchCSV(CSV_SCC_CHURN).catch(()=>[]),
         ()=>fetchCSV(CSV_FI).catch(()=>[]),
-      ]).then(([revRows, emailRows, cadRows, dueRows, ontimeRows, historyRows, skippedRows, bobRows, bobDetRows, bobAdjRows, callRows, qaMcRows, qaSSRows, mcRows, bcRows, churnAlertRows, q3BobCurRows, domoBoqRows, q3SuppRows, q2DomoBoqRows, cadenceFullRows, cerAssignedRows, cerCompletedRows, sccChurnRows, fiRawRows]) => {
+        ()=>fetchCSV(CSV_Q3_SF_BOQ).catch(()=>[]),
+        ()=>fetchCSV(CSV_Q3_SF_CURRENT).catch(()=>[]),
+      ]).then(([revRows, emailRows, cadRows, dueRows, ontimeRows, historyRows, skippedRows, bobRows, bobDetRows, bobAdjRows, callRows, qaMcRows, qaSSRows, mcRows, bcRows, churnAlertRows, q3BobCurRows, domoBoqRows, q3SuppRows, q2DomoBoqRows, cadenceFullRows, cerAssignedRows, cerCompletedRows, sccChurnRows, fiRawRows, sfBoqRows, sfCurRows]) => {
         latestEmail   = emailRows;
         latestCad          = cadRows;
         latestDue          = dueRows;
@@ -16854,6 +16942,7 @@ function App() {
         setCerCompleted(cerCompletedRows||[]);
         try { setSccChurn(mapSCCChurn(sccChurnRows||[])); } catch(e) { console.error("mapSCCChurn failed:", e); setSccChurn([]); }
         try { setFiRows(mapFI(fiRawRows||[])); } catch(e) { console.error("mapFI failed:", e); setFiRows([]); }
+        try { setSfBobLive(buildSFBobRows(sfBoqRows||[], sfCurRows||[])); } catch(e) { console.error("buildSFBobRows failed:", e); setSfBobLive([]); }
         latestBob         = bobRows;
         latestBobDet      = bobDetRows||[];
         latestBobAdj      = bobAdjRows||[];
@@ -17410,7 +17499,7 @@ My question: ${aiCustom}`,
           {tab==="leaderboard"&&<LeaderboardView csms={filteredCSMs} allCsms={csms} bobRaw={bobRaw} history={history} q2DomoBoq={q2DomoBoq} domoBoq={domoBoq} q3BobCur={q3BobCur} q3Supp={q3Supp} rawRev={rawRev} cadenceFull={cadenceFull}/>}
           
           {tab==="revenue"&&<RevenueView rawRev={rawRev} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches}/>}
-          {tab==="bob"&&<BobView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} churnAlerts={churnAlerts} onSelectCSM={selectCSMFn} liveBobDet={liveBobDet} bobAdj={bobAdj} q3BobCur={q3BobCur} domoBoq={domoBoq} q3Supp={q3Supp} q2DomoBoq={q2DomoBoq} bobTab={bobTab} setBobTab={setBobTab}/>}
+          {tab==="bob"&&<BobView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} churnAlerts={churnAlerts} onSelectCSM={selectCSMFn} liveBobDet={liveBobDet} bobAdj={bobAdj} q3BobCur={q3BobCur} domoBoq={domoBoq} q3Supp={q3Supp} q2DomoBoq={q2DomoBoq} bobTab={bobTab} setBobTab={setBobTab} sfBobRows={sfBobLive}/>}
           {tab==="trends"&&<TrendsView history={history} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} qamc={qamc} qass={qass} trendsTab={trendsTab} setTrendsTab={setTrendsTab}/>}
           {tab==="cers"&&<CERView cerAssigned={cerAssigned} filterCoach={filterCoach} filterCSM={filterCSM}/>}
           {tab==="calls"&&<TrendsView history={history} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} qamc={qamc} qass={qass} trendsTab="calls" setTrendsTab={()=>{}} hideSubTabs={true}/>}
