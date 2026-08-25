@@ -36,7 +36,13 @@ const CSV_QA_SS   = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGw
 const CSV_BC_CHURN= "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=295771282&single=true&output=csv"; // BC churn by coach/rep
 const CSV_SCC_CHURN = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTyJal8aVZyNXSU7kdYxA9M0TUQvy9iD49Y9I051DdUcI_bgsPQHkJKUFqorZlCx2hx2T3P4uTSANFd/pub?gid=0&single=true&output=csv"; // SCC Churn — Strategic Content Creation churn log
 const CSV_FI = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=1693409175&single=true&output=csv"; // FIs Needing Action — raw Fulfillment Items export
-const CSV_Q3_SF_BOQ     = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=40086456&single=true&output=csv"; // Q3 BoQ — per-L2-line beginning-of-quarter revenue, sum by EID
+// NOTE: The "Q3 BoQ" sheet the user provided (gid=40086456) is the EXACT SAME
+// tab as CSV_DOMO_BOQ below — same URL, same gid. Do not add a second fetch
+// for it; that fetched the identical Google Sheet twice in one batch, which
+// re-triggered the Google rate-limiting issue this app already had a fix
+// for (see fetchCSV's retry/backoff and the batchedAll helper) — enough
+// duplicate load in one burst can still tip it over. domoBoq IS the Q3 BoQ
+// data; reuse it directly when joining against Current SaaS Revenue below.
 const CSV_Q3_SF_CURRENT = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=2052442781&single=true&output=csv"; // Current SaaS Revenue — fresh Salesforce pull, account-level. NOTE: values are in local currency (USD/AUD/NZD), NOT FX-converted.
 const CSV_MC_CHURN= "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=1002996767&single=true&output=csv"; // MC churn by coach/rep
 const CSV_CHURN_ALERTS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=724984916&single=true&output=csv"; // daily new churn alerts
@@ -13864,7 +13870,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
     return (
       <div>
         <div style={{background:isLive?"rgba(22,163,74,.08)":"rgba(83,120,252,.08)",border:"0.5px solid "+(isLive?"rgba(22,163,74,.35)":"rgba(83,120,252,.35)"),borderRadius:8,padding:"12px 16px",marginBottom:14,fontSize:12,color:"#29355D"}}>
-          {isLive ? "✅ Live — refreshes automatically from the Q3 BoQ + Current SaaS Revenue sheets." : "🔬 Static pre-build preview — from q3_BoB_8-25.xlsx, CSV_Q3_SF_BOQ/CSV_Q3_SF_CURRENT aren't returning data yet."} {totalAcctsSF>0 && <>{sfData.reduce((s,c)=>s+c.addedCount,0)} of {totalAcctsSF} accounts ({totalAcctsSF>0?Math.round(sfData.reduce((s,c)=>s+c.addedCount,0)/totalAcctsSF*100):0}%) are classified "Added" (no matching BOQ record found) and count as 100% retained by this methodology's own rule — worth periodically confirming that's not just the baseline being incomplete. Also note: Current SaaS Revenue values are in local currency (USD/AUD/NZD), not FX-converted.</>}
+          {isLive ? "✅ Live — refreshes automatically from the Q3 BoQ + Current SaaS Revenue sheets." : "🔬 Static pre-build preview — from q3_BoB_8-25.xlsx, CSV_DOMO_BOQ/CSV_Q3_SF_CURRENT aren't returning data yet."} {totalAcctsSF>0 && <>{sfData.reduce((s,c)=>s+c.addedCount,0)} of {totalAcctsSF} accounts ({totalAcctsSF>0?Math.round(sfData.reduce((s,c)=>s+c.addedCount,0)/totalAcctsSF*100):0}%) are classified "Added" (no matching BOQ record found) and count as 100% retained by this methodology's own rule — worth periodically confirming that's not just the baseline being incomplete. Also note: Current SaaS Revenue values are in local currency (USD/AUD/NZD), not FX-converted.</>}
         </div>
         {missingFromSF.length>0 && (
           <div style={{background:"rgba(217,119,6,.08)",border:"0.5px solid rgba(217,119,6,.3)",borderRadius:8,padding:"10px 14px",marginBottom:14,fontSize:12,color:"#92400e"}}>
@@ -16499,7 +16505,7 @@ function App() {
   const [cerCompleted, setCerCompleted] = useState([]);
   const [sccChurn, setSccChurn] = useState([]); // Strategic Content Creation churn log — live once CSV_SCC_CHURN is wired to the published sheet
   const [fiRows, setFiRows] = useState([]); // Fulfillment Items — live from CSV_FI ("FIs Needing Action" sheet)
-  const [sfBobLive, setSfBobLive] = useState([]); // Q3 SF-based BoB — live join of CSV_Q3_SF_BOQ + CSV_Q3_SF_CURRENT
+  const [sfBobLive, setSfBobLive] = useState([]); // Q3 SF-based BoB — live join of domoBoq (=Q3 BoQ) + CSV_Q3_SF_CURRENT
   // Falls back to the static pre-build snapshot until the live join returns data —
   // same isLive pattern used everywhere else (SCC, FI), so every consumer below
   // (Leaderboard, Coaching, Digest, My Dashboard, AI Coach) degrades gracefully.
@@ -16591,9 +16597,8 @@ function App() {
         ()=>fetchCSV(CSV_CER_COMPLETED).catch(()=>[]),
         ()=>fetchCSV(CSV_SCC_CHURN).catch(()=>[]),
         ()=>fetchCSV(CSV_FI).catch(()=>[]),
-        ()=>fetchCSV(CSV_Q3_SF_BOQ).catch(()=>[]),
         ()=>fetchCSV(CSV_Q3_SF_CURRENT).catch(()=>[]),
-      ]).then(([revRows, emailRows, cadRows, dueRows, ontimeRows, historyRows, skippedRows, bobRows, bobDetRows, bobAdjRows, callRows, qaMcRows, qaSSRows, mcRows, bcRows, churnAlertRows, q3BobCurRows, domoBoqRows, q3SuppRows, q2DomoBoqRows, cadenceFullRows, cerAssignedRows, cerCompletedRows, sccChurnRows, fiRawRows, sfBoqRows, sfCurRows]) => {
+      ]).then(([revRows, emailRows, cadRows, dueRows, ontimeRows, historyRows, skippedRows, bobRows, bobDetRows, bobAdjRows, callRows, qaMcRows, qaSSRows, mcRows, bcRows, churnAlertRows, q3BobCurRows, domoBoqRows, q3SuppRows, q2DomoBoqRows, cadenceFullRows, cerAssignedRows, cerCompletedRows, sccChurnRows, fiRawRows, sfCurRows]) => {
         latestEmail   = emailRows;
         latestCad          = cadRows;
         latestDue          = dueRows;
@@ -16606,7 +16611,7 @@ function App() {
         setCerCompleted(cerCompletedRows||[]);
         try { setSccChurn(mapSCCChurn(sccChurnRows||[])); } catch(e) { console.error("mapSCCChurn failed:", e); setSccChurn([]); }
         try { setFiRows(mapFI(fiRawRows||[])); } catch(e) { console.error("mapFI failed:", e); setFiRows([]); }
-        try { setSfBobLive(buildSFBobRows(sfBoqRows||[], sfCurRows||[])); } catch(e) { console.error("buildSFBobRows failed:", e); setSfBobLive([]); }
+        try { setSfBobLive(buildSFBobRows(domoBoqRows||[], sfCurRows||[])); } catch(e) { console.error("buildSFBobRows failed:", e); setSfBobLive([]); }
         latestBob         = bobRows;
         latestBobDet      = bobDetRows||[];
         latestBobAdj      = bobAdjRows||[];
