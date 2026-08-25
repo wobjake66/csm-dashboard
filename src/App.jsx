@@ -8938,6 +8938,36 @@ function App() {
       if (!hasChurn(c.name)&&!(det.d||[]).length) lines.push("No churn or billing decreases this period.");
       lines.push("");
 
+      lines.push("=== FULFILLMENT ITEMS ===");
+      const fiSrc = (fiRows&&fiRows.length>0) ? fiRows : (typeof FI_RAW!=="undefined"?FI_RAW:[]);
+      const myFIs = fiSrc.filter(r => r.fiOwner===c.name || r.ofOwner===c.name || norm(r.fiOwner)===c.name || norm(r.ofOwner)===c.name);
+      if (myFIs.length>0) {
+        const urgent = myFIs.filter(r=>typeof fiIsUrgent==="function"&&fiIsUrgent(r));
+        lines.push("Total open: "+myFIs.length+" ("+myFIs.filter(r=>r.fiType==="Social FI").length+" Social, "+myFIs.filter(r=>r.fiType==="Website FI").length+" Website)");
+        if (urgent.length>0) {
+          lines.push("🚨 URGENT ("+urgent.length+"): "+urgent.slice(0,8).map(r=>r.account+" — "+r.func+(r.func!=="Unengaged"?" "+r.aging.toFixed(1)+"d":"")).join("; "));
+        } else {
+          lines.push("No items currently past their function's SLA.");
+        }
+      } else {
+        lines.push("No Fulfillment Items currently assigned.");
+      }
+      lines.push("");
+
+      lines.push("=== CLIENT ENGAGEMENT ROADMAPS (Q3) ===");
+      const myCerA = (cerAssigned||[]).filter(r => {
+        const owner = String(r["Client Engagement Roadmap: Owner Name"]||"").trim();
+        return owner===c.name || norm(owner)===c.name;
+      });
+      if (myCerA.length>0) {
+        const statusCounts = {};
+        myCerA.forEach(r => { const s=String(r["Status"]||"Unknown").trim(); statusCounts[s]=(statusCounts[s]||0)+1; });
+        lines.push("Assigned this quarter: "+myCerA.length+" ("+Object.entries(statusCounts).map(([s,n])=>n+" "+s).join(", ")+")");
+      } else {
+        lines.push("No CER data found for this CSM.");
+      }
+      lines.push("");
+
     // ── COACH TEAM ──────────────────────────────────────────────────
     } else if (scope === "coach_team") {
       const coach = COACHES.find(c=>c.e===filterCoach);
@@ -9023,13 +9053,35 @@ function App() {
       ctx = "Error loading context: " + e.message;
     }
 
+    const isMe = scope === "CSM"; // whoever is asking is looking at their OWN data, not someone else's
+
     const scopeLabel = scope==="CSM" ? "this CSM ("+filterCSM+")"
       : scope==="coach_team" ? "this coaching team"
       : scope==="manager_org" ? "this manager's org"
       : "the full CSM team";
 
+    // Voice: when someone is looking at their own individual scope, address
+    // them directly ("you") rather than talking ABOUT them in third person to
+    // an implied manager. Every other scope keeps the original manager-facing framing.
+    const you = isMe ? "you" : "this CSM";
+    const your = isMe ? "your" : "their";
+    const audience = isMe ? "You are an expert CSM coaching advisor at Thryv, a SaaS company, talking directly to a CSM about their own performance."
+                           : "You are an expert CSM coaching advisor at Thryv, a SaaS company. You have been given performance data for "+scopeLabel+".";
+
     const prompts = {
-      coaching:
+      coaching: isMe ?
+`${audience}
+Give ${you} sharp, actionable guidance ${you} can use immediately.
+Format your response with clear sections:
+1. ✅ STRENGTHS — what's going well (be specific, cite numbers)
+2. 🎯 TOP PRIORITIES — 2-3 focus areas, framed as things ${you} should work on
+3. ⚡ THIS WEEK'S ACTION ITEMS — concrete next steps ${you} can take
+4. 🚩 RED FLAGS — anything that needs urgent attention
+Address ${you} directly as "you." Be specific — use the actual numbers from the data. Keep it under 400 words.
+
+Here is the data:
+
+${ctx}` :
 `You are an expert CSM coaching advisor at Thryv, a SaaS company. You have been given performance data for ${scopeLabel}.
 Give a manager sharp, actionable coaching guidance they can use immediately.
 Format your response with clear sections:
@@ -9043,7 +9095,19 @@ Here is the data:
 
 ${ctx}`,
 
-      churn:
+      churn: isMe ?
+`${audience}
+Look at ${your} book of business and flag retention risk.
+Format your response with clear sections:
+1. 🔴 HIGH RISK — accounts with active churn or billing decreases in ${your} book (cite EIDs and amounts)
+2. 🟡 WATCH LIST — early warning signs in ${your} accounts (low retention %, declining engagement)
+3. 💬 WHAT TO SAY — specific talking points ${you} can use to save at-risk accounts
+4. 📋 THIS WEEK — concrete steps ${you} should take
+Address ${you} directly as "you." Be specific with account IDs and dollar amounts. Under 400 words.
+
+Here is the data:
+
+${ctx}` :
 `You are an expert CSM retention analyst at Thryv, a SaaS company. You have been given BOB and churn data for ${scopeLabel}.
 Identify churn risk and give a manager concrete retention guidance.
 Format your response with clear sections:
@@ -9057,7 +9121,19 @@ Here is the data:
 
 ${ctx}`,
 
-      revenue:
+      revenue: isMe ?
+`${audience}
+Look at ${your} revenue and book of business, and surface growth opportunities ${you} can act on.
+Format your response with clear sections:
+1. 💰 CURRENT SNAPSHOT — summarize what's happening in ${your} book (revenue, MRR, increases)
+2. 🚀 BEST OPPORTUNITIES — which of ${your} accounts have the most upside and why
+3. 🎯 TALKING POINTS — specific products or conversations to have (SEO, Thryv Leads, Social, etc.)
+4. 📋 THIS WEEK — 3 concrete things ${you} can do to move the number
+Address ${you} directly as "you." Cite actual account names and dollar amounts where available. Under 400 words.
+
+Here is the data:
+
+${ctx}` :
 `You are an expert CSM revenue growth advisor at Thryv, a SaaS company. You have been given revenue and BOB data for ${scopeLabel}.
 Surface upsell and expansion opportunities and give a manager a growth plan.
 Format your response with clear sections:
@@ -9066,6 +9142,45 @@ Format your response with clear sections:
 3. 🎯 UPSELL TALKING POINTS — specific products or conversations to have (SEO, Thryv Leads, Social, etc.)
 4. 📋 THIS WEEK'S REVENUE ACTIONS — 3 concrete things to do to move the number
 Cite actual account names or EIDs and dollar amounts where available. Under 400 words.
+
+Here is the data:
+
+${ctx}`,
+
+      today:
+`${audience}
+Look across everything on ${your} plate right now — cadence touchpoints, calls, and Fulfillment Items — and tell ${you} exactly what to work on today, in priority order.
+Format your response with clear sections:
+1. 🔥 DO THESE FIRST — anything urgent (overdue cadence, 🚨-flagged Fulfillment Items, at-risk accounts) — be specific about which account and why it's urgent
+2. 📞 CALLS & CADENCE — what's due and roughly how much time it'll take
+3. ✅ IF YOU HAVE TIME LEFT — lower-priority items worth chipping away at
+Address ${you} directly as "you." Be concrete — name specific accounts, not categories. Keep it under 350 words.
+
+Here is the data:
+
+${ctx}`,
+
+      fi_status:
+`${audience}
+Look specifically at ${your} Fulfillment Items and give ${you} a clear picture of where things stand.
+Format your response with clear sections:
+1. 🚨 URGENT — every item currently past its function's SLA (or in Unengaged), with the account name and how overdue it is
+2. 📊 OVERALL PICTURE — how ${your} Social vs Website FI split looks, and whether things are generally moving or stuck
+3. 🎯 WHAT TO DO FIRST — a priority order for tackling the urgent ones today
+Address ${you} directly as "you." Be specific with account names. If nothing is urgent, say so plainly and confirm what's still open. Under 350 words.
+
+Here is the data:
+
+${ctx}`,
+
+      goals:
+`${audience}
+Look at ${your} Client Engagement Roadmap progress and retention numbers for Q3, and give ${you} an honest read on how ${you}'re tracking.
+Format your response with clear sections:
+1. 📊 WHERE YOU STAND — CER completion so far vs. what's still assigned/in progress, and current retention %
+2. ⚠️ AT RISK — anything that looks behind pace or likely to slip before quarter end
+3. 🎯 WHAT WOULD MOVE THE NEEDLE — 2-3 concrete things ${you} could prioritize to finish Q3 strong
+Address ${you} directly as "you." Be specific with numbers. If data is too sparse to assess pace, say so rather than guessing. Under 350 words.
 
 Here is the data:
 
@@ -9287,6 +9402,11 @@ My question: ${aiCustom}`,
           <div style={{fontSize:13,color:"#808080",marginBottom:4,fontWeight:600,textTransform:"uppercase",letterSpacing:".05em"}}>What would you like to explore?</div>
           <div style={{fontSize:13,color:"#808080",marginBottom:14}}>Select a question → Claude opens with your data pre-loaded.</div>
           {[
+            ...(filterCSM ? [
+              {id:"today",     icon:"🔥", label:"What should I focus on today?", sub:"Priority order across calls, cadence, and FIs"},
+              {id:"fi_status", icon:"📋", label:"Where do my Fulfillment Items stand?", sub:"Urgent items and what to tackle first"},
+              {id:"goals",     icon:"🎯", label:"How am I tracking for Q3?", sub:"CER progress and retention pace check"},
+            ] : []),
             {id:"coaching", icon:"🎯", label:"Coaching priorities",    sub:"Top focus areas and 1:1 talking points"},
             {id:"churn",    icon:"⚠️",  label:"Churn risk analysis",    sub:"At-risk accounts and retention concerns"},
             {id:"revenue",  icon:"💰", label:"Revenue opportunities",  sub:"Upsell, expansion, and growth potential"},
