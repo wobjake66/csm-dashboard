@@ -16561,7 +16561,7 @@ function App() {
       // rejecting the whole batch), and batchedAll() caps how many requests
       // are in flight at once so we're less likely to trip the rate limit
       // in the first place.
-      const batchedAll = async (promiseFns, batchSize=6, delayMs=250) => {
+      const batchedAll = async (promiseFns, batchSize=3, delayMs=600) => {
         const results = [];
         for (let i=0; i<promiseFns.length; i+=batchSize) {
           const batch = promiseFns.slice(i, i+batchSize).map(fn=>fn());
@@ -16571,34 +16571,39 @@ function App() {
         return results;
       };
 
+      // Ordered by criticality, not by history — cadence, calls, and BoB feed
+      // nearly every tab in the app, so they go first while the rate limit is
+      // least likely to have kicked in yet. Lower-traffic/newer sources
+      // (CERs, SCC, FI) go last — if anything gets rate-limited, better it's
+      // one of these than cadence going blank across every coach's team.
       return batchedAll([
+        ()=>fetchCSV(CSV_CADENCE_FULL).catch(()=>[]),
+        ()=>fetchCSV(CSV_CALLS).catch(()=>[]),
+        ()=>fetchCSV(CSV_DOMO_BOQ).catch(()=>[]),
         ()=>fetchCSV(CSV_REV).catch(()=>[]),
-        ()=>fetchCSV(CSV_EMAIL).catch(()=>[]),
         ()=>fetchCSV(CSV_CAD).catch(()=>[]),
         ()=>fetchCSV(CSV_DUE).catch(()=>[]),
         ()=>fetchCSV(CSV_ONTIME).catch(()=>[]),
+        ()=>fetchCSV(CSV_EMAIL).catch(()=>[]),
         ()=>fetchCSV(CSV_HISTORY).catch(()=>[]),
-        ()=>fetchCSV(CSV_SKIPPED).catch(()=>[]),
         ()=>fetchCSV(CSV_BOB).catch(()=>[]),
+        ()=>fetchCSV(CSV_Q2_DOMO_BOQ).catch(()=>[]),
+        ()=>fetchCSV(CSV_SKIPPED).catch(()=>[]),
         ()=>fetchCSV(CSV_BOB_DET).catch(()=>[]),
         ()=>fetchCSV(CSV_BOB_ADJ).catch(()=>[]),
-        ()=>fetchCSV(CSV_CALLS).catch(()=>[]),
         ()=>fetchCSV(CSV_QA_MC).catch(()=>[]),
         ()=>fetchCSV(CSV_QA_SS).catch(()=>[]),
         ()=>fetchCSV(CSV_MC_CHURN).catch(()=>[]),
         ()=>fetchCSV(CSV_BC_CHURN).catch(()=>[]),
         ()=>fetchCSV(CSV_CHURN_ALERTS).catch(()=>[]),
         ()=>Promise.resolve([]),          // CSV_Q3_CUR — retired, single source now
-        ()=>fetchCSV(CSV_DOMO_BOQ).catch(()=>[]),
         ()=>Promise.resolve([]),          // CSV_Q3_SUPP — retired, single source now
-        ()=>fetchCSV(CSV_Q2_DOMO_BOQ).catch(()=>[]),
-        ()=>fetchCSV(CSV_CADENCE_FULL).catch(()=>[]),
+        ()=>fetchCSV(CSV_Q3_SF_CURRENT).catch(()=>[]),
         ()=>fetchCSV(CSV_CER_ASSIGNED).catch(()=>[]),
         ()=>fetchCSV(CSV_CER_COMPLETED).catch(()=>[]),
-        ()=>fetchCSV(CSV_SCC_CHURN).catch(()=>[]),
         ()=>fetchCSV(CSV_FI).catch(()=>[]),
-        ()=>fetchCSV(CSV_Q3_SF_CURRENT).catch(()=>[]),
-      ]).then(([revRows, emailRows, cadRows, dueRows, ontimeRows, historyRows, skippedRows, bobRows, bobDetRows, bobAdjRows, callRows, qaMcRows, qaSSRows, mcRows, bcRows, churnAlertRows, q3BobCurRows, domoBoqRows, q3SuppRows, q2DomoBoqRows, cadenceFullRows, cerAssignedRows, cerCompletedRows, sccChurnRows, fiRawRows, sfCurRows]) => {
+        ()=>fetchCSV(CSV_SCC_CHURN).catch(()=>[]),
+      ]).then(([cadenceFullRows, callRows, domoBoqRows, revRows, cadRows, dueRows, ontimeRows, emailRows, historyRows, bobRows, q2DomoBoqRows, skippedRows, bobDetRows, bobAdjRows, qaMcRows, qaSSRows, mcRows, bcRows, churnAlertRows, q3BobCurRows, q3SuppRows, sfCurRows, cerAssignedRows, cerCompletedRows, fiRawRows, sccChurnRows]) => {
         latestEmail   = emailRows;
         latestCad          = cadRows;
         latestDue          = dueRows;
