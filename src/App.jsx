@@ -2396,7 +2396,7 @@ function LeaderboardView({csms, allCsms, bobRaw, history=[], q2DomoBoq=[], domoB
     return d >= periodRange.from && d <= periodRange.to;
   };
   const inScopeNames = new Set(csms.map(c=>c.name));
-  const histInRange  = (history||[]).filter(r => inScopeNames.has(r.name) && inRange(r.date));
+  const histInRange  = (history||[]).filter(r => inScopeNames.has(norm(r.name)||r.name) && inRange(r.date));
   const hasHistory   = histInRange.length > 0;
 
   // ── Revenue: directly from rawRev (same source as Revenue tab), filtered by quarter ──
@@ -2420,8 +2420,9 @@ function LeaderboardView({csms, allCsms, bobRaw, history=[], q2DomoBoq=[], domoB
   // ── Cadence, email, on-time: from history snapshots for the period ────────
   const agg = {};
   histInRange.forEach(r => {
-    if (!agg[r.name]) agg[r.name] = {sent:0, opens:0, cadTotal:0, cadComp:0, otTotal:0, otWsum:0};
-    const a = agg[r.name];
+    const key = norm(r.name)||r.name; // must match agg[c.name] lookups below — history rows aren't guaranteed to spell names the same way the roster does
+    if (!agg[key]) agg[key] = {sent:0, opens:0, cadTotal:0, cadComp:0, otTotal:0, otWsum:0};
+    const a = agg[key];
     a.sent     += r.sent||0;
     a.opens    += (r.sent||0)*(r.openRate||0);
     a.cadTotal += r.cadTotal||0;
