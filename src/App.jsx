@@ -2354,7 +2354,7 @@ function OverviewView({csms, allCSMs, bobRaw, bobAdj, history, callData, filterC
 }
 
 // ── LEADERBOARD TAB ────────────────────────────────────────────────────────
-function LeaderboardView({csms, allCsms, bobRaw, history=[], q2DomoBoq=[], domoBoq=[], q3BobCur=[], q3Supp=[], rawRev=[]}) {
+function LeaderboardView({csms, allCsms, bobRaw, history=[], q2DomoBoq=[], domoBoq=[], q3BobCur=[], q3Supp=[], rawRev=[], cadenceFull=[]}) {
   const [sort, setSort]     = useState({col:"rev", dir:"desc"});
   const [period, setPeriod] = useState("current_quarter");
 
@@ -2429,6 +2429,32 @@ function LeaderboardView({csms, allCsms, bobRaw, history=[], q2DomoBoq=[], domoB
     a.cadComp  += (r.cadTotal||0)*(r.cadPct!=null ? r.cadPct : 0);
     if (r.otTotal>=1 && r.otPct!=null) { a.otTotal += r.otTotal; a.otWsum += r.otTotal*r.otPct; }
   });
+
+  // ── Cadence % — computed directly from cadenceFull (the same live
+  // touchpoint export Coaching/Capacity/BoB already trust), NOT the
+  // CSV_HISTORY snapshot above. History rows aren't reliably populated for
+  // everyone (e.g. MJ Brielmann had real cadence activity but zero history
+  // rows for a given period), so cadence specifically should never depend on
+  // that sheet. Completed+Open+Skipped touchpoints due within the selected
+  // period count toward the denominator; Completed counts toward the
+  // numerator. Removed/Pending Decision rows are excluded — neither done nor missed.
+  const cadFullByCsm = {};
+  (cadenceFull||[]).forEach(r => {
+    const assigned = String(r["Cadence Member: Assigned"]||"").trim();
+    if (!assigned) return;
+    const status = String(r["Status"]||"").trim();
+    if (status!=="Completed" && status!=="Open" && status!=="Skipped") return;
+    const due = new Date(r["Due Date/Time"]);
+    if (isNaN(due) || due < periodRange.from || due > periodRange.to) return;
+    const key = norm(assigned) || assigned;
+    if (!cadFullByCsm[key]) cadFullByCsm[key] = {total:0, completed:0};
+    cadFullByCsm[key].total++;
+    if (status==="Completed") cadFullByCsm[key].completed++;
+  });
+  const getCadPct = name => {
+    const d = cadFullByCsm[name];
+    return (d && d.total>0) ? d.completed/d.total : null;
+  };
 
   // ── BOB retention — computed from Domo BOQ source data, same as BOB tab ───
   // Q2: q2DomoBoq has BOQ + End of Quarter directly per account
@@ -2547,7 +2573,7 @@ function LeaderboardView({csms, allCsms, bobRaw, history=[], q2DomoBoq=[], domoB
     return {
       c,
       rev:      revByCsm[c.name]||0,
-      cadPct:   hasHistory ? (a.cadTotal>0 ? a.cadComp/a.cadTotal : null) : (c.cadCount>0 ? c.cadPct : null),
+      cadPct:   getCadPct(c.name),
       otPct:    hasHistory ? (a.otTotal>0  ? a.otWsum/a.otTotal   : null) : (c.otTotal>=3 ? c.otPct  : null),
       bobRet:   getRet(c),
     };
@@ -2555,11 +2581,10 @@ function LeaderboardView({csms, allCsms, bobRaw, history=[], q2DomoBoq=[], domoB
 
   // ── Build allRows from full org for rank calculation ──────────────────────
   const allRows = (allCsms||csms).map(c => {
-    const a = agg[c.name]||{};
     return {
       c,
       rev:    revByCsm[c.name]||0,
-      cadPct: hasHistory ? (a.cadTotal>0 ? a.cadComp/a.cadTotal : null) : (c.cadCount>0 ? c.cadPct : null),
+      cadPct: getCadPct(c.name),
       bobRet: getRet(c),
     };
   });
@@ -9192,7 +9217,7 @@ My question: ${aiCustom}`,
             liveBobDet={liveBobDet} callData={callData} qamc={qamc} qass={qass} history={history}
             skippedCSMs={skippedCSMs.filter(c=>{const i=lk(c.name);if(filterCoach&&(i&&i.c)!==filterCoach)return false;if(filterCSM&&c.name!==filterCSM)return false;return true;})}
             bobAdj={bobAdj} getDet={getDet} domoBoq={domoBoq} q3BobCur={q3BobCur} q3Supp={q3Supp}/>}
-          {tab==="leaderboard"&&<LeaderboardView csms={filteredCSMs} allCsms={csms} bobRaw={bobRaw} history={history} q2DomoBoq={q2DomoBoq} domoBoq={domoBoq} q3BobCur={q3BobCur} q3Supp={q3Supp} rawRev={rawRev}/>}
+          {tab==="leaderboard"&&<LeaderboardView csms={filteredCSMs} allCsms={csms} bobRaw={bobRaw} history={history} q2DomoBoq={q2DomoBoq} domoBoq={domoBoq} q3BobCur={q3BobCur} q3Supp={q3Supp} rawRev={rawRev} cadenceFull={cadenceFull}/>}
           
           {tab==="revenue"&&<RevenueView rawRev={rawRev} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches}/>}
           {tab==="bob"&&<BobView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} churnAlerts={churnAlerts} onSelectCSM={selectCSMFn} liveBobDet={liveBobDet} bobAdj={bobAdj} q3BobCur={q3BobCur} domoBoq={domoBoq} q3Supp={q3Supp} q2DomoBoq={q2DomoBoq} bobTab={bobTab} setBobTab={setBobTab}/>}
