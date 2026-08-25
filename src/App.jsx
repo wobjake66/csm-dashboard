@@ -265,24 +265,36 @@ function parseCSVLine(line) {
   result.push(cur.trim()); return result;
 }
 
-async function fetchCSV(url) {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error("HTTP "+res.status);
-  const text = await res.text();
-  if (!text||text.includes("<!DOCTYPE")) throw new Error("bad response");
-  const lines = text.split("\n").filter(l=>l.trim());
-  if (lines.length < 2) return [];
-  const headers = parseCSVLine(lines[0]);
-  const rows = [];
-  for (let i=1; i<lines.length; i++) {
-    const vals = parseCSVLine(lines[i]);
-    if (!vals.some(v=>v)) continue;
-    const obj = {};
-    headers.forEach((h,j) => { obj[h.trim()] = (vals[j]||"").trim(); });
-    rows.push(obj);
+async function fetchCSV(url, _isRetry=false) {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("HTTP "+res.status);
+    const text = await res.text();
+    if (!text||text.includes("<!DOCTYPE")) throw new Error("bad response");
+    const lines = text.split("\n").filter(l=>l.trim());
+    if (lines.length < 2) return [];
+    const headers = parseCSVLine(lines[0]);
+    const rows = [];
+    for (let i=1; i<lines.length; i++) {
+      const vals = parseCSVLine(lines[i]);
+      if (!vals.some(v=>v)) continue;
+      const obj = {};
+      headers.forEach((h,j) => { obj[h.trim()] = (vals[j]||"").trim(); });
+      rows.push(obj);
+    }
+    console.log("CSV from "+url.slice(-30)+":", rows.length, "rows");
+    return rows;
+  } catch (e) {
+    // This failure mode is usually transient — Google briefly rate-limits a
+    // burst of concurrent requests to the same published sheet and serves a
+    // ServiceLogin redirect instead of CSV. A short pause and one retry
+    // often succeeds where the immediate request didn't.
+    if (!_isRetry) {
+      await new Promise(r=>setTimeout(r, 1200));
+      return fetchCSV(url, true);
+    }
+    throw e;
   }
-  console.log("CSV from "+url.slice(-30)+":", rows.length, "rows");
-  return rows;
 }
 
 // ── DATA MAPPERS ───────────────────────────────────────────────────────────
@@ -8740,32 +8752,55 @@ function App() {
     let latestEmail=[], latestCad=[], latestDue=[], latestOntime=[], latestHistory=[], latestSkipped=[], latestCadenceFull=[], latestBob=[], latestBobDet=[], latestBobAdj=[], latestCalls=[], latestQaMc=[], latestQaSs=[], latestMcChurn=[], latestBcChurn=[], latestChurnAlerts=[];
 
     function loadAll() {
-      return Promise.all([
-        fetchCSV(CSV_REV),
-        fetchCSV(CSV_EMAIL),
-        fetchCSV(CSV_CAD),
-        fetchCSV(CSV_DUE),
-        fetchCSV(CSV_ONTIME),
-        fetchCSV(CSV_HISTORY).catch(()=>[]),
-        fetchCSV(CSV_SKIPPED).catch(()=>[]),
-        fetchCSV(CSV_BOB).catch(()=>[]),
-        fetchCSV(CSV_BOB_DET).catch(()=>[]),
-        fetchCSV(CSV_BOB_ADJ).catch(()=>[]),
-        fetchCSV(CSV_CALLS).catch(()=>[]),
-        fetchCSV(CSV_QA_MC).catch(()=>[]),
-        fetchCSV(CSV_QA_SS).catch(()=>[]),
-        fetchCSV(CSV_MC_CHURN).catch(()=>[]),
-        fetchCSV(CSV_BC_CHURN).catch(()=>[]),
-        fetchCSV(CSV_CHURN_ALERTS).catch(()=>[]),
-        Promise.resolve([]),          // CSV_Q3_CUR — retired, single source now
-        fetchCSV(CSV_DOMO_BOQ).catch(()=>[]),
-        Promise.resolve([]),          // CSV_Q3_SUPP — retired, single source now
-        fetchCSV(CSV_Q2_DOMO_BOQ).catch(()=>[]),
-        fetchCSV(CSV_CADENCE_FULL).catch(()=>[]),
-        fetchCSV(CSV_CER_ASSIGNED).catch(()=>[]),
-        fetchCSV(CSV_CER_COMPLETED).catch(()=>[]),
-        fetchCSV(CSV_SCC_CHURN).catch(()=>[]),
-        fetchCSV(CSV_FI).catch(()=>[]),
+      // Fire these as small sequential batches, not all 23+ at once. Nearly
+      // all of these point at the SAME published Google Sheet (different
+      // gid per tab) — a burst of 20+ simultaneous requests to one doc looks
+      // like scraping to Google, which starts serving a ServiceLogin
+      // redirect instead of CSV for part of the batch. That redirect has no
+      // CORS headers, so those fetches fail outright, and — since several
+      // calls here used to have no .catch() — a single blocked request could
+      // take the ENTIRE Promise.all down, leaving the app stuck on "Loading
+      // data from Google Sheet..." forever with no error shown. Every fetch
+      // below now catches its own failure (resolves to [] instead of
+      // rejecting the whole batch), and batchedAll() caps how many requests
+      // are in flight at once so we're less likely to trip the rate limit
+      // in the first place.
+      const batchedAll = async (promiseFns, batchSize=6, delayMs=250) => {
+        const results = [];
+        for (let i=0; i<promiseFns.length; i+=batchSize) {
+          const batch = promiseFns.slice(i, i+batchSize).map(fn=>fn());
+          results.push(...await Promise.all(batch));
+          if (i+batchSize < promiseFns.length) await new Promise(r=>setTimeout(r, delayMs));
+        }
+        return results;
+      };
+
+      return batchedAll([
+        ()=>fetchCSV(CSV_REV).catch(()=>[]),
+        ()=>fetchCSV(CSV_EMAIL).catch(()=>[]),
+        ()=>fetchCSV(CSV_CAD).catch(()=>[]),
+        ()=>fetchCSV(CSV_DUE).catch(()=>[]),
+        ()=>fetchCSV(CSV_ONTIME).catch(()=>[]),
+        ()=>fetchCSV(CSV_HISTORY).catch(()=>[]),
+        ()=>fetchCSV(CSV_SKIPPED).catch(()=>[]),
+        ()=>fetchCSV(CSV_BOB).catch(()=>[]),
+        ()=>fetchCSV(CSV_BOB_DET).catch(()=>[]),
+        ()=>fetchCSV(CSV_BOB_ADJ).catch(()=>[]),
+        ()=>fetchCSV(CSV_CALLS).catch(()=>[]),
+        ()=>fetchCSV(CSV_QA_MC).catch(()=>[]),
+        ()=>fetchCSV(CSV_QA_SS).catch(()=>[]),
+        ()=>fetchCSV(CSV_MC_CHURN).catch(()=>[]),
+        ()=>fetchCSV(CSV_BC_CHURN).catch(()=>[]),
+        ()=>fetchCSV(CSV_CHURN_ALERTS).catch(()=>[]),
+        ()=>Promise.resolve([]),          // CSV_Q3_CUR — retired, single source now
+        ()=>fetchCSV(CSV_DOMO_BOQ).catch(()=>[]),
+        ()=>Promise.resolve([]),          // CSV_Q3_SUPP — retired, single source now
+        ()=>fetchCSV(CSV_Q2_DOMO_BOQ).catch(()=>[]),
+        ()=>fetchCSV(CSV_CADENCE_FULL).catch(()=>[]),
+        ()=>fetchCSV(CSV_CER_ASSIGNED).catch(()=>[]),
+        ()=>fetchCSV(CSV_CER_COMPLETED).catch(()=>[]),
+        ()=>fetchCSV(CSV_SCC_CHURN).catch(()=>[]),
+        ()=>fetchCSV(CSV_FI).catch(()=>[]),
       ]).then(([revRows, emailRows, cadRows, dueRows, ontimeRows, historyRows, skippedRows, bobRows, bobDetRows, bobAdjRows, callRows, qaMcRows, qaSSRows, mcRows, bcRows, churnAlertRows, q3BobCurRows, domoBoqRows, q3SuppRows, q2DomoBoqRows, cadenceFullRows, cerAssignedRows, cerCompletedRows, sccChurnRows, fiRawRows]) => {
         latestEmail   = emailRows;
         latestCad          = cadRows;
