@@ -6558,6 +6558,7 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
     if (dashDateFilter==="today")     return wd>=tS && wd<=tE;
     if (dashDateFilter==="this_week") return wd>=thisWkMon && wd<=thisWkSun;
     if (dashDateFilter==="next_week") return wd>=nextWkMon && wd<=nextWkSun;
+    if (dashDateFilter==="last_week") return wd>=lastWkMon  && wd<=lastWkSun;
     return wd>=tS && wd<=tE; // default today
   };
 
@@ -6565,6 +6566,7 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
     dashDateFilter==="today"     ? `Today — ${now.toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"})}` :
     dashDateFilter==="this_week" ? `This week (${thisWkMon.toLocaleDateString("en-US",{month:"short",day:"numeric"})} – ${thisWkSun.toLocaleDateString("en-US",{month:"short",day:"numeric"})})` :
     dashDateFilter==="next_week" ? `Next week (${nextWkMon.toLocaleDateString("en-US",{month:"short",day:"numeric"})} – ${nextWkSun.toLocaleDateString("en-US",{month:"short",day:"numeric"})})` :
+    dashDateFilter==="last_week" ? `Last week (${lastWkMon.toLocaleDateString("en-US",{month:"short",day:"numeric"})} – ${lastWkSun.toLocaleDateString("en-US",{month:"short",day:"numeric"})})` :
     `Today — ${now.toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"})}`;
 
   const coachName    = filterCoach?(COACHES.find(c=>c.e===filterCoach)||{}).n||"Team":"";
@@ -6788,7 +6790,7 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
 
       {/* Date filter pills */}
       <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:16,flexWrap:"wrap"}}>
-        {[["today","Today"],["this_week","This week"],["next_week","Next week"]
+        {[["last_week","Last week"],["today","Today"],["this_week","This week"],["next_week","Next week"]
         ].map(([v,l])=>(
           <button key={v} onClick={()=>setDashDateFilter(v)}
             style={{padding:"5px 12px",borderRadius:20,border:"0.5px solid "+(dashDateFilter===v?"#29355D":"rgba(41,53,93,.2)"),
