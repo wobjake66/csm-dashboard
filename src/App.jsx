@@ -1863,7 +1863,7 @@ function PeriodPicker({value, onChange, customFrom, customTo, onFromChange, onTo
 }
 
 // ── COACHING TAB ───────────────────────────────────────────────────────────
-function CoachingView({csms, coach, onSelectCSM, onSelectCoach, onClear, skippedCSMs, bobRaw, mcChurn, bcChurn, liveBobDet={}, isCsmView=false, bobAdj={}, history=[], callData={}}) {
+function CoachingView({csms, coach, onSelectCSM, onSelectCoach, onClear, skippedCSMs, bobRaw, mcChurn, bcChurn, liveBobDet={}, isCsmView=false, bobAdj={}, history=[], callData={}, sfBobByCsm={}}) {
   const [dateFilter, setDateFilter] = React.useState("last_week");
   const [customFrom, setCustomFrom] = React.useState("");
   const [customTo,   setCustomTo]   = React.useState("");
@@ -2147,9 +2147,14 @@ function OverviewView({csms, allCSMs, bobRaw, bobAdj, history, callData, filterC
   const otRows = histInRange.filter(r=>r.otTotal>=1 && r.otPct!=null);
   const avgOT = otRows.length ? sumBy(otRows.map(r=>({v:r.otTotal*r.otPct})), "v") / sumBy(otRows,"otTotal") : 0;
 
-  // ── Retention — latest snapshot IN RANGE per CSM (point-in-time, not summed); falls back to live BOB if no history yet ──
+  // ── Retention — prefers the Q3 BoB summary (same source as the Book of
+  // Business tab's new Q3 BoB view). Falls back to the CSV_HISTORY snapshot
+  // only when no Q3 BoB data exists for that CSM, then to the live
+  // bobRaw/csm.bobRet fields after that. ──
   const getBobRet = (csm) => {
-    // Prefer latest history snapshot within the selected range
+    const sf = sfBobByCsm[norm(csm.name)||csm.name] || sfBobByCsm[csm.name];
+    if (sf && sf.ret != null) return sf.ret;
+    // Fall back: latest history snapshot within the selected range
     const csmHist = histInRange.filter(r=>r.name===csm.name && r.bobRet!=null).sort((a,b)=>a.date.localeCompare(b.date));
     if (csmHist.length > 0) return csmHist[csmHist.length-1].bobRet;
     // Fall back to live BOB sheet (current state) — only meaningful for "all"/current-ish views
@@ -4085,50 +4090,11 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
 // ── DAILY DIGEST ────────────────────────────────────────────────────────────
 function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, bcChurn,
   liveBobDet, callData, qamc, qass, skippedCSMs, bobAdj, history=[], getDet,
-  domoBoq=[], q3BobCur=[], q3Supp=[]}) {
+  domoBoq=[], q3BobCur=[], q3Supp=[], sfBobByCsm={}}) {
 
-  // ── Compute Q3 BOB retention per CSM from the same sources as the BOB tab ──
-  const q3RetByCsm = React.useMemo(() => {
-    const getCol = (row,...keys) => { for(const k of keys){const found=Object.keys(row).find(x=>x.trim().toLowerCase()===k.toLowerCase());if(found)return row[found];}return ""; };
-    const pf = v => parseFloat(String(v||"").replace(/[$,]/g,""))||0;
-    const lfSwap = n => { if(!n)return n; const p=n.split(","); return p.length===2?p[1].trim()+" "+p[0].trim():n; };
-
-    // Build BOQ map: eid → {csm, boq}
-    const boqMap = {};
-    (domoBoq||[]).forEach(r => {
-      const csmRaw = String(getCol(r,"CSM Name")||"").trim();
-      if (!csmRaw || /TOTAL|GRAND/i.test(csmRaw)) return;
-      const eid = String(getCol(r,"Enterprise ID","Enterprise Id")||"").trim().toUpperCase();
-      if (!eid) return;
-      const csmName = norm(lfSwap(csmRaw)) || lfSwap(csmRaw);
-      if (!boqMap[eid]) boqMap[eid] = {csm:csmName, boq:0};
-      boqMap[eid].boq += pf(getCol(r,"Beginning of Quarter"));
-    });
-
-    // Build current revenue map: eid → cur
-    const curMap = {};
-    (q3BobCur||[]).forEach(r => {
-      const eid = String(getCol(r,"Enterprise Id","Enterprise ID")||"").trim().toUpperCase();
-      if (eid) curMap[eid] = (curMap[eid]||0) + pf(getCol(r,"SaaS Revenue"));
-    });
-    (q3Supp||[]).forEach(r => {
-      const eid = String(getCol(r,"Enterprise Id","Enterprise ID")||"").trim().toUpperCase();
-      if (eid) curMap[eid] = (curMap[eid]||0) + pf(getCol(r,"SaaS Revenue"));
-    });
-
-    // Aggregate per CSM
-    const totals = {};
-    Object.entries(boqMap).forEach(([eid, {csm, boq}]) => {
-      if (!totals[csm]) totals[csm] = {boq:0, cur:0};
-      totals[csm].boq += boq;
-      totals[csm].cur += curMap[eid]||0;
-    });
-    const result = {};
-    Object.entries(totals).forEach(([k,v]) => {
-      result[k] = {boq:v.boq, cur:v.cur, ret: v.boq>0 ? v.cur/v.boq : null};
-    });
-    return result;
-  }, [domoBoq, q3BobCur, q3Supp]);
+  // Q3 BOB retention per CSM — from the Q3 BoB summary (same source as the
+  // Book of Business tab's Q3 BoB view).
+  const q3RetByCsm = sfBobByCsm;
 
   // Helper: get Q3 BOB entry for a CSM
   const getQ3Bob = csm => {
@@ -14287,7 +14253,7 @@ function PinLock({onUnlock}) {
 // MY DASHBOARD — self-contained. To revert: remove this block + 3 lines below.
 // ═══════════════════════════════════════════════════════════════════════════
 function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
-  churnAlerts=[], qamc=[], qass=[], domoBoq=[], q3BobCur=[], q3Supp=[], rawRev=[], cadenceFull=[], onNavigate=()=>{}, onSetTrendsTab=()=>{}, onSetBobTab=()=>{}, cerAssigned=[], cerCompleted=[], fiRows=[]}) {
+  churnAlerts=[], qamc=[], qass=[], domoBoq=[], q3BobCur=[], q3Supp=[], rawRev=[], cadenceFull=[], onNavigate=()=>{}, onSetTrendsTab=()=>{}, onSetBobTab=()=>{}, cerAssigned=[], cerCompleted=[], fiRows=[], sfBobRows=[]}) {
   const [dashDateFilter, setDashDateFilter] = React.useState("today");
   const [dashCustomFrom, setDashCustomFrom] = React.useState("");
   const [dashCustomTo,   setDashCustomTo]   = React.useState("");
@@ -14387,18 +14353,15 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
     return {name:n,scheduled:s,completed:c,noShow:ns,cancelled:can,total:s+c+ns+can};
   }).filter(r=>r.total>0).sort((a,b)=>b.total-a.total);
 
-  // Q3 Domo BoB — single source: BOQ + MTD Net Billing = Current MRR
+  // Q3 Book of Business — sourced from the Q3 BoB data (same as the Book of
+  // Business tab's Q3 BoB view). Net is derived as cur-boq so all the
+  // downstream math below (which expects boq+net=current) keeps working
+  // unchanged.
   const boqMap = {};
-  domoBoq.forEach(r => {
-    const csmRaw=String(gC(r,"CSM Name")||"").trim();
-    if (!csmRaw||/TOTAL|GRAND/i.test(csmRaw)||/\bTOTAL$/i.test(csmRaw)) return;
-    const eid=String(gC(r,"Enterprise ID","Enterprise Id")||"").trim().toUpperCase();
+  (Array.isArray(sfBobRows)?sfBobRows:[]).forEach(([csmRaw, eid, acct, boq, cur, status]) => {
     if (!eid) return;
-    const csmKey=norm(lfSwap(csmRaw))||lfSwap(csmRaw);
-    if (!boqMap[eid]) boqMap[eid]={eid,csm:csmKey,acct:String(gC(r,"Account Name")||"").trim(),boq:0,net:0};
-    boqMap[eid].boq+=pf(gC(r,"Beginning of Quarter"));
-    boqMap[eid].net+=pf(gC(r,"MTD Net Billing","Net Billing","Net"));
-    if (!boqMap[eid].acct) boqMap[eid].acct=String(gC(r,"Account Name")||"").trim();
+    const csmKey = normalizeSFCsmName(csmRaw);
+    boqMap[eid] = {eid, csm:csmKey, acct, boq, net: cur-boq};
   });
   // Build a set of all normalized name variants for the filtered CSMs
   const csmNorms=new Set(csmNames.flatMap(n=>[norm(n),n.toLowerCase()].filter(Boolean)));
@@ -14723,7 +14686,7 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
 
       {/* Q3 Book of Business */}
       <div style={{...card,marginBottom:16}}>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8,cursor:"pointer"}} onClick={()=>{onSetBobTab("domo");onNavigate("bob");}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8,cursor:"pointer"}} onClick={()=>{onSetBobTab("sfpreview");onNavigate("bob");}}>
             <span style={lbl}>📋 Q3 Book of Business</span>
             <span style={{fontSize:12,color:"#5378FC",fontWeight:500}}>View details →</span>
           </div>
@@ -17226,12 +17189,12 @@ My question: ${aiCustom}`,
       )}
       {hasData&&(
         <div style={{padding:"20px 24px",zoom:fontScale}}>
-          {tab==="coaching"&&<CoachingView csms={filteredCSMs} coach={filterCoach} onSelectCSM={selectCSMFn} onSelectCoach={e=>{setFilterCoach(e);setFilterCSM("");}} onClear={()=>{setFilterCoach("");setFilterCSM("");}} skippedCSMs={skippedCSMs.filter(c=>{const i=lk(c.name);if(managerCoaches&&!(i&&managerCoaches.includes(i.c)))return false;if(filterCoach&&(i&&i.c)!==filterCoach)return false;if(filterCSM&&c.name!==filterCSM)return false;return true;})} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} liveBobDet={liveBobDet} isCsmView={isCsmView} bobAdj={bobAdj} history={history} callData={callData}/>}
+          {tab==="coaching"&&<CoachingView csms={filteredCSMs} coach={filterCoach} onSelectCSM={selectCSMFn} onSelectCoach={e=>{setFilterCoach(e);setFilterCSM("");}} onClear={()=>{setFilterCoach("");setFilterCSM("");}} skippedCSMs={skippedCSMs.filter(c=>{const i=lk(c.name);if(managerCoaches&&!(i&&managerCoaches.includes(i.c)))return false;if(filterCoach&&(i&&i.c)!==filterCoach)return false;if(filterCSM&&c.name!==filterCSM)return false;return true;})} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} liveBobDet={liveBobDet} isCsmView={isCsmView} bobAdj={bobAdj} history={history} callData={callData} sfBobByCsm={sfBobByCsm}/>}
           {tab==="digest"&&<DigestView csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM}
             isCsmView={isCsmView} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn}
             liveBobDet={liveBobDet} callData={callData} qamc={qamc} qass={qass} history={history}
             skippedCSMs={skippedCSMs.filter(c=>{const i=lk(c.name);if(filterCoach&&(i&&i.c)!==filterCoach)return false;if(filterCSM&&c.name!==filterCSM)return false;return true;})}
-            bobAdj={bobAdj} getDet={getDet} domoBoq={domoBoq} q3BobCur={q3BobCur} q3Supp={q3Supp}/>}
+            bobAdj={bobAdj} getDet={getDet} domoBoq={domoBoq} q3BobCur={q3BobCur} q3Supp={q3Supp} sfBobByCsm={sfBobByCsm}/>}
           {tab==="leaderboard"&&<LeaderboardView csms={filteredCSMs} allCsms={csms} bobRaw={bobRaw} history={history} q2DomoBoq={q2DomoBoq} domoBoq={domoBoq} q3BobCur={q3BobCur} q3Supp={q3Supp} rawRev={rawRev} cadenceFull={cadenceFull}/>}
           
           {tab==="revenue"&&<RevenueView rawRev={rawRev} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches}/>}
@@ -17242,7 +17205,7 @@ My question: ${aiCustom}`,
           {tab==="capacity"&&userSession.role==="master"&&<CapacityView csms={csms} callData={callData} callRaw={callRaw} cadenceFull={cadenceFull} domoBoq={domoBoq} filterCoach={filterCoach} filterCSM={filterCSM}/>}
           {tab==="scc"&&canSeeSCC&&<SCCView rows={sccChurn}/>}
           {tab==="fi"&&<FulfillmentView filterCoach={filterCoach} filterCSM={filterCSM} rows={fiRows}/>}
-          {tab==="mydash"&&<MyDashboard csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} churnAlerts={churnAlerts} qamc={qamc||[]} qass={qass||[]} domoBoq={domoBoq||[]} q3BobCur={q3BobCur||[]} q3Supp={q3Supp||[]} rawRev={rawRev||[]} cadenceFull={cadenceFull||[]} onNavigate={setTab} onSetTrendsTab={setTrendsTab} onSetBobTab={setBobTab} cerAssigned={cerAssigned} cerCompleted={cerCompleted} fiRows={fiRows}/>}
+          {tab==="mydash"&&<MyDashboard csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} churnAlerts={churnAlerts} qamc={qamc||[]} qass={qass||[]} domoBoq={domoBoq||[]} q3BobCur={q3BobCur||[]} q3Supp={q3Supp||[]} rawRev={rawRev||[]} cadenceFull={cadenceFull||[]} onNavigate={setTab} onSetTrendsTab={setTrendsTab} onSetBobTab={setBobTab} cerAssigned={cerAssigned} cerCompleted={cerCompleted} fiRows={fiRows} sfBobRows={sfBobSource}/>}
         </div>
       )}
 
