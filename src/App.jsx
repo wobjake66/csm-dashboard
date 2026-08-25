@@ -36,13 +36,7 @@ const CSV_QA_SS   = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGw
 const CSV_BC_CHURN= "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=295771282&single=true&output=csv"; // BC churn by coach/rep
 const CSV_SCC_CHURN = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTyJal8aVZyNXSU7kdYxA9M0TUQvy9iD49Y9I051DdUcI_bgsPQHkJKUFqorZlCx2hx2T3P4uTSANFd/pub?gid=0&single=true&output=csv"; // SCC Churn — Strategic Content Creation churn log
 const CSV_FI = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=1693409175&single=true&output=csv"; // FIs Needing Action — raw Fulfillment Items export
-// NOTE: The "Q3 BoQ" sheet the user provided (gid=40086456) is the EXACT SAME
-// tab as CSV_DOMO_BOQ below — same URL, same gid. Do not add a second fetch
-// for it; that fetched the identical Google Sheet twice in one batch, which
-// re-triggered the Google rate-limiting issue this app already had a fix
-// for (see fetchCSV's retry/backoff and the batchedAll helper) — enough
-// duplicate load in one burst can still tip it over. domoBoq IS the Q3 BoQ
-// data; reuse it directly when joining against Current SaaS Revenue below.
+const CSV_Q3_SF_BOQ     = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=2070967409&single=true&output=csv"; // Q3 BoQ — per-L2-line beginning-of-quarter revenue, sum by EID. This is a genuinely distinct tab from CSV_DOMO_BOQ (an earlier version accidentally reused CSV_DOMO_BOQ's gid — fixed now).
 const CSV_Q3_SF_CURRENT = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=2052442781&single=true&output=csv"; // Current SaaS Revenue — fresh Salesforce pull, account-level. NOTE: values are in local currency (USD/AUD/NZD), NOT FX-converted.
 const CSV_MC_CHURN= "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=1002996767&single=true&output=csv"; // MC churn by coach/rep
 const CSV_CHURN_ALERTS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=724984916&single=true&output=csv"; // daily new churn alerts
@@ -1869,7 +1863,7 @@ function PeriodPicker({value, onChange, customFrom, customTo, onFromChange, onTo
 }
 
 // ── COACHING TAB ───────────────────────────────────────────────────────────
-function CoachingView({csms, coach, onSelectCSM, onSelectCoach, onClear, skippedCSMs, bobRaw, mcChurn, bcChurn, liveBobDet={}, isCsmView=false, bobAdj={}, history=[], callData={}, sfBobByCsm={}}) {
+function CoachingView({csms, coach, onSelectCSM, onSelectCoach, onClear, skippedCSMs, bobRaw, mcChurn, bcChurn, liveBobDet={}, isCsmView=false, bobAdj={}, history=[], callData={}}) {
   const [dateFilter, setDateFilter] = React.useState("last_week");
   const [customFrom, setCustomFrom] = React.useState("");
   const [customTo,   setCustomTo]   = React.useState("");
@@ -2153,17 +2147,9 @@ function OverviewView({csms, allCSMs, bobRaw, bobAdj, history, callData, filterC
   const otRows = histInRange.filter(r=>r.otTotal>=1 && r.otPct!=null);
   const avgOT = otRows.length ? sumBy(otRows.map(r=>({v:r.otTotal*r.otPct})), "v") / sumBy(otRows,"otTotal") : 0;
 
-  // ── Retention — prefers the shared SF-based Q3 summary (same source as the
-  // Book of Business tab). Falls back to the CSV_HISTORY snapshot only when
-  // no SF data exists for that CSM, and to the live bobRaw/csm.bobRet fields
-  // after that. History is demoted to a fallback deliberately — it's the
-  // same sheet that silently dropped MJ Brielmann's cadence data earlier
-  // this session, so it shouldn't be the primary source when a more direct
-  // number is available. ──
+  // ── Retention — latest snapshot IN RANGE per CSM (point-in-time, not summed); falls back to live BOB if no history yet ──
   const getBobRet = (csm) => {
-    const sf = sfBobByCsm[norm(csm.name)||csm.name] || sfBobByCsm[csm.name];
-    if (sf && sf.ret != null) return sf.ret;
-    // Fall back: latest history snapshot within the selected range
+    // Prefer latest history snapshot within the selected range
     const csmHist = histInRange.filter(r=>r.name===csm.name && r.bobRet!=null).sort((a,b)=>a.date.localeCompare(b.date));
     if (csmHist.length > 0) return csmHist[csmHist.length-1].bobRet;
     // Fall back to live BOB sheet (current state) — only meaningful for "all"/current-ish views
@@ -2382,7 +2368,7 @@ function OverviewView({csms, allCSMs, bobRaw, bobAdj, history, callData, filterC
 }
 
 // ── LEADERBOARD TAB ────────────────────────────────────────────────────────
-function LeaderboardView({csms, allCsms, bobRaw, history=[], q2DomoBoq=[], domoBoq=[], q3BobCur=[], q3Supp=[], rawRev=[], cadenceFull=[], sfBobByCsm={}}) {
+function LeaderboardView({csms, allCsms, bobRaw, history=[], q2DomoBoq=[], domoBoq=[], q3BobCur=[], q3Supp=[], rawRev=[], cadenceFull=[]}) {
   const [sort, setSort]     = useState({col:"rev", dir:"desc"});
   const [period, setPeriod] = useState("current_quarter");
 
@@ -2511,8 +2497,28 @@ function LeaderboardView({csms, allCsms, bobRaw, history=[], q2DomoBoq=[], domoB
 
   // Q3: domoBoq (BOQ) joined with q3BobCur + q3Supp (current)
   const q3RetByCsm = (() => {
+    const pf = v => { let s=String(v||"0").trim(); const neg=s.startsWith("(")&&s.endsWith(")"); s=s.replace(/[^0-9.\-]/g,""); const x=parseFloat(s); return isNaN(x)?0:(neg?-x:x); };
+    const lfSwap = n => { if(!n)return n; const p=n.split(","); return p.length===2?p[1].trim()+" "+p[0].trim():n; };
+    const eidMap = {};
+    (domoBoq||[]).forEach(r => {
+      const csmRaw = String(r["CSM Name"]||"").trim();
+      if (!csmRaw || /TOTAL|GRAND/i.test(csmRaw) || /\bTOTAL$/i.test(csmRaw)) return;
+      const eid = String(r["Enterprise ID"]||r["Enterprise Id"]||"").trim().toUpperCase();
+      if (!eid || /count/i.test(eid)) return;
+      const csmName = norm(lfSwap(csmRaw)) || lfSwap(csmRaw);
+      if (!eidMap[eid]) eidMap[eid] = {csm:csmName, boq:0, net:0};
+      eidMap[eid].boq += pf(r["Beginning of Quarter"]);
+      eidMap[eid].net += pf(r["MTD Net Billing"]);
+    });
+    const csmTotals = {};
+    Object.values(eidMap).forEach(b => {
+      const cur = b.boq + b.net;
+      if (!csmTotals[b.csm]) csmTotals[b.csm] = {boq:0, cur:0};
+      csmTotals[b.csm].boq += b.boq;
+      csmTotals[b.csm].cur += cur;
+    });
     const result = {};
-    Object.entries(sfBobByCsm||{}).forEach(([k,v]) => { result[k] = v.ret; });
+    Object.entries(csmTotals).forEach(([k,v]) => { result[k] = v.boq>0 ? v.cur/v.boq : null; });
     return result;
   })();
 
@@ -2538,11 +2544,24 @@ function LeaderboardView({csms, allCsms, bobRaw, history=[], q2DomoBoq=[], domoB
       else       totals[csmName].cur += cur;
     });
 
-    // Add Q3 boq/cur from the SF-based summary (same source as the Book of Business tab)
-    Object.entries(sfBobByCsm||{}).forEach(([csmName, v]) => {
-      if (!totals[csmName]) totals[csmName] = {boq:0, cur:0};
-      totals[csmName].boq += v.boq;
-      totals[csmName].cur += v.cur;
+    // Add Q3 boq/cur via single source: BOQ + MTD Net Billing
+    const q3pf = v => { let s=String(v||"0").trim(); const neg=s.startsWith("(")&&s.endsWith(")"); s=s.replace(/[^0-9.\-]/g,""); const x=parseFloat(s); return isNaN(x)?0:(neg?-x:x); };
+    const eidMap = {};
+    (domoBoq||[]).forEach(r => {
+      const csmRaw = String(r["CSM Name"]||"").trim();
+      if (!csmRaw || /TOTAL|GRAND/i.test(csmRaw) || /\bTOTAL$/i.test(csmRaw)) return;
+      const eid = String(r["Enterprise ID"]||r["Enterprise Id"]||"").trim().toUpperCase();
+      if (!eid || /count/i.test(eid)) return;
+      const csmName = norm(lfSwap(csmRaw)) || lfSwap(csmRaw);
+      if (!eidMap[eid]) eidMap[eid] = {csm:csmName, boq:0, net:0};
+      eidMap[eid].boq += q3pf(r["Beginning of Quarter"]);
+      eidMap[eid].net += q3pf(r["MTD Net Billing"]);
+    });
+    Object.values(eidMap).forEach(b => {
+      const cur = b.boq + b.net;
+      if (!totals[b.csm]) totals[b.csm] = {boq:0, cur:0};
+      totals[b.csm].boq += b.boq;
+      totals[b.csm].cur += cur;
     });
 
     const result = {};
@@ -4066,11 +4085,50 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
 // ── DAILY DIGEST ────────────────────────────────────────────────────────────
 function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, bcChurn,
   liveBobDet, callData, qamc, qass, skippedCSMs, bobAdj, history=[], getDet,
-  domoBoq=[], q3BobCur=[], q3Supp=[], sfBobByCsm={}}) {
+  domoBoq=[], q3BobCur=[], q3Supp=[]}) {
 
-  // Q3 BOB retention per CSM — from the same shared SF-based summary the Book
-  // of Business tab itself uses (see summarizeSFBobByCsm at module scope).
-  const q3RetByCsm = sfBobByCsm;
+  // ── Compute Q3 BOB retention per CSM from the same sources as the BOB tab ──
+  const q3RetByCsm = React.useMemo(() => {
+    const getCol = (row,...keys) => { for(const k of keys){const found=Object.keys(row).find(x=>x.trim().toLowerCase()===k.toLowerCase());if(found)return row[found];}return ""; };
+    const pf = v => parseFloat(String(v||"").replace(/[$,]/g,""))||0;
+    const lfSwap = n => { if(!n)return n; const p=n.split(","); return p.length===2?p[1].trim()+" "+p[0].trim():n; };
+
+    // Build BOQ map: eid → {csm, boq}
+    const boqMap = {};
+    (domoBoq||[]).forEach(r => {
+      const csmRaw = String(getCol(r,"CSM Name")||"").trim();
+      if (!csmRaw || /TOTAL|GRAND/i.test(csmRaw)) return;
+      const eid = String(getCol(r,"Enterprise ID","Enterprise Id")||"").trim().toUpperCase();
+      if (!eid) return;
+      const csmName = norm(lfSwap(csmRaw)) || lfSwap(csmRaw);
+      if (!boqMap[eid]) boqMap[eid] = {csm:csmName, boq:0};
+      boqMap[eid].boq += pf(getCol(r,"Beginning of Quarter"));
+    });
+
+    // Build current revenue map: eid → cur
+    const curMap = {};
+    (q3BobCur||[]).forEach(r => {
+      const eid = String(getCol(r,"Enterprise Id","Enterprise ID")||"").trim().toUpperCase();
+      if (eid) curMap[eid] = (curMap[eid]||0) + pf(getCol(r,"SaaS Revenue"));
+    });
+    (q3Supp||[]).forEach(r => {
+      const eid = String(getCol(r,"Enterprise Id","Enterprise ID")||"").trim().toUpperCase();
+      if (eid) curMap[eid] = (curMap[eid]||0) + pf(getCol(r,"SaaS Revenue"));
+    });
+
+    // Aggregate per CSM
+    const totals = {};
+    Object.entries(boqMap).forEach(([eid, {csm, boq}]) => {
+      if (!totals[csm]) totals[csm] = {boq:0, cur:0};
+      totals[csm].boq += boq;
+      totals[csm].cur += curMap[eid]||0;
+    });
+    const result = {};
+    Object.entries(totals).forEach(([k,v]) => {
+      result[k] = {boq:v.boq, cur:v.cur, ret: v.boq>0 ? v.cur/v.boq : null};
+    });
+    return result;
+  }, [domoBoq, q3BobCur, q3Supp]);
 
   // Helper: get Q3 BOB entry for a CSM
   const getQ3Bob = csm => {
@@ -13870,7 +13928,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
     return (
       <div>
         <div style={{background:isLive?"rgba(22,163,74,.08)":"rgba(83,120,252,.08)",border:"0.5px solid "+(isLive?"rgba(22,163,74,.35)":"rgba(83,120,252,.35)"),borderRadius:8,padding:"12px 16px",marginBottom:14,fontSize:12,color:"#29355D"}}>
-          {isLive ? "✅ Live — refreshes automatically from the Q3 BoQ + Current SaaS Revenue sheets." : "🔬 Static pre-build preview — from q3_BoB_8-25.xlsx, CSV_DOMO_BOQ/CSV_Q3_SF_CURRENT aren't returning data yet."} {totalAcctsSF>0 && <>{sfData.reduce((s,c)=>s+c.addedCount,0)} of {totalAcctsSF} accounts ({totalAcctsSF>0?Math.round(sfData.reduce((s,c)=>s+c.addedCount,0)/totalAcctsSF*100):0}%) are classified "Added" (no matching BOQ record found) and count as 100% retained by this methodology's own rule — worth periodically confirming that's not just the baseline being incomplete. Also note: Current SaaS Revenue values are in local currency (USD/AUD/NZD), not FX-converted.</>}
+          {isLive ? "✅ Live — refreshes automatically from the Q3 BoQ + Current SaaS Revenue sheets." : "🔬 Static pre-build preview — from q3_BoB_8-25.xlsx, CSV_Q3_SF_BOQ/CSV_Q3_SF_CURRENT aren't returning data yet."} {totalAcctsSF>0 && <>{sfData.reduce((s,c)=>s+c.addedCount,0)} of {totalAcctsSF} accounts ({totalAcctsSF>0?Math.round(sfData.reduce((s,c)=>s+c.addedCount,0)/totalAcctsSF*100):0}%) are classified "Added" (no matching BOQ record found) and count as 100% retained by this methodology's own rule — worth periodically confirming that's not just the baseline being incomplete. Also note: Current SaaS Revenue values are in local currency (USD/AUD/NZD), not FX-converted.</>}
         </div>
         {missingFromSF.length>0 && (
           <div style={{background:"rgba(217,119,6,.08)",border:"0.5px solid rgba(217,119,6,.3)",borderRadius:8,padding:"10px 14px",marginBottom:14,fontSize:12,color:"#92400e"}}>
@@ -14229,7 +14287,7 @@ function PinLock({onUnlock}) {
 // MY DASHBOARD — self-contained. To revert: remove this block + 3 lines below.
 // ═══════════════════════════════════════════════════════════════════════════
 function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
-  churnAlerts=[], qamc=[], qass=[], domoBoq=[], q3BobCur=[], q3Supp=[], rawRev=[], cadenceFull=[], onNavigate=()=>{}, onSetTrendsTab=()=>{}, onSetBobTab=()=>{}, cerAssigned=[], cerCompleted=[], fiRows=[], sfBobRows=[]}) {
+  churnAlerts=[], qamc=[], qass=[], domoBoq=[], q3BobCur=[], q3Supp=[], rawRev=[], cadenceFull=[], onNavigate=()=>{}, onSetTrendsTab=()=>{}, onSetBobTab=()=>{}, cerAssigned=[], cerCompleted=[], fiRows=[]}) {
   const [dashDateFilter, setDashDateFilter] = React.useState("today");
   const [dashCustomFrom, setDashCustomFrom] = React.useState("");
   const [dashCustomTo,   setDashCustomTo]   = React.useState("");
@@ -14329,15 +14387,18 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
     return {name:n,scheduled:s,completed:c,noShow:ns,cancelled:can,total:s+c+ns+can};
   }).filter(r=>r.total>0).sort((a,b)=>b.total-a.total);
 
-  // Q3 Book of Business — now sourced from the shared SF-based summary (same
-  // data as the Book of Business tab), not the old Domo BOQ export. Net is
-  // derived as cur-boq so all the downstream math below (which expects
-  // boq+net=current) keeps working unchanged.
+  // Q3 Domo BoB — single source: BOQ + MTD Net Billing = Current MRR
   const boqMap = {};
-  (Array.isArray(sfBobRows)?sfBobRows:[]).forEach(([csmRaw, eid, acct, boq, cur, status]) => {
+  domoBoq.forEach(r => {
+    const csmRaw=String(gC(r,"CSM Name")||"").trim();
+    if (!csmRaw||/TOTAL|GRAND/i.test(csmRaw)||/\bTOTAL$/i.test(csmRaw)) return;
+    const eid=String(gC(r,"Enterprise ID","Enterprise Id")||"").trim().toUpperCase();
     if (!eid) return;
-    const csmKey = normalizeSFCsmName(csmRaw);
-    boqMap[eid] = {eid, csm:csmKey, acct, boq, net: cur-boq};
+    const csmKey=norm(lfSwap(csmRaw))||lfSwap(csmRaw);
+    if (!boqMap[eid]) boqMap[eid]={eid,csm:csmKey,acct:String(gC(r,"Account Name")||"").trim(),boq:0,net:0};
+    boqMap[eid].boq+=pf(gC(r,"Beginning of Quarter"));
+    boqMap[eid].net+=pf(gC(r,"MTD Net Billing","Net Billing","Net"));
+    if (!boqMap[eid].acct) boqMap[eid].acct=String(gC(r,"Account Name")||"").trim();
   });
   // Build a set of all normalized name variants for the filtered CSMs
   const csmNorms=new Set(csmNames.flatMap(n=>[norm(n),n.toLowerCase()].filter(Boolean)));
@@ -14662,7 +14723,7 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
 
       {/* Q3 Book of Business */}
       <div style={{...card,marginBottom:16}}>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8,cursor:"pointer"}} onClick={()=>{onSetBobTab("sfpreview");onNavigate("bob");}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8,cursor:"pointer"}} onClick={()=>{onSetBobTab("domo");onNavigate("bob");}}>
             <span style={lbl}>📋 Q3 Book of Business</span>
             <span style={{fontSize:12,color:"#5378FC",fontWeight:500}}>View details →</span>
           </div>
@@ -16147,7 +16208,7 @@ function mapFI(rows) {
 // ── Live Q3 SF-based BoB join ────────────────────────────────────────────
 // Mirrors the exact methodology from q3_BoB_8-25.xlsx's "SF retention detail"
 // / "BoB Retention" tabs:
-//   - BOQ = sum of per-L2-line "End of Quarter" values for that EID, from the
+//   - BOQ = sum of per-L2-line "Q3 BoQ" values for that EID, from the
 //     Q3 BoQ export (CSM always comes from this side when the EID exists here).
 //   - Current = "SaaS Revenue" for that EID from the Current SaaS Revenue
 //     export (a fresh Salesforce pull, account-level).
@@ -16179,7 +16240,7 @@ function buildSFBobRows(boqRows, curRows) {
     const eid = String(r["Enterprise ID"]||"").trim().toUpperCase();
     if (!eid) return;
     const csm = String(r["CSM Name"]||"").trim();
-    const val = pf(r["End of Quarter"]);
+    const val = pf(r["Q3 BoQ"] ?? r["End of Quarter"]);
     if (!boqByEid[eid]) boqByEid[eid] = {csm, boq: 0, acct: String(r["Account Name"]||"").trim()};
     boqByEid[eid].boq += val;
     if (!boqByEid[eid].csm && csm) boqByEid[eid].csm = csm;
@@ -16505,7 +16566,7 @@ function App() {
   const [cerCompleted, setCerCompleted] = useState([]);
   const [sccChurn, setSccChurn] = useState([]); // Strategic Content Creation churn log — live once CSV_SCC_CHURN is wired to the published sheet
   const [fiRows, setFiRows] = useState([]); // Fulfillment Items — live from CSV_FI ("FIs Needing Action" sheet)
-  const [sfBobLive, setSfBobLive] = useState([]); // Q3 SF-based BoB — live join of domoBoq (=Q3 BoQ) + CSV_Q3_SF_CURRENT
+  const [sfBobLive, setSfBobLive] = useState([]); // Q3 SF-based BoB — live join of CSV_Q3_SF_BOQ + CSV_Q3_SF_CURRENT
   // Falls back to the static pre-build snapshot until the live join returns data —
   // same isLive pattern used everywhere else (SCC, FI), so every consumer below
   // (Leaderboard, Coaching, Digest, My Dashboard, AI Coach) degrades gracefully.
@@ -16599,11 +16660,12 @@ function App() {
         ()=>Promise.resolve([]),          // CSV_Q3_CUR — retired, single source now
         ()=>Promise.resolve([]),          // CSV_Q3_SUPP — retired, single source now
         ()=>fetchCSV(CSV_Q3_SF_CURRENT).catch(()=>[]),
+        ()=>fetchCSV(CSV_Q3_SF_BOQ).catch(()=>[]),
         ()=>fetchCSV(CSV_CER_ASSIGNED).catch(()=>[]),
         ()=>fetchCSV(CSV_CER_COMPLETED).catch(()=>[]),
         ()=>fetchCSV(CSV_FI).catch(()=>[]),
         ()=>fetchCSV(CSV_SCC_CHURN).catch(()=>[]),
-      ]).then(([cadenceFullRows, callRows, domoBoqRows, revRows, cadRows, dueRows, ontimeRows, emailRows, historyRows, bobRows, q2DomoBoqRows, skippedRows, bobDetRows, bobAdjRows, qaMcRows, qaSSRows, mcRows, bcRows, churnAlertRows, q3BobCurRows, q3SuppRows, sfCurRows, cerAssignedRows, cerCompletedRows, fiRawRows, sccChurnRows]) => {
+      ]).then(([cadenceFullRows, callRows, domoBoqRows, revRows, cadRows, dueRows, ontimeRows, emailRows, historyRows, bobRows, q2DomoBoqRows, skippedRows, bobDetRows, bobAdjRows, qaMcRows, qaSSRows, mcRows, bcRows, churnAlertRows, q3BobCurRows, q3SuppRows, sfCurRows, sfBoqRows, cerAssignedRows, cerCompletedRows, fiRawRows, sccChurnRows]) => {
         latestEmail   = emailRows;
         latestCad          = cadRows;
         latestDue          = dueRows;
@@ -16616,7 +16678,7 @@ function App() {
         setCerCompleted(cerCompletedRows||[]);
         try { setSccChurn(mapSCCChurn(sccChurnRows||[])); } catch(e) { console.error("mapSCCChurn failed:", e); setSccChurn([]); }
         try { setFiRows(mapFI(fiRawRows||[])); } catch(e) { console.error("mapFI failed:", e); setFiRows([]); }
-        try { setSfBobLive(buildSFBobRows(domoBoqRows||[], sfCurRows||[])); } catch(e) { console.error("buildSFBobRows failed:", e); setSfBobLive([]); }
+        try { setSfBobLive(buildSFBobRows(sfBoqRows||[], sfCurRows||[])); } catch(e) { console.error("buildSFBobRows failed:", e); setSfBobLive([]); }
         latestBob         = bobRows;
         latestBobDet      = bobDetRows||[];
         latestBobAdj      = bobAdjRows||[];
@@ -16711,9 +16773,10 @@ function App() {
       const info = lk(c.name)||{};
       const coach = COACHES.find(x=>x.e===(info.c||c.coach));
       const det = getDet(c.name)||{};
-      const sfBob = getSfBob(c.name);
+      const bob = getBob(c.name)||{boq:c.bobBoq,lcm:c.bobLcm,net:c.bobNet,ret:c.bobRet};
       const mc = getMc(c.name);
       const bc = getBc(c.name);
+      const ret = bob&&bob.boq>0&&bob.lcm!=null ? bob.lcm/bob.boq : (bob&&bob.ret!=null?bob.ret:null);
 
       lines.push("=== CSM PROFILE ===");
       lines.push("Name: "+c.name);
@@ -16731,13 +16794,8 @@ function App() {
       lines.push("This period: "+(c.rev>0?fd(c.rev):"None")+" | MRR: "+(c.mrr>0?fd(c.mrr):"None"));
       if (c.accts&&c.accts.length>0) lines.push("Accounts: "+c.accts.slice(0,5).map(a=>a.b+(a.m>0?" MRR "+fd(a.m):a.o>0?" OTR "+fd(a.o):"")).join(", "));
       lines.push("");
-      lines.push("=== BOOK OF BUSINESS (Q3, SF-based) ===");
-      if (sfBob) {
-        lines.push("BOQ: "+fd(sfBob.boq)+" | Current: "+fd(sfBob.cur)+" | Net: "+(sfBob.net>0?"+":"")+fd(sfBob.net)+" | Retention: "+(sfBob.ret!=null?pp(sfBob.ret):"n/a")+" | Accounts: "+sfBob.accts);
-        lines.push("Increases: "+sfBob.increaseCount+" | Decreases: "+sfBob.decreaseCount+" | Cancelled: "+sfBob.cancelledCount+" | Added: "+sfBob.addedCount);
-      } else {
-        lines.push("No Q3 BoB data found for this CSM.");
-      }
+      lines.push("=== BOOK OF BUSINESS ===");
+      lines.push("BOQ: "+(bob.boq?fd(bob.boq):"n/a")+" | Current: "+(bob.lcm?fd(bob.lcm):"n/a")+" | Net: "+(bob.net!=null?(bob.net>0?"+":"")+fd(bob.net):"n/a")+" | Retention: "+(ret!=null?pp(ret):"n/a"));
       if ((det.i||[]).length>0) lines.push("Billing increases ("+det.i.length+"): "+det.i.map(x=>(x.a||x.e)+" "+x.l+" +"+fd(x.n)).join(", "));
       if ((det.d||[]).length>0) lines.push("Billing decreases ("+det.d.length+"): "+det.d.map(x=>(x.a||x.e)+" "+x.l+" "+fd(x.n)).join(", "));
       if (mc&&mc.canceled>0) lines.push("MC churn ("+mc.canceled+"): "+(mc.accts||[]).slice(0,5).join(", "));
@@ -16782,13 +16840,14 @@ function App() {
       lines.push("CSM Count: "+filteredCSMs.length);
       lines.push("");
       filteredCSMs.forEach(c=>{
-        const sfBob = getSfBob(c.name);
+        const bob = getBob(c.name)||{net:c.bobNet,ret:c.bobRet,boq:c.bobBoq,lcm:c.bobLcm};
         const mc = getMc(c.name);
         const bc = getBc(c.name);
         const det = getDet(c.name)||{};
+        const ret = bob&&bob.boq>0&&bob.lcm!=null ? bob.lcm/bob.boq : (bob&&bob.ret!=null?bob.ret:null);
         lines.push("── "+c.name);
         lines.push("   Revenue: "+(c.rev>0?fd(c.rev):"none")+" | Email open: "+(c.sent>0?pp(c.openRate):"n/a")+" | On-time: "+(c.otTotal>=3?pp(c.otPct):"n/a")+" | Overdue: "+(c.overdueCount||0));
-        lines.push("   Cadence: "+(c.cadCount>0?pp(c.cadPct):"n/a")+" | BOB net: "+(sfBob?(sfBob.net>0?"+":"")+fd(sfBob.net):"n/a")+" | Retention: "+(sfBob&&sfBob.ret!=null?pp(sfBob.ret):"n/a"));
+        lines.push("   Cadence: "+(c.cadCount>0?pp(c.cadPct):"n/a")+" | BOB net: "+(bob.net!=null?(bob.net>0?"+":"")+fd(bob.net):"n/a")+" | Retention: "+(ret!=null?pp(ret):"n/a"));
         if (c.skippedCount>0) lines.push("   ⚠ "+c.skippedCount+" skipped"+(c.skippedFourthCount>0?", "+c.skippedFourthCount+" at 4th reschedule":""));
         const churnCount=((mc&&mc.canceled)||0)+((bc&&bc.canceled)||0);
         if (churnCount>0) lines.push("   ⚠ Churn: "+churnCount+" account(s)"+(mc&&mc.accts.length?" MC: "+mc.accts.slice(0,2).join(", "):""));
@@ -17167,13 +17226,13 @@ My question: ${aiCustom}`,
       )}
       {hasData&&(
         <div style={{padding:"20px 24px",zoom:fontScale}}>
-          {tab==="coaching"&&<CoachingView csms={filteredCSMs} coach={filterCoach} onSelectCSM={selectCSMFn} onSelectCoach={e=>{setFilterCoach(e);setFilterCSM("");}} onClear={()=>{setFilterCoach("");setFilterCSM("");}} skippedCSMs={skippedCSMs.filter(c=>{const i=lk(c.name);if(managerCoaches&&!(i&&managerCoaches.includes(i.c)))return false;if(filterCoach&&(i&&i.c)!==filterCoach)return false;if(filterCSM&&c.name!==filterCSM)return false;return true;})} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} liveBobDet={liveBobDet} isCsmView={isCsmView} bobAdj={bobAdj} history={history} callData={callData} sfBobByCsm={sfBobByCsm}/>}
+          {tab==="coaching"&&<CoachingView csms={filteredCSMs} coach={filterCoach} onSelectCSM={selectCSMFn} onSelectCoach={e=>{setFilterCoach(e);setFilterCSM("");}} onClear={()=>{setFilterCoach("");setFilterCSM("");}} skippedCSMs={skippedCSMs.filter(c=>{const i=lk(c.name);if(managerCoaches&&!(i&&managerCoaches.includes(i.c)))return false;if(filterCoach&&(i&&i.c)!==filterCoach)return false;if(filterCSM&&c.name!==filterCSM)return false;return true;})} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} liveBobDet={liveBobDet} isCsmView={isCsmView} bobAdj={bobAdj} history={history} callData={callData}/>}
           {tab==="digest"&&<DigestView csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM}
             isCsmView={isCsmView} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn}
             liveBobDet={liveBobDet} callData={callData} qamc={qamc} qass={qass} history={history}
             skippedCSMs={skippedCSMs.filter(c=>{const i=lk(c.name);if(filterCoach&&(i&&i.c)!==filterCoach)return false;if(filterCSM&&c.name!==filterCSM)return false;return true;})}
-            bobAdj={bobAdj} getDet={getDet} domoBoq={domoBoq} q3BobCur={q3BobCur} q3Supp={q3Supp} sfBobByCsm={sfBobByCsm}/>}
-          {tab==="leaderboard"&&<LeaderboardView csms={filteredCSMs} allCsms={csms} bobRaw={bobRaw} history={history} q2DomoBoq={q2DomoBoq} domoBoq={domoBoq} q3BobCur={q3BobCur} q3Supp={q3Supp} rawRev={rawRev} cadenceFull={cadenceFull} sfBobByCsm={sfBobByCsm}/>}
+            bobAdj={bobAdj} getDet={getDet} domoBoq={domoBoq} q3BobCur={q3BobCur} q3Supp={q3Supp}/>}
+          {tab==="leaderboard"&&<LeaderboardView csms={filteredCSMs} allCsms={csms} bobRaw={bobRaw} history={history} q2DomoBoq={q2DomoBoq} domoBoq={domoBoq} q3BobCur={q3BobCur} q3Supp={q3Supp} rawRev={rawRev} cadenceFull={cadenceFull}/>}
           
           {tab==="revenue"&&<RevenueView rawRev={rawRev} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches}/>}
           {tab==="bob"&&<BobView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} churnAlerts={churnAlerts} onSelectCSM={selectCSMFn} liveBobDet={liveBobDet} bobAdj={bobAdj} q3BobCur={q3BobCur} domoBoq={domoBoq} q3Supp={q3Supp} q2DomoBoq={q2DomoBoq} bobTab={bobTab} setBobTab={setBobTab} sfBobRows={sfBobLive}/>}
@@ -17183,7 +17242,7 @@ My question: ${aiCustom}`,
           {tab==="capacity"&&userSession.role==="master"&&<CapacityView csms={csms} callData={callData} callRaw={callRaw} cadenceFull={cadenceFull} domoBoq={domoBoq} filterCoach={filterCoach} filterCSM={filterCSM}/>}
           {tab==="scc"&&canSeeSCC&&<SCCView rows={sccChurn}/>}
           {tab==="fi"&&<FulfillmentView filterCoach={filterCoach} filterCSM={filterCSM} rows={fiRows}/>}
-          {tab==="mydash"&&<MyDashboard csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} churnAlerts={churnAlerts} qamc={qamc||[]} qass={qass||[]} domoBoq={domoBoq||[]} q3BobCur={q3BobCur||[]} q3Supp={q3Supp||[]} rawRev={rawRev||[]} cadenceFull={cadenceFull||[]} onNavigate={setTab} onSetTrendsTab={setTrendsTab} onSetBobTab={setBobTab} cerAssigned={cerAssigned} cerCompleted={cerCompleted} fiRows={fiRows} sfBobRows={sfBobSource}/>}
+          {tab==="mydash"&&<MyDashboard csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} churnAlerts={churnAlerts} qamc={qamc||[]} qass={qass||[]} domoBoq={domoBoq||[]} q3BobCur={q3BobCur||[]} q3Supp={q3Supp||[]} rawRev={rawRev||[]} cadenceFull={cadenceFull||[]} onNavigate={setTab} onSetTrendsTab={setTrendsTab} onSetBobTab={setBobTab} cerAssigned={cerAssigned} cerCompleted={cerCompleted} fiRows={fiRows}/>}
         </div>
       )}
 
