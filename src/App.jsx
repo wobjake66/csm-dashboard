@@ -14513,13 +14513,23 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
     const status   = String(r["Status"]||"").trim();
     const overdue  = String(r["Overdue"]||"").trim()==="1";
     const dateRaw  = String(r["Due Date/Time"]||r["Due Date"]||"").trim();
+    const touchpoint   = String(r["Touchpoint: Touchpoint Name"]||"").trim();
+    const cadenceName  = String(r["Cadence Member: Cadence Name"]||"").trim();
     let dueDate = null;
     if (dateRaw) { const d=new Date(dateRaw); if (!isNaN(d)) dueDate=d; }
-    return {assigned:norm(assigned)||assigned, account, status, overdue, dueDate};
+    return {assigned:norm(assigned)||assigned, account, status, overdue, dueDate, dateRaw, touchpoint, cadenceName};
   };
+  // Dedup: same key CadenceView uses — this raw export can carry literal
+  // duplicate rows for the same real touchpoint (repeated/appended pulls),
+  // which otherwise inflates every count on this card.
+  const seenCadRow = new Set();
   const myCadRows = (Array.isArray(cadenceFull)?cadenceFull:[]).map(parseCadRow).filter(r => {
     if (!r.assigned) return false;
-    return csmNorms.has(r.assigned)||csmNorms.has(norm(r.assigned));
+    if (!(csmNorms.has(r.assigned)||csmNorms.has(norm(r.assigned)))) return false;
+    const key = [r.assigned, r.account, r.touchpoint, r.dateRaw, r.status, r.cadenceName].join("|");
+    if (seenCadRow.has(key)) return false;
+    seenCadRow.add(key);
+    return true;
   });
   const toDayKey = d => d?d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"):null;
   const cadDueInWindow     = myCadRows.filter(r=>r.status==="Open"&&r.dueDate&&dashDayTest(toDayKey(r.dueDate)));
