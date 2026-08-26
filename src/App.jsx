@@ -17612,12 +17612,21 @@ My question: ${aiCustom}`,
           </div>
         </div>
         <div style={{display:"flex",alignItems:"stretch",padding:"0 24px"}}>
-          {["coaching","digest","revenue","bob","leaderboard","calls","cers","trends","mydash",...(userSession.role==="master"?["capacity"]:[]),...(canSeeSCC?["scc"]:[]),"fi","cadence"].filter(t=>!isCsmView||["mydash","leaderboard","calls","fi","bob","cadence"].includes(t)).map(t=>(
-            <button key={t} onClick={()=>setTab(t)}
-              style={{padding:"10px 18px",fontSize:13,fontWeight:500,color:tab===t?"#fff":"rgba(255,255,255,.55)",background:"transparent",border:"none",cursor:"pointer",borderBottom:tab===t?"3px solid #FF5000":"3px solid transparent",whiteSpace:"nowrap"}}>
-              {t==="mydash"?"🏠 My Dashboard":t==="coaching"?"Coaching":t==="digest"?"📋 Daily Digest":t==="trends"?"📈 Trends":t==="calls"?"📞 Calls":t==="cers"?"📋 CERs":t==="revenue"?"💰 Revenue":t==="bob"?"📋 Book of Business":t==="capacity"?"⚡ Capacity":t==="scc"?"✍️ Strategic Content":t==="fi"?"📋 Fulfillment Items":t==="cadence"?"📅 Cadence":t.charAt(0).toUpperCase()+t.slice(1)}
-            </button>
-          ))}
+          {(() => {
+            const allTabs = ["coaching","digest","revenue","bob","leaderboard","calls","cers","trends","mydash",...(userSession.role==="master"?["capacity"]:[]),...(canSeeSCC?["scc"]:[]),"fi","cadence"];
+            // CSM nav: My Dashboard is still what they land on right after login
+            // (set explicitly at login time via setTab("mydash") — unaffected by
+            // this ordering), but in the tab bar itself it's placed last so their
+            // working tabs (book of business, calls, cadence, revenue, etc.) lead.
+            const csmTabs = ["leaderboard","calls","fi","bob","cadence","revenue","mydash"];
+            const visibleTabs = isCsmView ? csmTabs : allTabs;
+            return visibleTabs.map(t => (
+              <button key={t} onClick={()=>setTab(t)}
+                style={{padding:"10px 18px",fontSize:13,fontWeight:500,color:tab===t?"#fff":"rgba(255,255,255,.55)",background:"transparent",border:"none",cursor:"pointer",borderBottom:tab===t?"3px solid #FF5000":"3px solid transparent",whiteSpace:"nowrap"}}>
+                {t==="mydash"?"🏠 My Dashboard":t==="coaching"?"Coaching":t==="digest"?"📋 Daily Digest":t==="trends"?"📈 Trends":t==="calls"?"📞 Calls":t==="cers"?"📋 CERs":t==="revenue"?"💰 Revenue":t==="bob"?"📋 Book of Business":t==="capacity"?"⚡ Capacity":t==="scc"?"✍️ Strategic Content":t==="fi"?"📋 Fulfillment Items":t==="cadence"?"📅 Cadence":t.charAt(0).toUpperCase()+t.slice(1)}
+              </button>
+            ));
+          })()}
         </div>
       </div>
 
