@@ -112,7 +112,7 @@ const NAME_NORM = {
   "luis aguasvivas peralta":"Luis Aguasvivas Peralta","luis aguasivivas":"Luis Aguasvivas Peralta","luis peralta":"Luis Aguasvivas Peralta",
   "michael furlong":"Michael Furlong",
   "wilson mercedes":"Wilson Mercedes","wilson":"Wilson Mercedes",
-  "yolanda ramirez":"Yolanda Ramirez","yolanda ramirez-drake":"Yolanda Ramirez",
+  "yolanda ramirez":"Yolanda Ramirez","yolanda ramirez-drake":"Yolanda Ramirez","yolanda ramirez drake":"Yolanda Ramirez",
   // Kendra Morelli — US
   "ashley shaffer":"Ashley Shaffer",
   "karissa hernandez":"Karissa Hernandez",
@@ -240,7 +240,19 @@ function region(n) {
   }
   return null;
 }
-function norm(n) { return NAME_NORM[n.toLowerCase().trim()] || n.trim(); }
+function stripDiacritics(s) { return String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g, ""); }
+function norm(n) {
+  const key = String(n||"").toLowerCase().trim();
+  if (NAME_NORM[key]) return NAME_NORM[key];
+  // Fallback: accented characters (á, é, í, ó, ú, ñ, etc.) are common in this
+  // roster, and a source export using a different accent convention than
+  // NAME_NORM's keys would otherwise silently fail this lookup entirely —
+  // exactly what happened with "Deivis Peña" vs the alias table's "deivis
+  // pena". Try again with diacritics stripped before giving up.
+  const stripped = stripDiacritics(key);
+  if (stripped !== key && NAME_NORM[stripped]) return NAME_NORM[stripped];
+  return String(n||"").trim();
+}
 function dispName(n) {
   if (!n) return n;
   if (n === "Merve (MJ) Brielmann") return "MJ Brielmann";
@@ -14536,6 +14548,10 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
   const cadCompleted       = myCadRows.filter(r=>r.status==="Completed"&&r.dueDate&&dashDayTest(toDayKey(r.dueDate)));
   const cadSkipped         = myCadRows.filter(r=>r.status==="Skipped"&&r.dueDate&&dashDayTest(toDayKey(r.dueDate)));
   const cadOpenAll         = myCadRows.filter(r=>r.status==="Open");
+  // Overdue is ALWAYS computed regardless of the selected period (Today/This
+  // week/etc.) — a past-due touchpoint doesn't stop being past due just
+  // because you're looking at a different window. Matches the Cadence page.
+  const cadOverdueAll      = myCadRows.filter(r=>r.status==="Open"&&r.overdue);
   const cadAccountsInWindow = new Set(cadDueInWindow.map(r=>r.account).filter(Boolean));
 
   const bobRows=Object.values(boqMap).filter(b=>{
@@ -14678,10 +14694,10 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
         {/* Cadence touchpoints */}
         <div style={card}>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8,cursor:"pointer"}} onClick={()=>onNavigate("cadence")}>
-            <span style={lbl}>✅ Cadence touchpoints — {dashLabel}</span>
+            <span style={lbl}>✅ Cadence touchpoints — {dashLabel}{cadOverdueAll.length>0 && <span style={{marginLeft:6,fontSize:11,fontWeight:700,padding:"1px 6px",borderRadius:20,background:"#dc2626",color:"#fff"}}>🚨 {cadOverdueAll.length}</span>}</span>
             <span style={{fontSize:12,color:"#5378FC",fontWeight:500}}>View details →</span>
           </div>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8}}>
             <div>
               <div style={{fontSize:12,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Due</div>
               <div style={{fontSize:20,fontWeight:500,color:"var(--text-primary)"}}>{cadDueInWindow.length}</div>
@@ -14693,6 +14709,10 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
             <div>
               <div style={{fontSize:12,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Open</div>
               <div style={{fontSize:20,fontWeight:500,color:"var(--text-primary)"}}>{cadOpenAll.length}</div>
+            </div>
+            <div>
+              <div style={{fontSize:12,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Overdue</div>
+              <div style={{fontSize:20,fontWeight:500,color:cadOverdueAll.length>0?"#dc2626":"var(--text-primary)"}}>{cadOverdueAll.length}</div>
             </div>
           </div>
           {cadTotal===0&&<div style={{fontSize:12,color:"var(--text-secondary)",textAlign:"center",padding:"8px 0",marginTop:8}}>No cadence data loaded yet</div>}
@@ -16710,12 +16730,17 @@ function CadenceView({filterCoach="", filterCSM="", managerCoaches=null, cadence
 
   const inPeriod = r => !periodBounds || (r.due && r.due>=periodBounds[0] && r.due<=periodBounds[1]);
   const scoped = rows.filter(inPeriod);
+  // Overdue is ALWAYS computed from the full dataset, not the period-scoped
+  // one — a touchpoint that's past due needs to stay visible no matter which
+  // period pill happens to be selected. Everything else below still respects
+  // the period filter as normal.
+  const overdueRows = rows.filter(r => r.status==="Open" && r.overdue);
 
   // ── KPI tiles ────────────────────────────────────────────────────────────
   const total = scoped.length;
   const dueCount = scoped.filter(r=>r.status==="Open").length;
   const completedCount = scoped.filter(r=>r.status==="Completed").length;
-  const overdueCount = scoped.filter(r=>r.status==="Open" && r.overdue).length;
+  const overdueCount = overdueRows.length;
   const skippedCount = scoped.filter(r=>r.status==="Skipped").length;
   const resolvedCount = completedCount + skippedCount;
   const completionRate = resolvedCount>0 ? completedCount/resolvedCount : null;
@@ -16731,17 +16756,25 @@ function CadenceView({filterCoach="", filterCSM="", managerCoaches=null, cadence
   });
 
   // ── Per-CSM table ────────────────────────────────────────────────────────
+  // Overdue count per CSM is period-independent (same reasoning as the KPI
+  // tile above) — everything else here still reflects the selected period.
+  const overdueByCsm = {};
+  overdueRows.forEach(r => { overdueByCsm[r.csm] = (overdueByCsm[r.csm]||0) + 1; });
+
   const byCsm = {};
   scoped.forEach(r => {
-    if (!byCsm[r.csm]) byCsm[r.csm] = {due:0, completed:0, open:0, overdue:0, skipped:0};
+    if (!byCsm[r.csm]) byCsm[r.csm] = {due:0, completed:0, open:0, skipped:0};
     const g = byCsm[r.csm];
-    if (r.status==="Open") { g.open++; g.due++; if (r.overdue) g.overdue++; }
+    if (r.status==="Open") { g.open++; g.due++; }
     if (r.status==="Completed") g.completed++;
     if (r.status==="Skipped") g.skipped++;
   });
+  // Make sure a CSM with overdue items still gets a row even if they have no
+  // other activity in the currently-selected period.
+  Object.keys(overdueByCsm).forEach(csm => { if (!byCsm[csm]) byCsm[csm] = {due:0, completed:0, open:0, skipped:0}; });
   const csmRows = Object.entries(byCsm).map(([csm,g]) => {
     const resolved = g.completed+g.skipped;
-    return {csm, ...g, rate: resolved>0 ? g.completed/resolved : null};
+    return {csm, ...g, overdue: overdueByCsm[csm]||0, rate: resolved>0 ? g.completed/resolved : null};
   });
   const sortedCsmRows = [...csmRows].sort((a,b) => {
     const av = a[sortCol], bv = b[sortCol];
@@ -16751,7 +16784,13 @@ function CadenceView({filterCoach="", filterCSM="", managerCoaches=null, cadence
   const onSort = col => { if (sortCol===col) setSortDir(d=>d==="asc"?"desc":"asc"); else { setSortCol(col); setSortDir("asc"); } };
 
   // ── Touchpoint list — actionable-only by default (Open, overdue-first) ──
-  const listRows = (showAllStatuses ? scoped : scoped.filter(r=>r.status==="Open"))
+  // Overdue items are always included regardless of the selected period —
+  // they need to stay visible even when looking at "Next week," since a
+  // touchpoint that's already late doesn't stop being late.
+  const listSet = new Set();
+  (showAllStatuses ? scoped : scoped.filter(r=>r.status==="Open")).forEach(r=>listSet.add(r));
+  overdueRows.forEach(r=>listSet.add(r));
+  const listRows = [...listSet]
     .filter(r => !statusFilter || (statusFilter==="Overdue" ? (r.status==="Open"&&r.overdue) : r.status===statusFilter))
     .sort((a,b) => {
       if (a.overdue !== b.overdue) return a.overdue ? -1 : 1;
@@ -16792,7 +16831,7 @@ function CadenceView({filterCoach="", filterCSM="", managerCoaches=null, cadence
           {l:"Total",     v:total, sub:periodLabel, col:"#29355D"},
           {l:"Due (Open)",v:dueCount, sub:"currently open", col:"#5378FC"},
           {l:"Completed", v:completedCount, sub:"resolved", col:"#16a34a"},
-          {l:"🚨 Overdue",v:overdueCount, sub:"open + past due", col:"#dc2626"},
+          {l:"🚨 Overdue",v:overdueCount, sub:"always shown, any period", col:"#dc2626"},
           {l:"Skipped",   v:skippedCount, sub:"", col:"#d97706"},
           {l:"Completion rate", v:completionRate!=null?Math.round(completionRate*100)+"%":"--", sub:"of resolved", col:"#29355D"},
         ].map(t=>(
