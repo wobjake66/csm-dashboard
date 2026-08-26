@@ -3880,6 +3880,8 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
                 if (!staffRaw || !apptTime) return null;
                 const csm = norm(staffRaw) || staffRaw;
                 if (filterCSM && csm !== filterCSM) return null;
+                if (callSelectedCSM && csm !== callSelectedCSM && norm(csm) !== callSelectedCSM) return null;
+                if (callSelectedSvc && (normalizeService(svc)||svc||"Other") !== callSelectedSvc) return null;
                 const i = lk(csm);
                 if (filterCoach && (!i || i.c!==filterCoach)) return null;
                 const d = new Date(apptTime);
@@ -14655,7 +14657,10 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
 
         {/* Cadence touchpoints */}
         <div style={card}>
-          <span style={lbl}>✅ Cadence touchpoints — {dashLabel}</span>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8,cursor:"pointer"}} onClick={()=>onNavigate("cadence")}>
+            <span style={lbl}>✅ Cadence touchpoints — {dashLabel}</span>
+            <span style={{fontSize:12,color:"#5378FC",fontWeight:500}}>View details →</span>
+          </div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
             <div>
               <div style={{fontSize:12,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Due</div>
@@ -16613,6 +16618,291 @@ function FulfillmentView({filterCoach="", filterCSM="", rows}) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// CADENCE — dedicated page mirroring the Calls/Fulfillment Items pattern.
+// Source: cadenceFull (Master_Report-equivalent live touchpoint export).
+// Account details on the touchpoint list use acctNameToAcct (normalized
+// account-name match against Current SaaS Revenue) — same caveat as the
+// Calls page's email match: this is "probably right," not "definitely
+// right," since company names drift between systems.
+// ═══════════════════════════════════════════════════════════════════════════
+function CadenceView({filterCoach="", filterCSM="", managerCoaches=null, cadenceFull=[], acctNameToAcct={}}) {
+  const [periodFilter, setPeriodFilter] = React.useState("today"); // today | this_week | next_week | last_week | all
+  const [statusFilter, setStatusFilter] = React.useState(""); // "" | "Open" | "Completed" | "Overdue" | "Skipped"
+  const [sortCol, setSortCol] = React.useState("csm");
+  const [sortDir, setSortDir] = React.useState("asc");
+  const [showAllStatuses, setShowAllStatuses] = React.useState(false); // touchpoint list: actionable-only (default) vs everything
+
+  const now = new Date();
+  const startOfDay = d => { const x=new Date(d); x.setHours(0,0,0,0); return x; };
+  const todayStart = startOfDay(now);
+  const todayEnd = new Date(todayStart); todayEnd.setHours(23,59,59,999);
+  const dow = todayStart.getDay();
+  const thisWeekMon = new Date(todayStart); thisWeekMon.setDate(todayStart.getDate()-(dow===0?6:dow-1));
+  const thisWeekSun = new Date(thisWeekMon); thisWeekSun.setDate(thisWeekMon.getDate()+6); thisWeekSun.setHours(23,59,59,999);
+  const nextWeekMon = new Date(thisWeekMon); nextWeekMon.setDate(thisWeekMon.getDate()+7);
+  const nextWeekSun = new Date(nextWeekMon); nextWeekSun.setDate(nextWeekMon.getDate()+6); nextWeekSun.setHours(23,59,59,999);
+  const lastWeekMon = new Date(thisWeekMon); lastWeekMon.setDate(thisWeekMon.getDate()-7);
+  const lastWeekSun = new Date(thisWeekMon); lastWeekSun.setDate(thisWeekMon.getDate()-1); lastWeekSun.setHours(23,59,59,999);
+
+  const periodBounds = {
+    today:      [todayStart, todayEnd],
+    this_week:  [thisWeekMon, thisWeekSun],
+    next_week:  [nextWeekMon, nextWeekSun],
+    last_week:  [lastWeekMon, lastWeekSun],
+    all:        null,
+  }[periodFilter];
+
+  const periodLabel = {
+    today: "Today", this_week: "This week", next_week: "Next week", last_week: "Last week", all: "All",
+  }[periodFilter];
+
+  // ── Parse + scope ──────────────────────────────────────────────────────
+  const rows = (cadenceFull||[]).map(r => {
+    const assigned = String(r["Cadence Member: Assigned"]||"").trim();
+    const account  = String(r["Cadence Member: Account"]||"").trim();
+    if (!assigned || !account) return null;
+    const csm = norm(assigned) || assigned;
+    const i = lk(csm);
+    if (managerCoaches && !(i && managerCoaches.includes(i.c))) return null;
+    if (filterCoach && (!i || i.c!==filterCoach)) return null;
+    if (filterCSM && csm!==filterCSM) return null;
+    const due = new Date(r["Due Date/Time"]);
+    const status = String(r["Status"]||"").trim();
+    const overdue = String(r["Overdue"]||"").trim()==="1";
+    return {
+      csm, account, due: isNaN(due)?null:due, status, overdue,
+      touchpoint: String(r["Touchpoint: Touchpoint Name"]||"").trim(),
+      recordType: String(r["Touchpoint: Record Type"]||"").trim(),
+      cadenceName: String(r["Cadence Member: Cadence Name"]||"").trim(),
+      acctInfo: acctNameToAcct[normAcctName(account)] || null,
+    };
+  }).filter(Boolean);
+
+  const inPeriod = r => !periodBounds || (r.due && r.due>=periodBounds[0] && r.due<=periodBounds[1]);
+  const scoped = rows.filter(inPeriod);
+
+  // ── KPI tiles ────────────────────────────────────────────────────────────
+  const total = scoped.length;
+  const dueCount = scoped.filter(r=>r.status==="Open").length;
+  const completedCount = scoped.filter(r=>r.status==="Completed").length;
+  const overdueCount = scoped.filter(r=>r.status==="Open" && r.overdue).length;
+  const skippedCount = scoped.filter(r=>r.status==="Skipped").length;
+  const resolvedCount = completedCount + skippedCount;
+  const completionRate = resolvedCount>0 ? completedCount/resolvedCount : null;
+
+  // ── Breakdown by Cadence Name ────────────────────────────────────────────
+  const byCadenceName = {};
+  scoped.forEach(r => {
+    const key = r.cadenceName || "Unspecified";
+    if (!byCadenceName[key]) byCadenceName[key] = {completed:0, skipped:0, open:0};
+    if (r.status==="Completed") byCadenceName[key].completed++;
+    else if (r.status==="Skipped") byCadenceName[key].skipped++;
+    else if (r.status==="Open") byCadenceName[key].open++;
+  });
+
+  // ── Per-CSM table ────────────────────────────────────────────────────────
+  const byCsm = {};
+  scoped.forEach(r => {
+    if (!byCsm[r.csm]) byCsm[r.csm] = {due:0, completed:0, open:0, overdue:0, skipped:0};
+    const g = byCsm[r.csm];
+    if (r.status==="Open") { g.open++; g.due++; if (r.overdue) g.overdue++; }
+    if (r.status==="Completed") g.completed++;
+    if (r.status==="Skipped") g.skipped++;
+  });
+  const csmRows = Object.entries(byCsm).map(([csm,g]) => {
+    const resolved = g.completed+g.skipped;
+    return {csm, ...g, rate: resolved>0 ? g.completed/resolved : null};
+  });
+  const sortedCsmRows = [...csmRows].sort((a,b) => {
+    const av = a[sortCol], bv = b[sortCol];
+    let cmp = typeof av==="number" ? av-bv : String(av||"").toLowerCase().localeCompare(String(bv||"").toLowerCase());
+    return sortDir==="asc" ? cmp : -cmp;
+  });
+  const onSort = col => { if (sortCol===col) setSortDir(d=>d==="asc"?"desc":"asc"); else { setSortCol(col); setSortDir("asc"); } };
+
+  // ── Touchpoint list — actionable-only by default (Open, overdue-first) ──
+  const listRows = (showAllStatuses ? scoped : scoped.filter(r=>r.status==="Open"))
+    .filter(r => !statusFilter || (statusFilter==="Overdue" ? (r.status==="Open"&&r.overdue) : r.status===statusFilter))
+    .sort((a,b) => {
+      if (a.overdue !== b.overdue) return a.overdue ? -1 : 1;
+      return (a.due?.getTime()||0) - (b.due?.getTime()||0);
+    });
+  const matchedCount = listRows.filter(r=>r.acctInfo).length;
+
+  const S = {
+    card:{background:"#fff",borderRadius:12,padding:"18px 22px",boxShadow:"0 1px 4px rgba(41,53,93,.07)",marginBottom:14},
+    tile:{background:"rgba(41,53,93,.04)",borderRadius:8,padding:"12px 14px"},
+    th:{padding:"8px 10px",fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,letterSpacing:"0.04em",borderBottom:"0.5px solid rgba(41,53,93,.08)",whiteSpace:"nowrap",cursor:"pointer"},
+    td:{padding:"8px 10px",borderBottom:"0.5px solid rgba(41,53,93,.05)",color:"#29355D",verticalAlign:"middle"},
+  };
+  const sortArrow = col => sortCol===col ? (sortDir==="asc"?" ↑":" ↓") : "";
+
+  return (
+    <div style={{maxWidth:1200,margin:"0 auto"}}>
+      <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:16,flexWrap:"wrap",gap:8}}>
+        <div>
+          <div style={{fontSize:20,fontWeight:700,color:"#29355D",marginBottom:2}}>📅 Cadence</div>
+          <div style={{fontSize:13,color:"#808080"}}>{periodLabel} · {total} touchpoint{total===1?"":"s"} in scope</div>
+        </div>
+        <div style={{display:"flex",gap:6}}>
+          {[["today","Today"],["this_week","This week"],["next_week","Next week"],["last_week","Last week"],["all","All"]].map(([v,l])=>(
+            <button key={v} onClick={()=>setPeriodFilter(v)}
+              style={{padding:"4px 14px",borderRadius:20,fontSize:13,fontWeight:500,cursor:"pointer",
+                border:"0.5px solid "+(periodFilter===v?"#29355D":"rgba(41,53,93,.2)"),
+                background:periodFilter===v?"#29355D":"#fff",color:periodFilter===v?"#fff":"#808080"}}>
+              {l}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* KPI tiles */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(6,minmax(0,1fr))",gap:10,marginBottom:14}}>
+        {[
+          {l:"Total",     v:total, sub:periodLabel, col:"#29355D"},
+          {l:"Due (Open)",v:dueCount, sub:"currently open", col:"#5378FC"},
+          {l:"Completed", v:completedCount, sub:"resolved", col:"#16a34a"},
+          {l:"🚨 Overdue",v:overdueCount, sub:"open + past due", col:"#dc2626"},
+          {l:"Skipped",   v:skippedCount, sub:"", col:"#d97706"},
+          {l:"Completion rate", v:completionRate!=null?Math.round(completionRate*100)+"%":"--", sub:"of resolved", col:"#29355D"},
+        ].map(t=>(
+          <div key={t.l} style={S.tile}>
+            <div style={{fontSize:12,color:"#808080",marginBottom:4}}>{t.l}</div>
+            <div style={{fontSize:22,fontWeight:700,color:t.col,lineHeight:1,marginBottom:3}}>{t.v}</div>
+            <div style={{fontSize:11,color:"#aaa"}}>{t.sub}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Overdue callout */}
+      {overdueCount>0 && (
+        <div style={{background:"rgba(220,38,38,.06)",border:"0.5px solid rgba(220,38,38,.35)",borderRadius:12,padding:"14px 20px",marginBottom:14}}>
+          <div style={{fontSize:14,fontWeight:700,color:"#7f1d1d"}}>🚨 {overdueCount} touchpoint{overdueCount===1?"":"s"} past due</div>
+          <div style={{fontSize:12,color:"#991b1b",marginTop:2}}>Filter the list below to "Overdue" to see exactly which accounts need attention first.</div>
+        </div>
+      )}
+
+      {/* Breakdown by Cadence Name */}
+      {Object.keys(byCadenceName).length>0 && (
+        <div style={S.card}>
+          <div style={{fontSize:13,fontWeight:600,color:"#29355D",marginBottom:14}}>Completion rate by cadence — {periodLabel}</div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:12}}>
+            {Object.entries(byCadenceName).sort((a,b)=>(b[1].completed+b[1].open+b[1].skipped)-(a[1].completed+a[1].open+a[1].skipped)).map(([name,d])=>{
+              const resolved = d.completed+d.skipped;
+              const rate = resolved>0 ? d.completed/resolved : 0;
+              const col = rate>=0.85?"#16a34a":rate>=0.70?"#d97706":"#dc2626";
+              return (
+                <div key={name} style={{padding:"10px 12px",borderRadius:8,border:"0.5px solid rgba(41,53,93,.1)"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}>
+                    <span style={{fontSize:12,fontWeight:500,color:"#29355D"}}>{name}</span>
+                    <span style={{fontSize:12,fontWeight:600,color:col}}>{resolved>0?Math.round(rate*100)+"%":"--"}</span>
+                  </div>
+                  <div style={{height:5,background:"rgba(0,0,0,.08)",borderRadius:3,marginBottom:5,overflow:"hidden"}}>
+                    <div style={{width:(rate*100).toFixed(1)+"%",height:"100%",background:col,borderRadius:3}}/>
+                  </div>
+                  <div style={{fontSize:12,color:"#808080"}}>{d.completed} completed · {d.open} open · {d.skipped} skipped</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Per-CSM table */}
+      <div style={S.card}>
+        <div style={{fontSize:13,fontWeight:600,color:"#29355D",marginBottom:14}}>CSM cadence performance — {periodLabel}</div>
+        <div style={{overflowX:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:700}}>
+            <thead>
+              <tr>
+                <th style={{...S.th,textAlign:"left"}} onClick={()=>onSort("csm")}>CSM{sortArrow("csm")}</th>
+                <th style={{...S.th,textAlign:"right"}} onClick={()=>onSort("due")}>Due{sortArrow("due")}</th>
+                <th style={{...S.th,textAlign:"right"}} onClick={()=>onSort("completed")}>Completed{sortArrow("completed")}</th>
+                <th style={{...S.th,textAlign:"right"}} onClick={()=>onSort("open")}>Open{sortArrow("open")}</th>
+                <th style={{...S.th,textAlign:"right",color:"#dc2626"}} onClick={()=>onSort("overdue")}>Overdue{sortArrow("overdue")}</th>
+                <th style={{...S.th,textAlign:"right"}} onClick={()=>onSort("skipped")}>Skipped{sortArrow("skipped")}</th>
+                <th style={{...S.th,textAlign:"right"}} onClick={()=>onSort("rate")}>Completion Rate{sortArrow("rate")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sortedCsmRows.map(r=>(
+                <tr key={r.csm}>
+                  <td style={{...S.td,textAlign:"left",fontWeight:600}}>{dispName(r.csm)}</td>
+                  <td style={{...S.td,textAlign:"right"}}>{r.due}</td>
+                  <td style={{...S.td,textAlign:"right",color:"#16a34a"}}>{r.completed}</td>
+                  <td style={{...S.td,textAlign:"right"}}>{r.open}</td>
+                  <td style={{...S.td,textAlign:"right",color:r.overdue>0?"#dc2626":"#aaa",fontWeight:r.overdue>0?600:400}}>{r.overdue}</td>
+                  <td style={{...S.td,textAlign:"right",color:"#d97706"}}>{r.skipped}</td>
+                  <td style={{...S.td,textAlign:"right",fontWeight:600}}>{r.rate!=null?Math.round(r.rate*100)+"%":"--"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Touchpoint list with account details */}
+      <div style={S.card}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10,marginBottom:4}}>
+          <div style={{fontSize:13,fontWeight:600,color:"#29355D"}}>
+            {showAllStatuses?"All touchpoints":"Actionable touchpoints (Open)"} with account details — {periodLabel}
+          </div>
+          <div style={{display:"flex",gap:6,alignItems:"center"}}>
+            <select value={statusFilter} onChange={e=>setStatusFilter(e.target.value)}
+              style={{padding:"4px 10px",borderRadius:20,fontSize:12,fontWeight:500,cursor:"pointer",border:"0.5px solid rgba(41,53,93,.2)",background:"#fff",color:"#29355D"}}>
+              <option value="">All statuses</option>
+              <option value="Open">Open</option>
+              <option value="Overdue">Overdue only</option>
+              <option value="Completed">Completed</option>
+              <option value="Skipped">Skipped</option>
+            </select>
+            <button onClick={()=>setShowAllStatuses(s=>!s)}
+              style={{padding:"4px 12px",borderRadius:20,fontSize:12,fontWeight:600,cursor:"pointer",
+                border:"0.5px solid "+(showAllStatuses?"#29355D":"rgba(41,53,93,.2)"),
+                background:showAllStatuses?"#29355D":"#fff",color:showAllStatuses?"#fff":"#808080"}}>
+              {showAllStatuses?"Showing all":"Actionable only"}
+            </button>
+          </div>
+        </div>
+        <div style={{fontSize:11,color:"#aaa",marginBottom:12}}>
+          Matched by account name against Current SaaS Revenue — company names can differ slightly between systems, so not every touchpoint will find a match. {listRows.length>0 && <>{matchedCount} of {listRows.length} matched.</>}
+        </div>
+        <div style={{overflowX:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:900}}>
+            <thead>
+              <tr>
+                {["Due","CSM","Account","EID","Current Revenue","Touchpoint","Cadence","Status"].map(h=>(
+                  <th key={h} style={{...S.th,textAlign:h==="Current Revenue"?"right":"left"}}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {listRows.slice(0,200).map((r,i)=>(
+                <tr key={i} style={r.overdue?{background:"rgba(220,38,38,.05)"}:undefined}>
+                  <td style={S.td}>
+                    {r.due?r.due.toLocaleDateString("en-US",{month:"short",day:"numeric"}):"—"}
+                    {r.overdue && <span style={{marginLeft:6,fontSize:10,fontWeight:700,padding:"1px 6px",borderRadius:20,background:"#dc2626",color:"#fff"}}>OVERDUE</span>}
+                  </td>
+                  <td style={{...S.td,fontWeight:600}}>{dispName(r.csm)}</td>
+                  <td style={{...S.td,color:r.acctInfo?"#29355D":"#aaa"}}>{r.acctInfo?r.acctInfo.account:r.account}</td>
+                  <td style={{...S.td,fontFamily:"monospace",fontSize:11,color:"#808080"}}>{r.acctInfo?r.acctInfo.eid:"—"}</td>
+                  <td style={{...S.td,textAlign:"right"}}>{r.acctInfo?(r.acctInfo.currency||"$")+r.acctInfo.revenue.toLocaleString("en-US",{maximumFractionDigits:0}):"—"}</td>
+                  <td style={S.td}>{r.touchpoint}</td>
+                  <td style={{...S.td,fontSize:11,color:"#808080"}}>{r.cadenceName}</td>
+                  <td style={S.td}>{r.status}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {listRows.length>200 && <div style={{fontSize:11,color:"#aaa",marginTop:8,textAlign:"center"}}>Showing first 200 of {listRows.length}.</div>}
+          {listRows.length===0 && <div style={{fontSize:12,color:"#aaa",textAlign:"center",padding:"16px 0"}}>Nothing to show for this filter combination.</div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 
 export default 
 function App() {
@@ -17193,7 +17483,7 @@ My question: ${aiCustom}`,
     setUserSession(user);
     // Check for deep link tab param (e.g. ?tab=digest from email)
     const _urlTab = new URLSearchParams(window.location.search).get("tab");
-    const _validTabs = ["coaching","digest","revenue","bob","leaderboard","calls","cers","trends","mydash","capacity"];
+    const _validTabs = ["coaching","digest","revenue","bob","leaderboard","calls","cers","trends","mydash","capacity","fi","cadence"];
     if (_urlTab && _validTabs.includes(_urlTab)) setTab(_urlTab);
     else setTab("coaching");
     // Auto-filter to this CSM if role=csm
@@ -17253,10 +17543,10 @@ My question: ${aiCustom}`,
           </div>
         </div>
         <div style={{display:"flex",alignItems:"stretch",padding:"0 24px"}}>
-          {["coaching","digest","revenue","bob","leaderboard","calls","cers","trends","mydash",...(userSession.role==="master"?["capacity"]:[]),...(canSeeSCC?["scc"]:[]),"fi"].filter(t=>!isCsmView||["mydash","leaderboard","calls","fi","bob"].includes(t)).map(t=>(
+          {["coaching","digest","revenue","bob","leaderboard","calls","cers","trends","mydash",...(userSession.role==="master"?["capacity"]:[]),...(canSeeSCC?["scc"]:[]),"fi","cadence"].filter(t=>!isCsmView||["mydash","leaderboard","calls","fi","bob","cadence"].includes(t)).map(t=>(
             <button key={t} onClick={()=>setTab(t)}
               style={{padding:"10px 18px",fontSize:13,fontWeight:500,color:tab===t?"#fff":"rgba(255,255,255,.55)",background:"transparent",border:"none",cursor:"pointer",borderBottom:tab===t?"3px solid #FF5000":"3px solid transparent",whiteSpace:"nowrap"}}>
-              {t==="mydash"?"🏠 My Dashboard":t==="coaching"?"Coaching":t==="digest"?"📋 Daily Digest":t==="trends"?"📈 Trends":t==="calls"?"📞 Calls":t==="cers"?"📋 CERs":t==="revenue"?"💰 Revenue":t==="bob"?"📋 Book of Business":t==="capacity"?"⚡ Capacity":t==="scc"?"✍️ Strategic Content":t==="fi"?"📋 Fulfillment Items":t.charAt(0).toUpperCase()+t.slice(1)}
+              {t==="mydash"?"🏠 My Dashboard":t==="coaching"?"Coaching":t==="digest"?"📋 Daily Digest":t==="trends"?"📈 Trends":t==="calls"?"📞 Calls":t==="cers"?"📋 CERs":t==="revenue"?"💰 Revenue":t==="bob"?"📋 Book of Business":t==="capacity"?"⚡ Capacity":t==="scc"?"✍️ Strategic Content":t==="fi"?"📋 Fulfillment Items":t==="cadence"?"📅 Cadence":t.charAt(0).toUpperCase()+t.slice(1)}
             </button>
           ))}
         </div>
@@ -17343,6 +17633,7 @@ My question: ${aiCustom}`,
           {tab==="capacity"&&userSession.role==="master"&&<CapacityView csms={csms} callData={callData} callRaw={callRaw} cadenceFull={cadenceFull} domoBoq={domoBoq} filterCoach={filterCoach} filterCSM={filterCSM}/>}
           {tab==="scc"&&canSeeSCC&&<SCCView rows={sccChurn}/>}
           {tab==="fi"&&<FulfillmentView filterCoach={filterCoach} filterCSM={filterCSM} rows={fiRows}/>}
+          {tab==="cadence"&&<CadenceView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches} cadenceFull={cadenceFull} acctNameToAcct={acctNameToAcct}/>}
           {tab==="mydash"&&<MyDashboard csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} churnAlerts={churnAlerts} qamc={qamc||[]} qass={qass||[]} domoBoq={domoBoq||[]} q3BobCur={q3BobCur||[]} q3Supp={q3Supp||[]} rawRev={rawRev||[]} cadenceFull={cadenceFull||[]} onNavigate={setTab} onSetTrendsTab={setTrendsTab} onSetBobTab={setBobTab} cerAssigned={cerAssigned} cerCompleted={cerCompleted} fiRows={fiRows} sfBobRows={sfBobSource}/>}
         </div>
       )}
