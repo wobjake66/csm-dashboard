@@ -1645,12 +1645,14 @@ function CSMDetail({csm: csmRaw, onClear, bobRaw, mcChurn, bcChurn, liveBobDet={
           {csm.skippedFourthCount>0&&<span style={{fontSize:12,fontWeight:600,padding:"2px 8px",borderRadius:20,background:"rgba(220,38,38,.15)",color:"#991b1b"}}>🚩 {csm.skippedFourthCount} × 4th reschedule</span>}
         </div>
         <div style={{display:"flex",flexDirection:"column",gap:6}}>
-          {(csm.skippedAccts||[]).map((a,i)=>(
+          {(csm.skippedAccts||[]).map((a,i)=>{
+            const acctInfo = acctNameToAcct[normAcctName(a.n)] || null;
+            return (
             <div key={i} style={{borderRadius:8,padding:"8px 12px",
               background:a.is4th?"rgba(127,29,29,.04)":"rgba(217,119,6,.04)",
               border:`0.5px solid ${a.is4th?"rgba(127,29,29,.18)":"rgba(217,119,6,.22)"}`,
               borderLeft:`3px solid ${a.is4th?"#7f1d1d":"#d97706"}`}}>
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:a.note?4:0}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:(a.note||acctInfo)?4:0}}>
                 <span style={{fontSize:12,fontWeight:500,color:a.is4th?"#7f1d1d":"#92400e"}}>
                   {a.is4th&&"🚩 "}{a.n}
                 </span>
@@ -1659,8 +1661,14 @@ function CSMDetail({csm: csmRaw, onClear, bobRaw, mcChurn, bcChurn, liveBobDet={
                   color:a.is4th?"#7f1d1d":"#92400e"}}>{a.outcome}</span>}
               </div>
               {a.note&&<div style={{fontSize:13,color:"#808080",fontStyle:"italic"}}>"{a.note}"</div>}
+              {acctInfo && <div style={{fontSize:11,color:"#808080",marginTop:2}}>
+                {acctInfo.eid && <span style={{fontFamily:"monospace"}}>{acctInfo.eid}</span>}
+                {acctInfo.eid && " · "}
+                {(acctInfo.currency||"$")}{acctInfo.revenue.toLocaleString("en-US",{maximumFractionDigits:0})} current revenue
+              </div>}
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>}
 
@@ -1863,7 +1871,7 @@ function PeriodPicker({value, onChange, customFrom, customTo, onFromChange, onTo
 }
 
 // ── COACHING TAB ───────────────────────────────────────────────────────────
-function CoachingView({csms, coach, onSelectCSM, onSelectCoach, onClear, skippedCSMs, bobRaw, mcChurn, bcChurn, liveBobDet={}, isCsmView=false, bobAdj={}, history=[], callData={}, sfBobByCsm={}}) {
+function CoachingView({csms, coach, onSelectCSM, onSelectCoach, onClear, skippedCSMs, bobRaw, mcChurn, bcChurn, liveBobDet={}, isCsmView=false, bobAdj={}, history=[], callData={}, sfBobByCsm={}, acctNameToAcct={}}) {
   const [dateFilter, setDateFilter] = React.useState("last_week");
   const [customFrom, setCustomFrom] = React.useState("");
   const [customTo,   setCustomTo]   = React.useState("");
@@ -2846,7 +2854,7 @@ function LeaderboardView({csms, allCsms, bobRaw, history=[], q2DomoBoq=[], domoB
   );
 }
 // ── TRENDS VIEW ────────────────────────────────────────────────────────────
-function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}, qass={}, trendsTab="performance", setTrendsTab=()=>{}, hideSubTabs=false}) {
+function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}, qass={}, trendsTab="performance", setTrendsTab=()=>{}, hideSubTabs=false, callRaw=[], emailToAcct={}}) {
   const [metric, setMetric] = useState("otPct");
   const [view,   setView]         = useState("team"); // "team" | "csm"
   const [callDateFilter, setCallDateFilter] = useState("all");
@@ -3851,6 +3859,79 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
                 </tbody>
               </table>
             </div>
+
+            {/* Recent Calls — with account details, joined by Client Email against Current SaaS Revenue */}
+            {(() => {
+              const dayBoundsFor = k => ({
+                today: [todayStart, todayEnd], yesterday: [yestStart, yestEnd], tomorrow: [tmrwStart, tmrwEnd],
+                this_week: [thisWeekMon, thisWeekSun], next_week: [nextWeekMon, nextWeekSun], last_week: [lastWeekMon, lastWeekSun],
+                last_month: [lastMonthStart, lastMonthEnd], last_quarter: [lastQStart, lastQEnd],
+              }[k]);
+              const bounds = callDateFilter==="custom" && callCustomFrom && callCustomTo
+                ? [toDate(callCustomFrom), (()=>{const e=toDate(callCustomTo);e.setHours(23,59,59,999);return e;})()]
+                : dayBoundsFor(callDateFilter);
+
+              const rows = (callRaw||[]).map(r => {
+                const apptTime = String(r["Appointment Time"]||r["appointment_time"]||"").trim();
+                const staffRaw = String(r["Staff Name"]||r["Staff"]||"").trim();
+                const email    = String(r["Client Email"]||r["email"]||"").toLowerCase().trim();
+                const svc      = String(r["Service Name"]||r["Service"]||r["Appointment Type"]||"").trim();
+                const status   = String(r["Appointment Status"]||r["Status"]||"").trim();
+                if (!staffRaw || !apptTime) return null;
+                const csm = norm(staffRaw) || staffRaw;
+                if (filterCSM && csm !== filterCSM) return null;
+                const i = lk(csm);
+                if (filterCoach && (!i || i.c!==filterCoach)) return null;
+                const d = new Date(apptTime);
+                if (isNaN(d)) return null;
+                if (bounds && (d < bounds[0] || d > bounds[1])) return null;
+                const acctInfo = email ? emailToAcct[email] : null;
+                return {apptTime:d, csm, email, svc:normalizeService(svc)||svc||"Other", status, acctInfo};
+              }).filter(Boolean).sort((a,b)=>b.apptTime-a.apptTime);
+
+              if (rows.length===0) return null;
+              const matched = rows.filter(r=>r.acctInfo).length;
+
+              return (
+                <div style={{...S.card, marginTop:16}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+                    <div style={{fontSize:13,textTransform:"uppercase",color:"#808080",fontWeight:500}}>
+                      Recent calls with account details — {curLabel||lastCW}
+                    </div>
+                    <div style={{fontSize:12,color:"#808080"}}>{matched} of {rows.length} matched to an account</div>
+                  </div>
+                  <div style={{fontSize:11,color:"#aaa",marginBottom:12}}>
+                    Matched by Client Email against Current SaaS Revenue's primary contact — a call booked under a different contact at the same company won't match.
+                  </div>
+                  <div style={{overflowX:"auto"}}>
+                    <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+                      <thead>
+                        <tr>
+                          {["Date","CSM","Client Email","Account","EID","Current Revenue","Service","Status"].map(h=>(
+                            <th key={h} style={{padding:"6px 10px",textAlign:h==="Current Revenue"?"right":"left",fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)",whiteSpace:"nowrap"}}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rows.slice(0,200).map((r,i)=>(
+                          <tr key={i} style={{borderBottom:"0.5px solid rgba(41,53,93,.05)"}}>
+                            <td style={{padding:"6px 10px",color:"#29355D",whiteSpace:"nowrap"}}>{r.apptTime.toLocaleDateString("en-US",{month:"short",day:"numeric"})}</td>
+                            <td style={{padding:"6px 10px",color:"#29355D",fontWeight:500}}>{dispName(r.csm)}</td>
+                            <td style={{padding:"6px 10px",color:"#808080"}}>{r.email||"—"}</td>
+                            <td style={{padding:"6px 10px",color:r.acctInfo?"#29355D":"#aaa",fontWeight:r.acctInfo?500:400}}>{r.acctInfo?r.acctInfo.account:"No match"}</td>
+                            <td style={{padding:"6px 10px",color:"#808080",fontFamily:"monospace",fontSize:11}}>{r.acctInfo?r.acctInfo.eid:"—"}</td>
+                            <td style={{padding:"6px 10px",textAlign:"right",color:"#29355D"}}>{r.acctInfo?(r.acctInfo.currency||"$")+r.acctInfo.revenue.toLocaleString("en-US",{maximumFractionDigits:0}):"—"}</td>
+                            <td style={{padding:"6px 10px",color:"#808080"}}>{r.svc}</td>
+                            <td style={{padding:"6px 10px",color:"#808080"}}>{r.status||"—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {rows.length>200 && <div style={{fontSize:11,color:"#aaa",marginTop:8,textAlign:"center"}}>Showing first 200 of {rows.length} calls in this period.</div>}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         );
       })()}
@@ -16283,6 +16364,59 @@ function summarizeSFBobByCsm(sfBobRows) {
   return byCsm;
 }
 
+// ── Account-detail lookups, built from the Current SaaS Revenue export ─────
+// Two different join keys because Calls and Cadence touchpoints don't carry
+// the same identifying information:
+//   - Calls carry a real Client Email — a genuine shared key, so this join is
+//     reliable. One real gap: Current SaaS Revenue lists exactly one email
+//     per account (the primary contact), so a call booked under a second
+//     contact's email at the same company won't match even though it's the
+//     same account.
+//   - Cadence touchpoints only carry a plain account NAME string — no EID, no
+//     email. This join can only be a normalized-name match, which is exactly
+//     the class of bug (LLC vs L.L.C., punctuation, abbreviations, DBA vs
+//     legal name) this app has hit repeatedly for company names. Treat any
+//     match here as "probably right," not "definitely right."
+const normAcctName = s => String(s||"").toLowerCase().trim()
+  .replace(/[.,'"]/g, "")
+  .replace(/\b(llc|inc|corp|co|ltd|the)\b/g, "")
+  .replace(/\s+/g, " ")
+  .trim();
+
+function buildEmailToAccountMap(curRows) {
+  const map = {};
+  (curRows||[]).forEach(r => {
+    const email = String(r["Email"]||"").toLowerCase().trim();
+    if (!email) return;
+    map[email] = {
+      account: String(r["Account Name"]||"").trim(),
+      eid: String(r["Enterprise Id"]||r["Enterprise ID"]||"").trim().toUpperCase(),
+      csm: String(r["Client Success Manager"]||"").trim(),
+      revenue: parseFloat(String(r["SaaS Revenue"]||"0").replace(/[^0-9.\-]/g,""))||0,
+      currency: String(r["SaaS Revenue Currency"]||"").trim(),
+    };
+  });
+  return map;
+}
+
+function buildAcctNameToAccountMap(curRows) {
+  const map = {};
+  (curRows||[]).forEach(r => {
+    const acctName = String(r["Account Name"]||"").trim();
+    if (!acctName) return;
+    const key = normAcctName(acctName);
+    if (!key) return;
+    map[key] = {
+      account: acctName,
+      eid: String(r["Enterprise Id"]||r["Enterprise ID"]||"").trim().toUpperCase(),
+      csm: String(r["Client Success Manager"]||"").trim(),
+      revenue: parseFloat(String(r["SaaS Revenue"]||"0").replace(/[^0-9.\-]/g,""))||0,
+      currency: String(r["SaaS Revenue Currency"]||"").trim(),
+    };
+  });
+  return map;
+}
+
 
 
 // An FI is flagged urgent if it's been sitting in its Current Function longer
@@ -16530,6 +16664,9 @@ function App() {
   const [sccChurn, setSccChurn] = useState([]); // Strategic Content Creation churn log — live once CSV_SCC_CHURN is wired to the published sheet
   const [fiRows, setFiRows] = useState([]); // Fulfillment Items — live from CSV_FI ("FIs Needing Action" sheet)
   const [sfBobLive, setSfBobLive] = useState([]); // Q3 SF-based BoB — live join of CSV_Q3_SF_BOQ + CSV_Q3_SF_CURRENT
+  const [sfCurRaw, setSfCurRaw] = useState([]); // raw Current SaaS Revenue rows — kept for the Calls (by email) and Cadence (by account name) account-detail lookups
+  const emailToAcct = React.useMemo(() => buildEmailToAccountMap(sfCurRaw), [sfCurRaw]);
+  const acctNameToAcct = React.useMemo(() => buildAcctNameToAccountMap(sfCurRaw), [sfCurRaw]);
   // Falls back to the static pre-build snapshot until the live join returns data —
   // same isLive pattern used everywhere else (SCC, FI), so every consumer below
   // (Leaderboard, Coaching, Digest, My Dashboard, AI Coach) degrades gracefully.
@@ -16642,6 +16779,7 @@ function App() {
         try { setSccChurn(mapSCCChurn(sccChurnRows||[])); } catch(e) { console.error("mapSCCChurn failed:", e); setSccChurn([]); }
         try { setFiRows(mapFI(fiRawRows||[])); } catch(e) { console.error("mapFI failed:", e); setFiRows([]); }
         try { setSfBobLive(buildSFBobRows(sfBoqRows||[], sfCurRows||[])); } catch(e) { console.error("buildSFBobRows failed:", e); setSfBobLive([]); }
+        setSfCurRaw(sfCurRows||[]);
         latestBob         = bobRows;
         latestBobDet      = bobDetRows||[];
         latestBobAdj      = bobAdjRows||[];
@@ -17189,7 +17327,7 @@ My question: ${aiCustom}`,
       )}
       {hasData&&(
         <div style={{padding:"20px 24px",zoom:fontScale}}>
-          {tab==="coaching"&&<CoachingView csms={filteredCSMs} coach={filterCoach} onSelectCSM={selectCSMFn} onSelectCoach={e=>{setFilterCoach(e);setFilterCSM("");}} onClear={()=>{setFilterCoach("");setFilterCSM("");}} skippedCSMs={skippedCSMs.filter(c=>{const i=lk(c.name);if(managerCoaches&&!(i&&managerCoaches.includes(i.c)))return false;if(filterCoach&&(i&&i.c)!==filterCoach)return false;if(filterCSM&&c.name!==filterCSM)return false;return true;})} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} liveBobDet={liveBobDet} isCsmView={isCsmView} bobAdj={bobAdj} history={history} callData={callData} sfBobByCsm={sfBobByCsm}/>}
+          {tab==="coaching"&&<CoachingView csms={filteredCSMs} coach={filterCoach} onSelectCSM={selectCSMFn} onSelectCoach={e=>{setFilterCoach(e);setFilterCSM("");}} onClear={()=>{setFilterCoach("");setFilterCSM("");}} skippedCSMs={skippedCSMs.filter(c=>{const i=lk(c.name);if(managerCoaches&&!(i&&managerCoaches.includes(i.c)))return false;if(filterCoach&&(i&&i.c)!==filterCoach)return false;if(filterCSM&&c.name!==filterCSM)return false;return true;})} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} liveBobDet={liveBobDet} isCsmView={isCsmView} bobAdj={bobAdj} history={history} callData={callData} sfBobByCsm={sfBobByCsm} acctNameToAcct={acctNameToAcct}/>}
           {tab==="digest"&&<DigestView csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM}
             isCsmView={isCsmView} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn}
             liveBobDet={liveBobDet} callData={callData} qamc={qamc} qass={qass} history={history}
@@ -17199,9 +17337,9 @@ My question: ${aiCustom}`,
           
           {tab==="revenue"&&<RevenueView rawRev={rawRev} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches}/>}
           {tab==="bob"&&<BobView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} churnAlerts={churnAlerts} onSelectCSM={selectCSMFn} liveBobDet={liveBobDet} bobAdj={bobAdj} q3BobCur={q3BobCur} domoBoq={domoBoq} q3Supp={q3Supp} q2DomoBoq={q2DomoBoq} bobTab={bobTab} setBobTab={setBobTab} sfBobRows={sfBobLive}/>}
-          {tab==="trends"&&<TrendsView history={history} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} qamc={qamc} qass={qass} trendsTab={trendsTab} setTrendsTab={setTrendsTab}/>}
+          {tab==="trends"&&<TrendsView history={history} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} qamc={qamc} qass={qass} trendsTab={trendsTab} setTrendsTab={setTrendsTab} callRaw={callRaw} emailToAcct={emailToAcct}/>}
           {tab==="cers"&&<CERView cerAssigned={cerAssigned} filterCoach={filterCoach} filterCSM={filterCSM}/>}
-          {tab==="calls"&&<TrendsView history={history} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} qamc={qamc} qass={qass} trendsTab="calls" setTrendsTab={()=>{}} hideSubTabs={true}/>}
+          {tab==="calls"&&<TrendsView history={history} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} qamc={qamc} qass={qass} trendsTab="calls" setTrendsTab={()=>{}} hideSubTabs={true} callRaw={callRaw} emailToAcct={emailToAcct}/>}
           {tab==="capacity"&&userSession.role==="master"&&<CapacityView csms={csms} callData={callData} callRaw={callRaw} cadenceFull={cadenceFull} domoBoq={domoBoq} filterCoach={filterCoach} filterCSM={filterCSM}/>}
           {tab==="scc"&&canSeeSCC&&<SCCView rows={sccChurn}/>}
           {tab==="fi"&&<FulfillmentView filterCoach={filterCoach} filterCSM={filterCSM} rows={fiRows}/>}
