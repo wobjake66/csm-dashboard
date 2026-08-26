@@ -3871,6 +3871,13 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
                 ? [toDate(callCustomFrom), (()=>{const e=toDate(callCustomTo);e.setHours(23,59,59,999);return e;})()]
                 : dayBoundsFor(callDateFilter);
 
+              // Dedup: same key mapCalls already uses for the aggregate stats
+              // above (apptTime|email|service) — this raw list was bypassing
+              // that entirely, so duplicate rows in the export (the same
+              // booking pulled into the sheet more than once) showed up as
+              // literal duplicate list entries even though the aggregate
+              // tiles/table were already deduped correctly.
+              const seenBooking = new Set();
               const rows = (callRaw||[]).map(r => {
                 const apptTime = String(r["Appointment Time"]||r["appointment_time"]||"").trim();
                 const staffRaw = String(r["Staff Name"]||r["Staff"]||"").trim();
@@ -3878,6 +3885,9 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
                 const svc      = String(r["Service Name"]||r["Service"]||r["Appointment Type"]||"").trim();
                 const status   = String(r["Appointment Status"]||r["Status"]||"").trim();
                 if (!staffRaw || !apptTime) return null;
+                const dedupKey = [apptTime, email, svc].join("|");
+                if (seenBooking.has(dedupKey)) return null;
+                seenBooking.add(dedupKey);
                 const csm = norm(staffRaw) || staffRaw;
                 if (filterCSM && csm !== filterCSM) return null;
                 if (callSelectedCSM && csm !== callSelectedCSM && norm(csm) !== callSelectedCSM) return null;
@@ -16657,6 +16667,12 @@ function CadenceView({filterCoach="", filterCSM="", managerCoaches=null, cadence
   }[periodFilter];
 
   // ── Parse + scope ──────────────────────────────────────────────────────
+  // Dedup: this export can accumulate literal duplicate rows (the same real
+  // touchpoint pulled into the sheet more than once across appended
+  // exports) — same failure mode mapCalls already guards against for
+  // bookings. Two rows count as the same touchpoint if CSM, Account,
+  // Touchpoint Name, Due Date/Time, and Status all match exactly.
+  const seenTouchpoint = new Set();
   const rows = (cadenceFull||[]).map(r => {
     const assigned = String(r["Cadence Member: Assigned"]||"").trim();
     const account  = String(r["Cadence Member: Account"]||"").trim();
@@ -16669,11 +16685,15 @@ function CadenceView({filterCoach="", filterCSM="", managerCoaches=null, cadence
     const due = new Date(r["Due Date/Time"]);
     const status = String(r["Status"]||"").trim();
     const overdue = String(r["Overdue"]||"").trim()==="1";
+    const touchpoint = String(r["Touchpoint: Touchpoint Name"]||"").trim();
+    const cadenceName = String(r["Cadence Member: Cadence Name"]||"").trim();
+    const dedupKey = [csm, account, touchpoint, r["Due Date/Time"], status, cadenceName].join("|");
+    if (seenTouchpoint.has(dedupKey)) return null;
+    seenTouchpoint.add(dedupKey);
     return {
-      csm, account, due: isNaN(due)?null:due, status, overdue,
-      touchpoint: String(r["Touchpoint: Touchpoint Name"]||"").trim(),
+      csm, account, due: isNaN(due)?null:due, status, overdue, touchpoint,
       recordType: String(r["Touchpoint: Record Type"]||"").trim(),
-      cadenceName: String(r["Cadence Member: Cadence Name"]||"").trim(),
+      cadenceName,
       acctInfo: acctNameToAcct[normAcctName(account)] || null,
     };
   }).filter(Boolean);
