@@ -151,10 +151,12 @@ const NAME_NORM = {
   "adam murphy":"Adam Murphy",
   "tyler grant":"Tyler Grant",
   "marco tovar":"Marco Tovar",
-  "amber lawson":"Amber Lawson",
   "alvin cole":"Alvin Cole",
   "matthew reedy":"Matthew Reedy",
   "jennifer koly":"Jennifer Koly",
+  "kim mcdonald":"Kim Mcdonald",
+  "jake taylor":"Jake Taylor",
+  "benjamin sypher":"Benjamin Sypher",
 };
 
 const ROSTER = {
@@ -223,10 +225,12 @@ const ROSTER = {
   "adam murphy":{c:"newell.godwin@thryv.com",t:"The Newell Order",r:"CSMII",reg:"US"},
   "tyler grant":{c:"newell.godwin@thryv.com",t:"The Newell Order",r:"CSMII",reg:"US"},
   "marco tovar":{c:"newell.godwin@thryv.com",t:"The Newell Order",r:"CSMII",reg:"US"},
-  "amber lawson":{c:"newell.godwin@thryv.com",t:"The Newell Order",r:"CSMII",reg:"US"},
   "alvin cole":{c:"newell.godwin@thryv.com",t:"The Newell Order",r:"CSMII",reg:"US"},
   "matthew reedy":{c:"newell.godwin@thryv.com",t:"The Newell Order",r:"CSMII",reg:"US"},
   "jennifer koly":{c:"newell.godwin@thryv.com",t:"The Newell Order",r:"CSMII",reg:"US"},
+  "kim mcdonald":{c:"newell.godwin@thryv.com",t:"The Newell Order",r:"CSMII",reg:"US"},
+  "jake taylor":{c:"newell.godwin@thryv.com",t:"The Newell Order",r:"CSMII",reg:"US"},
+  "benjamin sypher":{c:"newell.godwin@thryv.com",t:"The Newell Order",r:"CSMII",reg:"US"},
 };
 
 // ── DEACTIVATED CSMs — filter out from all live data feeds ─────────────────
@@ -6507,10 +6511,12 @@ const USER_CREDS = {
   "4d4c1c36c59db173403ddd916cc299447ed999ed5612f6ff3009b33f09b6954b": {"name": "Adam Murphy", "role": "csm"},
   "2fe8980f829f6bc345a8b467a01c39cbfcbc605126f9208894660e6b9aad9cca": {"name": "Tyler Grant", "role": "csm"},
   "43116f46b986a4b52e32a95960280f6fc79f702526fa598a5eaef6541c108943": {"name": "Marco Tovar", "role": "csm"},
-  "0dfcebf485c29dd65394538204a5c43821de1e5517712413f44962c1422b3489": {"name": "Amber Lawson", "role": "csm"},
   "027ffe049491405f2a035703bea6c2d4e66e8f72a5c117e31092fbe786f3216a": {"name": "Alvin Cole", "role": "csm"},
   "7bbecb0907b148d0a9c25733f0d276ac0cc9e60664aa1bdb77bc8d33ad6c8557": {"name": "Matthew Reedy", "role": "csm"},
   "7dbc9e01698ff64493e4d1f7f993a8999a00617345a955bf1beec9e0f84229d4": {"name": "Jennifer Koly", "role": "csm"},
+  "3eaabc8ccc9d875bee02a0123e09a1fbce8b172c862a924f01dc8fa83b198645": {"name": "Kim Mcdonald", "role": "csm"},
+  "a34c7305af5b1b2cea20ff1591696acf02402faf4f4f38400ab36c421b11fe81": {"name": "Jake Taylor", "role": "csm"},
+  "620e9c1f98e4730c1968dd7e14627cdff6689e377fa8ff7d5be4fd3540b57543": {"name": "Benjamin Sypher", "role": "csm"},
   "d44f637a200880a3dd20cf617485f6b383de1f02b98ee96df2bf0e70c22e8291": {"name": "Ironelis Cabrera Bautista", "role": "csm"},
   "f1268e501bb8fe4e89f65acf4a2cd16d77c512c00ee381f8278b3a8e9248df8a": {"name": "Juan Sanchez", "role": "csm"},
   "56fee0650f471b6a677901e473aaa4ef06b93198f3dae85a15c5fc260572266d": {"name": "Lisbeth Gruning Soriano", "role": "csm"},
@@ -9866,3 +9872,4 @@ My question: ${aiCustom}`,
     </div>
   );
 }
+        
