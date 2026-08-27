@@ -102,7 +102,6 @@ const NAME_NORM = {
   "scott mather":"Scott Mather",
   // Elizabeth White — US/DR
   "anthony yen":"Anthony Yen",
-  "april hall":"April Hall",
   "damita hill":"Damita Hill",
   "deivis pena":"Deivis Pena","deivis":"Deivis Pena",
   "elianny tena antigua":"Elianny Tena Antigua","elianny":"Elianny Tena Antigua","elianny tena":"Elianny Tena Antigua",
@@ -129,7 +128,7 @@ const NAME_NORM = {
   "heidi torres uribe":"Heidi Torres Uribe","heidi":"Heidi Torres Uribe","heidi torres":"Heidi Torres Uribe",
   "irina larianni molina molina":"Irina Larianni Molina Molina","irini":"Irina Larianni Molina Molina","irina molina":"Irina Larianni Molina Molina","irina molina molina":"Irina Larianni Molina Molina","molina molina, irina":"Irina Larianni Molina Molina",
   "ironelis cabrera bautista":"Ironelis Cabrera Bautista","ironelis":"Ironelis Cabrera Bautista","ironelis cabrera":"Ironelis Cabrera Bautista","ironelis bautista":"Ironelis Cabrera Bautista",
-  "jathzelyn elizabeth fortuna paulino":"Jathzelyn Elizabeth Fortuna Paulino","jathzelyn":"Jathzelyn Elizabeth Fortuna Paulino","jazz":"Jathzelyn Elizabeth Fortuna Paulino","jathzelyn fortuna":"Jathzelyn Elizabeth Fortuna Paulino","jazz fortuna":"Jathzelyn Elizabeth Fortuna Paulino","jazz fortuna paulino":"Jathzelyn Elizabeth Fortuna Paulino",
+  "jathzelyn elizabeth fortuna paulino":"Jathzelyn Elizabeth Fortuna Paulino","jathzelyn":"Jathzelyn Elizabeth Fortuna Paulino","jazz":"Jathzelyn Elizabeth Fortuna Paulino","jathzelyn fortuna":"Jathzelyn Elizabeth Fortuna Paulino","jazz fortuna":"Jathzelyn Elizabeth Fortuna Paulino","jazz fortuna paulino":"Jathzelyn Elizabeth Fortuna Paulino","jathzelyn fortuna paulino":"Jathzelyn Elizabeth Fortuna Paulino",
   "juan sanchez":"Juan Sanchez","juan sanchez sanchez":"Juan Sanchez","juan":"Juan Sanchez",
   "lisbeth gruning soriano":"Lisbeth Gruning Soriano","lisbeth":"Lisbeth Gruning Soriano","lisbeth gruning":"Lisbeth Gruning Soriano",
   "samuel frias de paula":"Samuel Frias De Paula","sam":"Samuel Frias De Paula","samuel":"Samuel Frias De Paula","sam frias":"Samuel Frias De Paula","samuel frial":"Samuel Frias De Paula","sam frias de paula":"Samuel Frias De Paula",
@@ -180,7 +179,6 @@ const ROSTER = {
   "sarah swanson":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMII",reg:"US"},
   "scott mather":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMII",reg:"US"},
   "anthony yen":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII",reg:"US"},
-  "april hall":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII",reg:"US"},
   "damita hill":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII",reg:"US"},
   "deivis pena":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII",reg:"DR"},
   "elianny tena antigua":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII",reg:"DR"},
@@ -248,6 +246,7 @@ const DEACTIVATED_CSMS = new Set([
   "jose gonzalez robles",
   "jose gonzalez",
   "robles",
+  "april hall",
 ]);
 
 function lk(n) { return n ? ROSTER[n.toLowerCase().trim()] || null : null; }
@@ -6249,12 +6248,15 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
 
     const sortedCSMs = [...visibleCSMs].sort((a,b) => {
       const av = a[sfSort.col]??-999, bv = b[sfSort.col]??-999;
-      return sfSort.dir==="asc" ? av-bv : bv-av;
+      const cmp = typeof av==="string" || typeof bv==="string"
+        ? String(av).toLowerCase().localeCompare(String(bv).toLowerCase())
+        : av-bv;
+      return sfSort.dir==="asc" ? cmp : -cmp;
     });
 
-    const thSort = (col, label) => (
+    const thSort = (col, label, align="right") => (
       <th onClick={()=>setSfSort(s=>({col, dir:s.col===col?(s.dir==="asc"?"desc":"asc"):"asc"}))}
-        style={{padding:"8px 10px",textAlign:"right",fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500,cursor:"pointer",whiteSpace:"nowrap",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>
+        style={{padding:"8px 10px",textAlign:align,fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500,cursor:"pointer",whiteSpace:"nowrap",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>
         {label} {sfSort.col===col?(sfSort.dir==="asc"?"↑":"↓"):""}
       </th>
     );
@@ -6334,7 +6336,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
             <thead>
               <tr style={{borderBottom:"0.5px solid rgba(41,53,93,.1)"}}>
-                <th style={{padding:"8px 10px",textAlign:"left",fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>CSM</th>
+                {thSort("name","CSM","left")}
                 {thSort("acctsAssigned","Accounts Assigned")}
                 {thSort("boq","BOQ")}
                 {thSort("cur","Current SaaS")}
@@ -6544,7 +6546,6 @@ const USER_CREDS = {
   "d7ccad3f6bbcb9a9eeb3a0fee0351140eb800f410b2fcb2a3c27e55f3d85efb8": {"name": "Jaelene Alejo Rodriguez", "role": "csm"},
   "df710e1f7dd04d8c460fe94df7ed35be7da7383452c05a243d13509b9aa74172": {"name": "Alejandro Rodriguez-Medina", "role": "csm"},
   "5f0e92362198dc68190b3e7ba044e6475ae036de70be6536a056de57290d3a03": {"name": "Anthony Yen", "role": "csm"},
-  "4235d033441def62c1ea71655385fe6f2b4acd0458059c4ed2fc495e5129326e": {"name": "April Hall", "role": "csm"},
   "bdcc8eeedf70ba85a663d687e2c016ce09d1e5e221191d274bfd73eba44af5b2": {"name": "Ashley Shaffer", "role": "csm"},
   "01b347421433eccdad2e9f6885386c67057d51c6741f4aec5465010301e70791": {"name": "Ashley Vasquez Mena", "role": "csm"},
   "0354fa127deb6e3b93672221f6ff949087c73ca67a45bc88ddcbde6042d40a8a": {"name": "Chelsea Dingus", "role": "csm"},
@@ -7430,7 +7431,7 @@ function CERView({cerAssigned=[], filterCoach="", filterCSM="", csms=[]}) {
       const coach = normCoach(r["CSM Coach Name"]||r["Coach"]||"");
       return !!(coachKeys && coachKeys.has(coach));
     }
-    return true;
+    return isValidCSM(owner);
   });
 
   // Status helper
@@ -8462,6 +8463,12 @@ function buildSFBobRows(boqRows, curRows) {
     else if (cur < boq) status = "Decrease";
     else status = "No Change";
     if (!csm) return; // can't attribute to anyone — drop rather than show blank
+    // Drop rows for anyone no longer a valid/active CSM (departed, typo'd
+    // name that never resolved, etc.) — otherwise their old raw sheet rows
+    // keep showing up here forever, since this join only normalizes names,
+    // it never checked roster validity. This is what let a departed CSM's
+    // stale numbers keep appearing in Book of Business after removal.
+    if (!isValidCSM(normalizeSFCsmName(csm))) return;
     rows.push([csm, eid, acct, Math.round(boq*100)/100, Math.round(cur*100)/100, status]);
   });
   return rows;
@@ -8579,6 +8586,7 @@ function buildAccountCoverageByCsm(sfBobRows, cadenceFull, cerAssigned) {
     const raw = String(r["Cadence Member: Assigned"]||"").trim();
     const account = String(r["Cadence Member: Account"]||"").trim();
     if (!raw || !account) return;
+    if (!isValidCSM(raw)) return;
     const csm = norm(raw) || raw;
     (cadence[csm] = cadence[csm]||new Set()).add(account);
   });
@@ -8589,6 +8597,7 @@ function buildAccountCoverageByCsm(sfBobRows, cadenceFull, cerAssigned) {
     const raw = String(r["Client Engagement Roadmap: Owner Name"]||r["Owner Name"]||"").trim();
     const account = String(r["Account"]||"").trim();
     if (!raw || !account) return;
+    if (!isValidCSM(raw)) return;
     const csm = norm(raw) || raw;
     (onboarding[csm] = onboarding[csm]||new Set()).add(account);
   });
@@ -8859,6 +8868,7 @@ function CadenceView({filterCoach="", filterCSM="", managerCoaches=null, cadence
     const assigned = String(r["Cadence Member: Assigned"]||"").trim();
     const account  = String(r["Cadence Member: Account"]||"").trim();
     if (!assigned || !account) return null;
+    if (!isValidCSM(assigned)) return null;
     const csm = norm(assigned) || assigned;
     const i = lk(csm);
     if (managerCoaches && !(i && managerCoaches.includes(i.c))) return null;
