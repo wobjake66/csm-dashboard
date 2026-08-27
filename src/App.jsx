@@ -302,7 +302,19 @@ function parseCSVLine(line) {
 
 async function fetchCSV(url, _isRetry=false) {
   try {
-    const res = await fetch(url);
+    // fetch() has no default timeout in browsers — a request that hangs
+    // (no response, no error, just silence, which is exactly what Google's
+    // rate limiting can look like) would otherwise block this promise
+    // forever. Since batchedAll awaits each batch sequentially, one hung
+    // request stalls the entire rest of the load, not just this one source.
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    let res;
+    try {
+      res = await fetch(url, { signal: controller.signal });
+    } finally {
+      clearTimeout(timeoutId);
+    }
     if (!res.ok) throw new Error("HTTP "+res.status);
     const text = await res.text();
     if (!text||text.includes("<!DOCTYPE")) throw new Error("bad response");
@@ -322,8 +334,11 @@ async function fetchCSV(url, _isRetry=false) {
   } catch (e) {
     // This failure mode is usually transient — Google briefly rate-limits a
     // burst of concurrent requests to the same published sheet and serves a
-    // ServiceLogin redirect instead of CSV. A short pause and one retry
-    // often succeeds where the immediate request didn't.
+    // ServiceLogin redirect instead of CSV, or (per the timeout above) the
+    // connection just hangs. A short pause and one retry often succeeds
+    // where the immediate request didn't.
+    const reason = e.name === "AbortError" ? "timeout after 15s" : e.message;
+    console.warn("CSV fetch failed ("+reason+") for "+url.slice(-30)+(_isRetry?", giving up":", retrying once"));
     if (!_isRetry) {
       await new Promise(r=>setTimeout(r, 1200));
       return fetchCSV(url, true);
@@ -10021,3 +10036,4 @@ My question: ${aiCustom}`,
     </div>
   );
 }
+        
