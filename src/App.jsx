@@ -6690,31 +6690,6 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
   const tmrw  = aggCalls(d=>d===tmrStr);
   const week  = aggCalls(dashDayTest);  // uses selected date filter
 
-  // Accounts called in this period — same email-based join as the Calls
-  // tab's "Recent Calls with account details" table, scoped down to just
-  // this CSM/coach and the selected date window.
-  const myCallAccts = (() => {
-    const seen = new Set();
-    const accts = [];
-    (callRaw||[]).forEach(r => {
-      const staffRaw = String(r["Staff Name"]||r["Staff"]||"").trim();
-      if (!staffRaw) return;
-      const csmName = norm(staffRaw) || staffRaw;
-      if (!(csmNorms.has(csmName)||csmNorms.has(norm(csmName)))) return;
-      const apptTime = String(r["Appointment Time"]||r["appointment_time"]||"").trim();
-      if (!apptTime) return;
-      const d = new Date(apptTime);
-      if (isNaN(d) || !dashDayTest(toDayKey(d))) return;
-      const email = String(r["Client Email"]||r["email"]||"").toLowerCase().trim();
-      const acctInfo = email ? emailToAcct[email] : null;
-      if (!acctInfo) return;
-      if (seen.has(acctInfo.account)) return;
-      seen.add(acctInfo.account);
-      accts.push(acctInfo.account);
-    });
-    return accts;
-  })();
-
   const csmFiltered = csmNames.map(n => {
     const key=resolveKey(n);
     let s=0,c=0,ns=0,can=0;
@@ -6817,6 +6792,32 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
     return true;
   });
   const toDayKey = d => d?d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"):null;
+
+  // Accounts called in this period — same email-based join as the Calls
+  // tab's "Recent Calls with account details" table, scoped down to just
+  // this CSM/coach and the selected date window.
+  const myCallAccts = (() => {
+    const seen = new Set();
+    const accts = [];
+    (callRaw||[]).forEach(r => {
+      const staffRaw = String(r["Staff Name"]||r["Staff"]||"").trim();
+      if (!staffRaw) return;
+      const csmName = norm(staffRaw) || staffRaw;
+      if (!(csmNorms.has(csmName)||csmNorms.has(norm(csmName)))) return;
+      const apptTime = String(r["Appointment Time"]||r["appointment_time"]||"").trim();
+      if (!apptTime) return;
+      const d = new Date(apptTime);
+      if (isNaN(d) || !dashDayTest(toDayKey(d))) return;
+      const email = String(r["Client Email"]||r["email"]||"").toLowerCase().trim();
+      const acctInfo = email ? emailToAcct[email] : null;
+      if (!acctInfo) return;
+      if (seen.has(acctInfo.account)) return;
+      seen.add(acctInfo.account);
+      accts.push(acctInfo.account);
+    });
+    return accts;
+  })();
+
   const cadDueInWindow     = myCadRows.filter(r=>r.status==="Open"&&r.dueDate&&dashDayTest(toDayKey(r.dueDate)));
   const cadCompleted       = myCadRows.filter(r=>r.status==="Completed"&&r.dueDate&&dashDayTest(toDayKey(r.dueDate)));
   const cadSkipped         = myCadRows.filter(r=>r.status==="Skipped"&&r.dueDate&&dashDayTest(toDayKey(r.dueDate)));
