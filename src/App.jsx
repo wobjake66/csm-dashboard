@@ -49,6 +49,7 @@ const COACHES = [
   {e:"kendra.morelli@thryv.com", n:"Kendra Morelli",       t:"Team Thryv-More(lli)",      col:"#29355D"},
   {e:"trisha.stalnaker@thryv.com",n:"Trisha Stalnaker",    t:"Team Status Engaged",       col:"#E03000"},
   {e:"aaron.taylor@thryv.com",  n:"Aaron Taylor",          t:"Team Aurorians",            col:"#5378FC"},
+  {e:"newell.godwin@thryv.com", n:"Newell Godwin",         t:"The Newell Order",          col:"#7C3AED"},
 ];
 
 const MANAGERS = [
@@ -60,6 +61,7 @@ const TEAM_COLS = {
   "The Dominican Dream Team":"#FF5000","Boyd Meets World":"#4A5D8C",
   "White Wave Warriors":"#808080","Team Thryv-More(lli)":"#29355D",
   "Team Status Engaged":"#E03000","Team Aurorians":"#5378FC",
+  "The Newell Order":"#7C3AED",
 };
 
 const TEAM_LOGOS = {
@@ -91,7 +93,6 @@ const NAME_NORM = {
   "zoltan rudolf":"Zoltan Rudolf",
   // Chase Boyd — US/DR
   "alejandro rodriguez-medina":"Alejandro Rodriguez-Medina","alejandro rodriguez":"Alejandro Rodriguez-Medina",
-  "barbara larrosa presinal":"Barbara Larrosa Presinal","barb":"Barbara Larrosa Presinal","barbara larrosa":"Barbara Larrosa Presinal",
   "chelsea dingus":"Chelsea Dingus",
   "eric johnson":"Eric Johnson","robert johnson":"Eric Johnson",
   "florence francois nova":"Florence Francois Nova","florence francois":"Florence Francois Nova","florence nova":"Florence Francois Nova",
@@ -101,7 +102,6 @@ const NAME_NORM = {
   "scott mather":"Scott Mather",
   // Elizabeth White — US/DR
   "anthony yen":"Anthony Yen",
-  "april hall":"April Hall",
   "damita hill":"Damita Hill",
   "deivis pena":"Deivis Pena","deivis":"Deivis Pena",
   "elianny tena antigua":"Elianny Tena Antigua","elianny":"Elianny Tena Antigua","elianny tena":"Elianny Tena Antigua",
@@ -129,7 +129,7 @@ const NAME_NORM = {
   "irina larianni molina molina":"Irina Larianni Molina Molina","irini":"Irina Larianni Molina Molina","irina molina":"Irina Larianni Molina Molina","irina molina molina":"Irina Larianni Molina Molina","molina molina, irina":"Irina Larianni Molina Molina",
   "ironelis cabrera bautista":"Ironelis Cabrera Bautista","ironelis":"Ironelis Cabrera Bautista","ironelis cabrera":"Ironelis Cabrera Bautista","ironelis bautista":"Ironelis Cabrera Bautista",
   "jathzelyn elizabeth fortuna paulino":"Jathzelyn Elizabeth Fortuna Paulino","jathzelyn":"Jathzelyn Elizabeth Fortuna Paulino","jazz":"Jathzelyn Elizabeth Fortuna Paulino","jathzelyn fortuna":"Jathzelyn Elizabeth Fortuna Paulino","jazz fortuna":"Jathzelyn Elizabeth Fortuna Paulino","jazz fortuna paulino":"Jathzelyn Elizabeth Fortuna Paulino",
-  "juan sanchez":"Juan Sanchez","juan sanchez sanchez":"Juan Sanchez",
+  "juan sanchez":"Juan Sanchez","juan sanchez sanchez":"Juan Sanchez","juan":"Juan Sanchez",
   "lisbeth gruning soriano":"Lisbeth Gruning Soriano","lisbeth":"Lisbeth Gruning Soriano","lisbeth gruning":"Lisbeth Gruning Soriano",
   "samuel frias de paula":"Samuel Frias De Paula","sam":"Samuel Frias De Paula","samuel":"Samuel Frias De Paula","sam frias":"Samuel Frias De Paula","samuel frial":"Samuel Frias De Paula","sam frias de paula":"Samuel Frias De Paula",
   "sati ananda pimentel malespin":"Sati Ananda Pimentel Malespin","sati":"Sati Ananda Pimentel Malespin","sati pimentel":"Sati Ananda Pimentel Malespin","sati pimentel malespin":"Sati Ananda Pimentel Malespin","pimentel malespin, sati":"Sati Ananda Pimentel Malespin",
@@ -140,13 +140,20 @@ const NAME_NORM = {
   "dorka frias lantigua":"Dorka Frias Lantigua","dorka frias":"Dorka Frias Lantigua","dorka":"Dorka Frias Lantigua",
   "felix caba jimenez":"Felix Caba Jimenez","felix caba":"Felix Caba Jimenez","felix jimenez":"Felix Caba Jimenez",
   "jaelene alejo rodriguez":"Jaelene Alejo Rodriguez","alejo rodriguez, jaelene":"Jaelene Alejo Rodriguez","jaelene alejo":"Jaelene Alejo Rodriguez","jaelene rodriguez":"Jaelene Alejo Rodriguez",
-  "jose gonzalez robles":"Jose Gonzalez Robles","jose gonzalez":"Jose Gonzalez Robles","jose":"Jose Gonzalez Robles","robles":"Jose Gonzalez Robles",
   "karen capellan tavarez":"Karen Capellan Tavarez","karen capellan":"Karen Capellan Tavarez",
   "kellie lester":"Kellie Lester",
   "kyle dye":"Kyle Dye",
   "rafael sencion sencion":"Rafael Sencion Sencion","rafael sencion":"Rafael Sencion Sencion","rafael sencion leon":"Rafael Sencion Sencion","sencion leon, rafael":"Rafael Sencion Sencion",
   "saira julian guzman":"Saira Julian Guzman",
   "taylor kidd":"Taylor Kidd",
+  // Newell Godwin — US
+  "adam murphy":"Adam Murphy",
+  "tyler grant":"Tyler Grant",
+  "marco tovar":"Marco Tovar",
+  "amber lawson":"Amber Lawson",
+  "alvin cole":"Alvin Cole",
+  "matthew reedy":"Matthew Reedy",
+  "jennifer koly":"Jennifer Koly",
 };
 
 const ROSTER = {
@@ -162,7 +169,6 @@ const ROSTER = {
   "warda gul":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMII",reg:"ANZ"},
   "zoltan rudolf":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMII",reg:"ANZ"},
   "alejandro rodriguez-medina":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMII",reg:"US"},
-  "barbara larrosa presinal":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMII",reg:"DR"},
   "chelsea dingus":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMII",reg:"US"},
   "eric johnson":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMII",reg:"US"},
   "florence francois nova":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMII",reg:"DR"},
@@ -171,7 +177,6 @@ const ROSTER = {
   "sarah swanson":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMII",reg:"US"},
   "scott mather":{c:"chase.boyd@thryv.com",t:"Boyd Meets World",r:"CSMII",reg:"US"},
   "anthony yen":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII",reg:"US"},
-  "april hall":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII",reg:"US"},
   "damita hill":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII",reg:"US"},
   "deivis pena":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII",reg:"DR"},
   "elianny tena antigua":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII",reg:"DR"},
@@ -207,13 +212,19 @@ const ROSTER = {
   "dorka frias lantigua":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMII",reg:"DR"},
   "felix caba jimenez":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMII",reg:"DR"},
   "jaelene alejo rodriguez":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMII",reg:"DR"},
-  "jose gonzalez robles":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMII",reg:"DR"},
   "karen capellan tavarez":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMII",reg:"DR"},
   "kellie lester":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMII",reg:"US"},
   "kyle dye":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMII",reg:"US"},
   "rafael sencion sencion":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMII",reg:"DR"},
   "saira julian guzman":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMII",reg:"DR"},
   "taylor kidd":{c:"trisha.stalnaker@thryv.com",t:"Team Status Engaged",r:"CSMII",reg:"US"},
+  "adam murphy":{c:"newell.godwin@thryv.com",t:"The Newell Order",r:"CSMII",reg:"US"},
+  "tyler grant":{c:"newell.godwin@thryv.com",t:"The Newell Order",r:"CSMII",reg:"US"},
+  "marco tovar":{c:"newell.godwin@thryv.com",t:"The Newell Order",r:"CSMII",reg:"US"},
+  "amber lawson":{c:"newell.godwin@thryv.com",t:"The Newell Order",r:"CSMII",reg:"US"},
+  "alvin cole":{c:"newell.godwin@thryv.com",t:"The Newell Order",r:"CSMII",reg:"US"},
+  "matthew reedy":{c:"newell.godwin@thryv.com",t:"The Newell Order",r:"CSMII",reg:"US"},
+  "jennifer koly":{c:"newell.godwin@thryv.com",t:"The Newell Order",r:"CSMII",reg:"US"},
 };
 
 // ── DEACTIVATED CSMs — filter out from all live data feeds ─────────────────
@@ -225,6 +236,13 @@ const DEACTIVATED_CSMS = new Set([
   "tyler moeggenberg",
   "rossi valerio tejeda",
   "rossi valerio",
+  "barbara larrosa presinal",
+  "barb",
+  "barbara larrosa",
+  "april hall",
+  "jose gonzalez robles",
+  "jose gonzalez",
+  "robles",
 ]);
 
 function lk(n) { return n ? ROSTER[n.toLowerCase().trim()] || null : null; }
