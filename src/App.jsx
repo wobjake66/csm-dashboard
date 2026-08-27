@@ -6606,7 +6606,7 @@ function PinLock({onUnlock}) {
 // MY DASHBOARD — self-contained. To revert: remove this block + 3 lines below.
 // ═══════════════════════════════════════════════════════════════════════════
 function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
-  churnAlerts=[], qamc=[], qass=[], domoBoq=[], q3BobCur=[], q3Supp=[], rawRev=[], cadenceFull=[], onNavigate=()=>{}, onSetTrendsTab=()=>{}, onSetBobTab=()=>{}, cerAssigned=[], cerCompleted=[], fiRows=[], sfBobRows=[]}) {
+  churnAlerts=[], qamc=[], qass=[], domoBoq=[], q3BobCur=[], q3Supp=[], rawRev=[], cadenceFull=[], onNavigate=()=>{}, onSetTrendsTab=()=>{}, onSetBobTab=()=>{}, cerAssigned=[], cerCompleted=[], fiRows=[], sfBobRows=[], callRaw=[], emailToAcct={}}) {
   const [dashDateFilter, setDashDateFilter] = React.useState("today");
   const [dashCustomFrom, setDashCustomFrom] = React.useState("");
   const [dashCustomTo,   setDashCustomTo]   = React.useState("");
@@ -6689,6 +6689,31 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
   const today = aggCalls(d=>d===todayStr);
   const tmrw  = aggCalls(d=>d===tmrStr);
   const week  = aggCalls(dashDayTest);  // uses selected date filter
+
+  // Accounts called in this period — same email-based join as the Calls
+  // tab's "Recent Calls with account details" table, scoped down to just
+  // this CSM/coach and the selected date window.
+  const myCallAccts = (() => {
+    const seen = new Set();
+    const accts = [];
+    (callRaw||[]).forEach(r => {
+      const staffRaw = String(r["Staff Name"]||r["Staff"]||"").trim();
+      if (!staffRaw) return;
+      const csmName = norm(staffRaw) || staffRaw;
+      if (!(csmNorms.has(csmName)||csmNorms.has(norm(csmName)))) return;
+      const apptTime = String(r["Appointment Time"]||r["appointment_time"]||"").trim();
+      if (!apptTime) return;
+      const d = new Date(apptTime);
+      if (isNaN(d) || !dashDayTest(toDayKey(d))) return;
+      const email = String(r["Client Email"]||r["email"]||"").toLowerCase().trim();
+      const acctInfo = email ? emailToAcct[email] : null;
+      if (!acctInfo) return;
+      if (seen.has(acctInfo.account)) return;
+      seen.add(acctInfo.account);
+      accts.push(acctInfo.account);
+    });
+    return accts;
+  })();
 
   const csmFiltered = csmNames.map(n => {
     const key=resolveKey(n);
@@ -6937,6 +6962,12 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
             </div>
           </>}
           {week.total===0&&<div style={{fontSize:12,color:"var(--text-secondary)",textAlign:"center",padding:"8px 0"}}>No call data for this period</div>}
+          {myCallAccts.length>0 && (
+            <div style={{fontSize:11,color:"var(--text-secondary)",marginTop:8,paddingTop:8,borderTop:"0.5px solid var(--border)"}}>
+              {myCallAccts.slice(0,3).join(", ")}
+              {myCallAccts.length>3 && <span> (+{myCallAccts.length-3} more)</span>}
+            </div>
+          )}
         </div>
 
         {/* Cadence touchpoints */}
@@ -6963,7 +6994,17 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
               <div style={{fontSize:20,fontWeight:500,color:cadOverdueAll.length>0?"#dc2626":"var(--text-primary)"}}>{cadOverdueAll.length}</div>
             </div>
           </div>
-          {cadTotal===0&&<div style={{fontSize:12,color:"var(--text-secondary)",textAlign:"center",padding:"8px 0",marginTop:8}}>No cadence data loaded yet</div>}
+          {cadOverdueAll.length>0 ? (() => {
+            const uniqueAccts = [...new Set(cadOverdueAll.map(r=>r.account).filter(Boolean))];
+            return (
+              <div style={{fontSize:11,color:"#dc2626",marginTop:8,fontWeight:600}}>
+                🚨 {uniqueAccts[0]}
+                {uniqueAccts.length>1 && <span style={{color:"#991b1b",fontWeight:400}}> (+{uniqueAccts.length-1} more overdue)</span>}
+              </div>
+            );
+          })() : cadTotal===0 ? (
+            <div style={{fontSize:12,color:"var(--text-secondary)",textAlign:"center",padding:"8px 0",marginTop:8}}>No cadence data loaded yet</div>
+          ) : null}
         </div>
 
         {/* Clients touched */}
@@ -6971,10 +7012,10 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
           <span style={lbl}>👥 Clients touched — {dashLabel}</span>
           <div style={{marginBottom:8}}>
             <div style={{fontSize:12,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Total touchpoints</div>
-            <div style={{fontSize:32,fontWeight:500,color:"var(--text-primary)"}}>{week.total + cadDueInWindow.length}</div>
-            <div style={{fontSize:13,color:"var(--text-secondary)",marginTop:4}}>calls + cadence due</div>
+            <div style={{fontSize:32,fontWeight:500,color:"var(--text-primary)"}}>{week.total + cadDueInWindow.length + cadOverdueAll.length}</div>
+            <div style={{fontSize:13,color:"var(--text-secondary)",marginTop:4}}>calls + cadence due + cadence overdue</div>
           </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginTop:10,paddingTop:10,borderTop:"0.5px solid var(--border)"}}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginTop:10,paddingTop:10,borderTop:"0.5px solid var(--border)"}}>
             <div>
               <div style={{fontSize:12,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Calls</div>
               <div style={{fontSize:18,fontWeight:500,color:"#5378FC"}}>{week.total}</div>
@@ -6982,6 +7023,10 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
             <div>
               <div style={{fontSize:12,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Cadence due</div>
               <div style={{fontSize:18,fontWeight:500,color:"#6366f1"}}>{cadDueInWindow.length}</div>
+            </div>
+            <div>
+              <div style={{fontSize:12,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Cadence overdue</div>
+              <div style={{fontSize:18,fontWeight:500,color:cadOverdueAll.length>0?"#dc2626":"var(--text-primary)"}}>{cadOverdueAll.length}</div>
             </div>
           </div>
         </div>
@@ -9674,7 +9719,7 @@ My question: ${aiCustom}`,
           {tab==="scc"&&canSeeSCC&&<SCCView rows={sccChurn}/>}
           {tab==="fi"&&<FulfillmentView filterCoach={filterCoach} filterCSM={filterCSM} rows={fiRows}/>}
           {tab==="cadence"&&<CadenceView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches} cadenceFull={cadenceFull} acctNameToAcct={acctNameToAcct}/>}
-          {tab==="mydash"&&<MyDashboard csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} churnAlerts={churnAlerts} qamc={qamc||[]} qass={qass||[]} domoBoq={domoBoq||[]} q3BobCur={q3BobCur||[]} q3Supp={q3Supp||[]} rawRev={rawRev||[]} cadenceFull={cadenceFull||[]} onNavigate={setTab} onSetTrendsTab={setTrendsTab} onSetBobTab={setBobTab} cerAssigned={cerAssigned} cerCompleted={cerCompleted} fiRows={fiRows} sfBobRows={sfBobSource}/>}
+          {tab==="mydash"&&<MyDashboard csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} churnAlerts={churnAlerts} qamc={qamc||[]} qass={qass||[]} domoBoq={domoBoq||[]} q3BobCur={q3BobCur||[]} q3Supp={q3Supp||[]} rawRev={rawRev||[]} cadenceFull={cadenceFull||[]} onNavigate={setTab} onSetTrendsTab={setTrendsTab} onSetBobTab={setBobTab} cerAssigned={cerAssigned} cerCompleted={cerCompleted} fiRows={fiRows} sfBobRows={sfBobSource} callRaw={callRaw} emailToAcct={emailToAcct}/>}
         </div>
       )}
 
