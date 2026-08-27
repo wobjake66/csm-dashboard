@@ -6222,7 +6222,10 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
       if (r.status==="Lost")     { g.cancelledMrr += r.boq;             g.cancelledCount++; }
       if (r.status==="Added")    { g.addedMrr     += r.cur;             g.addedCount++;     }
     });
-    const sfData = Object.values(csmGroups).map(g => ({...g, delta:g.cur-g.boq, retPct: g.boq>0 ? g.cur/g.boq : null}));
+    const sfData = Object.values(csmGroups).map(g => {
+      const cov = acctCoverageByCsm[norm(g.name)] || acctCoverageByCsm[g.name] || {cadenceAccts:0, onboardingAccts:0};
+      return {...g, delta:g.cur-g.boq, retPct: g.boq>0 ? g.cur/g.boq : null, acctsAssigned: g.rows.length, cadenceAccts: cov.cadenceAccts, onboardingAccts: cov.onboardingAccts};
+    });
 
     const totalBoq       = sfData.reduce((s,c)=>s+c.boq, 0);
     const totalCur        = sfData.reduce((s,c)=>s+c.cur, 0);
@@ -6231,6 +6234,8 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
     const totalCancelled = sfData.reduce((s,c)=>s+c.cancelledMrr, 0);
     const totalAdded     = sfData.reduce((s,c)=>s+c.addedMrr, 0);
     const overallRet     = totalBoq > 0 ? totalCur/totalBoq : null;
+    const totalCadenceAccts    = sfData.reduce((s,c)=>s+c.cadenceAccts, 0);
+    const totalOnboardingAccts = sfData.reduce((s,c)=>s+c.onboardingAccts, 0);
 
     const csmsWithEvent = type => {
       if (type==="increase")  return new Set(sfData.filter(c=>c.increaseMrr>0).map(c=>c.name));
@@ -6278,7 +6283,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
           </div>
         )}
         {/* Tiles */}
-        <div style={{display:"grid",gridTemplateColumns:"repeat(8,minmax(0,1fr))",gap:10,marginBottom:16}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(10,minmax(0,1fr))",gap:10,marginBottom:16}}>
           <div onClick={()=>{setSfTileFilter(null);}}
             style={{background:!sfTileFilter?"#29355D":"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",
               borderTop:"3px solid #29355D",cursor:"pointer",transition:"all .15s"}}>
@@ -6301,6 +6306,16 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
             <div style={{fontSize:22,fontWeight:600,color:"#6366f1",lineHeight:1,marginBottom:4}}>{totalAcctsSF}</div>
             <div style={{fontSize:12,color:"#808080"}}>{avgAcctsSF} avg / CSM</div>
           </div>
+          <div style={{background:"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",borderTop:"3px solid #0891b2"}}>
+            <div style={{fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>In Cadence</div>
+            <div style={{fontSize:22,fontWeight:600,color:"#0891b2",lineHeight:1,marginBottom:4}}>{totalCadenceAccts}</div>
+            <div style={{fontSize:12,color:"#808080"}}>{totalAcctsSF>0?Math.round(totalCadenceAccts/totalAcctsSF*100)+"% of book":"unique accounts"}</div>
+          </div>
+          <div style={{background:"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",borderTop:"3px solid #d97706"}}>
+            <div style={{fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Open Onboarding</div>
+            <div style={{fontSize:22,fontWeight:600,color:"#d97706",lineHeight:1,marginBottom:4}}>{totalOnboardingAccts}</div>
+            <div style={{fontSize:12,color:"#808080"}}>CER not yet completed</div>
+          </div>
           {tileBtn("Increases",fmt$(totalIncrease),sfData.reduce((s,c)=>s+c.increaseCount,0)+" accounts","#16a34a","increase")}
           {tileBtn("Decreases",fmt$(totalDecrease),sfData.reduce((s,c)=>s+c.decreaseCount,0)+" accounts","#dc2626","decrease")}
           {tileBtn("Cancelled",fmt$(totalCancelled),sfData.reduce((s,c)=>s+c.cancelledCount,0)+" accounts","#d97706","cancelled")}
@@ -6320,6 +6335,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
             <thead>
               <tr style={{borderBottom:"0.5px solid rgba(41,53,93,.1)"}}>
                 <th style={{padding:"8px 10px",textAlign:"left",fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>CSM</th>
+                {thSort("acctsAssigned","Accounts Assigned")}
                 {thSort("boq","BOQ")}
                 {thSort("cur","Current SaaS")}
                 {thSort("increaseMrr","Increase")}
@@ -6327,8 +6343,8 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                 {thSort("cancelledMrr","Cancelled")}
                 {thSort("addedMrr","Added")}
                 {thSort("retPct","Retention %")}
-                <th style={{padding:"8px 10px",textAlign:"right",fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>In Cadence</th>
-                <th style={{padding:"8px 10px",textAlign:"right",fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>Open Onboarding</th>
+                {thSort("cadenceAccts","In Cadence")}
+                {thSort("onboardingAccts","Open Onboarding")}
               </tr>
             </thead>
             <tbody>
@@ -6343,6 +6359,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                         <span style={{marginRight:6,fontSize:12,color:"#808080"}}>{isExp?"▼":"▶"}</span>
                         {dispName(g.name)}
                       </td>
+                      <td style={{padding:"10px",textAlign:"right",color:"#29355D",fontWeight:500}}>{g.acctsAssigned}</td>
                       <td style={{padding:"10px",textAlign:"right",color:"#5378FC",fontWeight:500}}>{fmt$(g.boq)}</td>
                       <td style={{padding:"10px",textAlign:"right",color:"#29355D",fontWeight:600}}>{fmt$(g.cur)}</td>
                       <td style={{padding:"10px",textAlign:"right",color:g.increaseMrr>0?"#16a34a":"#aaa"}}>{g.increaseMrr>0?"+"+fmt$(g.increaseMrr):"--"}</td>
@@ -6355,17 +6372,12 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                           <div style={{width:Math.min((g.retPct||0)*100,120).toFixed(1)+"%",height:"100%",background:retCol(g.retPct),borderRadius:2}}/>
                         </div>
                       </td>
-                      {(() => {
-                        const cov = acctCoverageByCsm[norm(g.name)] || acctCoverageByCsm[g.name] || {cadenceAccts:0, onboardingAccts:0};
-                        return (<>
-                          <td style={{padding:"10px",textAlign:"right",color:"#6366f1",fontWeight:500}}>{cov.cadenceAccts}</td>
-                          <td style={{padding:"10px",textAlign:"right",color:"#d97706",fontWeight:500}}>{cov.onboardingAccts}</td>
-                        </>);
-                      })()}
+                      <td style={{padding:"10px",textAlign:"right",color:"#0891b2",fontWeight:500}}>{g.cadenceAccts}</td>
+                      <td style={{padding:"10px",textAlign:"right",color:"#d97706",fontWeight:500}}>{g.onboardingAccts}</td>
                     </tr>
                     {isExp&&(
                       <tr style={{background:"rgba(41,53,93,.02)"}}>
-                        <td colSpan={10} style={{padding:0}}>
+                        <td colSpan={11} style={{padding:0}}>
                           <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
                             <thead>
                               <tr style={{borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>
