@@ -5287,7 +5287,7 @@ const BOB_COACH_TOTALS = {
 const BOB_DETAIL = {};
 
 // PRE-BUILD PREVIEW DATA — static snapshot from q3_BoB_8-25.xlsx (BoB Retention tab, joined with SF retention detail's Status field). NOT wired to a live sheet.
-function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChurn, churnAlerts, onSelectCSM, liveBobDet={}, bobAdj={}, q3BobCur=[], domoBoq=[], q3Supp=[], q2DomoBoq=[], bobTab="overview", setBobTab=()=>{}, sfBobRows=[]}) {
+function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChurn, churnAlerts, onSelectCSM, liveBobDet={}, bobAdj={}, q3BobCur=[], domoBoq=[], q3Supp=[], q2DomoBoq=[], bobTab="overview", setBobTab=()=>{}, sfBobRows=[], acctCoverageByCsm={}}) {
   const [bobSubTab, setBobSubTab] = useState("current"); // "current" | "q3"
   const getDet = n => {
     const base = liveBobDet[n]||liveBobDet[norm(n)]||BOB_DETAIL[n]||BOB_DETAIL[norm(n)]||{};
@@ -6327,6 +6327,8 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                 {thSort("cancelledMrr","Cancelled")}
                 {thSort("addedMrr","Added")}
                 {thSort("retPct","Retention %")}
+                <th style={{padding:"8px 10px",textAlign:"right",fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>In Cadence</th>
+                <th style={{padding:"8px 10px",textAlign:"right",fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>Open Onboarding</th>
               </tr>
             </thead>
             <tbody>
@@ -6353,10 +6355,17 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                           <div style={{width:Math.min((g.retPct||0)*100,120).toFixed(1)+"%",height:"100%",background:retCol(g.retPct),borderRadius:2}}/>
                         </div>
                       </td>
+                      {(() => {
+                        const cov = acctCoverageByCsm[norm(g.name)] || acctCoverageByCsm[g.name] || {cadenceAccts:0, onboardingAccts:0};
+                        return (<>
+                          <td style={{padding:"10px",textAlign:"right",color:"#6366f1",fontWeight:500}}>{cov.cadenceAccts}</td>
+                          <td style={{padding:"10px",textAlign:"right",color:"#d97706",fontWeight:500}}>{cov.onboardingAccts}</td>
+                        </>);
+                      })()}
                     </tr>
                     {isExp&&(
                       <tr style={{background:"rgba(41,53,93,.02)"}}>
-                        <td colSpan={8} style={{padding:0}}>
+                        <td colSpan={10} style={{padding:0}}>
                           <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
                             <thead>
                               <tr style={{borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>
@@ -6641,7 +6650,7 @@ function PinLock({onUnlock}) {
 // MY DASHBOARD — self-contained. To revert: remove this block + 3 lines below.
 // ═══════════════════════════════════════════════════════════════════════════
 function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
-  churnAlerts=[], qamc=[], qass=[], domoBoq=[], q3BobCur=[], q3Supp=[], rawRev=[], cadenceFull=[], onNavigate=()=>{}, onSetTrendsTab=()=>{}, onSetBobTab=()=>{}, cerAssigned=[], cerCompleted=[], fiRows=[], sfBobRows=[], callRaw=[], emailToAcct={}}) {
+  churnAlerts=[], qamc=[], qass=[], domoBoq=[], q3BobCur=[], q3Supp=[], rawRev=[], cadenceFull=[], onNavigate=()=>{}, onSetTrendsTab=()=>{}, onSetBobTab=()=>{}, cerAssigned=[], cerCompleted=[], fiRows=[], sfBobRows=[], callRaw=[], emailToAcct={}, acctCoverageByCsm={}}) {
   const [dashDateFilter, setDashDateFilter] = React.useState("today");
   const [dashCustomFrom, setDashCustomFrom] = React.useState("");
   const [dashCustomTo,   setDashCustomTo]   = React.useState("");
@@ -6699,6 +6708,14 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
   const contextLabel = filterCSM?dispName(filterCSM):filterCoach?coachName+"'s Team":"All Teams";
   const contextIcon  = filterCSM?"👤":filterCoach?"👥":"🏢";
   const csmNames     = csms.map(c=>c.name);
+  // Account coverage — summed across whoever's currently in scope (one CSM,
+  // one coach's team, or everyone), from the shared per-CSM breakdown.
+  const myCoverage = csmNames.reduce((acc, n) => {
+    const c = acctCoverageByCsm[norm(n)] || acctCoverageByCsm[n];
+    if (!c) return acc;
+    acc.bobAccts += c.bobAccts; acc.cadenceAccts += c.cadenceAccts; acc.onboardingAccts += c.onboardingAccts;
+    return acc;
+  }, {bobAccts:0, cadenceAccts:0, onboardingAccts:0});
   const todayStr     = now.getFullYear()+"-"+pad(now.getMonth()+1)+"-"+pad(now.getDate());
   const tmrDate      = new Date(now); tmrDate.setDate(now.getDate()+1);
   const tmrStr       = tmrDate.getFullYear()+"-"+pad(tmrDate.getMonth()+1)+"-"+pad(tmrDate.getDate());
@@ -7231,6 +7248,31 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
             )}
           </>):<div style={{fontSize:12,color:"#808080",textAlign:"center",padding:"12px 0"}}>No Q3 BoB data loaded yet</div>}
         </div>
+
+      {/* Account Coverage — book vs cadence vs onboarding */}
+      <div style={{...card,marginBottom:16}}>
+        <span style={lbl}>📦 Account Coverage</span>
+        <div style={{fontSize:12,color:"#808080",marginBottom:14,marginTop:2}}>Book of business vs. accounts actively touched</div>
+        {myCoverage.bobAccts>0 ? (
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
+            <div style={{padding:"10px 12px",background:"rgba(41,53,93,.04)",borderRadius:8}}>
+              <div style={{fontSize:12,color:"#808080",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Book of Business</div>
+              <div style={{fontSize:22,fontWeight:700,color:"#29355D"}}>{myCoverage.bobAccts}</div>
+              <div style={{fontSize:12,color:"#aaa"}}>accounts assigned</div>
+            </div>
+            <div style={{padding:"10px 12px",background:"rgba(41,53,93,.04)",borderRadius:8}}>
+              <div style={{fontSize:12,color:"#808080",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>In Cadence</div>
+              <div style={{fontSize:22,fontWeight:700,color:"#6366f1"}}>{myCoverage.cadenceAccts}</div>
+              <div style={{fontSize:12,color:"#aaa"}}>{myCoverage.bobAccts>0?Math.round(myCoverage.cadenceAccts/myCoverage.bobAccts*100)+"% of book":"unique accounts"}</div>
+            </div>
+            <div style={{padding:"10px 12px",background:"rgba(41,53,93,.04)",borderRadius:8}}>
+              <div style={{fontSize:12,color:"#808080",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Open Onboarding</div>
+              <div style={{fontSize:22,fontWeight:700,color:"#d97706"}}>{myCoverage.onboardingAccts}</div>
+              <div style={{fontSize:12,color:"#aaa"}}>CER not yet completed</div>
+            </div>
+          </div>
+        ) : <div style={{fontSize:12,color:"#808080",textAlign:"center",padding:"12px 0"}}>No coverage data loaded yet</div>}
+      </div>
 
       {/* Cancel/decrease alerts */}
       {cancelAlerts.length>0&&(
@@ -8505,6 +8547,52 @@ function buildAcctNameToAccountMap(curRows) {
   return map;
 }
 
+// ── Account coverage, per CSM ────────────────────────────────────────────
+// Three independent counts, each from a different live source, answering:
+// how many accounts are actually in this CSM's book, how many of those are
+// they actively touching via cadence, and how many currently have an open
+// onboarding engagement (CER Assigned, any status other than Completed). A
+// big gap between these numbers is the point — e.g. a large book with very
+// few cadence accounts flags accounts nobody's actually working.
+function buildAccountCoverageByCsm(sfBobRows, cadenceFull, cerAssigned) {
+  const bob = {}, cadence = {}, onboarding = {};
+
+  (sfBobRows||[]).forEach(([csmRaw, eid, acct]) => {
+    const csm = normalizeSFCsmName(csmRaw);
+    if (!csm || !acct) return;
+    (bob[csm] = bob[csm]||new Set()).add(acct);
+  });
+
+  (cadenceFull||[]).forEach(r => {
+    const raw = String(r["Cadence Member: Assigned"]||"").trim();
+    const account = String(r["Cadence Member: Account"]||"").trim();
+    if (!raw || !account) return;
+    const csm = norm(raw) || raw;
+    (cadence[csm] = cadence[csm]||new Set()).add(account);
+  });
+
+  (cerAssigned||[]).forEach(r => {
+    const status = String(r["Status"]||"").trim();
+    if (!status || status.toLowerCase()==="completed") return; // only currently-open engagements
+    const raw = String(r["Client Engagement Roadmap: Owner Name"]||r["Owner Name"]||"").trim();
+    const account = String(r["Account"]||"").trim();
+    if (!raw || !account) return;
+    const csm = norm(raw) || raw;
+    (onboarding[csm] = onboarding[csm]||new Set()).add(account);
+  });
+
+  const allCsms = new Set([...Object.keys(bob), ...Object.keys(cadence), ...Object.keys(onboarding)]);
+  const result = {};
+  allCsms.forEach(csm => {
+    result[csm] = {
+      bobAccts: bob[csm] ? bob[csm].size : 0,
+      cadenceAccts: cadence[csm] ? cadence[csm].size : 0,
+      onboardingAccts: onboarding[csm] ? onboarding[csm].size : 0,
+    };
+  });
+  return result;
+}
+
 
 
 // An FI is flagged urgent if it's been sitting in its Current Function longer
@@ -9085,6 +9173,10 @@ function App() {
   const sfBobSource = sfBobLive || [];
   const sfBobByCsm = React.useMemo(() => summarizeSFBobByCsm(sfBobSource), [sfBobSource]);
   const getSfBob = name => sfBobByCsm[norm(name)||name] || sfBobByCsm[name] || null;
+  const acctCoverageByCsm = React.useMemo(
+    () => buildAccountCoverageByCsm(sfBobSource, cadenceFull, cerAssigned),
+    [sfBobSource, cadenceFull, cerAssigned]
+  );
 
   // AI Coach panel state
   const [aiOpen,     setAiOpen]     = useState(false);
@@ -9758,7 +9850,7 @@ My question: ${aiCustom}`,
           {tab==="leaderboard"&&<LeaderboardView csms={filteredCSMs} allCsms={csms} bobRaw={bobRaw} history={history} q2DomoBoq={q2DomoBoq} domoBoq={domoBoq} q3BobCur={q3BobCur} q3Supp={q3Supp} rawRev={rawRev} cadenceFull={cadenceFull}/>}
           
           {tab==="revenue"&&<RevenueView rawRev={rawRev} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches}/>}
-          {tab==="bob"&&<BobView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} churnAlerts={churnAlerts} onSelectCSM={selectCSMFn} liveBobDet={liveBobDet} bobAdj={bobAdj} q3BobCur={q3BobCur} domoBoq={domoBoq} q3Supp={q3Supp} q2DomoBoq={q2DomoBoq} bobTab={bobTab} setBobTab={setBobTab} sfBobRows={sfBobLive}/>}
+          {tab==="bob"&&<BobView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} churnAlerts={churnAlerts} onSelectCSM={selectCSMFn} liveBobDet={liveBobDet} bobAdj={bobAdj} q3BobCur={q3BobCur} domoBoq={domoBoq} q3Supp={q3Supp} q2DomoBoq={q2DomoBoq} bobTab={bobTab} setBobTab={setBobTab} sfBobRows={sfBobLive} acctCoverageByCsm={acctCoverageByCsm}/>}
           {tab==="trends"&&<TrendsView history={history} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} qamc={qamc} qass={qass} trendsTab={trendsTab} setTrendsTab={setTrendsTab} callRaw={callRaw} emailToAcct={emailToAcct}/>}
           {tab==="cers"&&<CERView cerAssigned={cerAssigned} filterCoach={filterCoach} filterCSM={filterCSM} csms={filteredCSMs}/>}
           {tab==="calls"&&<TrendsView history={history} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} qamc={qamc} qass={qass} trendsTab="calls" setTrendsTab={()=>{}} hideSubTabs={true} callRaw={callRaw} emailToAcct={emailToAcct}/>}
@@ -9766,7 +9858,7 @@ My question: ${aiCustom}`,
           {tab==="scc"&&canSeeSCC&&<SCCView rows={sccChurn}/>}
           {tab==="fi"&&<FulfillmentView filterCoach={filterCoach} filterCSM={filterCSM} rows={fiRows}/>}
           {tab==="cadence"&&<CadenceView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches} cadenceFull={cadenceFull} acctNameToAcct={acctNameToAcct}/>}
-          {tab==="mydash"&&<MyDashboard csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} churnAlerts={churnAlerts} qamc={qamc||[]} qass={qass||[]} domoBoq={domoBoq||[]} q3BobCur={q3BobCur||[]} q3Supp={q3Supp||[]} rawRev={rawRev||[]} cadenceFull={cadenceFull||[]} onNavigate={setTab} onSetTrendsTab={setTrendsTab} onSetBobTab={setBobTab} cerAssigned={cerAssigned} cerCompleted={cerCompleted} fiRows={fiRows} sfBobRows={sfBobSource} callRaw={callRaw} emailToAcct={emailToAcct}/>}
+          {tab==="mydash"&&<MyDashboard csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} churnAlerts={churnAlerts} qamc={qamc||[]} qass={qass||[]} domoBoq={domoBoq||[]} q3BobCur={q3BobCur||[]} q3Supp={q3Supp||[]} rawRev={rawRev||[]} cadenceFull={cadenceFull||[]} onNavigate={setTab} onSetTrendsTab={setTrendsTab} onSetBobTab={setBobTab} cerAssigned={cerAssigned} cerCompleted={cerCompleted} fiRows={fiRows} sfBobRows={sfBobSource} callRaw={callRaw} emailToAcct={emailToAcct} acctCoverageByCsm={acctCoverageByCsm}/>}
         </div>
       )}
 
@@ -9872,4 +9964,3 @@ My question: ${aiCustom}`,
     </div>
   );
 }
-        
