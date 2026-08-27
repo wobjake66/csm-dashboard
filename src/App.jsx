@@ -7317,7 +7317,7 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
 // ═══════════════════════════════════════════════════════════════════════════
 // CER VIEW — Client Engagement Roadmaps tab
 // ═══════════════════════════════════════════════════════════════════════════
-function CERView({cerAssigned=[], filterCoach="", filterCSM=""}) {
+function CERView({cerAssigned=[], filterCoach="", filterCSM="", csms=[]}) {
   const [cerDateFilter, setCerDateFilter] = React.useState("quarter");
   const [cerStatusFilter, setCerStatusFilter] = React.useState("all");
   const [cerSort, setCerSort] = React.useState({col:"assigned", dir:"desc"});
@@ -7349,7 +7349,15 @@ function CERView({cerAssigned=[], filterCoach="", filterCSM=""}) {
   const inRange = d => d && d>=dateRange[0] && d<=dateRange[1];
 
   // ── Filter rows by date (Form Start Date) + coach/CSM ──
+  // Two paths, matching MyDashboard's filterCER exactly: try the CSM owner
+  // name first (via ROSTER), then fall back to whatever coach name is
+  // literally on the CER row itself. A row whose owner name doesn't resolve
+  // cleanly (spelling variant not yet in NAME_NORM) can still match this way
+  // — this is exactly what was silently failing for Newell Godwin's team.
   const lk2 = n => { const nn=norm(n); return ROSTER[nn]||null; };
+  const normCoach = n => String(n||"").replace(/\s/g,"").toLowerCase();
+  const csmNameSet = new Set(csms.map(c=>norm(c.name)));
+  const coachKeys = filterCoach ? new Set([normCoach(COACHES.find(c=>c.e===filterCoach)?.n||"")]) : null;
   const filteredRows = cerAssigned.filter(r => {
     const d = parseD(r["Form Start Date"]);
     if (!inRange(d)) return false;
@@ -7357,7 +7365,10 @@ function CERView({cerAssigned=[], filterCoach="", filterCSM=""}) {
     if (filterCSM) return norm(owner)===norm(filterCSM);
     if (filterCoach) {
       const info = lk2(owner);
-      return info && info.c === filterCoach;
+      if (info && info.c === filterCoach) return true;
+      if (csmNameSet.has(norm(owner))) return true;
+      const coach = normCoach(r["CSM Coach Name"]||r["Coach"]||"");
+      return !!(coachKeys && coachKeys.has(coach));
     }
     return true;
   });
@@ -9743,7 +9754,7 @@ My question: ${aiCustom}`,
           {tab==="revenue"&&<RevenueView rawRev={rawRev} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches}/>}
           {tab==="bob"&&<BobView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} churnAlerts={churnAlerts} onSelectCSM={selectCSMFn} liveBobDet={liveBobDet} bobAdj={bobAdj} q3BobCur={q3BobCur} domoBoq={domoBoq} q3Supp={q3Supp} q2DomoBoq={q2DomoBoq} bobTab={bobTab} setBobTab={setBobTab} sfBobRows={sfBobLive}/>}
           {tab==="trends"&&<TrendsView history={history} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} qamc={qamc} qass={qass} trendsTab={trendsTab} setTrendsTab={setTrendsTab} callRaw={callRaw} emailToAcct={emailToAcct}/>}
-          {tab==="cers"&&<CERView cerAssigned={cerAssigned} filterCoach={filterCoach} filterCSM={filterCSM}/>}
+          {tab==="cers"&&<CERView cerAssigned={cerAssigned} filterCoach={filterCoach} filterCSM={filterCSM} csms={filteredCSMs}/>}
           {tab==="calls"&&<TrendsView history={history} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} qamc={qamc} qass={qass} trendsTab="calls" setTrendsTab={()=>{}} hideSubTabs={true} callRaw={callRaw} emailToAcct={emailToAcct}/>}
           {tab==="capacity"&&userSession.role==="master"&&<CapacityView csms={csms} callData={callData} callRaw={callRaw} cadenceFull={cadenceFull} domoBoq={domoBoq} filterCoach={filterCoach} filterCSM={filterCSM}/>}
           {tab==="scc"&&canSeeSCC&&<SCCView rows={sccChurn}/>}
