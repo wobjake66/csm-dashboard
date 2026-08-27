@@ -6222,8 +6222,8 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
       if (r.status==="Added")    { g.addedMrr     += r.cur;             g.addedCount++;     }
     });
     const sfData = Object.values(csmGroups).map(g => {
-      const cov = acctCoverageByCsm[norm(g.name)] || acctCoverageByCsm[g.name] || {cadenceAccts:0, onboardingAccts:0};
-      return {...g, delta:g.cur-g.boq, retPct: g.boq>0 ? g.cur/g.boq : null, acctsAssigned: g.rows.length, cadenceAccts: cov.cadenceAccts, onboardingAccts: cov.onboardingAccts};
+      const cov = acctCoverageByCsm[norm(g.name)] || acctCoverageByCsm[g.name] || {cadenceAccts:0, onboardingAccts:0, activeAccts:0, reactiveAccts:0};
+      return {...g, delta:g.cur-g.boq, retPct: g.boq>0 ? g.cur/g.boq : null, acctsAssigned: g.rows.length, cadenceAccts: cov.cadenceAccts, onboardingAccts: cov.onboardingAccts, activeAccts: cov.activeAccts, reactiveAccts: cov.reactiveAccts};
     });
 
     const totalBoq       = sfData.reduce((s,c)=>s+c.boq, 0);
@@ -6235,6 +6235,8 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
     const overallRet     = totalBoq > 0 ? totalCur/totalBoq : null;
     const totalCadenceAccts    = sfData.reduce((s,c)=>s+c.cadenceAccts, 0);
     const totalOnboardingAccts = sfData.reduce((s,c)=>s+c.onboardingAccts, 0);
+    const totalActiveAccts     = sfData.reduce((s,c)=>s+c.activeAccts, 0);
+    const totalReactiveAccts   = sfData.reduce((s,c)=>s+c.reactiveAccts, 0);
 
     const csmsWithEvent = type => {
       if (type==="increase")  return new Set(sfData.filter(c=>c.increaseMrr>0).map(c=>c.name));
@@ -6285,7 +6287,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
           </div>
         )}
         {/* Tiles */}
-        <div style={{display:"grid",gridTemplateColumns:"repeat(10,minmax(0,1fr))",gap:10,marginBottom:16}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(12,minmax(0,1fr))",gap:10,marginBottom:16}}>
           <div onClick={()=>{setSfTileFilter(null);}}
             style={{background:!sfTileFilter?"#29355D":"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",
               borderTop:"3px solid #29355D",cursor:"pointer",transition:"all .15s"}}>
@@ -6318,6 +6320,16 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
             <div style={{fontSize:22,fontWeight:600,color:"#d97706",lineHeight:1,marginBottom:4}}>{totalOnboardingAccts}</div>
             <div style={{fontSize:12,color:"#808080"}}>CER not yet completed</div>
           </div>
+          <div style={{background:"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",borderTop:"3px solid #16a34a"}}>
+            <div style={{fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Active</div>
+            <div style={{fontSize:22,fontWeight:600,color:"#16a34a",lineHeight:1,marginBottom:4}}>{totalActiveAccts}</div>
+            <div style={{fontSize:12,color:"#808080"}}>{totalAcctsSF>0?Math.round(totalActiveAccts/totalAcctsSF*100)+"% of book":"in cadence or CER"}</div>
+          </div>
+          <div style={{background:"#ECEEF1",borderRadius:"0 0 10px 10px",padding:"12px 14px",borderTop:"3px solid #94a3b8"}}>
+            <div style={{fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Reactive</div>
+            <div style={{fontSize:22,fontWeight:600,color:"#64748b",lineHeight:1,marginBottom:4}}>{totalReactiveAccts}</div>
+            <div style={{fontSize:12,color:"#808080"}}>{totalAcctsSF>0?Math.round(totalReactiveAccts/totalAcctsSF*100)+"% of book":"in neither"}</div>
+          </div>
           {tileBtn("Increases",fmt$(totalIncrease),sfData.reduce((s,c)=>s+c.increaseCount,0)+" accounts","#16a34a","increase")}
           {tileBtn("Decreases",fmt$(totalDecrease),sfData.reduce((s,c)=>s+c.decreaseCount,0)+" accounts","#dc2626","decrease")}
           {tileBtn("Cancelled",fmt$(totalCancelled),sfData.reduce((s,c)=>s+c.cancelledCount,0)+" accounts","#d97706","cancelled")}
@@ -6347,6 +6359,8 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                 {thSort("retPct","Retention %")}
                 {thSort("cadenceAccts","In Cadence")}
                 {thSort("onboardingAccts","Open Onboarding")}
+                {thSort("activeAccts","Active")}
+                {thSort("reactiveAccts","Reactive")}
               </tr>
             </thead>
             <tbody>
@@ -6376,10 +6390,12 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                       </td>
                       <td style={{padding:"10px",textAlign:"right",color:"#0891b2",fontWeight:500}}>{g.cadenceAccts}</td>
                       <td style={{padding:"10px",textAlign:"right",color:"#d97706",fontWeight:500}}>{g.onboardingAccts}</td>
+                      <td style={{padding:"10px",textAlign:"right",color:"#16a34a",fontWeight:500}}>{g.activeAccts}</td>
+                      <td style={{padding:"10px",textAlign:"right",color:"#64748b",fontWeight:500}}>{g.reactiveAccts}</td>
                     </tr>
                     {isExp&&(
                       <tr style={{background:"rgba(41,53,93,.02)"}}>
-                        <td colSpan={11} style={{padding:0}}>
+                        <td colSpan={13} style={{padding:0}}>
                           <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
                             <thead>
                               <tr style={{borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>
@@ -6727,8 +6743,9 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
     const c = acctCoverageByCsm[norm(n)] || acctCoverageByCsm[n];
     if (!c) return acc;
     acc.bobAccts += c.bobAccts; acc.cadenceAccts += c.cadenceAccts; acc.onboardingAccts += c.onboardingAccts;
+    acc.activeAccts += c.activeAccts||0; acc.reactiveAccts += c.reactiveAccts||0;
     return acc;
-  }, {bobAccts:0, cadenceAccts:0, onboardingAccts:0});
+  }, {bobAccts:0, cadenceAccts:0, onboardingAccts:0, activeAccts:0, reactiveAccts:0});
   const todayStr     = now.getFullYear()+"-"+pad(now.getMonth()+1)+"-"+pad(now.getDate());
   const tmrDate      = new Date(now); tmrDate.setDate(now.getDate()+1);
   const tmrStr       = tmrDate.getFullYear()+"-"+pad(tmrDate.getMonth()+1)+"-"+pad(tmrDate.getDate());
@@ -7267,7 +7284,7 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
         <span style={lbl}>📦 Account Coverage</span>
         <div style={{fontSize:12,color:"#808080",marginBottom:14,marginTop:2}}>Book of business vs. accounts actively touched</div>
         {myCoverage.bobAccts>0 ? (
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr 1fr",gap:10}}>
             <div style={{padding:"10px 12px",background:"rgba(41,53,93,.04)",borderRadius:8}}>
               <div style={{fontSize:12,color:"#808080",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Book of Business</div>
               <div style={{fontSize:22,fontWeight:700,color:"#29355D"}}>{myCoverage.bobAccts}</div>
@@ -7282,6 +7299,16 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
               <div style={{fontSize:12,color:"#808080",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Open Onboarding</div>
               <div style={{fontSize:22,fontWeight:700,color:"#d97706"}}>{myCoverage.onboardingAccts}</div>
               <div style={{fontSize:12,color:"#aaa"}}>CER not yet completed</div>
+            </div>
+            <div style={{padding:"10px 12px",background:"rgba(22,163,74,.06)",borderRadius:8}}>
+              <div style={{fontSize:12,color:"#166534",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Active</div>
+              <div style={{fontSize:22,fontWeight:700,color:"#16a34a"}}>{myCoverage.activeAccts}</div>
+              <div style={{fontSize:12,color:"#166534"}}>in cadence or CER</div>
+            </div>
+            <div style={{padding:"10px 12px",background:"rgba(100,116,139,.08)",borderRadius:8}}>
+              <div style={{fontSize:12,color:"#475569",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Reactive</div>
+              <div style={{fontSize:22,fontWeight:700,color:"#64748b"}}>{myCoverage.reactiveAccts}</div>
+              <div style={{fontSize:12,color:"#64748b"}}>in neither</div>
             </div>
           </div>
         ) : <div style={{fontSize:12,color:"#808080",textAlign:"center",padding:"12px 0"}}>No coverage data loaded yet</div>}
@@ -8605,10 +8632,18 @@ function buildAccountCoverageByCsm(sfBobRows, cadenceFull, cerAssigned) {
   const allCsms = new Set([...Object.keys(bob), ...Object.keys(cadence), ...Object.keys(onboarding)]);
   const result = {};
   allCsms.forEach(csm => {
+    const bobSet = bob[csm] || new Set();
+    // Active = a book account that's in cadence or has an open CER; Reactive
+    // = a book account that's in neither — nobody's proactively working it,
+    // only ever touched if/when the client reaches out.
+    const activeSet = new Set([...(cadence[csm]||[]), ...(onboarding[csm]||[])]);
+    const activeAccts = [...bobSet].filter(a => activeSet.has(a)).length;
     result[csm] = {
-      bobAccts: bob[csm] ? bob[csm].size : 0,
+      bobAccts: bobSet.size,
       cadenceAccts: cadence[csm] ? cadence[csm].size : 0,
       onboardingAccts: onboarding[csm] ? onboarding[csm].size : 0,
+      activeAccts,
+      reactiveAccts: bobSet.size - activeAccts,
     };
   });
   return result;
