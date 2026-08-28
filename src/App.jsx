@@ -1955,7 +1955,7 @@ function PeriodPicker({value, onChange, customFrom, customTo, onFromChange, onTo
 }
 
 // ── COACHING TAB ───────────────────────────────────────────────────────────
-function CoachingView({csms, coach, onSelectCSM, onSelectCoach, onClear, skippedCSMs, bobRaw, mcChurn, bcChurn, liveBobDet={}, isCsmView=false, bobAdj={}, history=[], callData={}, sfBobByCsm={}, acctNameToAcct={}, onTimeByAccount={}}) {
+function CoachingView({csms, coach, onSelectCSM, onSelectCoach, onClear, skippedCSMs, bobRaw, mcChurn, bcChurn, liveBobDet={}, isCsmView=false, bobAdj={}, history=[], callData={}, billingBobByCsm={}, acctNameToAcct={}, onTimeByAccount={}}) {
   const [dateFilter, setDateFilter] = React.useState("last_week");
   const [customFrom, setCustomFrom] = React.useState("");
   const [customTo,   setCustomTo]   = React.useState("");
@@ -2239,13 +2239,14 @@ function OverviewView({csms, allCSMs, bobRaw, bobAdj, history, callData, filterC
   const otRows = histInRange.filter(r=>r.otTotal>=1 && r.otPct!=null);
   const avgOT = otRows.length ? sumBy(otRows.map(r=>({v:r.otTotal*r.otPct})), "v") / sumBy(otRows,"otTotal") : 0;
 
-  // ── Retention — prefers the Q3 BoB summary (same source as the Book of
-  // Business tab's new Q3 BoB view). Falls back to the CSV_HISTORY snapshot
-  // only when no Q3 BoB data exists for that CSM, then to the live
-  // bobRaw/csm.bobRet fields after that. ──
+  // ── Retention — prefers the new billing-based Q3 BoB summary (same source
+  // as the Book of Business tab's "Q3 BoB (Billing)" view, paced/carry-
+  // forward retention). Falls back to the CSV_HISTORY snapshot only when no
+  // Q3 BoB data exists for that CSM, then to the live bobRaw/csm.bobRet
+  // fields after that. ──
   const getBobRet = (csm) => {
-    const sf = sfBobByCsm[norm(csm.name)||csm.name] || sfBobByCsm[csm.name];
-    if (sf && sf.ret != null) return sf.ret;
+    const bb = billingBobByCsm[norm(csm.name)||csm.name] || billingBobByCsm[csm.name];
+    if (bb && bb.pacedRet != null) return bb.pacedRet;
     // Fall back: latest history snapshot within the selected range
     const csmHist = histInRange.filter(r=>r.name===csm.name && r.bobRet!=null).sort((a,b)=>a.date.localeCompare(b.date));
     if (csmHist.length > 0) return csmHist[csmHist.length-1].bobRet;
@@ -4267,11 +4268,11 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
 // ── DAILY DIGEST ────────────────────────────────────────────────────────────
 function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, bcChurn,
   liveBobDet, callData, qamc, qass, skippedCSMs, bobAdj, history=[], getDet,
-  domoBoq=[], q3BobCur=[], q3Supp=[], sfBobByCsm={}}) {
+  domoBoq=[], q3BobCur=[], q3Supp=[], billingBobByCsm={}}) {
 
-  // Q3 BOB retention per CSM — from the Q3 BoB summary (same source as the
-  // Book of Business tab's Q3 BoB view).
-  const q3RetByCsm = sfBobByCsm;
+  // Q3 BOB retention per CSM — from the new billing-based Q3 BoB summary
+  // (same source as the Book of Business tab's "Q3 BoB (Billing)" view).
+  const q3RetByCsm = billingBobByCsm;
 
   // Helper: get Q3 BOB entry for a CSM
   const getQ3Bob = csm => {
@@ -4390,11 +4391,11 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
     });
     signals.push({key:"cad", label:"Cadence", score:cadScore, value:cadValue, detail:cadDetail});
 
-    // ── Q3 BOB RETENTION ── sourced from domoBoq + q3BobCur + q3Supp (same as BOB tab)
+    // ── Q3 BOB RETENTION ── sourced from the billing-based Q3 BoB (same as BOB tab)
     const q3Bob = getQ3Bob(csm);
-    const q3Ret  = q3Bob?.ret ?? null;
+    const q3Ret  = q3Bob?.pacedRet ?? null;
     const q3Boq  = q3Bob?.boq ?? 0;
-    const q3Cur  = q3Bob?.cur ?? 0;
+    const q3Cur  = q3Bob?.current ?? 0;
     const retScore = q3Ret==null?"gray":q3Ret>=0.99?"legend":q3Ret>=0.91?"green":q3Ret>=0.85?"yellow":"red";
     if (q3Boq>0) signals.push({
       key:"bob", label:"Q3 Retention",
@@ -6724,7 +6725,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
 
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
         <div style={{display:"flex",gap:2,background:"#ECEEF1",borderRadius:8,padding:3}}>
-          {[["overview","Q2 Domo BoB"],["sfpreview","✅ Q3 BoB"],["billing","📊 Q3 BoB (Billing)"]].map(([t,l])=>(
+          {[["overview","Q2 Domo BoB"],["billing","📊 Q3 BoB (Billing)"]].map(([t,l])=>(
             <button key={t} onClick={()=>setBobTab(t)}
               style={{padding:"5px 14px",fontSize:12,fontWeight:500,border:"none",borderRadius:6,cursor:"pointer",
                 background:bobTab===t?"#fff":"transparent",color:bobTab===t?"#29355D":"#808080",
@@ -6884,7 +6885,7 @@ function PinLock({onUnlock}) {
 // MY DASHBOARD — self-contained. To revert: remove this block + 3 lines below.
 // ═══════════════════════════════════════════════════════════════════════════
 function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
-  churnAlerts=[], qamc=[], qass=[], domoBoq=[], q3BobCur=[], q3Supp=[], rawRev=[], cadenceFull=[], onNavigate=()=>{}, onSetTrendsTab=()=>{}, onSetBobTab=()=>{}, cerAssigned=[], cerCompleted=[], fiRows=[], sfBobRows=[], callRaw=[], emailToAcct={}, acctCoverageByCsm={}}) {
+  churnAlerts=[], qamc=[], qass=[], domoBoq=[], q3BobCur=[], q3Supp=[], rawRev=[], cadenceFull=[], onNavigate=()=>{}, onSetTrendsTab=()=>{}, onSetBobTab=()=>{}, cerAssigned=[], cerCompleted=[], fiRows=[], sfBobRows=[], callRaw=[], emailToAcct={}, acctCoverageByCsm={}, billingBobRows=[]}) {
   const [dashDateFilter, setDashDateFilter] = React.useState("today");
   const [dashCustomFrom, setDashCustomFrom] = React.useState("");
   const [dashCustomTo,   setDashCustomTo]   = React.useState("");
@@ -6993,15 +6994,14 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
     return {name:n,scheduled:s,completed:c,noShow:ns,cancelled:can,total:s+c+ns+can};
   }).filter(r=>r.total>0).sort((a,b)=>b.total-a.total);
 
-  // Q3 Book of Business — sourced from the Q3 BoB data (same as the Book of
-  // Business tab's Q3 BoB view). Net is derived as cur-boq so all the
-  // downstream math below (which expects boq+net=current) keeps working
-  // unchanged.
+  // Q3 Book of Business — sourced from the new billing-based Q3 BoB data
+  // (Beginning of Quarter + Month 1/2/3 Revenue), same source as the Book of
+  // Business tab's "Q3 BoB (Billing)" view. Replaces the old Salesforce-based
+  // join per direction to use the billing export as the source of truth.
   const boqMap = {};
-  (Array.isArray(sfBobRows)?sfBobRows:[]).forEach(([csmRaw, eid, acct, boq, cur, status]) => {
-    if (!eid) return;
-    const csmKey = normalizeSFCsmName(csmRaw);
-    boqMap[eid] = {eid, csm:csmKey, acct, boq, net: cur-boq};
+  (Array.isArray(billingBobRows)?billingBobRows:[]).forEach(r => {
+    if (!r.eid) return;
+    boqMap[r.eid] = {eid:r.eid, csm:r.csm, acct:r.account, boq:r.boq, current:r.current, qtdCurrent:r.qtdCurrent, status:r.status, pacing:r.pacing, net: r.current-r.boq};
   });
   // Build a set of all normalized name variants for the filtered CSMs
   const csmNorms=new Set(csmNames.flatMap(n=>[norm(n),n.toLowerCase()].filter(Boolean)));
@@ -7121,18 +7121,25 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
   });
   const totalAccts=bobRows.length;
   const totalBoq=bobRows.reduce((s,b)=>s+b.boq,0);
-  const totalCur=bobRows.reduce((s,b)=>s+b.boq+b.net,0);
-  const totalRet=totalBoq>0?totalCur/totalBoq:null;
+  const totalCur=bobRows.reduce((s,b)=>s+b.current,0);           // paced (carry-forward assumption included)
+  const totalQtdCur=bobRows.reduce((s,b)=>s+b.qtdCurrent,0);      // confirmed-only, no pacing assumption
+  const totalRet=totalBoq>0?totalCur/totalBoq:null;               // paced retention
+  const totalQtdRet=totalBoq>0?totalQtdCur/totalBoq:null;         // QTD (confirmed) retention
   const retColor=r=>r==null?"#808080":r>=0.9095?"#16a34a":r>=0.845?"#d97706":"#dc2626";
+  const pacingRowsMy = bobRows.filter(b=>b.pacing);
+  const pacingCountMy = pacingRowsMy.length;
+  const pacingDollarsMy = pacingRowsMy.reduce((s,b)=>s+b.current, 0);
 
+  // Increase/Decrease/Cancel — reuse the SAME status classification as the
+  // Book of Business (Billing) tab (net dollar change vs Beginning of
+  // Quarter), rather than re-deriving it here with a separate threshold.
   const bobAlerts=[];
   let totalIncreaseCount=0, totalIncreaseMrr=0, totalDecreaseMrr=0, totalCancelMrr=0;
   bobRows.forEach(b=>{
-    const cur=b.boq+b.net;
-    const delta=cur-b.boq;
-    if (b.boq>0&&cur<=0) { bobAlerts.push({csm:b.csm,acct:b.acct,type:"Cancel",boq:b.boq,cur:0}); totalCancelMrr+=b.boq; }
-    else if (delta<0&&cur>0&&Math.abs(delta)>=0.5) { bobAlerts.push({csm:b.csm,acct:b.acct,type:"Decrease",boq:b.boq,cur}); totalDecreaseMrr+=Math.abs(delta); }
-    else if (delta>0&&Math.abs(delta)>=0.5) { bobAlerts.push({csm:b.csm,acct:b.acct,type:"Increase",boq:b.boq,cur}); totalIncreaseCount++; totalIncreaseMrr+=delta; }
+    const cur=b.current;
+    if (b.status==="Lost") { bobAlerts.push({csm:b.csm,acct:b.acct,type:"Cancel",boq:b.boq,cur:0}); totalCancelMrr+=b.boq; }
+    else if (b.status==="Decrease") { bobAlerts.push({csm:b.csm,acct:b.acct,type:"Decrease",boq:b.boq,cur}); totalDecreaseMrr+=Math.abs(cur-b.boq); }
+    else if (b.status==="Increase" || b.status==="Added") { bobAlerts.push({csm:b.csm,acct:b.acct,type:"Increase",boq:b.boq,cur}); totalIncreaseCount++; totalIncreaseMrr+=(cur-b.boq); }
   });
 
   const cancelAlerts=[...bobAlerts];
@@ -7393,17 +7400,18 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
 
       {/* Q3 Book of Business */}
       <div style={{...card,marginBottom:16}}>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8,cursor:"pointer"}} onClick={()=>{onSetBobTab("sfpreview");onNavigate("bob");}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8,cursor:"pointer"}} onClick={()=>{onSetBobTab("billing");onNavigate("bob");}}>
             <span style={lbl}>📋 Q3 Book of Business</span>
             <span style={{fontSize:12,color:"#5378FC",fontWeight:500}}>View details →</span>
           </div>
           {totalAccts>0?(<>
             {/* Top row: key metrics */}
-            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:14}}>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:10,marginBottom:14}}>
               <div><div style={{fontSize:12,color:"#808080",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Accounts</div><div style={{fontSize:22,fontWeight:700,color:"#29355D"}}>{totalAccts}</div></div>
-              <div><div style={{fontSize:12,color:"#808080",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Retention</div><div style={{fontSize:22,fontWeight:700,color:retColor(totalRet)}}>{totalRet!=null?(totalRet*100).toFixed(1)+"%":"--"}</div><div style={{fontSize:12,color:"#808080"}}>goal 91%</div></div>
+              <div><div style={{fontSize:12,color:"#808080",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>QTD Retention</div><div style={{fontSize:22,fontWeight:700,color:retColor(totalQtdRet)}}>{totalQtdRet!=null?(totalQtdRet*100).toFixed(1)+"%":"--"}</div><div style={{fontSize:12,color:"#808080"}}>goal 91%</div></div>
               <div style={{padding:"8px 10px",background:"rgba(41,53,93,.04)",borderRadius:8}}><div style={{fontSize:12,color:"#808080",marginBottom:2}}>BOQ</div><div style={{fontSize:16,fontWeight:700,color:"#5378FC"}}>{fk(totalBoq)}</div></div>
-              <div style={{padding:"8px 10px",background:"rgba(41,53,93,.04)",borderRadius:8}}><div style={{fontSize:12,color:"#808080",marginBottom:2}}>Current MRR</div><div style={{fontSize:16,fontWeight:700,color:"#29355D"}}>{fk(totalCur)}</div></div>
+              <div style={{padding:"8px 10px",background:"rgba(41,53,93,.04)",borderRadius:8}}><div style={{fontSize:12,color:"#808080",marginBottom:2}}>Current (paced)</div><div style={{fontSize:16,fontWeight:700,color:"#29355D"}}>{fk(totalCur)}</div></div>
+              <div style={{padding:"8px 10px",background:"rgba(217,119,6,.06)",border:"0.5px dashed #d97706",borderRadius:8}}><div style={{fontSize:12,color:"#92400e",marginBottom:2}}><i className="ti ti-clock" style={{fontSize:11,verticalAlign:"-1px"}}/> Pacing</div><div style={{fontSize:16,fontWeight:700,color:"#d97706"}}>{pacingCountMy}</div><div style={{fontSize:11,color:"#b45309"}}>{fk(pacingDollarsMy)}</div></div>
             </div>
             {/* Account Increases, Decreases & Cancels */}
             <div style={{marginBottom:8}}><div style={{fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:600,letterSpacing:"0.05em"}}>Account Increases, Decreases, &amp; Cancels</div><div style={{fontSize:12,color:"#aaa",marginTop:2}}>Change in MRR during current quarter</div></div>
@@ -9574,6 +9582,10 @@ function App() {
     () => buildBillingBobRows(billingDetailRaw),
     [billingDetailRaw]
   );
+  const billingBobByCsm = React.useMemo(
+    () => summarizeBillingBobByCsm(billingBobRows),
+    [billingBobRows]
+  );
 
   // AI Coach panel state
   const [aiOpen,     setAiOpen]     = useState(false);
@@ -9778,10 +9790,9 @@ function App() {
       const info = lk(c.name)||{};
       const coach = COACHES.find(x=>x.e===(info.c||c.coach));
       const det = getDet(c.name)||{};
-      const bob = getBob(c.name)||{boq:c.bobBoq,lcm:c.bobLcm,net:c.bobNet,ret:c.bobRet};
+      const bb = billingBobByCsm[norm(c.name)||c.name] || billingBobByCsm[c.name] || null;
       const mc = getMc(c.name);
       const bc = getBc(c.name);
-      const ret = bob&&bob.boq>0&&bob.lcm!=null ? bob.lcm/bob.boq : (bob&&bob.ret!=null?bob.ret:null);
 
       lines.push("=== CSM PROFILE ===");
       lines.push("Name: "+c.name);
@@ -9799,8 +9810,13 @@ function App() {
       lines.push("This period: "+(c.rev>0?fd(c.rev):"None")+" | MRR: "+(c.mrr>0?fd(c.mrr):"None"));
       if (c.accts&&c.accts.length>0) lines.push("Accounts: "+c.accts.slice(0,5).map(a=>a.b+(a.m>0?" MRR "+fd(a.m):a.o>0?" OTR "+fd(a.o):"")).join(", "));
       lines.push("");
-      lines.push("=== BOOK OF BUSINESS ===");
-      lines.push("BOQ: "+(bob.boq?fd(bob.boq):"n/a")+" | Current: "+(bob.lcm?fd(bob.lcm):"n/a")+" | Net: "+(bob.net!=null?(bob.net>0?"+":"")+fd(bob.net):"n/a")+" | Retention: "+(ret!=null?pp(ret):"n/a"));
+      lines.push("=== BOOK OF BUSINESS (Q3, billing-based) ===");
+      if (bb) {
+        lines.push("BOQ: "+fd(bb.boq)+" | Current (paced): "+fd(bb.current)+" | QTD confirmed: "+fd(bb.qtdCurrent)+" | Net: "+(bb.net!=null?(bb.net>0?"+":"")+fd(bb.net):"n/a")+" | QTD Retention: "+(bb.qtdRet!=null?pp(bb.qtdRet):"n/a")+" | Paced Retention: "+(bb.pacedRet!=null?pp(bb.pacedRet):"n/a"));
+        lines.push("Accounts: "+bb.accts+" | Increases: "+bb.increaseCount+" | Decreases: "+bb.decreaseCount+" | Lost: "+bb.cancelledCount+" | Added: "+bb.addedCount+(bb.pacingCount>0?" | On pacing (unbilled this month): "+bb.pacingCount+" ("+fd(bb.pacingDollars)+")":""));
+      } else {
+        lines.push("No Q3 billing-based BoB data found for this CSM.");
+      }
       if ((det.i||[]).length>0) lines.push("Billing increases ("+det.i.length+"): "+det.i.map(x=>(x.a||x.e)+" "+x.l+" +"+fd(x.n)).join(", "));
       if ((det.d||[]).length>0) lines.push("Billing decreases ("+det.d.length+"): "+det.d.map(x=>(x.a||x.e)+" "+x.l+" "+fd(x.n)).join(", "));
       if (mc&&mc.canceled>0) lines.push("MC churn ("+mc.canceled+"): "+(mc.accts||[]).slice(0,5).join(", "));
@@ -9845,14 +9861,13 @@ function App() {
       lines.push("CSM Count: "+filteredCSMs.length);
       lines.push("");
       filteredCSMs.forEach(c=>{
-        const bob = getBob(c.name)||{net:c.bobNet,ret:c.bobRet,boq:c.bobBoq,lcm:c.bobLcm};
+        const bb = billingBobByCsm[norm(c.name)||c.name] || billingBobByCsm[c.name] || null;
         const mc = getMc(c.name);
         const bc = getBc(c.name);
         const det = getDet(c.name)||{};
-        const ret = bob&&bob.boq>0&&bob.lcm!=null ? bob.lcm/bob.boq : (bob&&bob.ret!=null?bob.ret:null);
         lines.push("── "+c.name);
         lines.push("   Revenue: "+(c.rev>0?fd(c.rev):"none")+" | Email open: "+(c.sent>0?pp(c.openRate):"n/a")+" | On-time: "+(c.otTotal>=3?pp(c.otPct):"n/a")+" | Overdue: "+(c.overdueCount||0));
-        lines.push("   Cadence: "+(c.cadCount>0?pp(c.cadPct):"n/a")+" | BOB net: "+(bob.net!=null?(bob.net>0?"+":"")+fd(bob.net):"n/a")+" | Retention: "+(ret!=null?pp(ret):"n/a"));
+        lines.push("   Cadence: "+(c.cadCount>0?pp(c.cadPct):"n/a")+" | BOB net: "+(bb&&bb.net!=null?(bb.net>0?"+":"")+fd(bb.net):"n/a")+" | QTD Retention: "+(bb&&bb.qtdRet!=null?pp(bb.qtdRet):"n/a")+(bb&&bb.pacingCount>0?" (⏳ "+bb.pacingCount+" on pacing)":""));
         if (c.skippedCount>0) lines.push("   ⚠ "+c.skippedCount+" skipped"+(c.skippedFourthCount>0?", "+c.skippedFourthCount+" at 4th reschedule":""));
         const churnCount=((mc&&mc.canceled)||0)+((bc&&bc.canceled)||0);
         if (churnCount>0) lines.push("   ⚠ Churn: "+churnCount+" account(s)"+(mc&&mc.accts.length?" MC: "+mc.accts.slice(0,2).join(", "):""));
@@ -10240,12 +10255,12 @@ My question: ${aiCustom}`,
       )}
       {hasData&&(
         <div style={{padding:"20px 24px",zoom:fontScale}}>
-          {tab==="coaching"&&<CoachingView csms={filteredCSMs} coach={filterCoach} onSelectCSM={selectCSMFn} onSelectCoach={e=>{setFilterCoach(e);setFilterCSM("");}} onClear={()=>{setFilterCoach("");setFilterCSM("");}} skippedCSMs={skippedCSMs.filter(c=>{const i=lk(c.name);if(managerCoaches&&!(i&&managerCoaches.includes(i.c)))return false;if(filterCoach&&(i&&i.c)!==filterCoach)return false;if(filterCSM&&c.name!==filterCSM)return false;return true;})} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} liveBobDet={liveBobDet} isCsmView={isCsmView} bobAdj={bobAdj} history={history} callData={callData} sfBobByCsm={sfBobByCsm} acctNameToAcct={acctNameToAcct} onTimeByAccount={onTimeByAccount}/>}
+          {tab==="coaching"&&<CoachingView csms={filteredCSMs} coach={filterCoach} onSelectCSM={selectCSMFn} onSelectCoach={e=>{setFilterCoach(e);setFilterCSM("");}} onClear={()=>{setFilterCoach("");setFilterCSM("");}} skippedCSMs={skippedCSMs.filter(c=>{const i=lk(c.name);if(managerCoaches&&!(i&&managerCoaches.includes(i.c)))return false;if(filterCoach&&(i&&i.c)!==filterCoach)return false;if(filterCSM&&c.name!==filterCSM)return false;return true;})} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} liveBobDet={liveBobDet} isCsmView={isCsmView} bobAdj={bobAdj} history={history} callData={callData} billingBobByCsm={billingBobByCsm} acctNameToAcct={acctNameToAcct} onTimeByAccount={onTimeByAccount}/>}
           {tab==="digest"&&<DigestView csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM}
             isCsmView={isCsmView} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn}
             liveBobDet={liveBobDet} callData={callData} qamc={qamc} qass={qass} history={history}
             skippedCSMs={skippedCSMs.filter(c=>{const i=lk(c.name);if(filterCoach&&(i&&i.c)!==filterCoach)return false;if(filterCSM&&c.name!==filterCSM)return false;return true;})}
-            bobAdj={bobAdj} getDet={getDet} domoBoq={domoBoq} q3BobCur={q3BobCur} q3Supp={q3Supp} sfBobByCsm={sfBobByCsm}/>}
+            bobAdj={bobAdj} getDet={getDet} domoBoq={domoBoq} q3BobCur={q3BobCur} q3Supp={q3Supp} billingBobByCsm={billingBobByCsm}/>}
           {tab==="leaderboard"&&<LeaderboardView csms={filteredCSMs} allCsms={csms} bobRaw={bobRaw} history={history} q2DomoBoq={q2DomoBoq} domoBoq={domoBoq} q3BobCur={q3BobCur} q3Supp={q3Supp} rawRev={rawRev} cadenceFull={cadenceFull}/>}
           
           {tab==="revenue"&&<RevenueView rawRev={rawRev} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches}/>}
@@ -10257,7 +10272,7 @@ My question: ${aiCustom}`,
           {tab==="scc"&&canSeeSCC&&<SCCView rows={sccChurn}/>}
           {tab==="fi"&&<FulfillmentView filterCoach={filterCoach} filterCSM={filterCSM} rows={fiRows}/>}
           {tab==="cadence"&&<CadenceView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches} cadenceFull={cadenceFull} acctNameToAcct={acctNameToAcct}/>}
-          {tab==="mydash"&&<MyDashboard csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} churnAlerts={churnAlerts} qamc={qamc||[]} qass={qass||[]} domoBoq={domoBoq||[]} q3BobCur={q3BobCur||[]} q3Supp={q3Supp||[]} rawRev={rawRev||[]} cadenceFull={cadenceFull||[]} onNavigate={setTab} onSetTrendsTab={setTrendsTab} onSetBobTab={setBobTab} cerAssigned={cerAssigned} cerCompleted={cerCompleted} fiRows={fiRows} sfBobRows={sfBobSource} callRaw={callRaw} emailToAcct={emailToAcct} acctCoverageByCsm={acctCoverageByCsm}/>}
+          {tab==="mydash"&&<MyDashboard csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} churnAlerts={churnAlerts} qamc={qamc||[]} qass={qass||[]} domoBoq={domoBoq||[]} q3BobCur={q3BobCur||[]} q3Supp={q3Supp||[]} rawRev={rawRev||[]} cadenceFull={cadenceFull||[]} onNavigate={setTab} onSetTrendsTab={setTrendsTab} onSetBobTab={setBobTab} cerAssigned={cerAssigned} cerCompleted={cerCompleted} fiRows={fiRows} sfBobRows={sfBobSource} callRaw={callRaw} emailToAcct={emailToAcct} acctCoverageByCsm={acctCoverageByCsm} billingBobRows={billingBobRows}/>}
         </div>
       )}
 
