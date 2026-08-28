@@ -8991,23 +8991,36 @@ function summarizeBillingBobByCsm(billingRows) {
 }
 
 function buildAccountCoverageByCsm(billingBobRows, cadenceFull, cerAssigned) {
-  const bob = {}, cadence = {}, onboarding = {};
+  // Book of business — keyed by Enterprise ID, not account name. EID is
+  // always unique per real account (that's exactly what "Accounts Assigned"
+  // counts elsewhere); account name is not — two different real accounts
+  // can normalize to the same string ("ABC Plumbing" vs "ABC Plumbing Inc"
+  // both -> "abc plumbing"), and some names normalize to an empty string
+  // entirely ("LLC" alone). Either way, keying by name silently undercounts
+  // the book relative to Accounts Assigned. Keying by EID makes that
+  // impossible — bobAccts is now guaranteed to equal active+reactive.
+  const bob = {};              // csm -> Set of EIDs
+  const acctNameToEid = {};    // csm -> {normalizedAccountName -> Set of EIDs}
+  const activeEids = {};       // csm -> Set of EIDs matched via cadence or CER
+  const cadence = {}, onboarding = {}; // csm -> Set of normalized account names, for the "In Cadence"/"Open Onboarding" counts only
 
-  // Book of business — from the new billing-based Q3 BoB (same source as
-  // the Book of Business tab's "Q3 BoB (Billing)" view), so "accounts
-  // assigned" here is always the exact same set active+reactive is
-  // computed against — the two can never drift apart.
-  // Account names are normalized (normAcctName) before use as set keys —
-  // Cadence and CER export account names slightly differently than the
-  // Billing data (punctuation, "LLC" vs "L.L.C.", etc.), and without this
-  // an account that's genuinely in cadence would silently fail to match
-  // its own book entry, undercounting Active.
   (billingBobRows||[]).forEach(r => {
-    if (!r.csm || !r.account) return;
-    const key = normAcctName(r.account);
+    if (!r.csm || !r.eid) return;
+    (bob[r.csm] = bob[r.csm]||new Set()).add(r.eid);
+    const key = normAcctName(r.account) || String(r.account||"").toLowerCase().trim();
     if (!key) return;
-    (bob[r.csm] = bob[r.csm]||new Set()).add(key);
+    if (!acctNameToEid[r.csm]) acctNameToEid[r.csm] = {};
+    (acctNameToEid[r.csm][key] = acctNameToEid[r.csm][key]||new Set()).add(r.eid);
   });
+
+  const markActive = (csm, accountRaw) => {
+    const key = normAcctName(accountRaw) || String(accountRaw||"").toLowerCase().trim();
+    if (!key) return;
+    const eids = (acctNameToEid[csm]||{})[key];
+    if (!eids) return; // name didn't match anything in this CSM's book — can't mark active
+    if (!activeEids[csm]) activeEids[csm] = new Set();
+    eids.forEach(eid => activeEids[csm].add(eid));
+  };
 
   (cadenceFull||[]).forEach(r => {
     const raw = String(r["Cadence Member: Assigned"]||"").trim();
@@ -9015,9 +9028,9 @@ function buildAccountCoverageByCsm(billingBobRows, cadenceFull, cerAssigned) {
     if (!raw || !account) return;
     if (!isValidCSM(raw)) return;
     const csm = norm(raw) || raw;
-    const key = normAcctName(account);
-    if (!key) return;
-    (cadence[csm] = cadence[csm]||new Set()).add(key);
+    const key = normAcctName(account) || account.toLowerCase().trim();
+    if (key) (cadence[csm] = cadence[csm]||new Set()).add(key);
+    markActive(csm, account);
   });
 
   (cerAssigned||[]).forEach(r => {
@@ -9028,26 +9041,25 @@ function buildAccountCoverageByCsm(billingBobRows, cadenceFull, cerAssigned) {
     if (!raw || !account) return;
     if (!isValidCSM(raw)) return;
     const csm = norm(raw) || raw;
-    const key = normAcctName(account);
-    if (!key) return;
-    (onboarding[csm] = onboarding[csm]||new Set()).add(key);
+    const key = normAcctName(account) || account.toLowerCase().trim();
+    if (key) (onboarding[csm] = onboarding[csm]||new Set()).add(key);
+    markActive(csm, account);
   });
 
   const allCsms = new Set([...Object.keys(bob), ...Object.keys(cadence), ...Object.keys(onboarding)]);
   const result = {};
   allCsms.forEach(csm => {
-    const bobSet = bob[csm] || new Set();
-    // Active = a book account that's in cadence or has an open CER; Reactive
-    // = a book account that's in neither — nobody's proactively working it,
-    // only ever touched if/when the client reaches out.
-    const activeSet = new Set([...(cadence[csm]||[]), ...(onboarding[csm]||[])]);
-    const activeAccts = [...bobSet].filter(a => activeSet.has(a)).length;
+    const bobEids = bob[csm] || new Set();
+    const activeSet = activeEids[csm] || new Set();
+    // Active is a guaranteed subset of the book — reactiveAccts is the
+    // complement, so bobAccts = activeAccts + reactiveAccts always holds.
+    const activeAccts = [...bobEids].filter(eid => activeSet.has(eid)).length;
     result[csm] = {
-      bobAccts: bobSet.size,
+      bobAccts: bobEids.size,
       cadenceAccts: cadence[csm] ? cadence[csm].size : 0,
       onboardingAccts: onboarding[csm] ? onboarding[csm].size : 0,
       activeAccts,
-      reactiveAccts: bobSet.size - activeAccts,
+      reactiveAccts: bobEids.size - activeAccts,
     };
   });
   return result;
