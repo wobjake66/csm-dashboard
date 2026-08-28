@@ -8999,10 +8999,19 @@ function buildAccountCoverageByCsm(billingBobRows, cadenceFull, cerAssigned) {
   // entirely ("LLC" alone). Either way, keying by name silently undercounts
   // the book relative to Accounts Assigned. Keying by EID makes that
   // impossible — bobAccts is now guaranteed to equal active+reactive.
+  //
+  // In Cadence / Open Onboarding / Active must all be computed on the SAME
+  // basis — book-matched EIDs — not a mix of "raw cadence account names"
+  // and "book-matched accounts". Mixing bases is what made Active (a
+  // book-matched union) look smaller than In Cadence (an unrestricted raw
+  // count) even though every book-matched cadence account is by definition
+  // also in the union — the two numbers just weren't counting the same
+  // population. Every count below is now "accounts in the book that also
+  // show up in cadence/CER by name".
   const bob = {};              // csm -> Set of EIDs
   const acctNameToEid = {};    // csm -> {normalizedAccountName -> Set of EIDs}
-  const activeEids = {};       // csm -> Set of EIDs matched via cadence or CER
-  const cadence = {}, onboarding = {}; // csm -> Set of normalized account names, for the "In Cadence"/"Open Onboarding" counts only
+  const cadenceEids = {};      // csm -> Set of book EIDs matched via cadence
+  const onboardingEids = {};   // csm -> Set of book EIDs matched via open CER
 
   (billingBobRows||[]).forEach(r => {
     if (!r.csm || !r.eid) return;
@@ -9013,13 +9022,10 @@ function buildAccountCoverageByCsm(billingBobRows, cadenceFull, cerAssigned) {
     (acctNameToEid[r.csm][key] = acctNameToEid[r.csm][key]||new Set()).add(r.eid);
   });
 
-  const markActive = (csm, accountRaw) => {
+  const matchEids = (csm, accountRaw) => {
     const key = normAcctName(accountRaw) || String(accountRaw||"").toLowerCase().trim();
-    if (!key) return;
-    const eids = (acctNameToEid[csm]||{})[key];
-    if (!eids) return; // name didn't match anything in this CSM's book — can't mark active
-    if (!activeEids[csm]) activeEids[csm] = new Set();
-    eids.forEach(eid => activeEids[csm].add(eid));
+    if (!key) return null;
+    return (acctNameToEid[csm]||{})[key] || null; // null if the name didn't match anything in this CSM's book
   };
 
   (cadenceFull||[]).forEach(r => {
@@ -9028,9 +9034,10 @@ function buildAccountCoverageByCsm(billingBobRows, cadenceFull, cerAssigned) {
     if (!raw || !account) return;
     if (!isValidCSM(raw)) return;
     const csm = norm(raw) || raw;
-    const key = normAcctName(account) || account.toLowerCase().trim();
-    if (key) (cadence[csm] = cadence[csm]||new Set()).add(key);
-    markActive(csm, account);
+    const eids = matchEids(csm, account);
+    if (!eids) return;
+    if (!cadenceEids[csm]) cadenceEids[csm] = new Set();
+    eids.forEach(eid => cadenceEids[csm].add(eid));
   });
 
   (cerAssigned||[]).forEach(r => {
@@ -9041,23 +9048,25 @@ function buildAccountCoverageByCsm(billingBobRows, cadenceFull, cerAssigned) {
     if (!raw || !account) return;
     if (!isValidCSM(raw)) return;
     const csm = norm(raw) || raw;
-    const key = normAcctName(account) || account.toLowerCase().trim();
-    if (key) (onboarding[csm] = onboarding[csm]||new Set()).add(key);
-    markActive(csm, account);
+    const eids = matchEids(csm, account);
+    if (!eids) return;
+    if (!onboardingEids[csm]) onboardingEids[csm] = new Set();
+    eids.forEach(eid => onboardingEids[csm].add(eid));
   });
 
-  const allCsms = new Set([...Object.keys(bob), ...Object.keys(cadence), ...Object.keys(onboarding)]);
+  const allCsms = new Set(Object.keys(bob));
   const result = {};
   allCsms.forEach(csm => {
     const bobEids = bob[csm] || new Set();
-    const activeSet = activeEids[csm] || new Set();
+    const cadSet = cadenceEids[csm] || new Set();
+    const cerSet = onboardingEids[csm] || new Set();
     // Active is a guaranteed subset of the book — reactiveAccts is the
     // complement, so bobAccts = activeAccts + reactiveAccts always holds.
-    const activeAccts = [...bobEids].filter(eid => activeSet.has(eid)).length;
+    const activeAccts = [...bobEids].filter(eid => cadSet.has(eid) || cerSet.has(eid)).length;
     result[csm] = {
       bobAccts: bobEids.size,
-      cadenceAccts: cadence[csm] ? cadence[csm].size : 0,
-      onboardingAccts: onboarding[csm] ? onboarding[csm].size : 0,
+      cadenceAccts: cadSet.size,
+      onboardingAccts: cerSet.size,
       activeAccts,
       reactiveAccts: bobEids.size - activeAccts,
     };
