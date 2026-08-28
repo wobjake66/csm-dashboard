@@ -7456,9 +7456,9 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
             <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:10,marginBottom:14}}>
               <div><div style={{fontSize:12,color:"#808080",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Accounts</div><div style={{fontSize:22,fontWeight:700,color:"#29355D"}}>{totalAccts}</div></div>
               <div><div style={{fontSize:12,color:"#808080",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>QTD Retention</div><div style={{fontSize:22,fontWeight:700,color:retColor(totalQtdRet)}}>{totalQtdRet!=null?(totalQtdRet*100).toFixed(1)+"%":"--"}</div><div style={{fontSize:12,color:"#808080"}}>goal 91%</div></div>
+              <div style={{padding:"8px 10px",background:"rgba(217,119,6,.06)",border:"0.5px dashed #d97706",borderRadius:8}}><div style={{fontSize:12,color:"#92400e",marginBottom:2}}><i className="ti ti-clock" style={{fontSize:11,verticalAlign:"-1px"}}/> Paced Retention</div><div style={{fontSize:18,fontWeight:700,color:"#d97706"}}>{totalRet!=null?(totalRet*100).toFixed(1)+"%":"--"}</div><div style={{fontSize:11,color:"#b45309"}}>{pacingCountMy} unbilled ({fk(pacingDollarsMy)})</div></div>
               <div style={{padding:"8px 10px",background:"rgba(41,53,93,.04)",borderRadius:8}}><div style={{fontSize:12,color:"#808080",marginBottom:2}}>BOQ</div><div style={{fontSize:16,fontWeight:700,color:"#5378FC"}}>{fk(totalBoq)}</div></div>
               <div style={{padding:"8px 10px",background:"rgba(41,53,93,.04)",borderRadius:8}}><div style={{fontSize:12,color:"#808080",marginBottom:2}}>Current (paced)</div><div style={{fontSize:16,fontWeight:700,color:"#29355D"}}>{fk(totalCur)}</div></div>
-              <div style={{padding:"8px 10px",background:"rgba(217,119,6,.06)",border:"0.5px dashed #d97706",borderRadius:8}}><div style={{fontSize:12,color:"#92400e",marginBottom:2}}><i className="ti ti-clock" style={{fontSize:11,verticalAlign:"-1px"}}/> Pacing</div><div style={{fontSize:16,fontWeight:700,color:"#d97706"}}>{pacingCountMy}</div><div style={{fontSize:11,color:"#b45309"}}>{fk(pacingDollarsMy)}</div></div>
             </div>
             {/* Account Increases, Decreases & Cancels */}
             <div style={{marginBottom:8}}><div style={{fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:600,letterSpacing:"0.05em"}}>Account Increases, Decreases, &amp; Cancels</div><div style={{fontSize:12,color:"#aaa",marginTop:2}}>Change in MRR during current quarter</div></div>
@@ -8997,9 +8997,16 @@ function buildAccountCoverageByCsm(billingBobRows, cadenceFull, cerAssigned) {
   // the Book of Business tab's "Q3 BoB (Billing)" view), so "accounts
   // assigned" here is always the exact same set active+reactive is
   // computed against — the two can never drift apart.
+  // Account names are normalized (normAcctName) before use as set keys —
+  // Cadence and CER export account names slightly differently than the
+  // Billing data (punctuation, "LLC" vs "L.L.C.", etc.), and without this
+  // an account that's genuinely in cadence would silently fail to match
+  // its own book entry, undercounting Active.
   (billingBobRows||[]).forEach(r => {
     if (!r.csm || !r.account) return;
-    (bob[r.csm] = bob[r.csm]||new Set()).add(r.account);
+    const key = normAcctName(r.account);
+    if (!key) return;
+    (bob[r.csm] = bob[r.csm]||new Set()).add(key);
   });
 
   (cadenceFull||[]).forEach(r => {
@@ -9008,7 +9015,9 @@ function buildAccountCoverageByCsm(billingBobRows, cadenceFull, cerAssigned) {
     if (!raw || !account) return;
     if (!isValidCSM(raw)) return;
     const csm = norm(raw) || raw;
-    (cadence[csm] = cadence[csm]||new Set()).add(account);
+    const key = normAcctName(account);
+    if (!key) return;
+    (cadence[csm] = cadence[csm]||new Set()).add(key);
   });
 
   (cerAssigned||[]).forEach(r => {
@@ -9019,7 +9028,9 @@ function buildAccountCoverageByCsm(billingBobRows, cadenceFull, cerAssigned) {
     if (!raw || !account) return;
     if (!isValidCSM(raw)) return;
     const csm = norm(raw) || raw;
-    (onboarding[csm] = onboarding[csm]||new Set()).add(account);
+    const key = normAcctName(account);
+    if (!key) return;
+    (onboarding[csm] = onboarding[csm]||new Set()).add(key);
   });
 
   const allCsms = new Set([...Object.keys(bob), ...Object.keys(cadence), ...Object.keys(onboarding)]);
