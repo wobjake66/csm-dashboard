@@ -6495,6 +6495,18 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
     const addedRows = byStatus("Added"), increaseRows = byStatus("Increase"), decreaseRows = byStatus("Decrease"), lostRows = byStatus("Lost"), noChangeRows = byStatus("No Change");
     const netOf = rows => rows.reduce((s,r)=>s+(r.current-r.boq), 0);
 
+    // Active/Reactive — same account-coverage engine as My Dashboard, now
+    // sourced from this exact billing book, so Accounts Assigned always
+    // equals Active + Reactive exactly, no drift between the two.
+    const scopedCsmSet = new Set(scopedRows.map(r=>r.csm));
+    let totalActive = 0, totalReactive = 0, totalCadenceAccts = 0, totalOnboardingAccts = 0;
+    scopedCsmSet.forEach(csm => {
+      const cov = acctCoverageByCsm[norm(csm)] || acctCoverageByCsm[csm];
+      if (!cov) return;
+      totalActive += cov.activeAccts||0; totalReactive += cov.reactiveAccts||0;
+      totalCadenceAccts += cov.cadenceAccts||0; totalOnboardingAccts += cov.onboardingAccts||0;
+    });
+
     // ── Per-CSM rollup ──
     const byCsm = {};
     scopedRows.forEach(r => {
@@ -6507,7 +6519,11 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
       if (r.status==="Lost") g.cancelledCount++;
       if (r.status==="Added") g.addedCount++;
     });
-    const csmRows = Object.values(byCsm).map(g => ({...g, net:g.current-g.boq, qtdRet: g.boq>0?g.qtdCurrent/g.boq:null, pacedRet: g.boq>0?g.current/g.boq:null}));
+    const csmRows = Object.values(byCsm).map(g => {
+      const cov = acctCoverageByCsm[norm(g.name)] || acctCoverageByCsm[g.name] || {activeAccts:0, reactiveAccts:0, cadenceAccts:0, onboardingAccts:0};
+      return {...g, net:g.current-g.boq, qtdRet: g.boq>0?g.qtdCurrent/g.boq:null, pacedRet: g.boq>0?g.current/g.boq:null,
+        activeAccts:cov.activeAccts, reactiveAccts:cov.reactiveAccts, cadenceAccts:cov.cadenceAccts, onboardingAccts:cov.onboardingAccts};
+    });
 
     const sortedCsmRows = [...csmRows].sort((a,b) => {
       const av = a[billingSort.col]??-999, bv = b[billingSort.col]??-999;
@@ -6556,6 +6572,33 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
           </div>
         </div>
 
+        {/* Account coverage — Accounts Assigned always equals Active + Reactive exactly */}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:10,marginBottom:14}}>
+          <div style={{background:"#ECEEF1",borderRadius:10,padding:"14px 16px"}}>
+            <div style={{fontSize:13,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:6}}>Accounts assigned</div>
+            <div style={{fontSize:25,fontWeight:600,color:"#29355D",lineHeight:1}}>{scopedRows.length}</div>
+            <div style={{fontSize:13,color:"#808080",marginTop:6}}>= active + reactive</div>
+          </div>
+          <div style={{background:"rgba(22,163,74,.06)",borderRadius:10,padding:"14px 16px"}}>
+            <div style={{fontSize:13,textTransform:"uppercase",color:"#166534",fontWeight:500,marginBottom:6}}>Active</div>
+            <div style={{fontSize:25,fontWeight:600,color:"#16a34a",lineHeight:1}}>{totalActive}</div>
+            <div style={{fontSize:13,color:"#166534",marginTop:6}}>in cadence or open CER</div>
+          </div>
+          <div style={{background:"rgba(100,116,139,.08)",borderRadius:10,padding:"14px 16px"}}>
+            <div style={{fontSize:13,textTransform:"uppercase",color:"#475569",fontWeight:500,marginBottom:6}}>Reactive</div>
+            <div style={{fontSize:25,fontWeight:600,color:"#64748b",lineHeight:1}}>{totalReactive}</div>
+            <div style={{fontSize:13,color:"#475569",marginTop:6}}>in neither</div>
+          </div>
+          <div style={{background:"#ECEEF1",borderRadius:10,padding:"14px 16px"}}>
+            <div style={{fontSize:13,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:6}}>In cadence</div>
+            <div style={{fontSize:25,fontWeight:600,color:"#0891b2",lineHeight:1}}>{totalCadenceAccts}</div>
+          </div>
+          <div style={{background:"#ECEEF1",borderRadius:10,padding:"14px 16px"}}>
+            <div style={{fontSize:13,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:6}}>Open onboarding</div>
+            <div style={{fontSize:25,fontWeight:600,color:"#d97706",lineHeight:1}}>{totalOnboardingAccts}</div>
+          </div>
+        </div>
+
         {/* Status breakdown */}
         <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:8,marginBottom:14}}>
           {[
@@ -6586,6 +6629,8 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                 {thSortB("current","Paced Current")}
                 {thSortB("pacedRet","Paced Retention")}
                 {thSortB("pacingCount","Pacing Accts")}
+                {thSortB("activeAccts","Active")}
+                {thSortB("reactiveAccts","Reactive")}
               </tr>
             </thead>
             <tbody>
@@ -6600,10 +6645,12 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                     <td style={{padding:"10px",textAlign:"right",fontWeight:600}}>{fmt$(g.current)}</td>
                     <td style={{padding:"10px",textAlign:"right",fontWeight:600,color:retCol(g.pacedRet)}}>{fmtPct(g.pacedRet)}</td>
                     <td style={{padding:"10px",textAlign:"right",color:g.pacingCount>0?"#d97706":"#aaa"}}>{g.pacingCount}</td>
+                    <td style={{padding:"10px",textAlign:"right",color:"#16a34a",fontWeight:500}}>{g.activeAccts}</td>
+                    <td style={{padding:"10px",textAlign:"right",color:"#64748b",fontWeight:500}}>{g.reactiveAccts}</td>
                   </tr>
                   {isExp===g.name && (
                     <tr style={{background:"rgba(41,53,93,.02)"}}>
-                      <td colSpan={8} style={{padding:0}}>
+                      <td colSpan={10} style={{padding:0}}>
                         <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
                           <thead>
                             <tr style={{borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>
@@ -8943,13 +8990,16 @@ function summarizeBillingBobByCsm(billingRows) {
   return byCsm;
 }
 
-function buildAccountCoverageByCsm(sfBobRows, cadenceFull, cerAssigned) {
+function buildAccountCoverageByCsm(billingBobRows, cadenceFull, cerAssigned) {
   const bob = {}, cadence = {}, onboarding = {};
 
-  (sfBobRows||[]).forEach(([csmRaw, eid, acct]) => {
-    const csm = normalizeSFCsmName(csmRaw);
-    if (!csm || !acct) return;
-    (bob[csm] = bob[csm]||new Set()).add(acct);
+  // Book of business — from the new billing-based Q3 BoB (same source as
+  // the Book of Business tab's "Q3 BoB (Billing)" view), so "accounts
+  // assigned" here is always the exact same set active+reactive is
+  // computed against — the two can never drift apart.
+  (billingBobRows||[]).forEach(r => {
+    if (!r.csm || !r.account) return;
+    (bob[r.csm] = bob[r.csm]||new Set()).add(r.account);
   });
 
   (cadenceFull||[]).forEach(r => {
@@ -9574,10 +9624,6 @@ function App() {
   const sfBobSource = sfBobLive || [];
   const sfBobByCsm = React.useMemo(() => summarizeSFBobByCsm(sfBobSource), [sfBobSource]);
   const getSfBob = name => sfBobByCsm[norm(name)||name] || sfBobByCsm[name] || null;
-  const acctCoverageByCsm = React.useMemo(
-    () => buildAccountCoverageByCsm(sfBobSource, cadenceFull, cerAssigned),
-    [sfBobSource, cadenceFull, cerAssigned]
-  );
   const billingBobRows = React.useMemo(
     () => buildBillingBobRows(billingDetailRaw),
     [billingDetailRaw]
@@ -9585,6 +9631,13 @@ function App() {
   const billingBobByCsm = React.useMemo(
     () => summarizeBillingBobByCsm(billingBobRows),
     [billingBobRows]
+  );
+  // Account coverage — book side now sourced from the new billing-based Q3
+  // BoB, so "accounts assigned" always equals active+reactive exactly,
+  // since both are computed from the identical account set.
+  const acctCoverageByCsm = React.useMemo(
+    () => buildAccountCoverageByCsm(billingBobRows, cadenceFull, cerAssigned),
+    [billingBobRows, cadenceFull, cerAssigned]
   );
 
   // AI Coach panel state
