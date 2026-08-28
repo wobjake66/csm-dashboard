@@ -6932,7 +6932,7 @@ function PinLock({onUnlock}) {
 // MY DASHBOARD — self-contained. To revert: remove this block + 3 lines below.
 // ═══════════════════════════════════════════════════════════════════════════
 function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
-  churnAlerts=[], qamc=[], qass=[], domoBoq=[], q3BobCur=[], q3Supp=[], rawRev=[], cadenceFull=[], onNavigate=()=>{}, onSetTrendsTab=()=>{}, onSetBobTab=()=>{}, cerAssigned=[], cerCompleted=[], fiRows=[], sfBobRows=[], callRaw=[], emailToAcct={}, acctCoverageByCsm={}, billingBobRows=[]}) {
+  churnAlerts=[], qamc=[], qass=[], domoBoq=[], q3BobCur=[], q3Supp=[], rawRev=[], cadenceFull=[], onNavigate=()=>{}, onSetTrendsTab=()=>{}, onSetBobTab=()=>{}, cerAssigned=[], cerCompleted=[], fiRows=[], sfBobRows=[], callRaw=[], emailToAcct={}, acctCoverageByCsm={}, billingBobRows=[], managerCoaches=null}) {
   const [dashDateFilter, setDashDateFilter] = React.useState("today");
   const [dashCustomFrom, setDashCustomFrom] = React.useState("");
   const [dashCustomTo,   setDashCustomTo]   = React.useState("");
@@ -6990,15 +6990,6 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
   const contextLabel = filterCSM?dispName(filterCSM):filterCoach?coachName+"'s Team":"All Teams";
   const contextIcon  = filterCSM?"👤":filterCoach?"👥":"🏢";
   const csmNames     = csms.map(c=>c.name);
-  // Account coverage — summed across whoever's currently in scope (one CSM,
-  // one coach's team, or everyone), from the shared per-CSM breakdown.
-  const myCoverage = csmNames.reduce((acc, n) => {
-    const c = acctCoverageByCsm[norm(n)] || acctCoverageByCsm[n];
-    if (!c) return acc;
-    acc.bobAccts += c.bobAccts; acc.cadenceAccts += c.cadenceAccts; acc.onboardingAccts += c.onboardingAccts;
-    acc.activeAccts += c.activeAccts||0; acc.reactiveAccts += c.reactiveAccts||0;
-    return acc;
-  }, {bobAccts:0, cadenceAccts:0, onboardingAccts:0, activeAccts:0, reactiveAccts:0});
   const todayStr     = now.getFullYear()+"-"+pad(now.getMonth()+1)+"-"+pad(now.getDate());
   const tmrDate      = new Date(now); tmrDate.setDate(now.getDate()+1);
   const tmrStr       = tmrDate.getFullYear()+"-"+pad(tmrDate.getMonth()+1)+"-"+pad(tmrDate.getDate());
@@ -7163,10 +7154,25 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
   const cadAccountsInWindow = new Set(cadDueInWindow.map(r=>r.account).filter(Boolean));
 
   const bobRows=Object.values(boqMap).filter(b=>{
-    const bNorm=b.csm;
-    return csmNorms.has(bNorm)||csmNorms.has(norm(bNorm));
+    const i = lk(norm(b.csm)) || lk(b.csm);
+    if (managerCoaches && !(i && managerCoaches.includes(i.c))) return false;
+    if (filterCoach && (i && i.c) !== filterCoach) return false;
+    if (filterCSM && norm(b.csm) !== filterCSM && b.csm !== filterCSM) return false;
+    return true;
   });
   const totalAccts=bobRows.length;
+  // Account coverage — same CSM scope as bobRows above (direct ROSTER-based
+  // coach/CSM matching), not csmNames (buildCSMs()'s roster, which can miss
+  // a CSM who has billing accounts but no other tracked activity this
+  // period) — otherwise this card and the Q3 BoB card disagree on totals.
+  const coverageCsmSet = new Set(bobRows.map(b=>b.csm));
+  const myCoverage = [...coverageCsmSet].reduce((acc, n) => {
+    const c = acctCoverageByCsm[norm(n)] || acctCoverageByCsm[n];
+    if (!c) return acc;
+    acc.bobAccts += c.bobAccts; acc.cadenceAccts += c.cadenceAccts; acc.onboardingAccts += c.onboardingAccts;
+    acc.activeAccts += c.activeAccts||0; acc.reactiveAccts += c.reactiveAccts||0;
+    return acc;
+  }, {bobAccts:0, cadenceAccts:0, onboardingAccts:0, activeAccts:0, reactiveAccts:0});
   const totalBoq=bobRows.reduce((s,b)=>s+b.boq,0);
   const totalCur=bobRows.reduce((s,b)=>s+b.current,0);           // paced (carry-forward assumption included)
   const totalQtdCur=bobRows.reduce((s,b)=>s+b.qtdCurrent,0);      // confirmed-only, no pacing assumption
@@ -10357,7 +10363,7 @@ My question: ${aiCustom}`,
           {tab==="scc"&&canSeeSCC&&<SCCView rows={sccChurn}/>}
           {tab==="fi"&&<FulfillmentView filterCoach={filterCoach} filterCSM={filterCSM} rows={fiRows}/>}
           {tab==="cadence"&&<CadenceView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches} cadenceFull={cadenceFull} acctNameToAcct={acctNameToAcct}/>}
-          {tab==="mydash"&&<MyDashboard csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} churnAlerts={churnAlerts} qamc={qamc||[]} qass={qass||[]} domoBoq={domoBoq||[]} q3BobCur={q3BobCur||[]} q3Supp={q3Supp||[]} rawRev={rawRev||[]} cadenceFull={cadenceFull||[]} onNavigate={setTab} onSetTrendsTab={setTrendsTab} onSetBobTab={setBobTab} cerAssigned={cerAssigned} cerCompleted={cerCompleted} fiRows={fiRows} sfBobRows={sfBobSource} callRaw={callRaw} emailToAcct={emailToAcct} acctCoverageByCsm={acctCoverageByCsm} billingBobRows={billingBobRows}/>}
+          {tab==="mydash"&&<MyDashboard csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} churnAlerts={churnAlerts} qamc={qamc||[]} qass={qass||[]} domoBoq={domoBoq||[]} q3BobCur={q3BobCur||[]} q3Supp={q3Supp||[]} rawRev={rawRev||[]} cadenceFull={cadenceFull||[]} onNavigate={setTab} onSetTrendsTab={setTrendsTab} onSetBobTab={setBobTab} cerAssigned={cerAssigned} cerCompleted={cerCompleted} fiRows={fiRows} sfBobRows={sfBobSource} callRaw={callRaw} emailToAcct={emailToAcct} acctCoverageByCsm={acctCoverageByCsm} billingBobRows={billingBobRows} managerCoaches={managerCoaches}/>}
         </div>
       )}
 
