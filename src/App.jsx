@@ -6527,35 +6527,31 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
 
     return (
       <div>
-        <div style={{background:"rgba(83,120,252,.08)",border:"0.5px solid rgba(83,120,252,.3)",borderRadius:8,padding:"10px 16px",marginBottom:14,fontSize:12,color:"#29355D"}}>
-          <b>New for Sept 2026</b> — sourced from the "Q3 BoB Detail" billing export (Beginning of Quarter + Month 1/2/3 Revenue), not the Salesforce-based join used elsewhere on this page. Added as its own tab for now, side by side with the existing views — nothing else on this page has changed.
-        </div>
-
         {/* QTD vs Pacing retention */}
         <div style={{display:"grid",gridTemplateColumns:"1.3fr 1.3fr 1fr 1fr 1fr",gap:10,marginBottom:14}}>
-          <div style={{background:"#141A3D",borderRadius:10,padding:"12px 14px"}}>
-            <div style={{fontSize:11,textTransform:"uppercase",color:"rgba(255,255,255,.6)",fontWeight:500,marginBottom:4}}>QTD retention (confirmed)</div>
-            <div style={{fontSize:22,fontWeight:600,color:"#fff",lineHeight:1}}>{fmtPct(qtdRet)}</div>
-            <div style={{fontSize:11,color:"rgba(255,255,255,.55)",marginTop:4}}>{fmt$(totalQtdConfirmed)} billed of {fmt$(totalBoq)}</div>
+          <div style={{background:"#141A3D",borderRadius:10,padding:"14px 16px"}}>
+            <div style={{fontSize:13,textTransform:"uppercase",color:"rgba(255,255,255,.6)",fontWeight:500,marginBottom:6}}>QTD retention (confirmed)</div>
+            <div style={{fontSize:30,fontWeight:600,color:"#fff",lineHeight:1}}>{fmtPct(qtdRet)}</div>
+            <div style={{fontSize:13,color:"rgba(255,255,255,.55)",marginTop:6}}>{fmt$(totalQtdConfirmed)} billed of {fmt$(totalBoq)}</div>
           </div>
-          <div style={{background:"#fff",border:"1.5px dashed #d97706",borderRadius:10,padding:"12px 14px"}}>
-            <div style={{fontSize:11,textTransform:"uppercase",color:"#92400e",fontWeight:500,marginBottom:4}}>Pacing (full quarter)</div>
-            <div style={{fontSize:22,fontWeight:600,color:"#d97706",lineHeight:1}}>{fmtPct(pacedRet)}</div>
-            <div style={{fontSize:11,color:"#b45309",marginTop:4}}>assumes {pacingRows.length} unbilled accts continue</div>
+          <div style={{background:"#fff",border:"1.5px dashed #d97706",borderRadius:10,padding:"14px 16px"}}>
+            <div style={{fontSize:13,textTransform:"uppercase",color:"#92400e",fontWeight:500,marginBottom:6}}>Pacing (full quarter)</div>
+            <div style={{fontSize:30,fontWeight:600,color:"#d97706",lineHeight:1}}>{fmtPct(pacedRet)}</div>
+            <div style={{fontSize:13,color:"#b45309",marginTop:6}}>assumes {pacingRows.length} unbilled accts continue</div>
           </div>
-          <div style={{background:"#ECEEF1",borderRadius:10,padding:"12px 14px"}}>
-            <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Beginning</div>
-            <div style={{fontSize:19,fontWeight:600,color:"#5378FC",lineHeight:1}}>{fmt$(totalBoq)}</div>
-            <div style={{fontSize:11,color:"#808080",marginTop:4}}>{csmRows.length} CSMs</div>
+          <div style={{background:"#ECEEF1",borderRadius:10,padding:"14px 16px"}}>
+            <div style={{fontSize:13,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:6}}>Beginning</div>
+            <div style={{fontSize:25,fontWeight:600,color:"#5378FC",lineHeight:1}}>{fmt$(totalBoq)}</div>
+            <div style={{fontSize:13,color:"#808080",marginTop:6}}>{csmRows.length} CSMs</div>
           </div>
-          <div style={{background:"#ECEEF1",borderRadius:10,padding:"12px 14px"}}>
-            <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Current (paced)</div>
-            <div style={{fontSize:19,fontWeight:600,color:"#29355D",lineHeight:1}}>{fmt$(totalCurrentPaced)}</div>
-            <div style={{fontSize:11,color:"#808080",marginTop:4}}>{scopedRows.length} accounts</div>
+          <div style={{background:"#ECEEF1",borderRadius:10,padding:"14px 16px"}}>
+            <div style={{fontSize:13,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:6}}>Current (paced)</div>
+            <div style={{fontSize:25,fontWeight:600,color:"#29355D",lineHeight:1}}>{fmt$(totalCurrentPaced)}</div>
+            <div style={{fontSize:13,color:"#808080",marginTop:6}}>{scopedRows.length} accounts</div>
           </div>
-          <div style={{background:"#ECEEF1",borderRadius:10,padding:"12px 14px"}}>
-            <div style={{fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:4}}>Net (paced)</div>
-            <div style={{fontSize:19,fontWeight:600,color:totalCurrentPaced-totalBoq>=0?"#16a34a":"#dc2626",lineHeight:1}}>{(totalCurrentPaced-totalBoq>=0?"+":"")+fmt$(totalCurrentPaced-totalBoq)}</div>
+          <div style={{background:"#ECEEF1",borderRadius:10,padding:"14px 16px"}}>
+            <div style={{fontSize:13,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:6}}>Net (paced)</div>
+            <div style={{fontSize:25,fontWeight:600,color:totalCurrentPaced-totalBoq>=0?"#16a34a":"#dc2626",lineHeight:1}}>{(totalCurrentPaced-totalBoq>=0?"+":"")+fmt$(totalCurrentPaced-totalBoq)}</div>
           </div>
         </div>
 
@@ -6568,16 +6564,12 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
             {l:"Lost", rows:lostRows, col:"#92400e", bg:"rgba(217,119,6,.06)"},
             {l:"No change", rows:noChangeRows, col:"#5f5e5a", bg:"rgba(41,53,93,.05)"},
           ].map(t=>(
-            <div key={t.l} style={{background:t.bg,borderRadius:8,padding:"8px 10px",textAlign:"center"}}>
-              <div style={{fontSize:16,fontWeight:600,color:t.col}}>{t.rows.length}</div>
-              <div style={{fontSize:10,color:t.col}}>{t.l}</div>
-              {t.l!=="No change" && <div style={{fontSize:10,color:t.col,opacity:.7}}>{netOf(t.rows)>=0?"+":""}{fmt$(netOf(t.rows))}</div>}
+            <div key={t.l} style={{background:t.bg,borderRadius:8,padding:"12px 14px",textAlign:"center"}}>
+              <div style={{fontSize:24,fontWeight:600,color:t.col}}>{t.rows.length}</div>
+              <div style={{fontSize:13,color:t.col}}>{t.l}</div>
+              {t.l!=="No change" && <div style={{fontSize:13,color:t.col,opacity:.7}}>{netOf(t.rows)>=0?"+":""}{fmt$(netOf(t.rows))}</div>}
             </div>
           ))}
-        </div>
-
-        <div style={{fontSize:11,color:"#aaa",marginBottom:14,padding:"8px 10px",background:"rgba(217,119,6,.05)",borderRadius:6,border:"0.5px solid rgba(217,119,6,.15)"}}>
-          {pacingRows.length} accounts ({fmt$(pacingDollars)}) show no billing yet for the latest month — carried forward from their last confirmed month as a pacing assumption, not counted as Decrease. Added/Increase/Decrease/Lost are based on each account's net dollar change vs Beginning of Quarter — for the specific case of one product line recovering while another stays flat, review that account's own line items for the full picture.
         </div>
 
         {/* Per-CSM table */}
