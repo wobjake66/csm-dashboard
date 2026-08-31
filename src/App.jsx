@@ -7320,9 +7320,16 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
 
         {/* Cadence touchpoints */}
         <div style={card}>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8,cursor:"pointer"}} onClick={()=>onNavigate("cadence")}>
-            <span style={lbl}>✅ Cadence touchpoints — {dashLabel}{cadOverdueAll.length>0 && <span style={{marginLeft:6,fontSize:11,fontWeight:700,padding:"1px 6px",borderRadius:20,background:"#dc2626",color:"#fff"}}>🚨 {cadOverdueAll.length}</span>}</span>
-            <span style={{fontSize:12,color:"#5378FC",fontWeight:500}}>View details →</span>
+          <div style={{cursor:"pointer"}} onClick={()=>onNavigate("cadence")}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:cadOverdueAll.length>0?4:8}}>
+              <span style={lbl}>✅ Cadence touchpoints — {dashLabel}</span>
+              <span style={{fontSize:12,color:"#5378FC",fontWeight:500}}>View details →</span>
+            </div>
+            {cadOverdueAll.length>0 && (
+              <div style={{marginBottom:8}}>
+                <span style={{fontSize:11,fontWeight:700,padding:"1px 6px",borderRadius:20,background:"#dc2626",color:"#fff"}}>🚨 {cadOverdueAll.length}</span>
+              </div>
+            )}
           </div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8}}>
             <div>
@@ -10469,3 +10476,4 @@ My question: ${aiCustom}`,
     </div>
   );
 }
+    
