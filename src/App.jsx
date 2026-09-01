@@ -160,7 +160,7 @@ const NAME_NORM = {
   "matthew reedy":"Matthew Reedy",
   "jennifer koly":"Jennifer Koly",
   "kim mcdonald":"Kim Mcdonald",
-  "jake taylor":"Jake Taylor",
+  "jake tayler":"Jake Tayler",
   "benjamin sypher":"Benjamin Sypher",
 };
 
@@ -233,7 +233,7 @@ const ROSTER = {
   "matthew reedy":{c:"newell.godwin@thryv.com",t:"The Newell Order",r:"CSMII",reg:"US"},
   "jennifer koly":{c:"newell.godwin@thryv.com",t:"The Newell Order",r:"CSMII",reg:"US"},
   "kim mcdonald":{c:"newell.godwin@thryv.com",t:"The Newell Order",r:"CSMII",reg:"US"},
-  "jake taylor":{c:"newell.godwin@thryv.com",t:"The Newell Order",r:"CSMII",reg:"US"},
+  "jake tayler":{c:"newell.godwin@thryv.com",t:"The Newell Order",r:"CSMII",reg:"US"},
   "benjamin sypher":{c:"newell.godwin@thryv.com",t:"The Newell Order",r:"CSMII",reg:"US"},
 };
 
@@ -6807,7 +6807,7 @@ const USER_CREDS = {
   "7bbecb0907b148d0a9c25733f0d276ac0cc9e60664aa1bdb77bc8d33ad6c8557": {"name": "Matthew Reedy", "role": "csm"},
   "7dbc9e01698ff64493e4d1f7f993a8999a00617345a955bf1beec9e0f84229d4": {"name": "Jennifer Koly", "role": "csm"},
   "3eaabc8ccc9d875bee02a0123e09a1fbce8b172c862a924f01dc8fa83b198645": {"name": "Kim Mcdonald", "role": "csm"},
-  "a34c7305af5b1b2cea20ff1591696acf02402faf4f4f38400ab36c421b11fe81": {"name": "Jake Taylor", "role": "csm"},
+  "a34c7305af5b1b2cea20ff1591696acf02402faf4f4f38400ab36c421b11fe81": {"name": "Jake Tayler", "role": "csm"},
   "620e9c1f98e4730c1968dd7e14627cdff6689e377fa8ff7d5be4fd3540b57543": {"name": "Benjamin Sypher", "role": "csm"},
   "d44f637a200880a3dd20cf617485f6b383de1f02b98ee96df2bf0e70c22e8291": {"name": "Ironelis Cabrera Bautista", "role": "csm"},
   "f1268e501bb8fe4e89f65acf4a2cd16d77c512c00ee381f8278b3a8e9248df8a": {"name": "Juan Sanchez", "role": "csm"},
@@ -9055,7 +9055,12 @@ function buildAccountCoverageByCsm(billingBobRows, cadenceFull, cerAssigned) {
 
   (cerAssigned||[]).forEach(r => {
     const status = String(r["Status"]||"").trim();
-    if (!status || status.toLowerCase()==="completed") return; // only currently-open engagements
+    // Match the CER tab's own definition of "In Progress" exactly (see
+    // getStatus in CERView) — a literal "In Progress" status, not "anything
+    // that isn't Completed". That broader rule was also counting "New"
+    // (not-yet-started) roadmaps toward Open Onboarding, which overstated
+    // it relative to what the CER tab itself calls "in progress".
+    if (status !== "In Progress") return;
     const raw = String(r["Client Engagement Roadmap: Owner Name"]||r["Owner Name"]||"").trim();
     const account = String(r["Account"]||"").trim();
     if (!raw || !account) return;
@@ -10476,4 +10481,3 @@ My question: ${aiCustom}`,
     </div>
   );
 }
-    
