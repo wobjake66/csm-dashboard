@@ -15,6 +15,13 @@ const CSV_CAD     = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGw
 const CSV_DUE     = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=341836664&single=true&output=csv";
 const CSV_ONTIME  = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=459845057&single=true&output=csv";
 const CSV_CER_ASSIGNED  = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=35918390&single=true&output=csv";
+// TODO: replace gid=REPLACE_ME once the "No Activity" tab is published to web —
+// same publish-to-web CSV pattern as every other source on this page. Columns
+// expected (from the real upload validated Sept 2026): "Onboarding Form Owner",
+// "Account", "Enterprise ID", "Status", "Days Since Last Call", "Form Aging
+// (Days)", "CER Cadence", "Final". Company-wide export — gets filtered down to
+// our roster the same way every other CER/FI source on this page already is.
+const CSV_NO_ACTIVITY = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=545382603&single=true&output=csv"; // "CER No Activity" tab, confirmed correct via direct browser download (Sept 2026) — this assistant's own web_fetch tool couldn't independently verify it in-conversation (kept resolving to a different, earlier-fetched gid on the same base document), but the user's own download showed exactly the expected columns/data. The real app fetches fresh from each user's browser and isn't affected by that tool limitation.
 const CSV_CER_COMPLETED = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=971524149&single=true&output=csv";
 const CSV_CADENCE_FULL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=238173739&single=true&output=csv";
 const CSV_SKIPPED = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=1238903633&single=true&output=csv"; // prior-day skipped cadences
@@ -7015,7 +7022,7 @@ function PinLock({onUnlock}) {
 // MY DASHBOARD — self-contained. To revert: remove this block + 3 lines below.
 // ═══════════════════════════════════════════════════════════════════════════
 function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
-  churnAlerts=[], qamc=[], qass=[], domoBoq=[], q3BobCur=[], q3Supp=[], rawRev=[], cadenceFull=[], onNavigate=()=>{}, onSetTrendsTab=()=>{}, onSetBobTab=()=>{}, cerAssigned=[], cerCompleted=[], fiRows=[], sfBobRows=[], callRaw=[], emailToAcct={}, acctCoverageByCsm={}, billingBobRows=[], managerCoaches=null}) {
+  churnAlerts=[], qamc=[], qass=[], domoBoq=[], q3BobCur=[], q3Supp=[], rawRev=[], cadenceFull=[], onNavigate=()=>{}, onSetTrendsTab=()=>{}, onSetBobTab=()=>{}, cerAssigned=[], cerCompleted=[], fiRows=[], sfBobRows=[], callRaw=[], emailToAcct={}, acctCoverageByCsm={}, billingBobRows=[], managerCoaches=null, noActivityRows=[]}) {
   const [dashDateFilter, setDashDateFilter] = React.useState("today");
   const [dashCustomFrom, setDashCustomFrom] = React.useState("");
   const [dashCustomTo,   setDashCustomTo]   = React.useState("");
@@ -7073,6 +7080,8 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
   const contextLabel = filterCSM?dispName(filterCSM):filterCoach?coachName+"'s Team":"All Teams";
   const contextIcon  = filterCSM?"👤":filterCoach?"👥":"🏢";
   const csmNames     = csms.map(c=>c.name);
+  const myNoActivity = noActivityRows.filter(r => csmNames.some(n => norm(n)===r.csm || n===r.csm));
+  const myNoActivityUrgent = myNoActivity.filter(r=>r.daysSinceLastCall>=90);
   const todayStr     = now.getFullYear()+"-"+pad(now.getMonth()+1)+"-"+pad(now.getDate());
   const tmrDate      = new Date(now); tmrDate.setDate(now.getDate()+1);
   const tmrStr       = tmrDate.getFullYear()+"-"+pad(tmrDate.getMonth()+1)+"-"+pad(tmrDate.getDate());
@@ -7345,6 +7354,23 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
         </div>
         {!filterCoach&&!filterCSM&&<div style={{fontSize:12,color:"#808080",background:"rgba(41,53,93,.05)",borderRadius:8,padding:"8px 14px",border:"0.5px solid rgba(41,53,93,.1)"}}>💡 Select a coach or CSM from the filters above to see their individual view</div>}
       </div>
+
+      {/* Accounts with No Activity — urgent, always shown first regardless of date filter */}
+      {myNoActivity.length>0 && (
+        <div style={{cursor:"pointer",background:"rgba(220,38,38,.07)",border:"1.5px solid rgba(220,38,38,.4)",borderRadius:12,padding:"14px 20px",marginBottom:16}} onClick={()=>onNavigate("no_activity")}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+            <div>
+              <div style={{fontSize:15,fontWeight:700,color:"#7f1d1d"}}>🚨 {myNoActivity.length} account{myNoActivity.length===1?"":"s"} with no activity — needs immediate attention</div>
+              {myNoActivityUrgent.length>0 && <div style={{fontSize:12,color:"#991b1b",marginTop:2}}>{myNoActivityUrgent.length} of those {myNoActivityUrgent.length===1?"is":"are"} 90+ days since last call</div>}
+            </div>
+            <span style={{fontSize:12,color:"#dc2626",fontWeight:600,whiteSpace:"nowrap"}}>View list →</span>
+          </div>
+          <div style={{marginTop:8,fontSize:12,color:"#7f1d1d"}}>
+            {[...myNoActivity].sort((a,b)=>b.daysSinceLastCall-a.daysSinceLastCall).slice(0,3).map(r=>r.account).join(", ")}
+            {myNoActivity.length>3 && ` (+${myNoActivity.length-3} more)`}
+          </div>
+        </div>
+      )}
 
       {/* Date filter pills */}
       <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:16,flexWrap:"wrap"}}>
@@ -9086,6 +9112,32 @@ function summarizeBillingBobByCsm(billingRows) {
   return byCsm;
 }
 
+// ── Accounts with No Activity ────────────────────────────────────────────
+// Company-wide export (validated: 1,363 total rows, 61 of our 125 distinct
+// owners are on our roster) — filtered down to our team the same way every
+// other CER/FI source on this page already is. "CSM Coach Name" in the raw
+// export is sparse (mostly blank), so coach is derived via ROSTER lookup on
+// the owner instead of trusting that column directly.
+function mapNoActivity(rows) {
+  return (rows||[]).map(r => {
+    const owner = String(r["Onboarding Form Owner"]||"").trim();
+    if (!owner || !isValidCSM(owner)) return null;
+    const csm = norm(owner) || owner;
+    const info = lk(csm);
+    const days = parseFloat(String(r["Days Since Last Call"]||"").replace(/[^0-9.\-]/g,""));
+    return {
+      csm, coach: info ? info.c : null,
+      account: String(r["Account"]||"").trim(),
+      eid: String(r["Enterprise ID"]||"").trim().toUpperCase(),
+      status: String(r["Status"]||"").trim(),
+      daysSinceLastCall: isNaN(days) ? null : days,
+      formAgingDays: parseFloat(String(r["Form Aging (Days)"]||"").replace(/[^0-9.\-]/g,"")) || null,
+      cadenceStage: String(r["CER Cadence"]||"").trim(),
+      lastOutcome: String(r["Final"]||"").trim(),
+    };
+  }).filter(r => r && r.account && r.daysSinceLastCall!=null && r.daysSinceLastCall>0);
+}
+
 function buildAccountCoverageByCsm(billingBobRows, cadenceFull, cerAssigned) {
   // Book of business — keyed by Enterprise ID, not account name. EID is
   // always unique per real account (that's exactly what "Accounts Assigned"
@@ -9395,6 +9447,106 @@ function FulfillmentView({filterCoach="", filterCSM="", rows}) {
 // the per-account touchpoint list, and the completion-rate-by-cadence-name
 // breakdown. Skipped/Removed counts are folded into "Assigned" the same way
 // CadenceView treats them, but aren't broken out as their own columns here.
+// ── Accounts with No Activity ────────────────────────────────────────────
+// If an account is on this list, it needs immediate attention — CSMs whose
+// clients have gone this long without a call are actively at risk. Sorted
+// by days since last call, worst first, by default.
+function NoActivityView({rows=[], filterCoach="", filterCSM="", managerCoaches=null}) {
+  const [sortCol, setSortCol] = React.useState("daysSinceLastCall");
+  const [sortDir, setSortDir] = React.useState("desc");
+
+  const scoped = rows.filter(r => {
+    if (managerCoaches && !(r.coach && managerCoaches.includes(r.coach))) return false;
+    if (filterCoach && r.coach !== filterCoach) return false;
+    if (filterCSM && r.csm !== filterCSM) return false;
+    return true;
+  });
+
+  const onSort = col => { if (sortCol===col) setSortDir(d=>d==="asc"?"desc":"asc"); else { setSortCol(col); setSortDir("desc"); } };
+  const sorted = [...scoped].sort((a,b) => {
+    const av=a[sortCol], bv=b[sortCol];
+    let cmp = typeof av==="number" ? (av??-1)-(bv??-1) : String(av||"").toLowerCase().localeCompare(String(bv||"").toLowerCase());
+    return sortDir==="asc" ? cmp : -cmp;
+  });
+  const sortArrow = col => sortCol===col ? (sortDir==="asc"?" ↑":" ↓") : "";
+
+  const urgentCount = scoped.filter(r=>r.daysSinceLastCall>=90).length;
+  const avgDays = scoped.length>0 ? Math.round(scoped.reduce((s,r)=>s+r.daysSinceLastCall,0)/scoped.length) : 0;
+  const dayColor = d => d>=90 ? "#dc2626" : d>=30 ? "#d97706" : "#5378FC";
+
+  const S = {
+    card:{background:"#fff",borderRadius:12,padding:"18px 22px",boxShadow:"0 1px 4px rgba(41,53,93,.07)",marginBottom:14},
+    tile:{background:"rgba(41,53,93,.04)",borderRadius:8,padding:"12px 14px"},
+    th:{padding:"8px 10px",fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,letterSpacing:"0.04em",borderBottom:"0.5px solid rgba(41,53,93,.08)",whiteSpace:"nowrap",cursor:"pointer"},
+    td:{padding:"8px 10px",borderBottom:"0.5px solid rgba(41,53,93,.05)",color:"#29355D",verticalAlign:"middle"},
+  };
+
+  if (scoped.length===0) return (
+    <div style={{maxWidth:1200,margin:"0 auto"}}>
+      <div style={{fontSize:20,fontWeight:700,color:"#29355D",marginBottom:16}}>🚨 Accounts with No Activity</div>
+      <div style={{...S.card,textAlign:"center",padding:"40px 20px",color:"#808080"}}>
+        <div style={{fontSize:32,marginBottom:12}}>🚨</div>
+        <div style={{fontSize:14,fontWeight:500,color:"#29355D",marginBottom:8}}>No Activity — waiting on data</div>
+        <div style={{fontSize:12}}>Confirm the "No Activity" sheet is published and populated.</div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{maxWidth:1200,margin:"0 auto"}}>
+      <div style={{marginBottom:16}}>
+        <div style={{fontSize:20,fontWeight:700,color:"#29355D",marginBottom:2}}>🚨 Accounts with No Activity</div>
+        <div style={{fontSize:13,color:"#808080"}}>{scoped.length} account{scoped.length===1?"":"s"} in scope — if it's on this list, it needs immediate attention</div>
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:10,marginBottom:14}}>
+        <div style={S.tile}>
+          <div style={{fontSize:12,color:"#808080",marginBottom:4}}>Total accounts</div>
+          <div style={{fontSize:22,fontWeight:700,color:"#29355D",lineHeight:1,marginBottom:3}}>{scoped.length}</div>
+        </div>
+        <div style={{...S.tile,background:"rgba(220,38,38,.06)"}}>
+          <div style={{fontSize:12,color:"#991b1b",marginBottom:4}}>🚨 90+ days</div>
+          <div style={{fontSize:22,fontWeight:700,color:"#dc2626",lineHeight:1,marginBottom:3}}>{urgentCount}</div>
+        </div>
+        <div style={S.tile}>
+          <div style={{fontSize:12,color:"#808080",marginBottom:4}}>Avg. days since last call</div>
+          <div style={{fontSize:22,fontWeight:700,color:"#29355D",lineHeight:1,marginBottom:3}}>{avgDays}</div>
+        </div>
+      </div>
+
+      <div style={S.card}>
+        <div style={{fontSize:13,fontWeight:600,color:"#29355D",marginBottom:14}}>Accounts, worst first</div>
+        <div style={{overflowX:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:800}}>
+            <thead>
+              <tr>
+                <th style={{...S.th,textAlign:"left"}} onClick={()=>onSort("csm")}>CSM{sortArrow("csm")}</th>
+                <th style={{...S.th,textAlign:"left"}} onClick={()=>onSort("account")}>Account{sortArrow("account")}</th>
+                <th style={{...S.th,textAlign:"right"}} onClick={()=>onSort("daysSinceLastCall")}>Days Since Last Call{sortArrow("daysSinceLastCall")}</th>
+                <th style={{...S.th,textAlign:"right"}} onClick={()=>onSort("formAgingDays")}>Form Aging{sortArrow("formAgingDays")}</th>
+                <th style={{...S.th,textAlign:"left"}} onClick={()=>onSort("cadenceStage")}>Stage{sortArrow("cadenceStage")}</th>
+                <th style={{...S.th,textAlign:"left"}} onClick={()=>onSort("lastOutcome")}>Last Outcome{sortArrow("lastOutcome")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map((r,i)=>(
+                <tr key={r.eid+"-"+i}>
+                  <td style={{...S.td,textAlign:"left",fontWeight:600}}>{dispName(r.csm)}</td>
+                  <td style={{...S.td,textAlign:"left"}}>{r.account}</td>
+                  <td style={{...S.td,textAlign:"right",fontWeight:700,color:dayColor(r.daysSinceLastCall)}}>{r.daysSinceLastCall}</td>
+                  <td style={{...S.td,textAlign:"right"}}>{r.formAgingDays!=null?Math.round(r.formAgingDays):"--"}</td>
+                  <td style={{...S.td,textAlign:"left"}}>{r.cadenceStage||"--"}</td>
+                  <td style={{...S.td,textAlign:"left",color:"#808080"}}>{r.lastOutcome||"--"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function CadenceSFView({filterCoach="", filterCSM="", managerCoaches=null}) {
   const [sortCol, setSortCol] = React.useState("csm");
   const [sortDir, setSortDir] = React.useState("asc");
@@ -9864,6 +10016,7 @@ function App() {
   const [sfBobLive, setSfBobLive] = useState([]); // Q3 SF-based BoB — live join of CSV_Q3_SF_BOQ + CSV_Q3_SF_CURRENT
   const [sfCurRaw, setSfCurRaw] = useState([]); // raw Current SaaS Revenue rows — kept for the Calls (by email) and Cadence (by account name) account-detail lookups
   const [billingDetailRaw, setBillingDetailRaw] = useState([]); // raw Q3 BoB Billing Detail rows (new, additive tab — see renderBillingBoB)
+  const [noActivityRaw, setNoActivityRaw] = useState([]); // raw "Accounts with No Activity" rows — see mapNoActivity
   const emailToAcct = React.useMemo(() => buildEmailToAccountMap(sfCurRaw), [sfCurRaw]);
   const acctNameToAcct = React.useMemo(() => buildAcctNameToAccountMap(sfCurRaw), [sfCurRaw]);
   // Falls back to the static pre-build snapshot until the live join returns data —
@@ -9879,6 +10032,10 @@ function App() {
   const billingBobByCsm = React.useMemo(
     () => summarizeBillingBobByCsm(billingBobRows),
     [billingBobRows]
+  );
+  const noActivityRows = React.useMemo(
+    () => mapNoActivity(noActivityRaw),
+    [noActivityRaw]
   );
   // Account coverage — book side now sourced from the new billing-based Q3
   // BoB, so "accounts assigned" always equals active+reactive exactly,
@@ -9980,7 +10137,8 @@ function App() {
         ()=>fetchCSV(CSV_FI).catch(()=>[]),
         ()=>fetchCSV(CSV_SCC_CHURN).catch(()=>[]),
         ()=>fetchCSV(CSV_Q3_BILLING_DETAIL).catch(()=>[]),
-      ]).then(([cadenceFullRows, callRows, domoBoqRows, revRows, cadRows, dueRows, ontimeRows, emailRows, historyRows, bobRows, q2DomoBoqRows, skippedRows, bobDetRows, bobAdjRows, qaMcRows, qaSSRows, mcRows, bcRows, churnAlertRows, q3BobCurRows, q3SuppRows, sfCurRows, sfBoqRows, cerAssignedRows, cerCompletedRows, fiRawRows, sccChurnRows, billingDetailRows]) => {
+        ()=>fetchCSV(CSV_NO_ACTIVITY).catch(()=>[]),
+      ]).then(([cadenceFullRows, callRows, domoBoqRows, revRows, cadRows, dueRows, ontimeRows, emailRows, historyRows, bobRows, q2DomoBoqRows, skippedRows, bobDetRows, bobAdjRows, qaMcRows, qaSSRows, mcRows, bcRows, churnAlertRows, q3BobCurRows, q3SuppRows, sfCurRows, sfBoqRows, cerAssignedRows, cerCompletedRows, fiRawRows, sccChurnRows, billingDetailRows, noActivityRows]) => {
         latestEmail   = emailRows;
         latestCad          = cadRows;
         latestDue          = dueRows;
@@ -9996,6 +10154,7 @@ function App() {
         try { setSfBobLive(buildSFBobRows(sfBoqRows||[], sfCurRows||[])); } catch(e) { console.error("buildSFBobRows failed:", e); setSfBobLive([]); }
         setSfCurRaw(sfCurRows||[]);
         setBillingDetailRaw(billingDetailRows||[]);
+        setNoActivityRaw(noActivityRows||[]);
         latestBob         = bobRows;
         latestBobDet      = bobDetRows||[];
         latestBobAdj      = bobAdjRows||[];
@@ -10474,8 +10633,8 @@ My question: ${aiCustom}`,
         </div>
         <div style={{display:"flex",alignItems:"stretch",padding:"0 24px"}}>
           {(() => {
-            const allTabs = ["coaching","digest","revenue","bob","leaderboard","calls","cers","trends","mydash",...(userSession.role==="master"?["capacity"]:[]),...(canSeeSCC?["scc"]:[]),"fi","cadence","sf_cadence"];
-            const csmTabs = ["leaderboard","calls","fi","bob","cadence","sf_cadence","revenue","mydash"];
+            const allTabs = ["coaching","digest","revenue","bob","leaderboard","calls","cers","trends","mydash",...(userSession.role==="master"?["capacity"]:[]),...(canSeeSCC?["scc"]:[]),"fi","cadence","sf_cadence","no_activity"];
+            const csmTabs = ["leaderboard","calls","fi","bob","cadence","sf_cadence","no_activity","revenue","mydash"];
             // CSM nav: My Dashboard is still what they land on right after login
             // (set explicitly at login time via setTab("mydash") — unaffected by
             // this ordering), but in the tab bar itself it's placed last so their
@@ -10484,7 +10643,7 @@ My question: ${aiCustom}`,
             return visibleTabs.map(t => (
               <button key={t} onClick={()=>setTab(t)}
                 style={{padding:"10px 18px",fontSize:13,fontWeight:500,color:tab===t?"#fff":"rgba(255,255,255,.55)",background:"transparent",border:"none",cursor:"pointer",borderBottom:tab===t?"3px solid #FF5000":"3px solid transparent",whiteSpace:"nowrap"}}>
-                {t==="mydash"?"🏠 My Dashboard":t==="coaching"?"Coaching":t==="digest"?"📋 Daily Digest":t==="trends"?"📈 Trends":t==="calls"?"📞 Calls":t==="cers"?"📋 CERs":t==="revenue"?"💰 Revenue":t==="bob"?"📋 Book of Business":t==="capacity"?"⚡ Capacity":t==="scc"?"✍️ Strategic Content":t==="fi"?"📋 Fulfillment Items":t==="cadence"?"📅 Cadence":t==="sf_cadence"?"📅 Cadence (Salesforce)":t.charAt(0).toUpperCase()+t.slice(1)}
+                {t==="mydash"?"🏠 My Dashboard":t==="coaching"?"Coaching":t==="digest"?"📋 Daily Digest":t==="trends"?"📈 Trends":t==="calls"?"📞 Calls":t==="cers"?"📋 CERs":t==="revenue"?"💰 Revenue":t==="bob"?"📋 Book of Business":t==="capacity"?"⚡ Capacity":t==="scc"?"✍️ Strategic Content":t==="fi"?"📋 Fulfillment Items":t==="cadence"?"📅 Cadence":t==="sf_cadence"?"📅 Cadence (Salesforce)":t==="no_activity"?"🚨 No Activity":t.charAt(0).toUpperCase()+t.slice(1)}
               </button>
             ));
           })()}
@@ -10574,7 +10733,8 @@ My question: ${aiCustom}`,
           {tab==="fi"&&<FulfillmentView filterCoach={filterCoach} filterCSM={filterCSM} rows={fiRows}/>}
           {tab==="cadence"&&<CadenceView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches} cadenceFull={cadenceFull} acctNameToAcct={acctNameToAcct}/>}
           {tab==="sf_cadence"&&<CadenceSFView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches}/>}
-          {tab==="mydash"&&<MyDashboard csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} churnAlerts={churnAlerts} qamc={qamc||[]} qass={qass||[]} domoBoq={domoBoq||[]} q3BobCur={q3BobCur||[]} q3Supp={q3Supp||[]} rawRev={rawRev||[]} cadenceFull={cadenceFull||[]} onNavigate={setTab} onSetTrendsTab={setTrendsTab} onSetBobTab={setBobTab} cerAssigned={cerAssigned} cerCompleted={cerCompleted} fiRows={fiRows} sfBobRows={sfBobSource} callRaw={callRaw} emailToAcct={emailToAcct} acctCoverageByCsm={acctCoverageByCsm} billingBobRows={billingBobRows} managerCoaches={managerCoaches}/>}
+          {tab==="no_activity"&&<NoActivityView rows={noActivityRows} filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches}/>}
+          {tab==="mydash"&&<MyDashboard csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} churnAlerts={churnAlerts} qamc={qamc||[]} qass={qass||[]} domoBoq={domoBoq||[]} q3BobCur={q3BobCur||[]} q3Supp={q3Supp||[]} rawRev={rawRev||[]} cadenceFull={cadenceFull||[]} onNavigate={setTab} onSetTrendsTab={setTrendsTab} onSetBobTab={setBobTab} cerAssigned={cerAssigned} cerCompleted={cerCompleted} fiRows={fiRows} sfBobRows={sfBobSource} callRaw={callRaw} emailToAcct={emailToAcct} acctCoverageByCsm={acctCoverageByCsm} billingBobRows={billingBobRows} managerCoaches={managerCoaches} noActivityRows={noActivityRows}/>}
         </div>
       )}
 
@@ -10680,3 +10840,4 @@ My question: ${aiCustom}`,
     </div>
   );
 }
+              
