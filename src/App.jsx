@@ -7081,7 +7081,7 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
   const contextIcon  = filterCSM?"👤":filterCoach?"👥":"🏢";
   const csmNames     = csms.map(c=>c.name);
   const myNoActivity = noActivityRows.filter(r => csmNames.some(n => norm(n)===r.csm || n===r.csm));
-  const myNoActivityUrgent = myNoActivity.filter(r=>r.daysSinceLastCall>=90);
+  const myNoActivityUrgent = myNoActivity.filter(r=>r.daysSinceLastCall>=30);
   const todayStr     = now.getFullYear()+"-"+pad(now.getMonth()+1)+"-"+pad(now.getDate());
   const tmrDate      = new Date(now); tmrDate.setDate(now.getDate()+1);
   const tmrStr       = tmrDate.getFullYear()+"-"+pad(tmrDate.getMonth()+1)+"-"+pad(tmrDate.getDate());
@@ -7361,7 +7361,7 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
             <div>
               <div style={{fontSize:15,fontWeight:700,color:"#7f1d1d"}}>🚨 {myNoActivity.length} account{myNoActivity.length===1?"":"s"} with no activity — needs immediate attention</div>
-              {myNoActivityUrgent.length>0 && <div style={{fontSize:12,color:"#991b1b",marginTop:2}}>{myNoActivityUrgent.length} of those {myNoActivityUrgent.length===1?"is":"are"} 90+ days since last call</div>}
+              {myNoActivityUrgent.length>0 && <div style={{fontSize:12,color:"#991b1b",marginTop:2}}>{myNoActivityUrgent.length} of those {myNoActivityUrgent.length===1?"is":"are"} 30+ days since last call</div>}
             </div>
             <span style={{fontSize:12,color:"#dc2626",fontWeight:600,whiteSpace:"nowrap"}}>View list →</span>
           </div>
@@ -9470,9 +9470,9 @@ function NoActivityView({rows=[], filterCoach="", filterCSM="", managerCoaches=n
   });
   const sortArrow = col => sortCol===col ? (sortDir==="asc"?" ↑":" ↓") : "";
 
-  const urgentCount = scoped.filter(r=>r.daysSinceLastCall>=90).length;
+  const urgentCount = scoped.filter(r=>r.daysSinceLastCall>=30).length;
   const avgDays = scoped.length>0 ? Math.round(scoped.reduce((s,r)=>s+r.daysSinceLastCall,0)/scoped.length) : 0;
-  const dayColor = d => d>=90 ? "#dc2626" : d>=30 ? "#d97706" : "#5378FC";
+  const dayColor = d => d>=30 ? "#dc2626" : "#5378FC";
 
   const S = {
     card:{background:"#fff",borderRadius:12,padding:"18px 22px",boxShadow:"0 1px 4px rgba(41,53,93,.07)",marginBottom:14},
@@ -9505,7 +9505,7 @@ function NoActivityView({rows=[], filterCoach="", filterCSM="", managerCoaches=n
           <div style={{fontSize:22,fontWeight:700,color:"#29355D",lineHeight:1,marginBottom:3}}>{scoped.length}</div>
         </div>
         <div style={{...S.tile,background:"rgba(220,38,38,.06)"}}>
-          <div style={{fontSize:12,color:"#991b1b",marginBottom:4}}>🚨 90+ days</div>
+          <div style={{fontSize:12,color:"#991b1b",marginBottom:4}}>🚨 30+ days</div>
           <div style={{fontSize:22,fontWeight:700,color:"#dc2626",lineHeight:1,marginBottom:3}}>{urgentCount}</div>
         </div>
         <div style={S.tile}>
