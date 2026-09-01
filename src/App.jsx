@@ -44,6 +44,89 @@ const CSV_Q3_SF_CURRENT = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN
 // Built as an ADDITIONAL tab for now, not a replacement — see renderBillingBoB.
 const CSV_Q3_BILLING_DETAIL  = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=1148155602&single=true&output=csv";
 const CSV_Q3_BILLING_SUMMARY = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=519194419&single=true&output=csv"; // not currently consumed — kept for reference/cross-check
+// ── Cadence, sourced directly from Salesforce (Sept 2026) ──────────────────
+// This is a ONE-TIME STATIC SNAPSHOT, not a live connection. The deployed
+// React app has no way to authenticate to Salesforce on its own (it is a
+// static site with no backend, unlike Google Sheets which offers a public,
+// anonymous "publish to web" CSV endpoint) — this data was pulled via
+// Anthropic'''s Salesforce MCP connector in a Claude conversation, processed,
+// matched against ROSTER/NAME_NORM, and hand-embedded here. It will not
+// update on its own. Scoped to Cadence__r.Name LIKE '%CSM%' (excluding
+// other departments that share the same Conquer/DS_Packages platform), open
+// touchpoints (org-wide) matched the live Google Sheets export almost
+// exactly (2,891 here vs 2,926 in the Sheets-based Cadence tab) as a
+// cross-check. See the new_book_of_business exploration for the equivalent
+// (currently blocked-on-scale) effort for Book of Business via Domo.
+const CADENCE_SF_SNAPSHOT = [
+  {n:"Adam Murphy",assigned:1,due:0,completed:1,open:0,overdue:0},
+  {n:"Alejandro Rodriguez-Medina",assigned:184,due:2,completed:159,open:25,overdue:0},
+  {n:"Alvin Cole",assigned:3,due:0,completed:3,open:0,overdue:0},
+  {n:"Anthony Yen",assigned:83,due:1,completed:48,open:19,overdue:0},
+  {n:"Ashley Shaffer",assigned:315,due:6,completed:230,open:84,overdue:1},
+  {n:"Ashley Vasquez Mena",assigned:76,due:5,completed:53,open:21,overdue:0},
+  {n:"Chelsea Dingus",assigned:77,due:0,completed:57,open:11,overdue:0},
+  {n:"Damita Hill",assigned:71,due:7,completed:41,open:22,overdue:1},
+  {n:"Darling Danais Santos Taveras",assigned:6,due:0,completed:3,open:3,overdue:0},
+  {n:"Dave Crisler",assigned:87,due:0,completed:51,open:26,overdue:4},
+  {n:"Deivis Pena",assigned:117,due:5,completed:85,open:32,overdue:1},
+  {n:"Dorka Frias Lantigua",assigned:110,due:3,completed:81,open:28,overdue:2},
+  {n:"Elianny Tena Antigua",assigned:74,due:0,completed:40,open:30,overdue:8},
+  {n:"Ellise Payne",assigned:48,due:0,completed:24,open:22,overdue:4},
+  {n:"Felix Caba Jimenez",assigned:45,due:1,completed:19,open:21,overdue:2},
+  {n:"Florence Francois Nova",assigned:61,due:1,completed:41,open:19,overdue:1},
+  {n:"Heidi Torres Uribe",assigned:69,due:0,completed:51,open:18,overdue:0},
+  {n:"Indu Vijay",assigned:39,due:1,completed:16,open:23,overdue:6},
+  {n:"Irina Larianni Molina Molina",assigned:79,due:1,completed:54,open:23,overdue:0},
+  {n:"Ironelis Cabrera Bautista",assigned:4,due:0,completed:3,open:1,overdue:0},
+  {n:"Jaelene Alejo Rodriguez",assigned:3,due:0,completed:3,open:0,overdue:0},
+  {n:"Jathzelyn Elizabeth Fortuna Paulino",assigned:65,due:3,completed:42,open:18,overdue:0},
+  {n:"Jennifer Koly",assigned:4,due:0,completed:3,open:1,overdue:1},
+  {n:"Johnny Cornielle",assigned:102,due:2,completed:66,open:30,overdue:8},
+  {n:"Joseph Guillermo Carmona Garcia",assigned:1136,due:2,completed:702,open:422,overdue:1},
+  {n:"Juan Liberato",assigned:74,due:3,completed:30,open:34,overdue:22},
+  {n:"Juan Sanchez",assigned:3,due:0,completed:3,open:0,overdue:0},
+  {n:"Karen Capellan Tavarez",assigned:123,due:4,completed:95,open:28,overdue:0},
+  {n:"Karissa Hernandez",assigned:268,due:4,completed:180,open:79,overdue:4},
+  {n:"Karmita Turner",assigned:179,due:1,completed:79,open:84,overdue:33},
+  {n:"Katelyn Ankrom",assigned:163,due:0,completed:96,open:67,overdue:41},
+  {n:"Kellie Lester",assigned:108,due:4,completed:84,open:22,overdue:0},
+  {n:"Kennedy Sanchez",assigned:35,due:1,completed:19,open:13,overdue:1},
+  {n:"Kim McDonald",assigned:0,due:0,completed:0,open:0,overdue:0},
+  {n:"Kyle Dye",assigned:225,due:0,completed:120,open:105,overdue:0},
+  {n:"Libby Booher",assigned:118,due:0,completed:43,open:75,overdue:32},
+  {n:"Lisbeth Gruning Soriano",assigned:4,due:0,completed:3,open:1,overdue:0},
+  {n:"Luis Aguasvivas Peralta",assigned:86,due:3,completed:48,open:26,overdue:1},
+  {n:"Marco Tovar",assigned:2,due:0,completed:2,open:0,overdue:0},
+  {n:"Mark Velazquez",assigned:226,due:2,completed:151,open:73,overdue:8},
+  {n:"Matt Daly",assigned:34,due:0,completed:16,open:14,overdue:13},
+  {n:"Matthew Reedy",assigned:3,due:0,completed:3,open:0,overdue:0},
+  {n:"Michael Furlong",assigned:36,due:1,completed:18,open:15,overdue:0},
+  {n:"Misti Dixon",assigned:113,due:0,completed:40,open:73,overdue:24},
+  {n:"Misty Decatur",assigned:49,due:0,completed:41,open:8,overdue:0},
+  {n:"MJ Brielmann",assigned:329,due:7,completed:234,open:86,overdue:2},
+  {n:"Nikita Siepen-Bowers",assigned:39,due:1,completed:20,open:11,overdue:0},
+  {n:"Peter Manalac",assigned:21,due:0,completed:10,open:11,overdue:6},
+  {n:"Rafael Sencion Sencion",assigned:77,due:2,completed:56,open:16,overdue:0},
+  {n:"Saira Julian Guzman",assigned:58,due:1,completed:43,open:14,overdue:0},
+  {n:"Sakshi Mahalwal",assigned:1,due:0,completed:0,open:1,overdue:1},
+  {n:"Samuel Frias De Paula",assigned:42,due:2,completed:23,open:19,overdue:0},
+  {n:"Sarah Swanson",assigned:1374,due:3,completed:871,open:488,overdue:0},
+  {n:"Sati Ananda Pimentel Malespin",assigned:89,due:0,completed:52,open:25,overdue:0},
+  {n:"Scott Mather",assigned:29,due:3,completed:24,open:4,overdue:0},
+  {n:"Stacy Roers",assigned:89,due:0,completed:19,open:66,overdue:28},
+  {n:"Steven Saunders",assigned:268,due:5,completed:187,open:80,overdue:22},
+  {n:"Sylvia Appla",assigned:540,due:3,completed:182,open:294,overdue:201},
+  {n:"Taylor Kidd",assigned:49,due:0,completed:38,open:11,overdue:0},
+  {n:"Tracy-Ann Gaudencio",assigned:37,due:2,completed:19,open:16,overdue:5},
+  {n:"Tyler Grant",assigned:4,due:0,completed:3,open:1,overdue:0},
+  {n:"Victor Abner Moscoso Fernandez",assigned:46,due:0,completed:32,open:14,overdue:4},
+  {n:"Warda Gul",assigned:43,due:0,completed:22,open:17,overdue:10},
+  {n:"Wilson Mercedes",assigned:137,due:1,completed:90,open:41,overdue:10},
+  {n:"Yessica Montero Urena",assigned:58,due:1,completed:45,open:13,overdue:0},
+  {n:"Yolanda Ramirez",assigned:75,due:2,completed:51,open:22,overdue:2},
+  {n:"Zoltan Rudolf",assigned:53,due:0,completed:26,open:25,overdue:3}
+];
+
 const CSV_MC_CHURN= "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=1002996767&single=true&output=csv"; // MC churn by coach/rep
 const CSV_CHURN_ALERTS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=724984916&single=true&output=csv"; // daily new churn alerts
 
@@ -9304,6 +9387,121 @@ function FulfillmentView({filterCoach="", filterCSM="", rows}) {
 // Calls page's email match: this is "probably right," not "definitely
 // right," since company names drift between systems.
 // ═══════════════════════════════════════════════════════════════════════════
+// ── Cadence (Salesforce) — static snapshot view ─────────────────────────────
+// Matches CadenceView's visual language (tile row + sortable per-CSM table)
+// as closely as the underlying data allows. What's NOT here, because the
+// snapshot doesn't carry this granularity: the period filter (Today/This
+// week/etc — this is a single point-in-time pull, not re-queryable by date),
+// the per-account touchpoint list, and the completion-rate-by-cadence-name
+// breakdown. Skipped/Removed counts are folded into "Assigned" the same way
+// CadenceView treats them, but aren't broken out as their own columns here.
+function CadenceSFView({filterCoach="", filterCSM="", managerCoaches=null}) {
+  const [sortCol, setSortCol] = React.useState("csm");
+  const [sortDir, setSortDir] = React.useState("asc");
+
+  const rows = CADENCE_SF_SNAPSHOT.map(r => {
+    const csm = norm(r.n) || r.n;
+    const i = lk(csm);
+    if (managerCoaches && !(i && managerCoaches.includes(i.c))) return null;
+    if (filterCoach && (!i || i.c!==filterCoach)) return null;
+    if (filterCSM && csm!==filterCSM) return null;
+    const resolved = r.completed; // snapshot doesn't separately track skipped here
+    return {csm, assigned:r.assigned, due:r.due, completed:r.completed, open:r.open, overdue:r.overdue, rate: resolved>0 ? r.completed/(r.completed+r.open) : null};
+  }).filter(Boolean);
+
+  const totalAssigned = rows.reduce((s,r)=>s+r.assigned,0);
+  const totalDue      = rows.reduce((s,r)=>s+r.due,0);
+  const totalCompleted= rows.reduce((s,r)=>s+r.completed,0);
+  const totalOpen     = rows.reduce((s,r)=>s+r.open,0);
+  const totalOverdue  = rows.reduce((s,r)=>s+r.overdue,0);
+  const completionRate = (totalCompleted+totalOpen)>0 ? totalCompleted/(totalCompleted+totalOpen) : null;
+
+  const onSort = col => { if (sortCol===col) setSortDir(d=>d==="asc"?"desc":"asc"); else { setSortCol(col); setSortDir("asc"); } };
+  const sortedRows = [...rows].sort((a,b) => {
+    const av=a[sortCol], bv=b[sortCol];
+    let cmp = typeof av==="number" ? av-bv : String(av||"").toLowerCase().localeCompare(String(bv||"").toLowerCase());
+    return sortDir==="asc" ? cmp : -cmp;
+  });
+  const sortArrow = col => sortCol===col ? (sortDir==="asc"?" ↑":" ↓") : "";
+
+  const S = {
+    card:{background:"#fff",borderRadius:12,padding:"18px 22px",boxShadow:"0 1px 4px rgba(41,53,93,.07)",marginBottom:14},
+    tile:{background:"rgba(41,53,93,.04)",borderRadius:8,padding:"12px 14px"},
+    th:{padding:"8px 10px",fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,letterSpacing:"0.04em",borderBottom:"0.5px solid rgba(41,53,93,.08)",whiteSpace:"nowrap",cursor:"pointer"},
+    td:{padding:"8px 10px",borderBottom:"0.5px solid rgba(41,53,93,.05)",color:"#29355D",verticalAlign:"middle"},
+  };
+
+  return (
+    <div style={{maxWidth:1200,margin:"0 auto"}}>
+      <div style={{marginBottom:16}}>
+        <div style={{fontSize:20,fontWeight:700,color:"#29355D",marginBottom:2}}>📅 Cadence (Salesforce)</div>
+        <div style={{fontSize:13,color:"#808080"}}>{rows.length} CSM{rows.length===1?"":"s"} in scope · one-time static snapshot, not live</div>
+      </div>
+
+      <div style={{background:"rgba(83,120,252,.08)",border:"0.5px solid rgba(83,120,252,.3)",borderRadius:8,padding:"10px 16px",marginBottom:14,fontSize:12,color:"#29355D"}}>
+        <b>Proof of concept</b> — pulled directly from Salesforce (DS_Packages__Touchpoint__c, joined through Cadence Member to the Assigned user) instead of the manual Google Sheets export the rest of this page uses. This is a one-time snapshot, not a live connection — the deployed app has no way to authenticate to Salesforce on its own yet.
+      </div>
+
+      {/* KPI tiles */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(5,minmax(0,1fr))",gap:10,marginBottom:14}}>
+        {[
+          {l:"Assigned",   v:totalAssigned, sub:"total", col:"#29355D"},
+          {l:"Due (Open)", v:totalDue, sub:"due today", col:"#5378FC"},
+          {l:"Completed",  v:totalCompleted, sub:"resolved", col:"#16a34a"},
+          {l:"🚨 Overdue", v:totalOverdue, sub:"open + past due", col:"#dc2626"},
+          {l:"Completion rate", v:completionRate!=null?Math.round(completionRate*100)+"%":"--", sub:"completed vs open", col:"#29355D"},
+        ].map(t=>(
+          <div key={t.l} style={S.tile}>
+            <div style={{fontSize:12,color:"#808080",marginBottom:4}}>{t.l}</div>
+            <div style={{fontSize:22,fontWeight:700,color:t.col,lineHeight:1,marginBottom:3}}>{t.v}</div>
+            <div style={{fontSize:11,color:"#aaa"}}>{t.sub}</div>
+          </div>
+        ))}
+      </div>
+
+      {totalOverdue>0 && (
+        <div style={{background:"rgba(220,38,38,.06)",border:"0.5px solid rgba(220,38,38,.35)",borderRadius:12,padding:"14px 20px",marginBottom:14}}>
+          <div style={{fontSize:14,fontWeight:700,color:"#7f1d1d"}}>🚨 {totalOverdue} touchpoint{totalOverdue===1?"":"s"} past due, org-wide</div>
+          <div style={{fontSize:12,color:"#991b1b",marginTop:2}}>Sort the table below by Overdue to see who needs attention first.</div>
+        </div>
+      )}
+
+      {/* Per-CSM table */}
+      <div style={S.card}>
+        <div style={{fontSize:13,fontWeight:600,color:"#29355D",marginBottom:14}}>CSM cadence performance — Salesforce snapshot</div>
+        <div style={{overflowX:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:700}}>
+            <thead>
+              <tr>
+                <th style={{...S.th,textAlign:"left"}} onClick={()=>onSort("csm")}>CSM{sortArrow("csm")}</th>
+                <th style={{...S.th,textAlign:"right"}} onClick={()=>onSort("assigned")}>Assigned{sortArrow("assigned")}</th>
+                <th style={{...S.th,textAlign:"right"}} onClick={()=>onSort("due")}>Due{sortArrow("due")}</th>
+                <th style={{...S.th,textAlign:"right"}} onClick={()=>onSort("completed")}>Completed{sortArrow("completed")}</th>
+                <th style={{...S.th,textAlign:"right"}} onClick={()=>onSort("open")}>Open{sortArrow("open")}</th>
+                <th style={{...S.th,textAlign:"right",color:"#dc2626"}} onClick={()=>onSort("overdue")}>Overdue{sortArrow("overdue")}</th>
+                <th style={{...S.th,textAlign:"right"}} onClick={()=>onSort("rate")}>Completion Rate{sortArrow("rate")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sortedRows.map(r=>(
+                <tr key={r.csm}>
+                  <td style={{...S.td,textAlign:"left",fontWeight:600}}>{dispName(r.csm)}</td>
+                  <td style={{...S.td,textAlign:"right"}}>{r.assigned}</td>
+                  <td style={{...S.td,textAlign:"right"}}>{r.due}</td>
+                  <td style={{...S.td,textAlign:"right"}}>{r.completed}</td>
+                  <td style={{...S.td,textAlign:"right"}}>{r.open}</td>
+                  <td style={{...S.td,textAlign:"right",color:r.overdue>0?"#dc2626":"#aaa",fontWeight:r.overdue>0?600:400}}>{r.overdue}</td>
+                  <td style={{...S.td,textAlign:"right"}}>{r.rate!=null?Math.round(r.rate*100)+"%":"--"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function CadenceView({filterCoach="", filterCSM="", managerCoaches=null, cadenceFull=[], acctNameToAcct={}}) {
   const [periodFilter, setPeriodFilter] = React.useState("today"); // today | this_week | next_week | last_week | all
   const [statusFilter, setStatusFilter] = React.useState(""); // "" | "Open" | "Completed" | "Overdue" | "Skipped"
@@ -10276,17 +10474,17 @@ My question: ${aiCustom}`,
         </div>
         <div style={{display:"flex",alignItems:"stretch",padding:"0 24px"}}>
           {(() => {
-            const allTabs = ["coaching","digest","revenue","bob","leaderboard","calls","cers","trends","mydash",...(userSession.role==="master"?["capacity"]:[]),...(canSeeSCC?["scc"]:[]),"fi","cadence"];
+            const allTabs = ["coaching","digest","revenue","bob","leaderboard","calls","cers","trends","mydash",...(userSession.role==="master"?["capacity"]:[]),...(canSeeSCC?["scc"]:[]),"fi","cadence","sf_cadence"];
+            const csmTabs = ["leaderboard","calls","fi","bob","cadence","sf_cadence","revenue","mydash"];
             // CSM nav: My Dashboard is still what they land on right after login
             // (set explicitly at login time via setTab("mydash") — unaffected by
             // this ordering), but in the tab bar itself it's placed last so their
             // working tabs (book of business, calls, cadence, revenue, etc.) lead.
-            const csmTabs = ["leaderboard","calls","fi","bob","cadence","revenue","mydash"];
             const visibleTabs = isCsmView ? csmTabs : allTabs;
             return visibleTabs.map(t => (
               <button key={t} onClick={()=>setTab(t)}
                 style={{padding:"10px 18px",fontSize:13,fontWeight:500,color:tab===t?"#fff":"rgba(255,255,255,.55)",background:"transparent",border:"none",cursor:"pointer",borderBottom:tab===t?"3px solid #FF5000":"3px solid transparent",whiteSpace:"nowrap"}}>
-                {t==="mydash"?"🏠 My Dashboard":t==="coaching"?"Coaching":t==="digest"?"📋 Daily Digest":t==="trends"?"📈 Trends":t==="calls"?"📞 Calls":t==="cers"?"📋 CERs":t==="revenue"?"💰 Revenue":t==="bob"?"📋 Book of Business":t==="capacity"?"⚡ Capacity":t==="scc"?"✍️ Strategic Content":t==="fi"?"📋 Fulfillment Items":t==="cadence"?"📅 Cadence":t.charAt(0).toUpperCase()+t.slice(1)}
+                {t==="mydash"?"🏠 My Dashboard":t==="coaching"?"Coaching":t==="digest"?"📋 Daily Digest":t==="trends"?"📈 Trends":t==="calls"?"📞 Calls":t==="cers"?"📋 CERs":t==="revenue"?"💰 Revenue":t==="bob"?"📋 Book of Business":t==="capacity"?"⚡ Capacity":t==="scc"?"✍️ Strategic Content":t==="fi"?"📋 Fulfillment Items":t==="cadence"?"📅 Cadence":t==="sf_cadence"?"📅 Cadence (Salesforce)":t.charAt(0).toUpperCase()+t.slice(1)}
               </button>
             ));
           })()}
@@ -10375,6 +10573,7 @@ My question: ${aiCustom}`,
           {tab==="scc"&&canSeeSCC&&<SCCView rows={sccChurn}/>}
           {tab==="fi"&&<FulfillmentView filterCoach={filterCoach} filterCSM={filterCSM} rows={fiRows}/>}
           {tab==="cadence"&&<CadenceView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches} cadenceFull={cadenceFull} acctNameToAcct={acctNameToAcct}/>}
+          {tab==="sf_cadence"&&<CadenceSFView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches}/>}
           {tab==="mydash"&&<MyDashboard csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} churnAlerts={churnAlerts} qamc={qamc||[]} qass={qass||[]} domoBoq={domoBoq||[]} q3BobCur={q3BobCur||[]} q3Supp={q3Supp||[]} rawRev={rawRev||[]} cadenceFull={cadenceFull||[]} onNavigate={setTab} onSetTrendsTab={setTrendsTab} onSetBobTab={setBobTab} cerAssigned={cerAssigned} cerCompleted={cerCompleted} fiRows={fiRows} sfBobRows={sfBobSource} callRaw={callRaw} emailToAcct={emailToAcct} acctCoverageByCsm={acctCoverageByCsm} billingBobRows={billingBobRows} managerCoaches={managerCoaches}/>}
         </div>
       )}
