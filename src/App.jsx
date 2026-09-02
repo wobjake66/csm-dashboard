@@ -403,8 +403,14 @@ async function fetchCSV(url, _isRetry=false) {
     // rate limiting can look like) would otherwise block this promise
     // forever. Since batchedAll awaits each batch sequentially, one hung
     // request stalls the entire rest of the load, not just this one source.
+    // 40s (not the original 15s) because CSV_Q3_BILLING_DETAIL alone has
+    // grown past 11,000 rows — a real, large export that legitimately needs
+    // more than 15s to generate and download, especially this deep into a
+    // 29-item sequential batch. The Q3 BoB (Billing) tab going silently
+    // empty despite the sheet itself being correctly published and fetchable
+    // on its own is exactly what this too-short timeout would cause.
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    const timeoutId = setTimeout(() => controller.abort(), 40000);
     let res;
     try {
       res = await fetch(url, { signal: controller.signal });
@@ -433,7 +439,7 @@ async function fetchCSV(url, _isRetry=false) {
     // ServiceLogin redirect instead of CSV, or (per the timeout above) the
     // connection just hangs. A short pause and one retry often succeeds
     // where the immediate request didn't.
-    const reason = e.name === "AbortError" ? "timeout after 15s" : e.message;
+    const reason = e.name === "AbortError" ? "timeout after 40s" : e.message;
     console.warn("CSV fetch failed ("+reason+") for "+url.slice(-30)+(_isRetry?", giving up":", retrying once"));
     if (!_isRetry) {
       await new Promise(r=>setTimeout(r, 1200));
