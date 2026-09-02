@@ -8787,6 +8787,8 @@ function mapFI(rows) {
                  : (udac.includes("WEB") || udac.includes("SITE")) ? "Website FI"
                  : "Other";
     const aging = parseFloat(String(r["Function Aging (Days)"]||"0").replace(/[^0-9.\-]/g,"")) || 0;
+    const designReviewRaw = String(r["Design Review"]||"").trim();
+    const designReviewDate = designReviewRaw ? new Date(designReviewRaw) : null;
     return {
       fiType,
       coach: String(r["Onboarding Form: CSM Coach Name"]||"").trim(),
@@ -8797,6 +8799,7 @@ function mapFI(rows) {
       aging,
       fiNum: String(r["Fulfillment Item: Fulfillment Item ID"]||"").trim(),
       ofNum: String(r["Onboarding Form: Onboarding Form ID"]||"").trim(),
+      designReview: (designReviewDate && !isNaN(designReviewDate)) ? designReviewDate : null,
     };
   }).filter(Boolean);
 }
@@ -9237,8 +9240,26 @@ function buildAccountCoverageByCsm(billingBobRows, cadenceFull, cerAssigned) {
 // wired in now so it's ready the moment that function shows up.
 const FI_SLA_DAYS = { "Consultation": 5, "Review": 2, "Launch": 1, "Voice of the Client": 2 };
 const FI_ALWAYS_URGENT_FUNCTIONS = new Set(["Unengaged"]);
+
+// Website FIs specifically carry a real "Design Review" date field — a much
+// more precise signal than the generic aging threshold for this one
+// combination (Website FI + Current Function "Review"). A blank date or a
+// date that's already passed means nobody has a design call locked in and
+// it needs attention now; a future date means a review call is already
+// scheduled and it's fine to wait. This check supersedes FI_SLA_DAYS for
+// this specific combination — it does not apply to Social FIs, or to
+// Website FIs in any function other than "Review".
+function fiDesignReviewStatus(r) {
+  if (r.fiType !== "Website FI" || r.func !== "Review") return null;
+  if (!r.designReview) return "needs_attention";
+  const todayMidnight = new Date(); todayMidnight.setHours(0,0,0,0);
+  return r.designReview < todayMidnight ? "needs_attention" : "scheduled";
+}
+
 function fiIsUrgent(r) {
   if (FI_ALWAYS_URGENT_FUNCTIONS.has(r.func)) return true;
+  const designStatus = fiDesignReviewStatus(r);
+  if (designStatus) return designStatus === "needs_attention";
   const threshold = FI_SLA_DAYS[r.func];
   return threshold != null && r.aging > threshold;
 }
@@ -9287,6 +9308,26 @@ function FulfillmentView({filterCoach="", filterCSM="", rows}) {
     if (aAlways !== bAlways) return aAlways ? -1 : 1;
     return b.aging - a.aging;
   });
+
+  // Website FI Design Review breakdown — always shown regardless of the
+  // typeFilter/funcFilter dropdowns above, since this is its own dedicated
+  // callout. Still respects coach/CSM scoping, same as everything else.
+  const inScope = r => {
+    const coachEmail = FI_COACH_EMAIL_MAP[r.coach] || null;
+    if (filterCoach && coachEmail !== filterCoach) return false;
+    if (filterCSM && r.fiOwner !== filterCSM && r.ofOwner !== filterCSM) return false;
+    return true;
+  };
+  const websiteReviewItems = dataRows.filter(r => inScope(r) && r.fiType==="Website FI" && r.func==="Review");
+  const designNeedsAttention = websiteReviewItems.filter(r => fiDesignReviewStatus(r)==="needs_attention")
+    .sort((a,b) => {
+      const aNoDate = !a.designReview, bNoDate = !b.designReview;
+      if (aNoDate !== bNoDate) return aNoDate ? -1 : 1; // no date at all is worse than a passed date
+      if (a.designReview && b.designReview) return a.designReview - b.designReview; // oldest passed date first
+      return 0;
+    });
+  const designScheduled = websiteReviewItems.filter(r => fiDesignReviewStatus(r)==="scheduled")
+    .sort((a,b) => a.designReview - b.designReview); // soonest upcoming first
 
   const onSort = col => { if (sortCol===col) setSortDir(d=>d==="asc"?"desc":"asc"); else { setSortCol(col); setSortDir("asc"); } };
 
@@ -9363,7 +9404,7 @@ function FulfillmentView({filterCoach="", filterCSM="", rows}) {
         <div style={{background:"rgba(220,38,38,.06)",border:"0.5px solid rgba(220,38,38,.35)",borderRadius:12,padding:"16px 20px",marginBottom:14}}>
           <div style={{fontSize:14,fontWeight:700,color:"#7f1d1d",marginBottom:4}}>🚨 Danger, Will Robinson — {urgentItems.length} Fulfillment Item{urgentItems.length===1?"":"s"} need attention</div>
           <div style={{fontSize:12,color:"#991b1b",marginBottom:12}}>
-            Unengaged is always urgent · Consultation &gt; {FI_SLA_DAYS["Consultation"]}d · Review &gt; {FI_SLA_DAYS["Review"]}d · Voice of the Client &gt; {FI_SLA_DAYS["Voice of the Client"]}d · Launch &gt; {FI_SLA_DAYS["Launch"]}d
+            Unengaged is always urgent · Website FI in Review with no future Design Review date is always urgent · Consultation &gt; {FI_SLA_DAYS["Consultation"]}d · Voice of the Client &gt; {FI_SLA_DAYS["Voice of the Client"]}d · Launch &gt; {FI_SLA_DAYS["Launch"]}d
           </div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:8}}>
             {urgentItems.slice(0,12).map(r=>(
@@ -9371,12 +9412,53 @@ function FulfillmentView({filterCoach="", filterCSM="", rows}) {
                 <div style={{fontSize:12,fontWeight:600,color:"#29355D"}}>{r.account}</div>
                 <div style={{fontSize:11,color:"#808080"}}>{r.fiOwner} · {r.func}</div>
                 <div style={{fontSize:11,fontWeight:600,color:"#dc2626"}}>
-                  {FI_ALWAYS_URGENT_FUNCTIONS.has(r.func) ? "Unengaged" : fmt1(r.aging)+"d in function"}
+                  {FI_ALWAYS_URGENT_FUNCTIONS.has(r.func) ? "Unengaged"
+                    : fiDesignReviewStatus(r)==="needs_attention" ? (r.designReview ? "Design review passed "+r.designReview.toLocaleDateString("en-US",{month:"short",day:"numeric"}) : "No design review scheduled")
+                    : fmt1(r.aging)+"d in function"}
                 </div>
               </div>
             ))}
           </div>
           {urgentItems.length>12 && <div style={{fontSize:11,color:"#991b1b",marginTop:8}}>+{urgentItems.length-12} more — check "🚨 Urgent only" below to see the full list.</div>}
+        </div>
+      )}
+
+      {websiteReviewItems.length>0 && (
+        <div style={S.card}>
+          <div style={{fontSize:13,fontWeight:600,color:"#29355D",marginBottom:4}}>🎨 Website FI Design Reviews</div>
+          <div style={{fontSize:12,color:"#808080",marginBottom:14}}>
+            {websiteReviewItems.length} Website FI{websiteReviewItems.length===1?"":"s"} currently in Review — no future Design Review date scheduled means it needs attention
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+            <div>
+              <div style={{fontSize:12,fontWeight:600,color:"#7f1d1d",marginBottom:8}}>🚨 Needs attention ({designNeedsAttention.length})</div>
+              {designNeedsAttention.length===0
+                ? <div style={{fontSize:12,color:"#808080",fontStyle:"italic"}}>None — every FI in Review has a future design review scheduled</div>
+                : <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                    {designNeedsAttention.map(r=>(
+                      <div key={r.fiNum} style={{background:"rgba(220,38,38,.05)",borderLeft:"3px solid #dc2626",borderRadius:6,padding:"6px 10px"}}>
+                        <div style={{fontSize:12,fontWeight:600,color:"#29355D"}}>{r.account}</div>
+                        <div style={{fontSize:11,color:"#991b1b"}}>
+                          {r.fiOwner} · {r.designReview ? "Review passed "+r.designReview.toLocaleDateString("en-US",{month:"short",day:"numeric"}) : "No design review scheduled"}
+                        </div>
+                      </div>
+                    ))}
+                  </div>}
+            </div>
+            <div>
+              <div style={{fontSize:12,fontWeight:600,color:"#166534",marginBottom:8}}>✓ Good for now ({designScheduled.length})</div>
+              {designScheduled.length===0
+                ? <div style={{fontSize:12,color:"#808080",fontStyle:"italic"}}>None currently scheduled ahead</div>
+                : <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                    {designScheduled.map(r=>(
+                      <div key={r.fiNum} style={{background:"rgba(22,163,74,.05)",borderLeft:"3px solid #16a34a",borderRadius:6,padding:"6px 10px"}}>
+                        <div style={{fontSize:12,fontWeight:600,color:"#29355D"}}>{r.account}</div>
+                        <div style={{fontSize:11,color:"#166534"}}>{r.fiOwner} · Scheduled {r.designReview.toLocaleDateString("en-US",{month:"short",day:"numeric"})}</div>
+                      </div>
+                    ))}
+                  </div>}
+            </div>
+          </div>
         </div>
       )}
 
@@ -10840,4 +10922,3 @@ My question: ${aiCustom}`,
     </div>
   );
 }
-              
