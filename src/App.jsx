@@ -214,7 +214,7 @@ const NAME_NORM = {
   "karmita turner":"Karmita Turner",
   "katelyn ankrom":"Katelyn Ankrom","katelyn anderson":"Katelyn Ankrom","anderson, katelyn":"Katelyn Ankrom",
   "libby booher":"Libby Booher",
-  "mj brielmann":"MJ Brielmann","merve brielmann":"MJ Brielmann",
+  "mj brielmann":"MJ Brielmann","merve brielmann":"MJ Brielmann","merve (mj) brielmann":"MJ Brielmann",
   "mark velazquez":"Mark Velazquez","william velazquez":"Mark Velazquez",
   "misti dixon":"Misti Dixon",
   "stacy roers":"Stacy Roers",
@@ -10663,8 +10663,14 @@ My question: ${aiCustom}`,
     const _validTabs = ["coaching","digest","revenue","bob","leaderboard","calls","cers","trends","mydash","capacity","fi","cadence"];
     if (_urlTab && _validTabs.includes(_urlTab)) setTab(_urlTab);
     else setTab("coaching");
-    // Auto-filter to this CSM if role=csm
-    if (user.role==="csm") { setFilterCSM(user.name); setTab("mydash"); }
+    // Auto-filter to this CSM if role=csm. Normalize via norm() first — a
+    // login credential's stored name isn't guaranteed to match the
+    // canonical roster name used everywhere else in the data pipeline (e.g.
+    // MJ Brielmann's credential says "Merve (MJ) Brielmann", but every data
+    // source resolves her to "MJ Brielmann"). Setting filterCSM to the raw,
+    // un-normalized credential name silently breaks every exact-string
+    // comparison against her data across every tab.
+    if (user.role==="csm") { setFilterCSM(dispName(user.name) || user.name); setTab("mydash"); }
     // Auto-filter to coach's team if role=coach
     if (user.role==="coach") {
       // Normalize apostrophe variants (' vs \u2019 vs `) before matching — a
@@ -10722,7 +10728,7 @@ My question: ${aiCustom}`,
         <div style={{display:"flex",alignItems:"stretch",padding:"0 24px"}}>
           {(() => {
             const allTabs = ["coaching","digest","revenue","bob","leaderboard","calls","cers","trends","mydash",...(userSession.role==="master"?["capacity"]:[]),...(canSeeSCC?["scc"]:[]),"fi","cadence","sf_cadence","no_activity"];
-            const csmTabs = ["leaderboard","calls","fi","bob","cadence","sf_cadence","no_activity","revenue","mydash"];
+            const csmTabs = ["leaderboard","calls","fi","bob","cadence","no_activity","revenue","mydash"];
             // CSM nav: My Dashboard is still what they land on right after login
             // (set explicitly at login time via setTab("mydash") — unaffected by
             // this ordering), but in the tab bar itself it's placed last so their
