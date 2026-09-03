@@ -3,6 +3,8 @@ const imgCrushingIt  = "https://raw.githubusercontent.com/wobjake66/csm-dashboar
 const imgAlmostThere = "https://raw.githubusercontent.com/wobjake66/csm-dashboard/main/almost_there.png";
 const imgNeedsLove   = "https://raw.githubusercontent.com/wobjake66/csm-dashboard/main/needs_love.png";
 const imgLegend      = "https://raw.githubusercontent.com/wobjake66/csm-dashboard/main/legend_status.png";
+const imgWinningYesterday = "https://raw.githubusercontent.com/wobjake66/csm-dashboard/main/winning_yesterday.png";
+const imgNotQuiteYesterday = "https://raw.githubusercontent.com/wobjake66/csm-dashboard/main/not_quite_yesterday.png";
 import * as XLSX from "xlsx";
 
 const PIN = "thryv2026";
@@ -7118,7 +7120,7 @@ function DidIWinYesterday({csms=[], cadenceFull=[], fiRows=[]}) {
   );
   if (r.win) return (
     <div style={card}>
-      <div style={{fontSize:28,marginBottom:4}}>🎉</div>
+      <img src={imgWinningYesterday} alt="Winning — you're making it look easy" style={{maxWidth:"100%",height:"auto",borderRadius:8,marginBottom:12}}/>
       <div style={{fontSize:17,fontWeight:700,color:"#16a34a",marginBottom:4}}>You won yesterday</div>
       <div style={{fontSize:13,color:"#166534"}}>
         {r.hasData ? r.completed+" of "+r.total+" touchpoints completed. " : "Nothing was due. "}Zero urgent Fulfillment Items.
@@ -7131,6 +7133,7 @@ function DidIWinYesterday({csms=[], cadenceFull=[], fiRows=[]}) {
   const totalIssues = cadIssues + r.urgentFIs.length;
   return (
     <div style={card}>
+      <img src={imgNotQuiteYesterday} alt="Not quite — you're closer than you think, keep going" style={{maxWidth:"100%",height:"auto",borderRadius:8,marginBottom:12}}/>
       <div style={{fontSize:15,fontWeight:700,color:"#d97706",marginBottom:4}}>Not quite — {totalIssues} still open</div>
       <div style={{fontSize:12,color:"#92400e",marginBottom:12}}>
         {r.hasData && <>{r.completed} of {r.total} cadence touchpoints completed yesterday. </>}
