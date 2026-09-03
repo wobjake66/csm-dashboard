@@ -7031,18 +7031,42 @@ function PinLock({onUnlock}) {
 // Click-to-reveal, matching the fun/gamified spirit of the original ask.
 // Individual view for a single CSM (win/loss + streak), team grid for a
 // coach/master scope (per-CSM badges + an aggregate "X of Y won" header).
-function DidIWinYesterday({csms=[], cadenceFull=[]}) {
+// A win requires BOTH: every cadence touchpoint due yesterday completed,
+// AND zero currently-urgent Fulfillment Items. FI urgency is a live state
+// check (Unengaged, past-threshold aging, etc.), not a dated daily event
+// like cadence — there's no historical FI snapshot to know when something
+// became urgent on a specific day. So it factors into today's win/loss,
+// but the streak stays cadence-only; a stuck FI would otherwise make the
+// streak concept meaningless (blocked indefinitely by one hard case).
+function DidIWinYesterday({csms=[], cadenceFull=[], fiRows=[]}) {
   const [revealed, setRevealed] = React.useState(false);
   const dailyMap = React.useMemo(() => buildCadenceDailyMap(cadenceFull), [cadenceFull]);
   const yesterdayKey = dayKeyOffset(1);
 
+  const getMyUrgentFIs = name => {
+    const csmNorm = norm(name) || name;
+    return (fiRows||[]).filter(r => {
+      if (typeof fiIsUrgent !== "function" || !fiIsUrgent(r)) return false;
+      const fiN = norm(r.fiOwner)||r.fiOwner, ofN = norm(r.ofOwner)||r.ofOwner;
+      return fiN===csmNorm || ofN===csmNorm;
+    });
+  };
+
   const results = csms.map(c => {
     const y = getCadenceDayResult(c.name, dailyMap, yesterdayKey);
-    return {name: c.name, ...y, streak: getCadenceStreak(c.name, dailyMap)};
+    const urgentFIs = getMyUrgentFIs(c.name);
+    return {
+      name: c.name, ...y, streak: getCadenceStreak(c.name, dailyMap),
+      urgentFIs,
+      // Overall win needs BOTH clean cadence AND zero urgent FIs. If nothing
+      // was due yesterday, hasData stays about cadence specifically, but the
+      // FI check still gates the overall win either way.
+      win: y.win && urgentFIs.length===0,
+    };
   });
   const isTeam = results.length > 1;
-  const withData = results.filter(r=>r.hasData);
-  const winCount = withData.filter(r=>r.win).length;
+  const withData = results.filter(r=>r.hasData || r.urgentFIs.length>0);
+  const winCount = results.filter(r=>r.win).length;
 
   const card = {background:"#fff",borderRadius:12,padding:"20px 24px",boxShadow:"0 1px 4px rgba(41,53,93,.07)",marginBottom:16,textAlign:"center"};
   const resetBtn = {marginTop:14,padding:"6px 16px",borderRadius:20,border:"0.5px solid rgba(41,53,93,.2)",background:"#fff",color:"#808080",fontSize:12,fontWeight:500,cursor:"pointer"};
@@ -7050,7 +7074,7 @@ function DidIWinYesterday({csms=[], cadenceFull=[]}) {
   if (!revealed) return (
     <div style={card}>
       <div style={{fontSize:15,fontWeight:700,color:"#29355D",marginBottom:4}}>🏆 Did {isTeam?"your team":"you"} win yesterday?</div>
-      <div style={{fontSize:12,color:"#808080",marginBottom:14}}>Every cadence touchpoint due yesterday, checked</div>
+      <div style={{fontSize:12,color:"#808080",marginBottom:14}}>Every cadence touchpoint due yesterday, plus any urgent Fulfillment Items, checked</div>
       <button onClick={()=>setRevealed(true)}
         style={{padding:"10px 28px",borderRadius:20,border:"none",background:"#FF5000",color:"#fff",fontSize:14,fontWeight:700,cursor:"pointer"}}>
         Find out →
@@ -7061,18 +7085,21 @@ function DidIWinYesterday({csms=[], cadenceFull=[]}) {
   if (isTeam) return (
     <div style={card}>
       <div style={{fontSize:15,fontWeight:700,color:"#29355D",marginBottom:2}}>
-        {withData.length===0 ? "Nothing was due yesterday" : winCount+" of "+withData.length+" CSM"+(withData.length===1?"":"s")+" won yesterday"}
+        {csms.length===0 ? "Nothing to check" : winCount+" of "+csms.length+" CSM"+(csms.length===1?"":"s")+" won yesterday"}
       </div>
-      <div style={{fontSize:12,color:"#808080",marginBottom:14}}>Zero overdue, zero skipped, everything due got done</div>
+      <div style={{fontSize:12,color:"#808080",marginBottom:14}}>Zero cadence misses, zero urgent Fulfillment Items</div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:8,textAlign:"left"}}>
         {results.map(r=>{
-          const col = !r.hasData ? "#808080" : r.win ? "#16a34a" : "#dc2626";
-          const bg  = !r.hasData ? "rgba(41,53,93,.04)" : r.win ? "rgba(22,163,74,.06)" : "rgba(220,38,38,.06)";
+          const col = r.win ? "#16a34a" : "#dc2626";
+          const bg  = r.win ? "rgba(22,163,74,.06)" : "rgba(220,38,38,.06)";
+          const cadIssues = r.hasData && !r.win ? r.items.length : 0;
+          const fiIssues = r.urgentFIs.length;
           return (
             <div key={r.name} style={{background:bg,borderRadius:8,padding:"8px 12px",borderLeft:"3px solid "+col}}>
               <div style={{fontSize:12,fontWeight:600,color:"#29355D",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{dispName(r.name)}</div>
               <div style={{fontSize:12,color:col,fontWeight:500}}>
-                {!r.hasData ? "Nothing due" : r.win ? "Won"+(r.streak>1?" · "+r.streak+" day streak":"") : r.items.length+" still open"}
+                {r.win ? "Won"+(r.streak>1?" · "+r.streak+" day streak":"")
+                  : [cadIssues>0 && cadIssues+" cadence", fiIssues>0 && fiIssues+" FI"].filter(Boolean).join(" · ")}
               </div>
             </div>
           );
@@ -7083,10 +7110,9 @@ function DidIWinYesterday({csms=[], cadenceFull=[]}) {
   );
 
   const r = results[0];
-  if (!r || !r.hasData) return (
+  if (!r) return (
     <div style={card}>
-      <div style={{fontSize:15,fontWeight:700,color:"#29355D",marginBottom:4}}>Nothing was due yesterday</div>
-      <div style={{fontSize:12,color:"#808080"}}>Nothing to win or lose — enjoy the clean slate.</div>
+      <div style={{fontSize:15,fontWeight:700,color:"#29355D",marginBottom:4}}>Nothing to check</div>
       <button onClick={()=>setRevealed(false)} style={resetBtn}>Check again</button>
     </div>
   );
@@ -7095,21 +7121,38 @@ function DidIWinYesterday({csms=[], cadenceFull=[]}) {
       <div style={{fontSize:28,marginBottom:4}}>🎉</div>
       <div style={{fontSize:17,fontWeight:700,color:"#16a34a",marginBottom:4}}>You won yesterday</div>
       <div style={{fontSize:13,color:"#166534"}}>
-        {r.completed} of {r.total} touchpoints completed. Zero overdue.
-        {r.streak>1 && <> That's a {r.streak}-day streak.</>}
+        {r.hasData ? r.completed+" of "+r.total+" touchpoints completed. " : "Nothing was due. "}Zero urgent Fulfillment Items.
+        {r.streak>1 && <> That's a {r.streak}-day cadence streak.</>}
       </div>
       <button onClick={()=>setRevealed(false)} style={resetBtn}>Check again</button>
     </div>
   );
+  const cadIssues = r.hasData ? r.items.length : 0;
+  const totalIssues = cadIssues + r.urgentFIs.length;
   return (
     <div style={card}>
-      <div style={{fontSize:15,fontWeight:700,color:"#d97706",marginBottom:4}}>Not quite — {r.items.length} still open</div>
-      <div style={{fontSize:12,color:"#92400e",marginBottom:12}}>{r.completed} of {r.total} completed yesterday. Here's what's left:</div>
+      <div style={{fontSize:15,fontWeight:700,color:"#d97706",marginBottom:4}}>Not quite — {totalIssues} still open</div>
+      <div style={{fontSize:12,color:"#92400e",marginBottom:12}}>
+        {r.hasData && <>{r.completed} of {r.total} cadence touchpoints completed yesterday. </>}
+        {r.urgentFIs.length>0 && <>{r.urgentFIs.length} Fulfillment Item{r.urgentFIs.length===1?"":"s"} currently urgent.</>}
+      </div>
       <div style={{display:"flex",flexDirection:"column",gap:6,textAlign:"left",maxWidth:400,margin:"0 auto"}}>
-        {r.items.map((it,i)=>(
-          <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"6px 10px",background:"rgba(217,119,6,.06)",borderRadius:6}}>
+        {cadIssues>0 && (
+          <div style={{fontSize:11,fontWeight:600,color:"#92400e",textTransform:"uppercase",marginTop:4}}>Cadence</div>
+        )}
+        {r.hasData && r.items.map((it,i)=>(
+          <div key={"cad"+i} style={{display:"flex",justifyContent:"space-between",padding:"6px 10px",background:"rgba(217,119,6,.06)",borderRadius:6}}>
             <span style={{fontSize:12,fontWeight:500,color:"#29355D"}}>{it.account}</span>
             <span style={{fontSize:12,color:"#92400e"}}>{it.touchpoint}</span>
+          </div>
+        ))}
+        {r.urgentFIs.length>0 && (
+          <div style={{fontSize:11,fontWeight:600,color:"#92400e",textTransform:"uppercase",marginTop:4}}>Fulfillment Items</div>
+        )}
+        {r.urgentFIs.map((it,i)=>(
+          <div key={"fi"+i} style={{display:"flex",justifyContent:"space-between",padding:"6px 10px",background:"rgba(217,119,6,.06)",borderRadius:6}}>
+            <span style={{fontSize:12,fontWeight:500,color:"#29355D"}}>{it.account}</span>
+            <span style={{fontSize:12,color:"#92400e"}}>{it.func}</span>
           </div>
         ))}
       </div>
@@ -7117,6 +7160,7 @@ function DidIWinYesterday({csms=[], cadenceFull=[]}) {
     </div>
   );
 }
+
 
 function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
   churnAlerts=[], qamc=[], qass=[], domoBoq=[], q3BobCur=[], q3Supp=[], rawRev=[], cadenceFull=[], onNavigate=()=>{}, onSetTrendsTab=()=>{}, onSetBobTab=()=>{}, cerAssigned=[], cerCompleted=[], fiRows=[], sfBobRows=[], callRaw=[], emailToAcct={}, acctCoverageByCsm={}, billingBobRows=[], managerCoaches=null, noActivityRows=[]}) {
@@ -7452,7 +7496,7 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
         {!filterCoach&&!filterCSM&&<div style={{fontSize:12,color:"#808080",background:"rgba(41,53,93,.05)",borderRadius:8,padding:"8px 14px",border:"0.5px solid rgba(41,53,93,.1)"}}>💡 Select a coach or CSM from the filters above to see their individual view</div>}
       </div>
 
-      <DidIWinYesterday csms={csms} cadenceFull={cadenceFull}/>
+      <DidIWinYesterday csms={csms} cadenceFull={cadenceFull} fiRows={fiRows}/>
 
       {/* Accounts with No Activity — urgent, always shown first regardless of date filter */}
       {myNoActivity.length>0 && (
