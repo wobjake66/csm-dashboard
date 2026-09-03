@@ -7027,6 +7027,97 @@ function PinLock({onUnlock}) {
 // ═══════════════════════════════════════════════════════════════════════════
 // MY DASHBOARD — self-contained. To revert: remove this block + 3 lines below.
 // ═══════════════════════════════════════════════════════════════════════════
+// ── "Did I win yesterday?" ────────────────────────────────────────────────
+// Click-to-reveal, matching the fun/gamified spirit of the original ask.
+// Individual view for a single CSM (win/loss + streak), team grid for a
+// coach/master scope (per-CSM badges + an aggregate "X of Y won" header).
+function DidIWinYesterday({csms=[], cadenceFull=[]}) {
+  const [revealed, setRevealed] = React.useState(false);
+  const dailyMap = React.useMemo(() => buildCadenceDailyMap(cadenceFull), [cadenceFull]);
+  const yesterdayKey = dayKeyOffset(1);
+
+  const results = csms.map(c => {
+    const y = getCadenceDayResult(c.name, dailyMap, yesterdayKey);
+    return {name: c.name, ...y, streak: getCadenceStreak(c.name, dailyMap)};
+  });
+  const isTeam = results.length > 1;
+  const withData = results.filter(r=>r.hasData);
+  const winCount = withData.filter(r=>r.win).length;
+
+  const card = {background:"#fff",borderRadius:12,padding:"20px 24px",boxShadow:"0 1px 4px rgba(41,53,93,.07)",marginBottom:16,textAlign:"center"};
+  const resetBtn = {marginTop:14,padding:"6px 16px",borderRadius:20,border:"0.5px solid rgba(41,53,93,.2)",background:"#fff",color:"#808080",fontSize:12,fontWeight:500,cursor:"pointer"};
+
+  if (!revealed) return (
+    <div style={card}>
+      <div style={{fontSize:15,fontWeight:700,color:"#29355D",marginBottom:4}}>🏆 Did {isTeam?"your team":"you"} win yesterday?</div>
+      <div style={{fontSize:12,color:"#808080",marginBottom:14}}>Every cadence touchpoint due yesterday, checked</div>
+      <button onClick={()=>setRevealed(true)}
+        style={{padding:"10px 28px",borderRadius:20,border:"none",background:"#FF5000",color:"#fff",fontSize:14,fontWeight:700,cursor:"pointer"}}>
+        Find out →
+      </button>
+    </div>
+  );
+
+  if (isTeam) return (
+    <div style={card}>
+      <div style={{fontSize:15,fontWeight:700,color:"#29355D",marginBottom:2}}>
+        {withData.length===0 ? "Nothing was due yesterday" : winCount+" of "+withData.length+" CSM"+(withData.length===1?"":"s")+" won yesterday"}
+      </div>
+      <div style={{fontSize:12,color:"#808080",marginBottom:14}}>Zero overdue, zero skipped, everything due got done</div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:8,textAlign:"left"}}>
+        {results.map(r=>{
+          const col = !r.hasData ? "#808080" : r.win ? "#16a34a" : "#dc2626";
+          const bg  = !r.hasData ? "rgba(41,53,93,.04)" : r.win ? "rgba(22,163,74,.06)" : "rgba(220,38,38,.06)";
+          return (
+            <div key={r.name} style={{background:bg,borderRadius:8,padding:"8px 12px",borderLeft:"3px solid "+col}}>
+              <div style={{fontSize:12,fontWeight:600,color:"#29355D",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{dispName(r.name)}</div>
+              <div style={{fontSize:12,color:col,fontWeight:500}}>
+                {!r.hasData ? "Nothing due" : r.win ? "Won"+(r.streak>1?" · "+r.streak+" day streak":"") : r.items.length+" still open"}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <button onClick={()=>setRevealed(false)} style={resetBtn}>Check again</button>
+    </div>
+  );
+
+  const r = results[0];
+  if (!r || !r.hasData) return (
+    <div style={card}>
+      <div style={{fontSize:15,fontWeight:700,color:"#29355D",marginBottom:4}}>Nothing was due yesterday</div>
+      <div style={{fontSize:12,color:"#808080"}}>Nothing to win or lose — enjoy the clean slate.</div>
+      <button onClick={()=>setRevealed(false)} style={resetBtn}>Check again</button>
+    </div>
+  );
+  if (r.win) return (
+    <div style={card}>
+      <div style={{fontSize:28,marginBottom:4}}>🎉</div>
+      <div style={{fontSize:17,fontWeight:700,color:"#16a34a",marginBottom:4}}>You won yesterday</div>
+      <div style={{fontSize:13,color:"#166534"}}>
+        {r.completed} of {r.total} touchpoints completed. Zero overdue.
+        {r.streak>1 && <> That's a {r.streak}-day streak.</>}
+      </div>
+      <button onClick={()=>setRevealed(false)} style={resetBtn}>Check again</button>
+    </div>
+  );
+  return (
+    <div style={card}>
+      <div style={{fontSize:15,fontWeight:700,color:"#d97706",marginBottom:4}}>Not quite — {r.items.length} still open</div>
+      <div style={{fontSize:12,color:"#92400e",marginBottom:12}}>{r.completed} of {r.total} completed yesterday. Here's what's left:</div>
+      <div style={{display:"flex",flexDirection:"column",gap:6,textAlign:"left",maxWidth:400,margin:"0 auto"}}>
+        {r.items.map((it,i)=>(
+          <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"6px 10px",background:"rgba(217,119,6,.06)",borderRadius:6}}>
+            <span style={{fontSize:12,fontWeight:500,color:"#29355D"}}>{it.account}</span>
+            <span style={{fontSize:12,color:"#92400e"}}>{it.touchpoint}</span>
+          </div>
+        ))}
+      </div>
+      <button onClick={()=>setRevealed(false)} style={resetBtn}>Check again</button>
+    </div>
+  );
+}
+
 function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
   churnAlerts=[], qamc=[], qass=[], domoBoq=[], q3BobCur=[], q3Supp=[], rawRev=[], cadenceFull=[], onNavigate=()=>{}, onSetTrendsTab=()=>{}, onSetBobTab=()=>{}, cerAssigned=[], cerCompleted=[], fiRows=[], sfBobRows=[], callRaw=[], emailToAcct={}, acctCoverageByCsm={}, billingBobRows=[], managerCoaches=null, noActivityRows=[]}) {
   const [dashDateFilter, setDashDateFilter] = React.useState("today");
@@ -7360,6 +7451,8 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
         </div>
         {!filterCoach&&!filterCSM&&<div style={{fontSize:12,color:"#808080",background:"rgba(41,53,93,.05)",borderRadius:8,padding:"8px 14px",border:"0.5px solid rgba(41,53,93,.1)"}}>💡 Select a coach or CSM from the filters above to see their individual view</div>}
       </div>
+
+      <DidIWinYesterday csms={csms} cadenceFull={cadenceFull}/>
 
       {/* Accounts with No Activity — urgent, always shown first regardless of date filter */}
       {myNoActivity.length>0 && (
@@ -9147,6 +9240,62 @@ function mapNoActivity(rows) {
   }).filter(r => r && r.account && r.daysSinceLastCall!=null && r.daysSinceLastCall>0);
 }
 
+// ── "Did I win yesterday?" — cadence daily map ──────────────────────────
+// One pass over cadenceFull builds {csm: {dayKey: {total, completed, items}}}
+// so per-CSM yesterday/streak lookups are cheap map reads instead of
+// re-filtering the full touchpoint export on every check. Skipped counts
+// against a day (same as Removed being excluded entirely) — a skip means
+// the work didn't happen as planned, consistent with how skipped cadences
+// are already flagged as a red signal everywhere else in this app.
+function buildCadenceDailyMap(cadenceFull) {
+  const map = {};
+  (cadenceFull||[]).forEach(r => {
+    const rawAssigned = String(r["Cadence Member: Assigned"]||"").trim();
+    if (!rawAssigned) return;
+    const csm = norm(rawAssigned) || rawAssigned;
+    const due = new Date(r["Due Date/Time"]);
+    if (isNaN(due)) return;
+    const status = String(r["Status"]||"").trim();
+    if (status!=="Completed" && status!=="Open" && status!=="Skipped") return;
+    const dayKey = due.getFullYear()+"-"+String(due.getMonth()+1).padStart(2,"0")+"-"+String(due.getDate()).padStart(2,"0");
+    if (!map[csm]) map[csm] = {};
+    if (!map[csm][dayKey]) map[csm][dayKey] = {total:0, completed:0, items:[]};
+    const day = map[csm][dayKey];
+    day.total++;
+    if (status==="Completed") day.completed++;
+    else day.items.push({
+      account: String(r["Cadence Member: Account"]||"").trim(),
+      touchpoint: String(r["Touchpoint: Touchpoint Name"]||"").trim(),
+      status,
+    });
+  });
+  return map;
+}
+function dayKeyOffset(daysAgo) {
+  const d = new Date(); d.setDate(d.getDate()-daysAgo);
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+}
+// Result for exactly one day: hasData false means nothing was due that day
+// (weekends, etc.) — neither a win nor a loss, just nothing to report.
+function getCadenceDayResult(csmName, dailyMap, dayKey) {
+  const day = (dailyMap[csmName]||{})[dayKey];
+  if (!day || day.total===0) return {hasData:false, win:true, total:0, completed:0, items:[]};
+  return {hasData:true, win: day.items.length===0, total:day.total, completed:day.completed, items:day.items};
+}
+// Consecutive fully-completed days walking backward from yesterday. A day
+// with no touchpoints due doesn't break the streak or add to it — it's
+// simply skipped, since there was nothing to win or lose that day.
+function getCadenceStreak(csmName, dailyMap, maxDaysBack=90) {
+  let streak = 0;
+  for (let i=1; i<=maxDaysBack; i++) {
+    const day = (dailyMap[csmName]||{})[dayKeyOffset(i)];
+    if (!day || day.total===0) continue;
+    if (day.items.length===0) streak++;
+    else break;
+  }
+  return streak;
+}
+
 function buildAccountCoverageByCsm(billingBobRows, cadenceFull, cerAssigned) {
   // Book of business — keyed by Enterprise ID, not account name. EID is
   // always unique per real account (that's exactly what "Accounts Assigned"
@@ -9262,6 +9411,25 @@ function fiDesignReviewStatus(r) {
   return r.designReview < todayMidnight ? "needs_attention" : "scheduled";
 }
 
+// Consultation and Voice of the Client already have their own short SLA
+// thresholds (5d and 2d) that flag them urgent. This is a separate,
+// later-stage escalation: if a Social or Website FI has sat in one of
+// these two functions for over 30 days, standard automated follow-up has
+// clearly not resolved it — worth a direct, manual outreach to the
+// account rather than just another automated nudge. "Admin rights" was
+// also named as a third case, but there's no such value in the actual
+// Current Function field (confirmed against the live export: Consultation,
+// Voice of the Client, Review, Launch, Unengaged) — it may describe a
+// reason an account is stuck rather than a function itself, which this
+// data doesn't capture, so it can't be detected here.
+const FI_QUERY_FUNCTIONS = new Set(["Consultation", "Voice of the Client"]);
+const FI_QUERY_AGING_DAYS = 30;
+function fiNeedsQuery(r) {
+  return (r.fiType === "Social FI" || r.fiType === "Website FI")
+    && FI_QUERY_FUNCTIONS.has(r.func)
+    && r.aging > FI_QUERY_AGING_DAYS;
+}
+
 function fiIsUrgent(r) {
   if (FI_ALWAYS_URGENT_FUNCTIONS.has(r.func)) return true;
   const designStatus = fiDesignReviewStatus(r);
@@ -9334,6 +9502,9 @@ function FulfillmentView({filterCoach="", filterCSM="", rows}) {
     });
   const designScheduled = websiteReviewItems.filter(r => fiDesignReviewStatus(r)==="scheduled")
     .sort((a,b) => a.designReview - b.designReview); // soonest upcoming first
+
+  const queryWorthyItems = dataRows.filter(r => inScope(r) && fiNeedsQuery(r))
+    .sort((a,b) => b.aging - a.aging); // longest stuck first
 
   const onSort = col => { if (sortCol===col) setSortDir(d=>d==="asc"?"desc":"asc"); else { setSortCol(col); setSortDir("asc"); } };
 
@@ -9464,6 +9635,26 @@ function FulfillmentView({filterCoach="", filterCSM="", rows}) {
                     ))}
                   </div>}
             </div>
+          </div>
+        </div>
+      )}
+
+      {queryWorthyItems.length>0 && (
+        <div style={S.card}>
+          <div style={{fontSize:13,fontWeight:600,color:"#29355D",marginBottom:4}}>🔍 Should we query these accounts?</div>
+          <div style={{fontSize:12,color:"#808080",marginBottom:14}}>
+            {queryWorthyItems.length} Social or Website FI{queryWorthyItems.length===1?"":"s"} stuck in Consultation or Voice of the Client for over {FI_QUERY_AGING_DAYS} days — automated follow-up alone hasn't moved these. Might be worth a direct check-in.
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:6}}>
+            {queryWorthyItems.map(r=>(
+              <div key={r.fiNum} style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:"rgba(217,119,6,.05)",borderLeft:"3px solid #d97706",borderRadius:6,padding:"6px 10px"}}>
+                <div>
+                  <div style={{fontSize:12,fontWeight:600,color:"#29355D"}}>{r.account}</div>
+                  <div style={{fontSize:11,color:"#92400e"}}>{r.fiOwner} · {r.fiType} · {r.func}</div>
+                </div>
+                <div style={{fontSize:12,fontWeight:600,color:"#d97706",whiteSpace:"nowrap"}}>{fmt1(r.aging)}d</div>
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -10980,4 +11171,3 @@ My question: ${aiCustom}`,
     </div>
   );
 }
-                                        
