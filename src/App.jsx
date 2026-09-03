@@ -9469,8 +9469,31 @@ function FulfillmentView({filterCoach="", filterCSM="", rows}) {
       )}
 
       <div style={S.card}>
-        <div style={{fontSize:13,fontWeight:600,color:"#29355D",marginBottom:14}}>
-          {typeFilter||funcFilter ? [typeFilter,funcFilter].filter(Boolean).join(" — ") : "All Fulfillment Items"} ({sorted.length}) — sorted by FI Owner, then Onboarding Form Owner
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+          <div style={{fontSize:13,fontWeight:600,color:"#29355D"}}>
+            {typeFilter||funcFilter ? [typeFilter,funcFilter].filter(Boolean).join(" — ") : "All Fulfillment Items"} ({sorted.length}) — sorted by FI Owner, then Onboarding Form Owner
+          </div>
+          <button onClick={()=>{
+            if (!sorted.length) return;
+            const headers = ["FI Type","Coach","FI Owner","Onboarding Form Owner","Account","Current Function","Function Aging (Days)","Design Review","Urgent","FI Number","Onboarding Form Number"];
+            const csvRows = sorted.map(r => [
+              r.fiType, FI_COACH_EMAIL_MAP[r.coach] ? r.coach.replace(/([a-z])([A-Z])/g,"$1 $2").replace(/O'/,"O\u2019") : r.coach,
+              r.fiOwner, r.ofOwner, r.account, r.func, fmt1(r.aging),
+              r.designReview ? r.designReview.toLocaleDateString("en-US") : "",
+              fiIsUrgent(r) ? "Yes" : "No", r.fiNum, r.ofNum,
+            ]);
+            const csv = [headers, ...csvRows].map(row => row.map(v=>{
+              const s = String(v??"").replace(/"/g,'""');
+              return s.includes(",")||s.includes('"') ? '"'+s+'"' : s;
+            }).join(",")).join("\n");
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
+            a.download = "fulfillment-items-"+(typeFilter||"all")+(urgentOnly?"-urgent":"")+"-"+new Date().toISOString().slice(0,10)+".csv";
+            a.click();
+          }}
+            style={{padding:"4px 12px",borderRadius:20,border:"0.5px solid rgba(41,53,93,.2)",background:"#fff",color:"#29355D",fontSize:13,fontWeight:500,cursor:"pointer",whiteSpace:"nowrap"}}>
+            ⬇ Export CSV ({sorted.length})
+          </button>
         </div>
         <div style={{overflowX:"auto"}}>
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:1000}}>
@@ -10008,6 +10031,29 @@ function CadenceView({filterCoach="", filterCSM="", managerCoaches=null, cadence
                 border:"0.5px solid "+(showAllStatuses?"#29355D":"rgba(41,53,93,.2)"),
                 background:showAllStatuses?"#29355D":"#fff",color:showAllStatuses?"#fff":"#808080"}}>
               {showAllStatuses?"Showing all":"Actionable only"}
+            </button>
+            <button onClick={()=>{
+              if (!listRows.length) return;
+              const headers = ["Due Date","Overdue","CSM","Account","EID","Current Revenue","Touchpoint","Cadence","Status"];
+              const csvRows = listRows.map(r => [
+                r.due ? r.due.toLocaleDateString("en-US") : "",
+                r.overdue ? "Yes" : "No",
+                dispName(r.csm), r.acctInfo?r.acctInfo.account:r.account,
+                r.acctInfo?r.acctInfo.eid:"",
+                r.acctInfo?(r.acctInfo.currency||"$")+r.acctInfo.revenue.toLocaleString("en-US",{maximumFractionDigits:0}):"",
+                r.touchpoint, r.cadenceName, r.status,
+              ]);
+              const csv = [headers, ...csvRows].map(row => row.map(v=>{
+                const s = String(v??"").replace(/"/g,'""');
+                return s.includes(",")||s.includes('"') ? '"'+s+'"' : s;
+              }).join(",")).join("\n");
+              const a = document.createElement("a");
+              a.href = URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
+              a.download = "cadence-touchpoints-"+(statusFilter||"all")+"-"+periodFilter+"-"+new Date().toISOString().slice(0,10)+".csv";
+              a.click();
+            }}
+              style={{padding:"4px 12px",borderRadius:20,border:"0.5px solid rgba(41,53,93,.2)",background:"#fff",color:"#29355D",fontSize:12,fontWeight:500,cursor:"pointer",whiteSpace:"nowrap"}}>
+              ⬇ Export CSV ({listRows.length})
             </button>
           </div>
         </div>
@@ -10934,3 +10980,4 @@ My question: ${aiCustom}`,
     </div>
   );
 }
+                                        
