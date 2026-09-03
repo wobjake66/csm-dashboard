@@ -7165,6 +7165,144 @@ function DidIWinYesterday({csms=[], cadenceFull=[], fiRows=[]}) {
 }
 
 
+// ── "What do I need to do to win today?" ────────────────────────────────
+// Forward-looking companion to Did I Win Yesterday — an action checklist,
+// not a verdict, so it's always shown expanded rather than click-to-reveal.
+// Pulls together three sources into one place: cadence touchpoints due
+// today or already overdue, calls scheduled today (excluding ones already
+// resolved), and any currently-urgent Fulfillment Items — same fiIsUrgent
+// matching already validated for Did I Win Yesterday.
+function getMyTasksToday(csmName, cadenceFull, callRaw, fiRows, emailToAcct) {
+  const csmNorm = norm(csmName) || csmName;
+  const todayKey = dayKeyOffset(0);
+
+  const cadenceItems = (cadenceFull||[]).filter(r => {
+    const assignedRaw = String(r["Cadence Member: Assigned"]||"").trim();
+    if (!assignedRaw) return false;
+    if ((norm(assignedRaw)||assignedRaw) !== csmNorm) return false;
+    if (String(r["Status"]||"").trim() !== "Open") return false;
+    const due = new Date(r["Due Date/Time"]);
+    if (isNaN(due)) return false;
+    const dueKey = due.getFullYear()+"-"+String(due.getMonth()+1).padStart(2,"0")+"-"+String(due.getDate()).padStart(2,"0");
+    const overdue = String(r["Overdue"]||"").trim()==="1";
+    return dueKey===todayKey || overdue;
+  }).map(r => ({
+    account: String(r["Cadence Member: Account"]||"").trim(),
+    touchpoint: String(r["Touchpoint: Touchpoint Name"]||"").trim(),
+    overdue: String(r["Overdue"]||"").trim()==="1",
+  })).sort((a,b) => (b.overdue?1:0)-(a.overdue?1:0));
+
+  const seenCall = new Set();
+  const callItems = [];
+  (callRaw||[]).forEach(r => {
+    const staffRaw = String(r["Staff Name"]||r["Staff"]||"").trim();
+    if (!staffRaw) return;
+    if ((norm(staffRaw)||staffRaw) !== csmNorm) return;
+    const apptTime = String(r["Appointment Time"]||r["appointment_time"]||"").trim();
+    if (!apptTime) return;
+    const d = new Date(apptTime);
+    if (isNaN(d)) return;
+    const dKey = d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+    if (dKey !== todayKey) return;
+    const status = String(r["Appointment Status"]||r["Status"]||"").toLowerCase().trim();
+    if (status.includes("complet")||status.includes("cancel")||status.includes("no show")) return;
+    const email = String(r["Client Email"]||r["email"]||"").toLowerCase().trim();
+    const acctInfo = email ? emailToAcct[email] : null;
+    const acctName = acctInfo ? acctInfo.account : (String(r["Service Name"]||"Call").trim());
+    const key = acctName+"|"+apptTime;
+    if (seenCall.has(key)) return;
+    seenCall.add(key);
+    callItems.push({account: acctName, time: d, service: String(r["Service Name"]||"").trim()});
+  });
+  callItems.sort((a,b) => a.time - b.time);
+
+  const urgentFIs = (fiRows||[]).filter(r => {
+    if (typeof fiIsUrgent !== "function" || !fiIsUrgent(r)) return false;
+    const fiN = norm(r.fiOwner)||r.fiOwner, ofN = norm(r.ofOwner)||r.ofOwner;
+    return fiN===csmNorm || ofN===csmNorm;
+  });
+
+  return {cadenceItems, callItems, urgentFIs, total: cadenceItems.length+callItems.length+urgentFIs.length};
+}
+
+function WhatDoINeedToWinToday({csms=[], cadenceFull=[], callRaw=[], fiRows=[], emailToAcct={}}) {
+  const results = csms.map(c => ({name: c.name, ...getMyTasksToday(c.name, cadenceFull, callRaw, fiRows, emailToAcct)}));
+  const isTeam = results.length > 1;
+  const grandTotal = results.reduce((s,r)=>s+r.total,0);
+
+  const card = {background:"#fff",borderRadius:12,padding:"20px 24px",boxShadow:"0 1px 4px rgba(41,53,93,.07)",marginBottom:16};
+  const sectionLabel = {fontSize:11,fontWeight:600,color:"#808080",textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:6,marginTop:12};
+  const itemRow = {display:"flex",justifyContent:"space-between",padding:"6px 10px",background:"rgba(41,53,93,.03)",borderRadius:6,marginBottom:4};
+
+  if (isTeam) {
+    const sorted = [...results].sort((a,b) => b.total-a.total);
+    return (
+      <div style={card}>
+        <div style={{fontSize:15,fontWeight:700,color:"#29355D",marginBottom:2}}>🎯 What does your team need to do to win today?</div>
+        <div style={{fontSize:12,color:"#808080",marginBottom:14}}>{grandTotal} thing{grandTotal===1?"":"s"} across the team — calls, cadence, and urgent Fulfillment Items</div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:8}}>
+          {sorted.map(r=>{
+            const col = r.total===0 ? "#16a34a" : "#d97706";
+            const bg  = r.total===0 ? "rgba(22,163,74,.06)" : "rgba(217,119,6,.06)";
+            return (
+              <div key={r.name} style={{background:bg,borderRadius:8,padding:"8px 12px",borderLeft:"3px solid "+col}}>
+                <div style={{fontSize:12,fontWeight:600,color:"#29355D",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{dispName(r.name)}</div>
+                <div style={{fontSize:12,color:col,fontWeight:500}}>
+                  {r.total===0 ? "All clear" : [r.callItems.length>0 && r.callItems.length+" call"+(r.callItems.length===1?"":"s"), r.cadenceItems.length>0 && r.cadenceItems.length+" cadence", r.urgentFIs.length>0 && r.urgentFIs.length+" FI"].filter(Boolean).join(" · ")}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  const r = results[0];
+  if (!r || r.total===0) return (
+    <div style={card}>
+      <div style={{fontSize:15,fontWeight:700,color:"#16a34a",marginBottom:4}}>🎯 What do I need to do to win today?</div>
+      <div style={{fontSize:13,color:"#166534"}}>Nothing outstanding — no calls, cadence, or urgent Fulfillment Items. Enjoy the clear day.</div>
+    </div>
+  );
+  return (
+    <div style={card}>
+      <div style={{fontSize:15,fontWeight:700,color:"#29355D",marginBottom:2}}>🎯 What do I need to do to win today?</div>
+      <div style={{fontSize:12,color:"#808080",marginBottom:4}}>{r.total} thing{r.total===1?"":"s"} on deck</div>
+      {r.callItems.length>0 && <>
+        <div style={sectionLabel}>📞 Calls today ({r.callItems.length})</div>
+        {r.callItems.slice(0,6).map((it,i)=>(
+          <div key={"call"+i} style={itemRow}>
+            <span style={{fontSize:12,fontWeight:500,color:"#29355D"}}>{it.account}</span>
+            <span style={{fontSize:12,color:"#808080"}}>{it.time.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})}</span>
+          </div>
+        ))}
+        {r.callItems.length>6 && <div style={{fontSize:11,color:"#aaa"}}>+{r.callItems.length-6} more</div>}
+      </>}
+      {r.cadenceItems.length>0 && <>
+        <div style={sectionLabel}>✅ Cadence due or overdue ({r.cadenceItems.length})</div>
+        {r.cadenceItems.slice(0,6).map((it,i)=>(
+          <div key={"cad"+i} style={{...itemRow, background: it.overdue?"rgba(220,38,38,.06)":itemRow.background}}>
+            <span style={{fontSize:12,fontWeight:500,color:"#29355D"}}>{it.account}</span>
+            <span style={{fontSize:12,color:it.overdue?"#dc2626":"#808080"}}>{it.overdue?"Overdue":it.touchpoint}</span>
+          </div>
+        ))}
+        {r.cadenceItems.length>6 && <div style={{fontSize:11,color:"#aaa"}}>+{r.cadenceItems.length-6} more</div>}
+      </>}
+      {r.urgentFIs.length>0 && <>
+        <div style={sectionLabel}>📋 Urgent Fulfillment Items ({r.urgentFIs.length})</div>
+        {r.urgentFIs.slice(0,6).map((it,i)=>(
+          <div key={"fi"+i} style={itemRow}>
+            <span style={{fontSize:12,fontWeight:500,color:"#29355D"}}>{it.account}</span>
+            <span style={{fontSize:12,color:"#808080"}}>{it.func}</span>
+          </div>
+        ))}
+        {r.urgentFIs.length>6 && <div style={{fontSize:11,color:"#aaa"}}>+{r.urgentFIs.length-6} more</div>}
+      </>}
+    </div>
+  );
+}
+
 function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
   churnAlerts=[], qamc=[], qass=[], domoBoq=[], q3BobCur=[], q3Supp=[], rawRev=[], cadenceFull=[], onNavigate=()=>{}, onSetTrendsTab=()=>{}, onSetBobTab=()=>{}, cerAssigned=[], cerCompleted=[], fiRows=[], sfBobRows=[], callRaw=[], emailToAcct={}, acctCoverageByCsm={}, billingBobRows=[], managerCoaches=null, noActivityRows=[]}) {
   const [dashDateFilter, setDashDateFilter] = React.useState("today");
@@ -7500,6 +7638,7 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
       </div>
 
       <DidIWinYesterday csms={csms} cadenceFull={cadenceFull} fiRows={fiRows}/>
+      <WhatDoINeedToWinToday csms={csms} cadenceFull={cadenceFull} callRaw={callRaw} fiRows={fiRows} emailToAcct={emailToAcct}/>
 
       {/* Accounts with No Activity — urgent, always shown first regardless of date filter */}
       {myNoActivity.length>0 && (
@@ -11218,3 +11357,4 @@ My question: ${aiCustom}`,
     </div>
   );
 }
+    
