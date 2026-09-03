@@ -863,6 +863,7 @@ function normalizeService(raw) {
   if (s.includes("implementation"))        return "Implementation";
   if (s.includes("keap"))                  return "Keap";
   if (s.includes("integrated"))            return "Integrated Onboarding";
+  if (s.includes("design review"))         return "Website Design Review"; // must come before the generic website check below — "Website Design Review" contains "website" too, so it would otherwise be swallowed into the general bucket
   if (s.includes("website"))                 return "Website Call";
   return "Other";
 }
@@ -11357,4 +11358,4 @@ My question: ${aiCustom}`,
     </div>
   );
 }
-    
+      
