@@ -10665,8 +10665,8 @@ function App() {
   const sfBobByCsm = React.useMemo(() => summarizeSFBobByCsm(sfBobSource), [sfBobSource]);
   const getSfBob = name => sfBobByCsm[norm(name)||name] || sfBobByCsm[name] || null;
   const billingBobRows = React.useMemo(
-    () => buildBillingBobRowsFromEvents(billingRosterRaw, billingDetailRaw),
-    [billingRosterRaw, billingDetailRaw]
+    () => buildBillingBobRows(billingDetailRaw),
+    [billingDetailRaw]
   );
   const billingBobByCsm = React.useMemo(
     () => summarizeBillingBobByCsm(billingBobRows),
