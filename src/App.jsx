@@ -9330,6 +9330,12 @@ function buildBillingBobRowsFromEvents(rosterRows, detailRows) {
     return isNaN(x) ? null : (neg ? -Math.abs(x) : x);
   };
   const isZero = v => Math.abs(v) < 0.01;
+  // "7/1/2026" -> 202607, for simple chronological comparison
+  const monthKey = s => {
+    const m = String(s||"").trim().match(/^(\d+)\/\d+\/(\d+)$/);
+    if (!m) return null;
+    return parseInt(m[2],10)*100 + parseInt(m[1],10);
+  };
 
   // Roster: one row per Enterprise ID, regardless of activity this quarter
   const roster = {};
@@ -9343,9 +9349,23 @@ function buildBillingBobRowsFromEvents(rosterRows, detailRows) {
     if (!roster[eid]) roster[eid] = {csmRaw, account, boq};
   });
 
-  // Detail: sum every real increase/decrease/cancel event per account,
-  // across all months reported so far this quarter
-  const netByEid = {};
+  // Find the latest month present in the feed — that's the current,
+  // still-in-progress month (invoices keep posting through it all month
+  // long), so it belongs in the "paced" total but not the "confirmed" one.
+  // Every earlier month is fully closed out and safe to call confirmed.
+  let latestMonth = null;
+  (detailRows||[]).forEach(r => {
+    const mk = monthKey(r["invoice_month"]) ?? monthKey(r["reporting_month"]);
+    if (mk!=null && (latestMonth==null || mk>latestMonth)) latestMonth = mk;
+  });
+
+  // Detail: sum every real increase/decrease/cancel event per account —
+  // netAll across every month reported so far (the "paced" figure), and
+  // netConfirmed excluding whichever month is still in progress (the
+  // "QTD confirmed" figure, matching what the source's own retention math
+  // is built on).
+  const netAllByEid = {};
+  const netConfirmedByEid = {};
   const detailRep = {}; // fallback csm/account info, for any EID missing from the roster
   (detailRows||[]).forEach(r => {
     const eid = String(r["master_eid_subscription_recurly"]||"").trim().toUpperCase();
@@ -9353,7 +9373,12 @@ function buildBillingBobRowsFromEvents(rosterRows, detailRows) {
     const inc = pf(r["account_increase_amount"]) || 0;
     const dec = pf(r["account_decrease_amount"]) || 0;
     const can = pf(r["account_cancel_amount"]) || 0;
-    netByEid[eid] = (netByEid[eid]||0) + inc + dec + can;
+    const delta = inc + dec + can;
+    netAllByEid[eid] = (netAllByEid[eid]||0) + delta;
+    const mk = monthKey(r["invoice_month"]) ?? monthKey(r["reporting_month"]);
+    if (mk!=null && latestMonth!=null && mk<latestMonth) {
+      netConfirmedByEid[eid] = (netConfirmedByEid[eid]||0) + delta;
+    }
     if (!detailRep[eid]) detailRep[eid] = {
       csmRaw: String(r["name_csm_account_sf"]||"").trim(),
       account: String(r["account_name_subscription_recurly"]||"").trim(),
@@ -9361,34 +9386,35 @@ function buildBillingBobRowsFromEvents(rosterRows, detailRows) {
   });
 
   const rows = [];
-  const makeRow = (eid, csmRaw, account, boq, net) => {
+  const makeRow = (eid, csmRaw, account, boq, netAll, netConfirmed) => {
     if (!csmRaw) return null;
-    const current = boq + net;
+    const current = boq + netAll;
+    const qtdCurrent = boq + netConfirmed;
     let status;
     if (isZero(boq) && current>0.01) status = "Added";
     else if (boq>0.01 && isZero(current)) status = "Lost";
-    else if (net > 0.01) status = "Increase";
-    else if (net < -0.01) status = "Decrease";
+    else if (netAll > 0.01) status = "Increase";
+    else if (netAll < -0.01) status = "Decrease";
     else status = "No Change";
     const csm = typeof normalizeSFCsmName === "function" ? normalizeSFCsmName(csmRaw) : (norm(lfSwap(csmRaw))||lfSwap(csmRaw));
     return {
       csm, eid, account,
       boq: Math.round(boq*100)/100,
       current: Math.round(current*100)/100,
-      qtdCurrent: Math.round(current*100)/100,
+      qtdCurrent: Math.round(qtdCurrent*100)/100,
       status, pacing: false, lastConfirmed: "Event-based",
     };
   };
 
   Object.entries(roster).forEach(([eid, g]) => {
-    const row = makeRow(eid, g.csmRaw, g.account, g.boq, netByEid[eid]||0);
+    const row = makeRow(eid, g.csmRaw, g.account, g.boq, netAllByEid[eid]||0, netConfirmedByEid[eid]||0);
     if (row) rows.push(row);
   });
   // Defensive: an EID with real events but missing from the roster (should
   // be rare — the roster is meant to cover every account)
   Object.entries(detailRep).forEach(([eid, g]) => {
     if (roster[eid]) return;
-    const row = makeRow(eid, g.csmRaw, g.account, 0, netByEid[eid]||0);
+    const row = makeRow(eid, g.csmRaw, g.account, 0, netAllByEid[eid]||0, netConfirmedByEid[eid]||0);
     if (row) rows.push(row);
   });
 
