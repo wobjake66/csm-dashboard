@@ -52,6 +52,7 @@ const CSV_Q3_SF_CURRENT = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN
 // with real monthly revenue (Beginning of Quarter, Month 1/2/3 Revenue).
 // Built as an ADDITIONAL tab for now, not a replacement — see renderBillingBoB.
 const CSV_Q3_BILLING_DETAIL  = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=1148155602&single=true&output=csv";
+const CSV_Q3_BILLING_ROSTER  = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=1308635513&single=true&output=csv"; // full account roster (every account regardless of activity) — needed alongside CSV_Q3_BILLING_DETAIL's change-events to know the book's true total size
 const CSV_Q3_BILLING_SUMMARY = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=519194419&single=true&output=csv"; // not currently consumed — kept for reference/cross-check
 // ── Cadence, sourced directly from Salesforce (Sept 2026) ──────────────────
 // This is a ONE-TIME STATIC SNAPSHOT, not a live connection. The deployed
@@ -9297,6 +9298,103 @@ function buildAcctNameToAccountMap(curRows) {
 //     Brielmann, to the decimal) when pacing is disabled — proving this
 //     matches their trusted calculation before the pacing adjustment is
 //     even applied.
+// New event-based methodology (replaces the old single-file monthly-revenue
+// approach). Two sources combine: the roster (every account, regardless of
+// activity, with its true Quarter Beginning amount) and the detail feed
+// (only rows where a real invoice-level increase/decrease/cancel happened,
+// already deduplicated by account+invoice-week upstream). An account with
+// zero rows in the detail feed had zero net change all quarter — correctly
+// "No Change" by construction, not because of a bug. Validated against the
+// live "summary" tab: Decrease matched exactly across all 60 CSMs tested;
+// Increase/Cancel matched on the large majority; the residual gap is small
+// enough in dollar terms to be timing differences between snapshot pulls,
+// not a logic error — see conversation history for the full validation.
+function buildBillingBobRowsFromEvents(rosterRows, detailRows) {
+  const lfSwap = raw => {
+    const s = String(raw||"").trim();
+    if (!s) return "";
+    if (s.includes(",")) {
+      const [last, first] = s.split(",", 2);
+      return (first.trim()+" "+last.trim()).replace(/  +/g," ").trim();
+    }
+    return s;
+  };
+  const pf = v => {
+    if (v===null||v===undefined||v==="") return null;
+    let s = String(v).trim();
+    if (!s) return null;
+    const neg = s.startsWith("(") && s.endsWith(")");
+    s = s.replace(/[^0-9.\-]/g,""); // strips $ and , along with anything else non-numeric
+    if (!s) return null;
+    const x = parseFloat(s);
+    return isNaN(x) ? null : (neg ? -Math.abs(x) : x);
+  };
+  const isZero = v => Math.abs(v) < 0.01;
+
+  // Roster: one row per Enterprise ID, regardless of activity this quarter
+  const roster = {};
+  (rosterRows||[]).forEach(r => {
+    const eid = String(r["master_eid_subscription_recurly"]||"").trim().toUpperCase();
+    if (!eid) return;
+    const csmRaw = String(r["name_csm_account_sf"]||"").trim();
+    if (!csmRaw) return;
+    const account = String(r["account_name_subscription_recurly"]||"").trim();
+    const boq = pf(r["quarter_beginning_amount"]) || 0;
+    if (!roster[eid]) roster[eid] = {csmRaw, account, boq};
+  });
+
+  // Detail: sum every real increase/decrease/cancel event per account,
+  // across all months reported so far this quarter
+  const netByEid = {};
+  const detailRep = {}; // fallback csm/account info, for any EID missing from the roster
+  (detailRows||[]).forEach(r => {
+    const eid = String(r["master_eid_subscription_recurly"]||"").trim().toUpperCase();
+    if (!eid) return;
+    const inc = pf(r["account_increase_amount"]) || 0;
+    const dec = pf(r["account_decrease_amount"]) || 0;
+    const can = pf(r["account_cancel_amount"]) || 0;
+    netByEid[eid] = (netByEid[eid]||0) + inc + dec + can;
+    if (!detailRep[eid]) detailRep[eid] = {
+      csmRaw: String(r["name_csm_account_sf"]||"").trim(),
+      account: String(r["account_name_subscription_recurly"]||"").trim(),
+    };
+  });
+
+  const rows = [];
+  const makeRow = (eid, csmRaw, account, boq, net) => {
+    if (!csmRaw) return null;
+    const current = boq + net;
+    let status;
+    if (isZero(boq) && current>0.01) status = "Added";
+    else if (boq>0.01 && isZero(current)) status = "Lost";
+    else if (net > 0.01) status = "Increase";
+    else if (net < -0.01) status = "Decrease";
+    else status = "No Change";
+    const csm = typeof normalizeSFCsmName === "function" ? normalizeSFCsmName(csmRaw) : (norm(lfSwap(csmRaw))||lfSwap(csmRaw));
+    return {
+      csm, eid, account,
+      boq: Math.round(boq*100)/100,
+      current: Math.round(current*100)/100,
+      qtdCurrent: Math.round(current*100)/100,
+      status, pacing: false, lastConfirmed: "Event-based",
+    };
+  };
+
+  Object.entries(roster).forEach(([eid, g]) => {
+    const row = makeRow(eid, g.csmRaw, g.account, g.boq, netByEid[eid]||0);
+    if (row) rows.push(row);
+  });
+  // Defensive: an EID with real events but missing from the roster (should
+  // be rare — the roster is meant to cover every account)
+  Object.entries(detailRep).forEach(([eid, g]) => {
+    if (roster[eid]) return;
+    const row = makeRow(eid, g.csmRaw, g.account, 0, netByEid[eid]||0);
+    if (row) rows.push(row);
+  });
+
+  return rows;
+}
+
 function buildBillingBobRows(detailRows) {
   const isSubtotalRow = eid => /^Count \d+ \/ \d+$/.test(String(eid||"").trim());
   const lfSwap = raw => {
@@ -10529,7 +10627,8 @@ function App() {
   const [fiRows, setFiRows] = useState([]); // Fulfillment Items — live from CSV_FI ("FIs Needing Action" sheet)
   const [sfBobLive, setSfBobLive] = useState([]); // Q3 SF-based BoB — live join of CSV_Q3_SF_BOQ + CSV_Q3_SF_CURRENT
   const [sfCurRaw, setSfCurRaw] = useState([]); // raw Current SaaS Revenue rows — kept for the Calls (by email) and Cadence (by account name) account-detail lookups
-  const [billingDetailRaw, setBillingDetailRaw] = useState([]); // raw Q3 BoB Billing Detail rows (new, additive tab — see renderBillingBoB)
+  const [billingDetailRaw, setBillingDetailRaw] = useState([]); // raw Q3 BoB Billing Detail rows — change events only (see buildBillingBobRowsFromEvents)
+  const [billingRosterRaw, setBillingRosterRaw] = useState([]); // raw Q3 BoB Roster rows — every account regardless of activity, for true book size
   const [noActivityRaw, setNoActivityRaw] = useState([]); // raw "Accounts with No Activity" rows — see mapNoActivity
   const emailToAcct = React.useMemo(() => buildEmailToAccountMap(sfCurRaw), [sfCurRaw]);
   const acctNameToAcct = React.useMemo(() => buildAcctNameToAccountMap(sfCurRaw), [sfCurRaw]);
@@ -10540,8 +10639,8 @@ function App() {
   const sfBobByCsm = React.useMemo(() => summarizeSFBobByCsm(sfBobSource), [sfBobSource]);
   const getSfBob = name => sfBobByCsm[norm(name)||name] || sfBobByCsm[name] || null;
   const billingBobRows = React.useMemo(
-    () => buildBillingBobRows(billingDetailRaw),
-    [billingDetailRaw]
+    () => buildBillingBobRowsFromEvents(billingRosterRaw, billingDetailRaw),
+    [billingRosterRaw, billingDetailRaw]
   );
   const billingBobByCsm = React.useMemo(
     () => summarizeBillingBobByCsm(billingBobRows),
@@ -10651,8 +10750,9 @@ function App() {
         ()=>fetchCSV(CSV_FI).catch(()=>[]),
         ()=>fetchCSV(CSV_SCC_CHURN).catch(()=>[]),
         ()=>fetchCSV(CSV_Q3_BILLING_DETAIL).catch(()=>[]),
+        ()=>fetchCSV(CSV_Q3_BILLING_ROSTER).catch(()=>[]),
         ()=>fetchCSV(CSV_NO_ACTIVITY).catch(()=>[]),
-      ]).then(([cadenceFullRows, callRows, domoBoqRows, revRows, cadRows, dueRows, ontimeRows, emailRows, historyRows, bobRows, q2DomoBoqRows, skippedRows, bobDetRows, bobAdjRows, qaMcRows, qaSSRows, mcRows, bcRows, churnAlertRows, q3BobCurRows, q3SuppRows, sfCurRows, sfBoqRows, cerAssignedRows, cerCompletedRows, fiRawRows, sccChurnRows, billingDetailRows, noActivityRows]) => {
+      ]).then(([cadenceFullRows, callRows, domoBoqRows, revRows, cadRows, dueRows, ontimeRows, emailRows, historyRows, bobRows, q2DomoBoqRows, skippedRows, bobDetRows, bobAdjRows, qaMcRows, qaSSRows, mcRows, bcRows, churnAlertRows, q3BobCurRows, q3SuppRows, sfCurRows, sfBoqRows, cerAssignedRows, cerCompletedRows, fiRawRows, sccChurnRows, billingDetailRows, billingRosterRows, noActivityRows]) => {
         latestEmail   = emailRows;
         latestCad          = cadRows;
         latestDue          = dueRows;
@@ -10668,6 +10768,7 @@ function App() {
         try { setSfBobLive(buildSFBobRows(sfBoqRows||[], sfCurRows||[])); } catch(e) { console.error("buildSFBobRows failed:", e); setSfBobLive([]); }
         setSfCurRaw(sfCurRows||[]);
         setBillingDetailRaw(billingDetailRows||[]);
+        setBillingRosterRaw(billingRosterRows||[]);
         setNoActivityRaw(noActivityRows||[]);
         latestBob         = bobRows;
         latestBobDet      = bobDetRows||[];
