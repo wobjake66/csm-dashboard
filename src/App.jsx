@@ -9056,6 +9056,8 @@ const FI_COACH_EMAIL_MAP = {
   "MiaO'Dirling": "odirlm01@thryv.com",
   "TrishaStalnaker": "trisha.stalnaker@thryv.com",
   "KendraLeary": "kendra.morelli@thryv.com", // ASSUMPTION — confirm this is the same person as "Kendra Morelli"
+  "ElizabethWhite": "elizabeth.white@thryv.com", // ASSUMPTION — pattern-matched from the 4 confirmed entries above (no-space CamelCase), not independently verified against the live sheet; my fetch tool hit a temporary block while checking this. If Elizabeth White's team still shows zero FIs after this deploys, the raw coach string may be spelled differently than assumed here.
+  "NewellGodwin": "newell.godwin@thryv.com", // Same caveat as ElizabethWhite above — pattern-matched, not independently verified.
   // "CarrieReece" and "JacobBaldwin" intentionally have no entry — see banner in FulfillmentView
 };
 
@@ -11358,4 +11360,3 @@ My question: ${aiCustom}`,
     </div>
   );
 }
-      
