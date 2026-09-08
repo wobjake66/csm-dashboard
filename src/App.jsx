@@ -9095,6 +9095,11 @@ function mapFI(rows) {
     const aging = parseFloat(String(r["Function Aging (Days)"]||"0").replace(/[^0-9.\-]/g,"")) || 0;
     const designReviewRaw = String(r["Design Review"]||"").trim();
     const designReviewDate = designReviewRaw ? new Date(designReviewRaw) : null;
+    // Has a real time-of-day component (e.g. "9/8/2026 9:15 AM"), unlike
+    // Design Review which is date-only — needed for a true 24h SLA check
+    // on Consultation, not just a midnight-of-today comparison.
+    const mcActivationRaw = String(r["Onboarding Form: Activation Call 1"]||"").trim();
+    const mcActivationDate = mcActivationRaw ? new Date(mcActivationRaw) : null;
     return {
       fiType,
       coach: String(r["Onboarding Form: CSM Coach Name"]||"").trim(),
@@ -9106,6 +9111,7 @@ function mapFI(rows) {
       fiNum: String(r["Fulfillment Item: Fulfillment Item ID"]||"").trim(),
       ofNum: String(r["Onboarding Form: Onboarding Form ID"]||"").trim(),
       designReview: (designReviewDate && !isNaN(designReviewDate)) ? designReviewDate : null,
+      mcActivationCall: (mcActivationDate && !isNaN(mcActivationDate)) ? mcActivationDate : null,
     };
   }).filter(Boolean);
 }
@@ -9723,7 +9729,7 @@ function buildAccountCoverageByCsm(billingBobRows, cadenceFull, cerAssigned) {
 // it's noticed, not after N days).
 // "Launch" doesn't appear anywhere in the current data, but the threshold is
 // wired in now so it's ready the moment that function shows up.
-const FI_SLA_DAYS = { "Consultation": 5, "Review": 2, "Launch": 1, "Voice of the Client": 2 };
+const FI_SLA_DAYS = { "Review": 2, "Launch": 1, "Voice of the Client": 2 }; // Consultation superseded by fiConsultationStatus (MC Activation Call date), not a flat day count
 const FI_ALWAYS_URGENT_FUNCTIONS = new Set(["Unengaged"]);
 
 // Website FIs specifically carry a real "Design Review" date field — a much
@@ -9741,13 +9747,27 @@ function fiDesignReviewStatus(r) {
   return r.designReview < todayMidnight ? "needs_attention" : "scheduled";
 }
 
-// Consultation and Voice of the Client already have their own short SLA
-// thresholds (5d and 2d) that flag them urgent. This is a separate,
-// later-stage escalation: if a Social or Website FI has sat in one of
-// these two functions for over 30 days, standard automated follow-up has
-// clearly not resolved it — worth a direct, manual outreach to the
-// account rather than just another automated nudge. "Admin rights" was
-// also named as a third case, but there's no such value in the actual
+// Consultation has a real scheduled-call date (MC Activation Call) — a much
+// more precise signal than a flat day-count. Past SLA means either no call
+// scheduled at all, or more than a genuine 24 hours (not just "past
+// midnight" like Design Review — this field carries a real time of day, so
+// the comparison has to be an exact timestamp, not a date-only one) since
+// the scheduled call time. A call still in the future is never urgent by
+// this rule, no matter how long the FI has otherwise been aging — the call
+// hasn't happened yet, so there's nothing overdue.
+function fiConsultationStatus(r) {
+  if (r.func !== "Consultation") return null;
+  if (!r.mcActivationCall) return "needs_attention";
+  const cutoff = new Date(r.mcActivationCall.getTime() + 24*60*60*1000);
+  return new Date() > cutoff ? "needs_attention" : "scheduled";
+}
+
+// Voice of the Client keeps its own short SLA threshold (2d). This is a
+// separate, later-stage escalation: if a Social or Website FI has sat in
+// Consultation or Voice of the Client for over 30 days, standard automated
+// follow-up has clearly not resolved it — worth a direct, manual outreach
+// to the account rather than just another automated nudge. "Admin rights"
+// was also named as a third case, but there's no such value in the actual
 // Current Function field (confirmed against the live export: Consultation,
 // Voice of the Client, Review, Launch, Unengaged) — it may describe a
 // reason an account is stuck rather than a function itself, which this
@@ -9764,6 +9784,8 @@ function fiIsUrgent(r) {
   if (FI_ALWAYS_URGENT_FUNCTIONS.has(r.func)) return true;
   const designStatus = fiDesignReviewStatus(r);
   if (designStatus) return designStatus === "needs_attention";
+  const consultStatus = fiConsultationStatus(r);
+  if (consultStatus) return consultStatus === "needs_attention";
   const threshold = FI_SLA_DAYS[r.func];
   return threshold != null && r.aging > threshold;
 }
@@ -9913,7 +9935,7 @@ function FulfillmentView({filterCoach="", filterCSM="", managerCoaches=null, row
         <div style={{background:"rgba(220,38,38,.06)",border:"0.5px solid rgba(220,38,38,.35)",borderRadius:12,padding:"16px 20px",marginBottom:14}}>
           <div style={{fontSize:14,fontWeight:700,color:"#7f1d1d",marginBottom:4}}>🚨 Danger, Will Robinson — {urgentItems.length} Fulfillment Item{urgentItems.length===1?"":"s"} need attention</div>
           <div style={{fontSize:12,color:"#991b1b",marginBottom:12}}>
-            Unengaged is always urgent · Website FI in Review with no future Design Review date is always urgent · Consultation &gt; {FI_SLA_DAYS["Consultation"]}d · Voice of the Client &gt; {FI_SLA_DAYS["Voice of the Client"]}d · Launch &gt; {FI_SLA_DAYS["Launch"]}d
+            Unengaged is always urgent · Website FI in Review with no future Design Review date is always urgent · Consultation past due 24h+ after the MC Activation Call (or no call scheduled) · Voice of the Client &gt; {FI_SLA_DAYS["Voice of the Client"]}d · Launch &gt; {FI_SLA_DAYS["Launch"]}d
           </div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:8}}>
             {urgentItems.slice(0,12).map(r=>(
@@ -9923,6 +9945,7 @@ function FulfillmentView({filterCoach="", filterCSM="", managerCoaches=null, row
                 <div style={{fontSize:11,fontWeight:600,color:"#dc2626"}}>
                   {FI_ALWAYS_URGENT_FUNCTIONS.has(r.func) ? "Unengaged"
                     : fiDesignReviewStatus(r)==="needs_attention" ? (r.designReview ? "Design review passed "+r.designReview.toLocaleDateString("en-US",{month:"short",day:"numeric"}) : "No design review scheduled")
+                    : fiConsultationStatus(r)==="needs_attention" ? (r.mcActivationCall ? "Activation call passed "+r.mcActivationCall.toLocaleDateString("en-US",{month:"short",day:"numeric"}) : "No activation call scheduled")
                     : fmt1(r.aging)+"d in function"}
                 </div>
               </div>
@@ -9998,11 +10021,19 @@ function FulfillmentView({filterCoach="", filterCSM="", managerCoaches=null, row
           </div>
           <button onClick={()=>{
             if (!sorted.length) return;
-            const headers = ["FI Type","Coach","FI Owner","Onboarding Form Owner","Account","Current Function","Function Aging (Days)","Design Review","Urgent","FI Number","Onboarding Form Number"];
+            const slaLabel = r => {
+              if (FI_ALWAYS_URGENT_FUNCTIONS.has(r.func)) return "Always urgent";
+              if (r.fiType==="Website FI" && r.func==="Review") return "24h past Design Review date";
+              if (r.func==="Consultation") return "24h past MC Activation Call";
+              const days = FI_SLA_DAYS[r.func];
+              return days!=null ? days+" day"+(days===1?"":"s") : "";
+            };
+            const headers = ["FI Type","Coach","FI Owner","Onboarding Form Owner","Account","Current Function","Function Aging (Days)","SLA Threshold","Design Review","MC Activation Call","Urgent","FI Number","Onboarding Form Number"];
             const csvRows = sorted.map(r => [
               r.fiType, FI_COACH_EMAIL_MAP[r.coach] ? r.coach.replace(/([a-z])([A-Z])/g,"$1 $2").replace(/O'/,"O\u2019") : r.coach,
-              r.fiOwner, r.ofOwner, r.account, r.func, fmt1(r.aging),
+              r.fiOwner, r.ofOwner, r.account, r.func, fmt1(r.aging), slaLabel(r),
               r.designReview ? r.designReview.toLocaleDateString("en-US") : "",
+              r.mcActivationCall ? r.mcActivationCall.toLocaleString("en-US") : "",
               fiIsUrgent(r) ? "Yes" : "No", r.fiNum, r.ofNum,
             ]);
             const csv = [headers, ...csvRows].map(row => row.map(v=>{
