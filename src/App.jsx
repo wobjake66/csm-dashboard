@@ -7228,6 +7228,7 @@ function getMyTasksToday(csmName, cadenceFull, callRaw, fiRows, emailToAcct) {
 }
 
 function WhatDoINeedToWinToday({csms=[], cadenceFull=[], callRaw=[], fiRows=[], emailToAcct={}}) {
+  const [revealed, setRevealed] = React.useState(false);
   const results = csms.map(c => ({name: c.name, ...getMyTasksToday(c.name, cadenceFull, callRaw, fiRows, emailToAcct)}));
   const isTeam = results.length > 1;
   const grandTotal = results.reduce((s,r)=>s+r.total,0);
@@ -7235,6 +7236,19 @@ function WhatDoINeedToWinToday({csms=[], cadenceFull=[], callRaw=[], fiRows=[], 
   const card = {background:"#fff",borderRadius:12,padding:"20px 24px",boxShadow:"0 1px 4px rgba(41,53,93,.07)",marginBottom:16};
   const sectionLabel = {fontSize:11,fontWeight:600,color:"#808080",textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:6,marginTop:12};
   const itemRow = {display:"flex",justifyContent:"space-between",padding:"6px 10px",background:"rgba(41,53,93,.03)",borderRadius:6,marginBottom:4};
+
+  if (!revealed) return (
+    <div style={{...card, textAlign:"center"}}>
+      <div style={{fontSize:15,fontWeight:700,color:"#29355D",marginBottom:4}}>🎯 What does {isTeam?"your team":"I"} need to do to win today?</div>
+      <div style={{fontSize:12,color:"#808080",marginBottom:14}}>{grandTotal} thing{grandTotal===1?"":"s"} {isTeam?"across the team":"on deck"} — calls, cadence, and urgent Fulfillment Items</div>
+      <button onClick={()=>setRevealed(true)}
+        style={{padding:"10px 28px",borderRadius:20,border:"none",background:"#FF5000",color:"#fff",fontSize:14,fontWeight:700,cursor:"pointer"}}>
+        Show me →
+      </button>
+    </div>
+  );
+
+  const resetBtn = {marginTop:14,padding:"6px 16px",borderRadius:20,border:"0.5px solid rgba(41,53,93,.2)",background:"#fff",color:"#808080",fontSize:12,fontWeight:500,cursor:"pointer"};
 
   if (isTeam) {
     const sorted = [...results].sort((a,b) => b.total-a.total);
@@ -7256,6 +7270,7 @@ function WhatDoINeedToWinToday({csms=[], cadenceFull=[], callRaw=[], fiRows=[], 
             );
           })}
         </div>
+        <div style={{textAlign:"center"}}><button onClick={()=>setRevealed(false)} style={resetBtn}>Collapse</button></div>
       </div>
     );
   }
@@ -7265,6 +7280,7 @@ function WhatDoINeedToWinToday({csms=[], cadenceFull=[], callRaw=[], fiRows=[], 
     <div style={card}>
       <div style={{fontSize:15,fontWeight:700,color:"#16a34a",marginBottom:4}}>🎯 What do I need to do to win today?</div>
       <div style={{fontSize:13,color:"#166534"}}>Nothing outstanding — no calls, cadence, or urgent Fulfillment Items. Enjoy the clear day.</div>
+      <button onClick={()=>setRevealed(false)} style={resetBtn}>Collapse</button>
     </div>
   );
   return (
@@ -7301,6 +7317,7 @@ function WhatDoINeedToWinToday({csms=[], cadenceFull=[], callRaw=[], fiRows=[], 
         ))}
         {r.callItems.length>6 && <div style={{fontSize:11,color:"#aaa"}}>+{r.callItems.length-6} more</div>}
       </>}
+      <div style={{textAlign:"center"}}><button onClick={()=>setRevealed(false)} style={resetBtn}>Collapse</button></div>
     </div>
   );
 }
@@ -11489,4 +11506,3 @@ My question: ${aiCustom}`,
     </div>
   );
 }
-    
