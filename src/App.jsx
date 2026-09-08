@@ -9751,7 +9751,7 @@ function fiIsUrgent(r) {
   return threshold != null && r.aging > threshold;
 }
 
-function FulfillmentView({filterCoach="", filterCSM="", rows}) {
+function FulfillmentView({filterCoach="", filterCSM="", managerCoaches=null, rows}) {
   const dataRows = rows || [];
   const [sortCol, setSortCol] = React.useState("fiOwner");
   const [sortDir, setSortDir] = React.useState("asc");
@@ -9781,6 +9781,7 @@ function FulfillmentView({filterCoach="", filterCSM="", rows}) {
 
   const scoped = dataRows.filter(r => {
     const coachEmail = FI_COACH_EMAIL_MAP[r.coach] || null;
+    if (managerCoaches && !managerCoaches.includes(coachEmail)) return false;
     if (filterCoach && coachEmail !== filterCoach) return false;
     if (filterCSM && r.fiOwner !== filterCSM && r.ofOwner !== filterCSM) return false;
     if (typeFilter && r.fiType !== typeFilter) return false;
@@ -9801,6 +9802,7 @@ function FulfillmentView({filterCoach="", filterCSM="", rows}) {
   // callout. Still respects coach/CSM scoping, same as everything else.
   const inScope = r => {
     const coachEmail = FI_COACH_EMAIL_MAP[r.coach] || null;
+    if (managerCoaches && !managerCoaches.includes(coachEmail)) return false;
     if (filterCoach && coachEmail !== filterCoach) return false;
     if (filterCSM && r.fiOwner !== filterCSM && r.ofOwner !== filterCSM) return false;
     return true;
@@ -11377,7 +11379,7 @@ My question: ${aiCustom}`,
           {tab==="calls"&&<TrendsView history={history} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} qamc={qamc} qass={qass} trendsTab="calls" setTrendsTab={()=>{}} hideSubTabs={true} callRaw={callRaw} emailToAcct={emailToAcct}/>}
           {tab==="capacity"&&userSession.role==="master"&&<CapacityView csms={csms} callData={callData} callRaw={callRaw} cadenceFull={cadenceFull} domoBoq={domoBoq} filterCoach={filterCoach} filterCSM={filterCSM}/>}
           {tab==="scc"&&canSeeSCC&&<SCCView rows={sccChurn}/>}
-          {tab==="fi"&&<FulfillmentView filterCoach={filterCoach} filterCSM={filterCSM} rows={fiRows}/>}
+          {tab==="fi"&&<FulfillmentView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches} rows={fiRows}/>}
           {tab==="cadence"&&<CadenceView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches} cadenceFull={cadenceFull} acctNameToAcct={acctNameToAcct}/>}
           {tab==="sf_cadence"&&<CadenceSFView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches}/>}
           {tab==="no_activity"&&<NoActivityView rows={noActivityRows} filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches}/>}
