@@ -7250,7 +7250,7 @@ function WhatDoINeedToWinToday({csms=[], cadenceFull=[], callRaw=[], fiRows=[], 
               <div key={r.name} style={{background:bg,borderRadius:8,padding:"8px 12px",borderLeft:"3px solid "+col}}>
                 <div style={{fontSize:12,fontWeight:600,color:"#29355D",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{dispName(r.name)}</div>
                 <div style={{fontSize:12,color:col,fontWeight:500}}>
-                  {r.total===0 ? "All clear" : [r.callItems.length>0 && r.callItems.length+" call"+(r.callItems.length===1?"":"s"), r.cadenceItems.length>0 && r.cadenceItems.length+" cadence", r.urgentFIs.length>0 && r.urgentFIs.length+" FI"].filter(Boolean).join(" · ")}
+                  {r.total===0 ? "All clear" : [r.urgentFIs.length>0 && r.urgentFIs.length+" FI", r.cadenceItems.length>0 && r.cadenceItems.length+" cadence", r.callItems.length>0 && r.callItems.length+" call"+(r.callItems.length===1?"":"s")].filter(Boolean).join(" · ")}
                 </div>
               </div>
             );
@@ -7271,15 +7271,15 @@ function WhatDoINeedToWinToday({csms=[], cadenceFull=[], callRaw=[], fiRows=[], 
     <div style={card}>
       <div style={{fontSize:15,fontWeight:700,color:"#29355D",marginBottom:2}}>🎯 What do I need to do to win today?</div>
       <div style={{fontSize:12,color:"#808080",marginBottom:4}}>{r.total} thing{r.total===1?"":"s"} on deck</div>
-      {r.callItems.length>0 && <>
-        <div style={sectionLabel}>📞 Calls today ({r.callItems.length})</div>
-        {r.callItems.slice(0,6).map((it,i)=>(
-          <div key={"call"+i} style={itemRow}>
+      {r.urgentFIs.length>0 && <>
+        <div style={sectionLabel}>📋 Urgent Fulfillment Items ({r.urgentFIs.length})</div>
+        {r.urgentFIs.slice(0,6).map((it,i)=>(
+          <div key={"fi"+i} style={itemRow}>
             <span style={{fontSize:12,fontWeight:500,color:"#29355D"}}>{it.account}</span>
-            <span style={{fontSize:12,color:"#808080"}}>{it.time.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})}</span>
+            <span style={{fontSize:12,color:"#808080"}}>{it.func}</span>
           </div>
         ))}
-        {r.callItems.length>6 && <div style={{fontSize:11,color:"#aaa"}}>+{r.callItems.length-6} more</div>}
+        {r.urgentFIs.length>6 && <div style={{fontSize:11,color:"#aaa"}}>+{r.urgentFIs.length-6} more</div>}
       </>}
       {r.cadenceItems.length>0 && <>
         <div style={sectionLabel}>✅ Cadence due or overdue ({r.cadenceItems.length})</div>
@@ -7291,15 +7291,15 @@ function WhatDoINeedToWinToday({csms=[], cadenceFull=[], callRaw=[], fiRows=[], 
         ))}
         {r.cadenceItems.length>6 && <div style={{fontSize:11,color:"#aaa"}}>+{r.cadenceItems.length-6} more</div>}
       </>}
-      {r.urgentFIs.length>0 && <>
-        <div style={sectionLabel}>📋 Urgent Fulfillment Items ({r.urgentFIs.length})</div>
-        {r.urgentFIs.slice(0,6).map((it,i)=>(
-          <div key={"fi"+i} style={itemRow}>
+      {r.callItems.length>0 && <>
+        <div style={sectionLabel}>📞 Calls today ({r.callItems.length})</div>
+        {r.callItems.slice(0,6).map((it,i)=>(
+          <div key={"call"+i} style={itemRow}>
             <span style={{fontSize:12,fontWeight:500,color:"#29355D"}}>{it.account}</span>
-            <span style={{fontSize:12,color:"#808080"}}>{it.func}</span>
+            <span style={{fontSize:12,color:"#808080"}}>{it.time.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})}</span>
           </div>
         ))}
-        {r.urgentFIs.length>6 && <div style={{fontSize:11,color:"#aaa"}}>+{r.urgentFIs.length-6} more</div>}
+        {r.callItems.length>6 && <div style={{fontSize:11,color:"#aaa"}}>+{r.callItems.length-6} more</div>}
       </>}
     </div>
   );
@@ -7679,6 +7679,31 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
       {/* Activity cards: Calls | Cadence touchpoints | Clients worked | Fulfillment Items */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(4,minmax(0,1fr))",gap:12,marginBottom:16}}>
 
+        {/* Fulfillment Items */}
+        <div style={card}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8,cursor:"pointer"}} onClick={()=>onNavigate("fi")}>
+            <span style={lbl}>📋 Fulfillment Items{myFIUrgent.length>0 && <span style={{marginLeft:6,fontSize:11,fontWeight:700,padding:"1px 6px",borderRadius:20,background:"#dc2626",color:"#fff"}}>🚨 {myFIUrgent.length}</span>}</span>
+            <span style={{fontSize:12,color:"#5378FC",fontWeight:500}}>View details →</span>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:10}}>
+            <div><div style={{fontSize:12,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Total</div><div style={{fontSize:20,fontWeight:500,color:"var(--text-primary)"}}>{myFI.length}</div></div>
+            <div><div style={{fontSize:12,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Social</div><div style={{fontSize:20,fontWeight:500,color:"#d97706"}}>{myFISocial}</div></div>
+            <div><div style={{fontSize:12,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Website</div><div style={{fontSize:20,fontWeight:500,color:"#2a78d6"}}>{myFIWebsite}</div></div>
+          </div>
+          {myFIUrgent.length>0 ? (
+            <div style={{fontSize:11,color:"#dc2626",marginTop:6,fontWeight:600}}>
+              🚨 {myFIUrgent[0].account} — {FI_ALWAYS_URGENT_FUNCTIONS.has(myFIUrgent[0].func) ? "Unengaged" : myFIUrgent[0].func+", "+myFIUrgent[0].aging.toFixed(1)+"d"}
+              {myFIUrgent.length>1 && <span style={{color:"#991b1b",fontWeight:400}}> (+{myFIUrgent.length-1} more urgent)</span>}
+            </div>
+          ) : myFIAging.length>0 ? (
+            <div style={{fontSize:11,color:"var(--text-secondary)",marginTop:6}}>
+              Oldest in current function: <b style={{color:"#29355D"}}>{myFIAging[0].account}</b> ({myFIAging[0].aging.toFixed(1)}d)
+            </div>
+          ) : (
+            <div style={{fontSize:12,color:"var(--text-secondary)",textAlign:"center",padding:"8px 0"}}>No Fulfillment Items in scope</div>
+          )}
+        </div>
+
         {/* Calls */}
         <div style={card}>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8,cursor:"pointer"}} onClick={()=>onNavigate("calls")}>
@@ -7780,31 +7805,6 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
               <div style={{fontSize:18,fontWeight:500,color:cadOverdueAll.length>0?"#dc2626":"var(--text-primary)"}}>{cadOverdueAll.length}</div>
             </div>
           </div>
-        </div>
-
-        {/* Fulfillment Items */}
-        <div style={card}>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8,cursor:"pointer"}} onClick={()=>onNavigate("fi")}>
-            <span style={lbl}>📋 Fulfillment Items{myFIUrgent.length>0 && <span style={{marginLeft:6,fontSize:11,fontWeight:700,padding:"1px 6px",borderRadius:20,background:"#dc2626",color:"#fff"}}>🚨 {myFIUrgent.length}</span>}</span>
-            <span style={{fontSize:12,color:"#5378FC",fontWeight:500}}>View details →</span>
-          </div>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:10}}>
-            <div><div style={{fontSize:12,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Total</div><div style={{fontSize:20,fontWeight:500,color:"var(--text-primary)"}}>{myFI.length}</div></div>
-            <div><div style={{fontSize:12,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Social</div><div style={{fontSize:20,fontWeight:500,color:"#d97706"}}>{myFISocial}</div></div>
-            <div><div style={{fontSize:12,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:3}}>Website</div><div style={{fontSize:20,fontWeight:500,color:"#2a78d6"}}>{myFIWebsite}</div></div>
-          </div>
-          {myFIUrgent.length>0 ? (
-            <div style={{fontSize:11,color:"#dc2626",marginTop:6,fontWeight:600}}>
-              🚨 {myFIUrgent[0].account} — {FI_ALWAYS_URGENT_FUNCTIONS.has(myFIUrgent[0].func) ? "Unengaged" : myFIUrgent[0].func+", "+myFIUrgent[0].aging.toFixed(1)+"d"}
-              {myFIUrgent.length>1 && <span style={{color:"#991b1b",fontWeight:400}}> (+{myFIUrgent.length-1} more urgent)</span>}
-            </div>
-          ) : myFIAging.length>0 ? (
-            <div style={{fontSize:11,color:"var(--text-secondary)",marginTop:6}}>
-              Oldest in current function: <b style={{color:"#29355D"}}>{myFIAging[0].account}</b> ({myFIAging[0].aging.toFixed(1)}d)
-            </div>
-          ) : (
-            <div style={{fontSize:12,color:"var(--text-secondary)",textAlign:"center",padding:"8px 0"}}>No Fulfillment Items in scope</div>
-          )}
         </div>
 
       </div>
@@ -11489,3 +11489,4 @@ My question: ${aiCustom}`,
     </div>
   );
 }
+    
