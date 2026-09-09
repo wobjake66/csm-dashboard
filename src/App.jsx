@@ -9093,6 +9093,10 @@ function mapFI(rows) {
                  : (udac.includes("WEB") || udac.includes("SITE")) ? "Website FI"
                  : "Other";
     const aging = parseFloat(String(r["Function Aging (Days)"]||"0").replace(/[^0-9.\-]/g,"")) || 0;
+    // Total lifetime of the FI record itself since creation — unlike
+    // Function Aging, this does NOT reset when the FI moves to a new
+    // Current Function, so it tracks overall age regardless of stage.
+    const totalAging = parseFloat(String(r["Fulfillment Item Aging (Days)"]||"0").replace(/[^0-9.\-]/g,"")) || 0;
     const designReviewRaw = String(r["Design Review"]||"").trim();
     const designReviewDate = designReviewRaw ? new Date(designReviewRaw) : null;
     // Has a real time-of-day component (e.g. "9/8/2026 9:15 AM"), unlike
@@ -9108,6 +9112,7 @@ function mapFI(rows) {
       account,
       func: String(r["Current Function"]||"").trim(),
       aging,
+      totalAging,
       fiNum: String(r["Fulfillment Item: Fulfillment Item ID"]||"").trim(),
       ofNum: String(r["Onboarding Form: Onboarding Form ID"]||"").trim(),
       designReview: (designReviewDate && !isNaN(designReviewDate)) ? designReviewDate : null,
@@ -9124,7 +9129,7 @@ function mapFI(rows) {
   const seen = new Set();
   const deduped = [];
   mapped.forEach(r => {
-    const key = r.fiNum ? "id:"+r.fiNum : "fallback:"+[r.fiType,r.coach,r.fiOwner,r.ofOwner,r.account,r.func,r.aging,r.ofNum].join("|");
+    const key = r.fiNum ? "id:"+r.fiNum : "fallback:"+[r.fiType,r.coach,r.fiOwner,r.ofOwner,r.account,r.func,r.aging,r.totalAging,r.ofNum].join("|");
     if (seen.has(key)) return;
     seen.add(key);
     deduped.push(r);
@@ -10057,10 +10062,10 @@ function FulfillmentView({filterCoach="", filterCSM="", managerCoaches=null, row
               const days = FI_SLA_DAYS[r.func];
               return days!=null ? days+" day"+(days===1?"":"s") : "";
             };
-            const headers = ["FI Type","Coach","FI Owner","Onboarding Form Owner","Account","Current Function","Function Aging (Days)","SLA Threshold","Design Review","MC Activation Call","Urgent","FI Number","Onboarding Form Number"];
+            const headers = ["FI Type","Coach","FI Owner","Onboarding Form Owner","Account","Current Function","Function Aging (Days)","Total FI Aging (Days)","SLA Threshold","Design Review","MC Activation Call","Urgent","FI Number","Onboarding Form Number"];
             const csvRows = sorted.map(r => [
               r.fiType, FI_COACH_EMAIL_MAP[r.coach] ? r.coach.replace(/([a-z])([A-Z])/g,"$1 $2").replace(/O'/,"O\u2019") : r.coach,
-              r.fiOwner, r.ofOwner, r.account, r.func, fmt1(r.aging), slaLabel(r),
+              r.fiOwner, r.ofOwner, r.account, r.func, fmt1(r.aging), fmt1(r.totalAging), slaLabel(r),
               r.designReview ? r.designReview.toLocaleDateString("en-US") : "",
               r.mcActivationCall ? r.mcActivationCall.toLocaleString("en-US") : "",
               fiIsUrgent(r) ? "Yes" : "No", r.fiNum, r.ofNum,
@@ -10089,6 +10094,7 @@ function FulfillmentView({filterCoach="", filterCSM="", managerCoaches=null, row
                 <th style={S.th} onClick={()=>onSort("account")}>Account{sortArrow("account")}</th>
                 <th style={S.th} onClick={()=>onSort("func")}>Current Function{sortArrow("func")}</th>
                 <th style={{...S.th,textAlign:"right"}} onClick={()=>onSort("aging")}>Function Aging (Days){sortArrow("aging")}</th>
+                <th style={{...S.th,textAlign:"right"}} onClick={()=>onSort("totalAging")}>Total FI Aging (Days){sortArrow("totalAging")}</th>
                 <th style={S.th} onClick={()=>onSort("fiNum")}>FI Number{sortArrow("fiNum")}</th>
                 <th style={S.th} onClick={()=>onSort("ofNum")}>Onboarding Form Number{sortArrow("ofNum")}</th>
               </tr>
@@ -10112,6 +10118,7 @@ function FulfillmentView({filterCoach="", filterCSM="", managerCoaches=null, row
                     {urgent && <div style={{marginTop:3}}><span style={{fontSize:10,fontWeight:700,padding:"1px 6px",borderRadius:20,background:"#dc2626",color:"#fff",whiteSpace:"nowrap",display:"inline-block"}}>🚨 URGENT</span></div>}
                   </td>
                   <td style={{...S.td,textAlign:"right",fontWeight:600,color:urgent?"#dc2626":r.aging>10?"#d97706":"#29355D"}}>{fmt1(r.aging)}</td>
+                  <td style={{...S.td,textAlign:"right",color:"#808080"}}>{fmt1(r.totalAging)}</td>
                   <td style={S.td}>{r.fiNum}</td>
                   <td style={S.td}>{r.ofNum}</td>
                 </tr>
