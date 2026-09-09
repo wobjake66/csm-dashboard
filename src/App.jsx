@@ -9801,7 +9801,15 @@ function fiNeedsQuery(r) {
     && r.aging > FI_QUERY_AGING_DAYS;
 }
 
+// Any FI over this many total days old is urgent regardless of function or
+// type — a blanket ceiling on top of the function-specific rules below,
+// not a replacement for them. An FI could pass its function's own SLA
+// check (e.g. a Website FI in Review with a future Design Review date) and
+// still trip this if it's simply been open too long overall.
+const FI_TOTAL_AGING_URGENT_DAYS = 30;
+
 function fiIsUrgent(r) {
+  if (r.totalAging > FI_TOTAL_AGING_URGENT_DAYS) return true;
   if (FI_ALWAYS_URGENT_FUNCTIONS.has(r.func)) return true;
   const designStatus = fiDesignReviewStatus(r);
   if (designStatus) return designStatus === "needs_attention";
@@ -9969,7 +9977,7 @@ function FulfillmentView({filterCoach="", filterCSM="", managerCoaches=null, row
         <div style={{background:"rgba(220,38,38,.06)",border:"0.5px solid rgba(220,38,38,.35)",borderRadius:12,padding:"16px 20px",marginBottom:14}}>
           <div style={{fontSize:14,fontWeight:700,color:"#7f1d1d",marginBottom:4}}>🚨 Danger, Will Robinson — {urgentItems.length} Fulfillment Item{urgentItems.length===1?"":"s"} need attention</div>
           <div style={{fontSize:12,color:"#991b1b",marginBottom:12}}>
-            Unengaged is always urgent · Website FI in Review with no future Design Review date is always urgent · Consultation past due 24h+ after the MC Activation Call (or no call scheduled) · Voice of the Client &gt; {FI_SLA_DAYS["Voice of the Client"]}d · Launch &gt; {FI_SLA_DAYS["Launch"]}d
+            Any FI over {FI_TOTAL_AGING_URGENT_DAYS}d total aging is always urgent · Unengaged is always urgent · Website FI in Review with no future Design Review date is always urgent · Consultation past due 24h+ after the MC Activation Call (or no call scheduled) · Voice of the Client &gt; {FI_SLA_DAYS["Voice of the Client"]}d · Launch &gt; {FI_SLA_DAYS["Launch"]}d
           </div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:8}}>
             {urgentItems.slice(0,12).map(r=>(
@@ -9977,7 +9985,8 @@ function FulfillmentView({filterCoach="", filterCSM="", managerCoaches=null, row
                 <div style={{fontSize:12,fontWeight:600,color:"#29355D"}}>{r.account}</div>
                 <div style={{fontSize:11,color:"#808080"}}>{r.fiOwner} · {r.func}</div>
                 <div style={{fontSize:11,fontWeight:600,color:"#dc2626"}}>
-                  {FI_ALWAYS_URGENT_FUNCTIONS.has(r.func) ? "Unengaged"
+                  {r.totalAging > FI_TOTAL_AGING_URGENT_DAYS ? fmt1(r.totalAging)+"d total aging"
+                    : FI_ALWAYS_URGENT_FUNCTIONS.has(r.func) ? "Unengaged"
                     : fiDesignReviewStatus(r)==="needs_attention" ? (r.designReview ? "Design review passed "+r.designReview.toLocaleDateString("en-US",{month:"short",day:"numeric"}) : "No design review scheduled")
                     : fiConsultationStatus(r)==="needs_attention" ? (r.mcActivationCall ? "Activation call passed "+r.mcActivationCall.toLocaleDateString("en-US",{month:"short",day:"numeric"}) : "No activation call scheduled")
                     : fmt1(r.aging)+"d in function"}
