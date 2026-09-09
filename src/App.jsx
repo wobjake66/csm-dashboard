@@ -9084,7 +9084,7 @@ const FI_COACH_EMAIL_MAP = {
 // match fis.xlsx exactly (verified against a fresh live pull on 2026-08-21).
 function mapFI(rows) {
   if (!rows || rows.length === 0) return [];
-  return rows.map(r => {
+  const mapped = rows.map(r => {
     const fiOwner = String(r["Fulfillment Item: Owner Name"]||"").trim();
     const account = String(r["Account"]||"").trim();
     if (!fiOwner || !account) return null;
@@ -9114,6 +9114,22 @@ function mapFI(rows) {
       mcActivationCall: (mcActivationDate && !isNaN(mcActivationDate)) ? mcActivationDate : null,
     };
   }).filter(Boolean);
+
+  // A real Fulfillment Item ID should be unique to one real item — if the
+  // same ID shows up on multiple rows, that's a duplicate row from however
+  // the export was generated (e.g. a join fan-out), not a genuinely
+  // distinct fulfillment item. Collapse those. For the rare row with a
+  // blank ID, fall back to every visible field matching exactly, so only
+  // true duplicates get merged and nothing genuinely different is hidden.
+  const seen = new Set();
+  const deduped = [];
+  mapped.forEach(r => {
+    const key = r.fiNum ? "id:"+r.fiNum : "fallback:"+[r.fiType,r.coach,r.fiOwner,r.ofOwner,r.account,r.func,r.aging,r.ofNum].join("|");
+    if (seen.has(key)) return;
+    seen.add(key);
+    deduped.push(r);
+  });
+  return deduped;
 }
 
 // ── Live Q3 SF-based BoB join ────────────────────────────────────────────
@@ -9818,8 +9834,21 @@ function FulfillmentView({filterCoach="", filterCSM="", managerCoaches=null, row
     dataRows.filter(r => !typeFilter || r.fiType===typeFilter).map(r=>r.func)
   )].sort();
 
+  // "Onboarding Form: CSM Coach Name" on each FI row reflects whoever
+  // coached that specific onboarding form historically — it goes stale if
+  // the CSM later moves teams, so an older FI can carry a different
+  // coach's name than the CSM's real, current team. Look up the CSM's
+  // actual current coach from the roster instead; that's always accurate.
+  // Only fall back to the row's own (possibly stale) coach field if the
+  // CSM genuinely isn't in the roster at all.
+  const trueCoachEmail = r => {
+    const info = lk(r.fiOwner) || lk(r.ofOwner);
+    if (info) return info.c;
+    return FI_COACH_EMAIL_MAP[r.coach] || null;
+  };
+
   const scoped = dataRows.filter(r => {
-    const coachEmail = FI_COACH_EMAIL_MAP[r.coach] || null;
+    const coachEmail = trueCoachEmail(r);
     if (managerCoaches && !managerCoaches.includes(coachEmail)) return false;
     if (filterCoach && coachEmail !== filterCoach) return false;
     if (filterCSM && r.fiOwner !== filterCSM && r.ofOwner !== filterCSM) return false;
@@ -9840,7 +9869,7 @@ function FulfillmentView({filterCoach="", filterCSM="", managerCoaches=null, row
   // typeFilter/funcFilter dropdowns above, since this is its own dedicated
   // callout. Still respects coach/CSM scoping, same as everything else.
   const inScope = r => {
-    const coachEmail = FI_COACH_EMAIL_MAP[r.coach] || null;
+    const coachEmail = trueCoachEmail(r);
     if (managerCoaches && !managerCoaches.includes(coachEmail)) return false;
     if (filterCoach && coachEmail !== filterCoach) return false;
     if (filterCSM && r.fiOwner !== filterCSM && r.ofOwner !== filterCSM) return false;
