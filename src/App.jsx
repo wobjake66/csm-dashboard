@@ -4967,11 +4967,13 @@ function RevenueView({rawRev, csms, filterCoach, filterCSM, managerCoaches}) {
     const tot  = parseFloat(String(r["Total Revenue Added"]||r["Total Revenue"]||r["Revenue"]||0).replace(/[$,]/g,""))||0;
     const nr   = (r["Non-Revenue Integrations"]||"").trim();
     const mrrInt = (r["MRR Integration"]||"").trim();
+    // Confirmed against the live sheet: "One-Time Revenue Integrations" (column L)
+    const otrInt = (r["One-Time Revenue Integrations"]||r["OTR Integration"]||"").trim();
     const biz  = (r["Business Name"]||"").trim();
     const type = (r["Type of Integration"]||"").trim();
     const qtr  = (r["Quarter for Consideration"]||r["Quarter"]||"").trim();
     const i    = lk(csm);
-    return {csm, team: (i&&i.t)||team, tier:(i&&i.r)||tier, region:region(csm)||"", mrr, otr, tot, nr, mrrInt, biz, type, qtr};
+    return {csm, team: (i&&i.t)||team, tier:(i&&i.r)||tier, region:region(csm)||"", mrr, otr, tot, nr, mrrInt, otrInt, biz, type, qtr};
   }).filter(r=>r.csm && isValidCSM(r.csm));
 
   // Apply manager + coach + CSM + region + quarter filter
@@ -5038,6 +5040,16 @@ function RevenueView({rawRev, csms, filterCoach, filterCSM, managerCoaches}) {
   });
   const mrrTypeRows = Object.entries(mrrTypes).sort((a,b)=>b[1].amount-a[1].amount);
   const maxMrrAmt = mrrTypeRows[0]?mrrTypeRows[0][1].amount:1;
+
+  // ── Top OTR (one-time revenue) integration types ─────────────────────────
+  const otrTypes = {};
+  filtered.filter(r=>r.otr>0).forEach(r=>{
+    const k = r.otrInt||"Unspecified";
+    if(!otrTypes[k]) otrTypes[k]={count:0,amount:0};
+    otrTypes[k].count++; otrTypes[k].amount+=r.otr;
+  });
+  const otrTypeRows = Object.entries(otrTypes).sort((a,b)=>b[1].amount-a[1].amount);
+  const maxOtrAmt = otrTypeRows[0]?otrTypeRows[0][1].amount:1;
 
   // ── Non-revenue types ─────────────────────────────────────────────────────
   const nrTypes = {};
@@ -5302,8 +5314,8 @@ function RevenueView({rawRev, csms, filterCoach, filterCSM, managerCoaches}) {
         </div>
       </div>}
 
-      {/* ── Row 3: Top MRR integrations + Non-revenue breakdown ── */}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}}>
+      {/* ── Row 3: Top MRR + Top OTR integrations + Non-revenue breakdown ── */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:16,marginBottom:16}}>
 
         {/* Top MRR integration types */}
         <div style={cardStyle}>
@@ -5312,14 +5324,31 @@ function RevenueView({rawRev, csms, filterCoach, filterCSM, managerCoaches}) {
             <div key={type} style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
               <span style={{width:16,fontSize:13,color:"#808080",flexShrink:0}}>{i+1}.</span>
               <span style={{flex:1,fontSize:12,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{type}</span>
-              <div style={{width:120,height:5,background:"#ECEEF1",borderRadius:3,overflow:"hidden",flexShrink:0}}>
+              <div style={{width:80,height:5,background:"#ECEEF1",borderRadius:3,overflow:"hidden",flexShrink:0}}>
                 <div style={{height:"100%",background:"#FF5000",opacity:.75,borderRadius:3,width:(d.amount/maxMrrAmt*100).toFixed(1)+"%"}}/>
               </div>
               <span style={{width:20,fontSize:13,color:"#808080",textAlign:"right",flexShrink:0}}>{d.count}</span>
-              <span style={{width:60,fontSize:13,fontWeight:500,color:"#FF5000",textAlign:"right",flexShrink:0}}>{fk(d.amount)}</span>
+              <span style={{width:55,fontSize:13,fontWeight:500,color:"#FF5000",textAlign:"right",flexShrink:0}}>{fk(d.amount)}</span>
             </div>
           ))}
           {mrrTypeRows.length===0&&<div style={{color:"#808080",fontSize:12}}>No MRR data</div>}
+        </div>
+
+        {/* Top OTR (one-time revenue) integration types */}
+        <div style={cardStyle}>
+          <div style={secTitle}>Top One-Time Revenue Integrations</div>
+          {otrTypeRows.map(([type,d],i)=>(
+            <div key={type} style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+              <span style={{width:16,fontSize:13,color:"#808080",flexShrink:0}}>{i+1}.</span>
+              <span style={{flex:1,fontSize:12,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{type}</span>
+              <div style={{width:80,height:5,background:"#ECEEF1",borderRadius:3,overflow:"hidden",flexShrink:0}}>
+                <div style={{height:"100%",background:"#5378FC",opacity:.75,borderRadius:3,width:(d.amount/maxOtrAmt*100).toFixed(1)+"%"}}/>
+              </div>
+              <span style={{width:20,fontSize:13,color:"#808080",textAlign:"right",flexShrink:0}}>{d.count}</span>
+              <span style={{width:55,fontSize:13,fontWeight:500,color:"#5378FC",textAlign:"right",flexShrink:0}}>{fk(d.amount)}</span>
+            </div>
+          ))}
+          {otrTypeRows.length===0&&<div style={{color:"#808080",fontSize:12}}>No one-time revenue data</div>}
         </div>
 
         {/* Non-revenue integrations */}
