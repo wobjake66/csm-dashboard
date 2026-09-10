@@ -9809,14 +9809,37 @@ function fiNeedsQuery(r) {
 const FI_TOTAL_AGING_URGENT_DAYS = 30;
 
 function fiIsUrgent(r) {
-  if (r.totalAging > FI_TOTAL_AGING_URGENT_DAYS) return true;
   if (FI_ALWAYS_URGENT_FUNCTIONS.has(r.func)) return true;
+  // Website FI in Review and Consultation both have a real, precise
+  // scheduled-date signal (Design Review / MC Activation Call) that's more
+  // authoritative than the blanket total-aging rule below. A future date
+  // means the next step is already booked and this is NOT urgent, full
+  // stop — regardless of how long the FI has existed overall. Only
+  // functions without one of these specific date signals fall through to
+  // the blanket check.
   const designStatus = fiDesignReviewStatus(r);
   if (designStatus) return designStatus === "needs_attention";
   const consultStatus = fiConsultationStatus(r);
   if (consultStatus) return consultStatus === "needs_attention";
+  if (r.totalAging > FI_TOTAL_AGING_URGENT_DAYS) return true;
   const threshold = FI_SLA_DAYS[r.func];
   return threshold != null && r.aging > threshold;
+}
+
+// Human-readable "why is this urgent" — same priority order as fiIsUrgent
+// above, kept as one shared source so the banner and the main table never
+// drift out of sync with each other. Returns "" for a non-urgent row.
+function fiUrgentReason(r) {
+  const f1 = n => Number(n||0).toFixed(1);
+  if (FI_ALWAYS_URGENT_FUNCTIONS.has(r.func)) return "Unengaged";
+  const designStatus = fiDesignReviewStatus(r);
+  if (designStatus) return designStatus==="needs_attention" ? (r.designReview ? "Design review passed "+r.designReview.toLocaleDateString("en-US",{month:"short",day:"numeric"}) : "No design review scheduled") : "";
+  const consultStatus = fiConsultationStatus(r);
+  if (consultStatus) return consultStatus==="needs_attention" ? (r.mcActivationCall ? "Activation call passed "+r.mcActivationCall.toLocaleDateString("en-US",{month:"short",day:"numeric"}) : "No activation call scheduled") : "";
+  if (r.totalAging > FI_TOTAL_AGING_URGENT_DAYS) return f1(r.totalAging)+"d total aging";
+  const threshold = FI_SLA_DAYS[r.func];
+  if (threshold != null && r.aging > threshold) return f1(r.aging)+"d in function (over "+threshold+"d)";
+  return "";
 }
 
 function FulfillmentView({filterCoach="", filterCSM="", managerCoaches=null, rows}) {
@@ -9984,13 +10007,7 @@ function FulfillmentView({filterCoach="", filterCSM="", managerCoaches=null, row
               <div key={r.fiNum} style={{background:"#fff",borderRadius:8,padding:"8px 12px",borderLeft:"3px solid #dc2626"}}>
                 <div style={{fontSize:12,fontWeight:600,color:"#29355D"}}>{r.account}</div>
                 <div style={{fontSize:11,color:"#808080"}}>{r.fiOwner} · {r.func}</div>
-                <div style={{fontSize:11,fontWeight:600,color:"#dc2626"}}>
-                  {r.totalAging > FI_TOTAL_AGING_URGENT_DAYS ? fmt1(r.totalAging)+"d total aging"
-                    : FI_ALWAYS_URGENT_FUNCTIONS.has(r.func) ? "Unengaged"
-                    : fiDesignReviewStatus(r)==="needs_attention" ? (r.designReview ? "Design review passed "+r.designReview.toLocaleDateString("en-US",{month:"short",day:"numeric"}) : "No design review scheduled")
-                    : fiConsultationStatus(r)==="needs_attention" ? (r.mcActivationCall ? "Activation call passed "+r.mcActivationCall.toLocaleDateString("en-US",{month:"short",day:"numeric"}) : "No activation call scheduled")
-                    : fmt1(r.aging)+"d in function"}
-                </div>
+                <div style={{fontSize:11,fontWeight:600,color:"#dc2626"}}>{fiUrgentReason(r)}</div>
               </div>
             ))}
           </div>
@@ -10071,13 +10088,13 @@ function FulfillmentView({filterCoach="", filterCSM="", managerCoaches=null, row
               const days = FI_SLA_DAYS[r.func];
               return days!=null ? days+" day"+(days===1?"":"s") : "";
             };
-            const headers = ["FI Type","Coach","FI Owner","Onboarding Form Owner","Account","Current Function","Function Aging (Days)","Total FI Aging (Days)","SLA Threshold","Design Review","MC Activation Call","Urgent","FI Number","Onboarding Form Number"];
+            const headers = ["FI Type","Coach","FI Owner","Onboarding Form Owner","Account","Current Function","Function Aging (Days)","Total FI Aging (Days)","SLA Threshold","Design Review","MC Activation Call","Urgent","Why Urgent","FI Number","Onboarding Form Number"];
             const csvRows = sorted.map(r => [
               r.fiType, FI_COACH_EMAIL_MAP[r.coach] ? r.coach.replace(/([a-z])([A-Z])/g,"$1 $2").replace(/O'/,"O\u2019") : r.coach,
               r.fiOwner, r.ofOwner, r.account, r.func, fmt1(r.aging), fmt1(r.totalAging), slaLabel(r),
               r.designReview ? r.designReview.toLocaleDateString("en-US") : "",
               r.mcActivationCall ? r.mcActivationCall.toLocaleString("en-US") : "",
-              fiIsUrgent(r) ? "Yes" : "No", r.fiNum, r.ofNum,
+              fiIsUrgent(r) ? "Yes" : "No", fiUrgentReason(r), r.fiNum, r.ofNum,
             ]);
             const csv = [headers, ...csvRows].map(row => row.map(v=>{
               const s = String(v??"").replace(/"/g,'""');
@@ -10124,7 +10141,10 @@ function FulfillmentView({filterCoach="", filterCSM="", managerCoaches=null, row
                   <td style={S.td}>{r.account}</td>
                   <td style={S.td}>
                     <div>{r.func}</div>
-                    {urgent && <div style={{marginTop:3}}><span style={{fontSize:10,fontWeight:700,padding:"1px 6px",borderRadius:20,background:"#dc2626",color:"#fff",whiteSpace:"nowrap",display:"inline-block"}}>🚨 URGENT</span></div>}
+                    {urgent && <div style={{marginTop:3}}>
+                      <span style={{fontSize:10,fontWeight:700,padding:"1px 6px",borderRadius:20,background:"#dc2626",color:"#fff",whiteSpace:"nowrap",display:"inline-block"}}>🚨 URGENT</span>
+                      <div style={{fontSize:11,color:"#dc2626",marginTop:2}}>{fiUrgentReason(r)}</div>
+                    </div>}
                   </td>
                   <td style={{...S.td,textAlign:"right",fontWeight:600,color:urgent?"#dc2626":r.aging>10?"#d97706":"#29355D"}}>{fmt1(r.aging)}</td>
                   <td style={{...S.td,textAlign:"right",color:"#808080"}}>{fmt1(r.totalAging)}</td>
@@ -11582,4 +11602,3 @@ My question: ${aiCustom}`,
     </div>
   );
 }
-      
