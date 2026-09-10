@@ -9101,9 +9101,15 @@ function mapFI(rows) {
     const designReviewDate = designReviewRaw ? new Date(designReviewRaw) : null;
     // Has a real time-of-day component (e.g. "9/8/2026 9:15 AM"), unlike
     // Design Review which is date-only — needed for a true 24h SLA check
-    // on Consultation, not just a midnight-of-today comparison.
+    // on Consultation, not just a midnight-of-today comparison. These two
+    // are effectively mutually exclusive per row (confirmed against the
+    // real export — an account has one or the other, essentially never
+    // both) — whichever is populated is the account's relevant next
+    // scheduled call for the Consultation SLA check.
     const mcActivationRaw = String(r["Onboarding Form: Activation Call 1"]||"").trim();
     const mcActivationDate = mcActivationRaw ? new Date(mcActivationRaw) : null;
+    const kickoffRaw = String(r["Onboarding Form: Kickoff Call"]||"").trim();
+    const kickoffDate = kickoffRaw ? new Date(kickoffRaw) : null;
     return {
       fiType,
       coach: String(r["Onboarding Form: CSM Coach Name"]||"").trim(),
@@ -9117,6 +9123,7 @@ function mapFI(rows) {
       ofNum: String(r["Onboarding Form: Onboarding Form ID"]||"").trim(),
       designReview: (designReviewDate && !isNaN(designReviewDate)) ? designReviewDate : null,
       mcActivationCall: (mcActivationDate && !isNaN(mcActivationDate)) ? mcActivationDate : null,
+      kickoffCall: (kickoffDate && !isNaN(kickoffDate)) ? kickoffDate : null,
     };
   }).filter(Boolean);
 
@@ -9768,18 +9775,24 @@ function fiDesignReviewStatus(r) {
   return r.designReview < todayMidnight ? "needs_attention" : "scheduled";
 }
 
-// Consultation has a real scheduled-call date (MC Activation Call) — a much
-// more precise signal than a flat day-count. Past SLA means either no call
-// scheduled at all, or more than a genuine 24 hours (not just "past
-// midnight" like Design Review — this field carries a real time of day, so
-// the comparison has to be an exact timestamp, not a date-only one) since
-// the scheduled call time. A call still in the future is never urgent by
-// this rule, no matter how long the FI has otherwise been aging — the call
-// hasn't happened yet, so there's nothing overdue.
+// Consultation has a real scheduled-call date — a much more precise
+// signal than a flat day-count. The relevant date can live on either
+// "Onboarding Form: Activation Call 1" or "Onboarding Form: Kickoff Call"
+// — confirmed against the real export that these are effectively mutually
+// exclusive per row (an account has one or the other, essentially never
+// both), so whichever is actually populated is the one that matters. Past
+// SLA means either neither is scheduled at all, or more than a genuine 24
+// hours (not just "past midnight" like Design Review — these fields carry
+// a real time of day, so the comparison has to be an exact timestamp, not
+// a date-only one) since the scheduled call time. A call still in the
+// future is never urgent by this rule, no matter how long the FI has
+// otherwise been aging — the call hasn't happened yet, so there's
+// nothing overdue.
 function fiConsultationStatus(r) {
   if (r.func !== "Consultation") return null;
-  if (!r.mcActivationCall) return "needs_attention";
-  const cutoff = new Date(r.mcActivationCall.getTime() + 24*60*60*1000);
+  const scheduledCall = r.mcActivationCall || r.kickoffCall;
+  if (!scheduledCall) return "needs_attention";
+  const cutoff = new Date(scheduledCall.getTime() + 24*60*60*1000);
   return new Date() > cutoff ? "needs_attention" : "scheduled";
 }
 
@@ -9835,7 +9848,7 @@ function fiUrgentReason(r) {
   const designStatus = fiDesignReviewStatus(r);
   if (designStatus) return designStatus==="needs_attention" ? (r.designReview ? "Design review passed "+r.designReview.toLocaleDateString("en-US",{month:"short",day:"numeric"}) : "No design review scheduled") : "";
   const consultStatus = fiConsultationStatus(r);
-  if (consultStatus) return consultStatus==="needs_attention" ? (r.mcActivationCall ? "Activation call passed "+r.mcActivationCall.toLocaleDateString("en-US",{month:"short",day:"numeric"}) : "No activation call scheduled") : "";
+  if (consultStatus) return consultStatus==="needs_attention" ? ((r.mcActivationCall||r.kickoffCall) ? (r.mcActivationCall?"Activation call":"Kickoff call")+" passed "+(r.mcActivationCall||r.kickoffCall).toLocaleDateString("en-US",{month:"short",day:"numeric"}) : "No call scheduled") : "";
   if (r.totalAging > FI_TOTAL_AGING_URGENT_DAYS) return f1(r.totalAging)+"d total aging";
   const threshold = FI_SLA_DAYS[r.func];
   if (threshold != null && r.aging > threshold) return f1(r.aging)+"d in function (over "+threshold+"d)";
@@ -10084,16 +10097,17 @@ function FulfillmentView({filterCoach="", filterCSM="", managerCoaches=null, row
             const slaLabel = r => {
               if (FI_ALWAYS_URGENT_FUNCTIONS.has(r.func)) return "Always urgent";
               if (r.fiType==="Website FI" && r.func==="Review") return "24h past Design Review date";
-              if (r.func==="Consultation") return "24h past MC Activation Call";
+              if (r.func==="Consultation") return "24h past Activation/Kickoff Call";
               const days = FI_SLA_DAYS[r.func];
               return days!=null ? days+" day"+(days===1?"":"s") : "";
             };
-            const headers = ["FI Type","Coach","FI Owner","Onboarding Form Owner","Account","Current Function","Function Aging (Days)","Total FI Aging (Days)","SLA Threshold","Design Review","MC Activation Call","Urgent","Why Urgent","FI Number","Onboarding Form Number"];
+            const headers = ["FI Type","Coach","FI Owner","Onboarding Form Owner","Account","Current Function","Function Aging (Days)","Total FI Aging (Days)","SLA Threshold","Design Review","MC Activation Call","Kickoff Call","Urgent","Why Urgent","FI Number","Onboarding Form Number"];
             const csvRows = sorted.map(r => [
               r.fiType, FI_COACH_EMAIL_MAP[r.coach] ? r.coach.replace(/([a-z])([A-Z])/g,"$1 $2").replace(/O'/,"O\u2019") : r.coach,
               r.fiOwner, r.ofOwner, r.account, r.func, fmt1(r.aging), fmt1(r.totalAging), slaLabel(r),
               r.designReview ? r.designReview.toLocaleDateString("en-US") : "",
               r.mcActivationCall ? r.mcActivationCall.toLocaleString("en-US") : "",
+              r.kickoffCall ? r.kickoffCall.toLocaleString("en-US") : "",
               fiIsUrgent(r) ? "Yes" : "No", fiUrgentReason(r), r.fiNum, r.ofNum,
             ]);
             const csv = [headers, ...csvRows].map(row => row.map(v=>{
@@ -11602,3 +11616,4 @@ My question: ${aiCustom}`,
     </div>
   );
 }
+    
