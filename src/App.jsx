@@ -6621,14 +6621,18 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
       const csmRaw = String(r["CSM Name"]||"").trim();
       if (!csmRaw) return null; // drops the GRAND TOTAL row (blank CSM Name)
       const pf = v => { const n = parseFloat(String(v??"").replace(/[$,%]/g,"")); return isNaN(n) ? null : n; };
+      // The sheet stores retention as a percentage number (e.g. 92.819
+      // meaning 92.819%), not a decimal fraction (0.92819) — fmtPct expects
+      // a fraction (it multiplies by 100 itself), so divide here once.
+      const pfRet = v => { const n = pf(v); return n==null ? null : n/100; };
       const coachRaw = String(r["CSM Coach"]||"").trim();
       const csm = norm(lfSwap(csmRaw)) || lfSwap(csmRaw);
       return {
         csm, coach: coachRaw,
         boq: pf(r["Beginning of Quarter"]) || 0,
-        m1: pf(r["Month 1"]), m1Ret: pf(r["Month 1 Retention %"]),
-        m2: pf(r["Month 2 Revenue"]), m2Ret: pf(r["Month 2 Retention"]),
-        m3: pf(r["Month 3 Revenue"]), m3Ret: pf(r["Month 3 Retention"]),
+        m1: pf(r["Month 1"]), m1Ret: pfRet(r["Month 1 Retention %"]),
+        m2: pf(r["Month 2 Revenue"]), m2Ret: pfRet(r["Month 2 Retention"]),
+        m3: pf(r["Month 3 Revenue"]), m3Ret: pfRet(r["Month 3 Retention"]),
       };
     }).filter(Boolean);
 
