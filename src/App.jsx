@@ -10130,17 +10130,29 @@ function FulfillmentView({filterCoach="", filterCSM="", managerCoaches=null, row
   // actual current coach from the roster instead; that's always accurate.
   // Only fall back to the row's own (possibly stale) coach field if the
   // CSM genuinely isn't in the roster at all.
+  //
+  // lk() does a direct, case-insensitive roster lookup — it does NOT
+  // resolve name aliases the way norm() does. A raw FI row can carry an
+  // aliased spelling (e.g. "Juan Sanchez Sanchez" where the roster's
+  // canonical form is "Juan Sanchez"), so every comparison below runs the
+  // raw name through norm() first — same pattern already used correctly
+  // in MyDashboard's own FI scoping.
   const trueCoachEmail = r => {
-    const info = lk(r.fiOwner) || lk(r.ofOwner);
+    const info = lk(norm(r.fiOwner)||r.fiOwner) || lk(norm(r.ofOwner)||r.ofOwner);
     if (info) return info.c;
     return FI_COACH_EMAIL_MAP[r.coach] || null;
+  };
+  const matchesCSM = (r, filterCSMVal) => {
+    if (!filterCSMVal) return true;
+    const fiOwnerNorm = norm(r.fiOwner)||r.fiOwner, ofOwnerNorm = norm(r.ofOwner)||r.ofOwner;
+    return fiOwnerNorm===filterCSMVal || ofOwnerNorm===filterCSMVal;
   };
 
   const scoped = dataRows.filter(r => {
     const coachEmail = trueCoachEmail(r);
     if (managerCoaches && !managerCoaches.includes(coachEmail)) return false;
     if (filterCoach && coachEmail !== filterCoach) return false;
-    if (filterCSM && r.fiOwner !== filterCSM && r.ofOwner !== filterCSM) return false;
+    if (!matchesCSM(r, filterCSM)) return false;
     if (typeFilter && r.fiType !== typeFilter) return false;
     if (funcFilter && r.func !== funcFilter) return false;
     if (urgentOnly && !fiIsUrgent(r)) return false;
@@ -10161,7 +10173,7 @@ function FulfillmentView({filterCoach="", filterCSM="", managerCoaches=null, row
     const coachEmail = trueCoachEmail(r);
     if (managerCoaches && !managerCoaches.includes(coachEmail)) return false;
     if (filterCoach && coachEmail !== filterCoach) return false;
-    if (filterCSM && r.fiOwner !== filterCSM && r.ofOwner !== filterCSM) return false;
+    if (!matchesCSM(r, filterCSM)) return false;
     return true;
   };
   const websiteReviewItems = dataRows.filter(r => inScope(r) && r.fiType==="Website FI" && r.func==="Review");
@@ -11862,3 +11874,4 @@ My question: ${aiCustom}`,
     </div>
   );
 }
+      
