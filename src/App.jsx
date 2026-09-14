@@ -6945,10 +6945,11 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
             <div key={t.l} onClick={()=>setBillingStatusFilter(isActive?null:statusKey)}
               style={{background:t.bg,borderRadius:8,padding:"12px 14px",textAlign:"center",cursor:"pointer",
                 border:isActive?"2px solid "+t.col:"2px solid transparent",transition:"border-color .15s"}}>
-              <div style={{fontSize:24,fontWeight:600,color:t.col}}>{t.rows.length}</div>
-              <div style={{fontSize:13,color:t.col}}>{t.l}</div>
-              {t.l!=="No change" && <div style={{fontSize:13,color:t.col,opacity:.7}}>{netOf(t.rows)>=0?"+":""}{fmt$(netOf(t.rows))}</div>}
-              <div style={{fontSize:11,color:t.col,opacity:.6,marginTop:4,lineHeight:1.3}}>{t.desc}</div>
+              {t.l!=="No change"
+                ? <div style={{fontSize:24,fontWeight:600,color:t.col}}>{netOf(t.rows)>=0?"+":""}{fmt$(netOf(t.rows))}</div>
+                : <div style={{fontSize:24,fontWeight:600,color:t.col}}>{t.rows.length}</div>}
+              <div style={{fontSize:13,color:t.col}}>{t.l}{t.l!=="No change" && <span style={{opacity:.7}}> · {t.rows.length} accounts</span>}</div>
+              <div style={{fontSize:13,color:t.col,opacity:.6,marginTop:4,lineHeight:1.3}}>{t.desc}</div>
             </div>
             );
           })}
