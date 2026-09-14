@@ -6932,16 +6932,17 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
         {/* Status breakdown */}
         <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:8,marginBottom:14}}>
           {[
-            {l:"Added", rows:addedRows, col:"#6d28d9", bg:"rgba(124,58,237,.06)"},
-            {l:"Increase", rows:increaseRows, col:"#166534", bg:"rgba(22,163,74,.06)"},
-            {l:"Decrease", rows:decreaseRows, col:"#991b1b", bg:"rgba(220,38,38,.06)"},
-            {l:"Lost", rows:lostRows, col:"#92400e", bg:"rgba(217,119,6,.06)"},
-            {l:"No change", rows:noChangeRows, col:"#5f5e5a", bg:"rgba(41,53,93,.05)"},
+            {l:"Added", desc:"New accounts added to the book this quarter", rows:addedRows, col:"#6d28d9", bg:"rgba(124,58,237,.06)"},
+            {l:"Increase", desc:"Existing accounts whose revenue grew this quarter", rows:increaseRows, col:"#166534", bg:"rgba(22,163,74,.06)"},
+            {l:"Decrease", desc:"Existing accounts whose revenue dropped this quarter", rows:decreaseRows, col:"#991b1b", bg:"rgba(220,38,38,.06)"},
+            {l:"Lost", desc:"Accounts that cancelled during the quarter", rows:lostRows, col:"#92400e", bg:"rgba(217,119,6,.06)"},
+            {l:"No change", desc:"Accounts whose revenue held steady this quarter", rows:noChangeRows, col:"#5f5e5a", bg:"rgba(41,53,93,.05)"},
           ].map(t=>(
             <div key={t.l} style={{background:t.bg,borderRadius:8,padding:"12px 14px",textAlign:"center"}}>
               <div style={{fontSize:24,fontWeight:600,color:t.col}}>{t.rows.length}</div>
               <div style={{fontSize:13,color:t.col}}>{t.l}</div>
               {t.l!=="No change" && <div style={{fontSize:13,color:t.col,opacity:.7}}>{netOf(t.rows)>=0?"+":""}{fmt$(netOf(t.rows))}</div>}
+              <div style={{fontSize:11,color:t.col,opacity:.6,marginTop:4,lineHeight:1.3}}>{t.desc}</div>
             </div>
           ))}
         </div>
@@ -11874,4 +11875,4 @@ My question: ${aiCustom}`,
     </div>
   );
 }
-      
+                  
