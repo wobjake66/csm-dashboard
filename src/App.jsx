@@ -5437,7 +5437,7 @@ const BOB_COACH_TOTALS = {
 const BOB_DETAIL = {};
 
 // PRE-BUILD PREVIEW DATA — static snapshot from q3_BoB_8-25.xlsx (BoB Retention tab, joined with SF retention detail's Status field). NOT wired to a live sheet.
-function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChurn, churnAlerts, onSelectCSM, liveBobDet={}, bobAdj={}, q3BobCur=[], domoBoq=[], q3Supp=[], q2DomoBoq=[], bobTab="overview", setBobTab=()=>{}, sfBobRows=[], acctCoverageByCsm={}, billingDetailRaw=[], billingBobRows=[]}) {
+function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChurn, churnAlerts, onSelectCSM, liveBobDet={}, bobAdj={}, q3BobCur=[], domoBoq=[], q3Supp=[], q2DomoBoq=[], bobTab="overview", setBobTab=()=>{}, sfBobRows=[], acctCoverageByCsm={}, billingDetailRaw=[], billingBobRows=[], billingSummaryRaw=[]}) {
   const [bobSubTab, setBobSubTab] = useState("current"); // "current" | "q3"
   const getDet = n => {
     const base = liveBobDet[n]||liveBobDet[norm(n)]||BOB_DETAIL[n]||BOB_DETAIL[norm(n)]||{};
@@ -5495,6 +5495,8 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
   const [sfSort,       setSfSort]       = useState({col:"retPct", dir:"asc"});
   const [billingSort,     setBillingSort]     = useState({col:"boq", dir:"desc"});
   const [billingExpanded, setBillingExpanded] = useState(null);
+  const [billingMonthlySort, setBillingMonthlySort] = useState("boq");
+  const [billingMonthlySortDir, setBillingMonthlySortDir] = useState("desc");
   const [sfTileFilter, setSfTileFilter] = useState(null);
   const [sfExpanded,   setSfExpanded]   = useState(null);
   const [q2dSort,       setQ2dSort]       = useState({col:"retPct", dir:"asc"});
@@ -6588,6 +6590,124 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
     );
   };
 
+  const renderMonthlyBreakout = () => {
+    const fmt$   = n => n==null?"--":"$"+Math.abs(n).toLocaleString("en-US",{minimumFractionDigits:0,maximumFractionDigits:0});
+    const fmtPct = p => p==null?"--":(p*100).toFixed(1)+"%";
+    const retCol = r => r==null?"#808080":r>=0.91?"#16a34a":r>=0.85?"#d97706":"#dc2626";
+
+    if (!billingSummaryRaw || billingSummaryRaw.length===0) return (
+      <div style={{...S.card,textAlign:"center",padding:"40px 20px",color:"#808080"}}>
+        <div style={{fontSize:32,marginBottom:12}}>📅</div>
+        <div style={{fontSize:14,fontWeight:500,color:"#29355D",marginBottom:8}}>Q3 Monthly Breakout — waiting on data</div>
+        <div style={{fontSize:12}}>Confirm the "Q3 BoB Summary" sheet is populated and published to populate this view.</div>
+      </div>
+    );
+
+    const lfSwap = raw => {
+      const s = String(raw||"").trim();
+      if (!s) return "";
+      if (s.includes(",")) {
+        const [last, first] = s.split(",", 2);
+        return (first.trim()+" "+last.trim()).replace(/  +/g," ").trim();
+      }
+      return s;
+    };
+
+    // Straight from the source sheet's own pre-computed per-CSM figures —
+    // no re-derivation here. This view exists specifically so retention can
+    // be checked against the source's own numbers directly, independent of
+    // whatever the Billing tab's account-level classification computes.
+    let rows = billingSummaryRaw.map(r => {
+      const csmRaw = String(r["CSM Name"]||"").trim();
+      if (!csmRaw) return null; // drops the GRAND TOTAL row (blank CSM Name)
+      const pf = v => { const n = parseFloat(String(v??"").replace(/[$,%]/g,"")); return isNaN(n) ? null : n; };
+      const coachRaw = String(r["CSM Coach"]||"").trim();
+      const csm = norm(lfSwap(csmRaw)) || lfSwap(csmRaw);
+      return {
+        csm, coach: coachRaw,
+        boq: pf(r["Beginning of Quarter"]) || 0,
+        m1: pf(r["Month 1"]), m1Ret: pf(r["Month 1 Retention %"]),
+        m2: pf(r["Month 2 Revenue"]), m2Ret: pf(r["Month 2 Retention"]),
+        m3: pf(r["Month 3 Revenue"]), m3Ret: pf(r["Month 3 Retention"]),
+      };
+    }).filter(Boolean);
+
+    if (filterCoach) rows = rows.filter(r => (lk(r.csm)||{}).c===filterCoach);
+    else if (managerCoaches) rows = rows.filter(r => managerCoaches.includes((lk(r.csm)||{}).c));
+    if (filterCSM) rows = rows.filter(r => r.csm===filterCSM);
+
+    const totalBoq = rows.reduce((s,r)=>s+r.boq,0);
+    const totalM1  = rows.reduce((s,r)=>s+(r.m1||0),0);
+    const totalM2  = rows.reduce((s,r)=>s+(r.m2||0),0);
+    const totalM3  = rows.reduce((s,r)=>s+(r.m3||0),0);
+    const m1RetAgg = totalBoq>0 ? totalM1/totalBoq : null;
+    const m2RetAgg = totalBoq>0 ? totalM2/totalBoq : null;
+    const m3RetAgg = totalBoq>0 ? totalM3/totalBoq : null;
+
+    const sorted = [...rows].sort((a,b) => {
+      const av = a[billingMonthlySort]??-999, bv = b[billingMonthlySort]??-999;
+      const cmp = typeof av==="string" ? String(av).toLowerCase().localeCompare(String(bv).toLowerCase()) : av-bv;
+      return billingMonthlySortDir==="asc" ? cmp : -cmp;
+    });
+    const thSort = (col,label) => (
+      <th onClick={()=>{ if(billingMonthlySort===col) setBillingMonthlySortDir(d=>d==="asc"?"desc":"asc"); else { setBillingMonthlySort(col); setBillingMonthlySortDir("asc"); } }}
+        style={{padding:"8px 10px",textAlign:"right",fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500,cursor:"pointer",whiteSpace:"nowrap",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>
+        {label} {billingMonthlySort===col?(billingMonthlySortDir==="asc"?"↑":"↓"):""}
+      </th>
+    );
+
+    return (
+      <div>
+        <div style={{fontSize:12,color:"#808080",marginBottom:14}}>
+          Straight from the source's own pre-computed per-month figures — Month 3 is still in progress, so its retention will look artificially low until the month closes out.
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:10,marginBottom:16}}>
+          <div style={{background:"#ECEEF1",borderRadius:10,padding:"14px 16px"}}>
+            <div style={{fontSize:13,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:6}}>Beginning</div>
+            <div style={{fontSize:25,fontWeight:600,color:"#5378FC",lineHeight:1}}>{fmt$(totalBoq)}</div>
+          </div>
+          {[["Month 1",totalM1,m1RetAgg],["Month 2",totalM2,m2RetAgg],["Month 3",totalM3,m3RetAgg]].map(([label,total,ret])=>(
+            <div key={label} style={{background:"#ECEEF1",borderRadius:10,padding:"14px 16px"}}>
+              <div style={{fontSize:13,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:6}}>{label}</div>
+              <div style={{fontSize:25,fontWeight:600,color:"#29355D",lineHeight:1}}>{fmt$(total)}</div>
+              <div style={{fontSize:13,fontWeight:600,color:retCol(ret),marginTop:4}}>{fmtPct(ret)} retention</div>
+            </div>
+          ))}
+        </div>
+        <div style={S.card}>
+          <div style={{overflowX:"auto"}}>
+            <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+              <thead><tr>
+                <th onClick={()=>{ if(billingMonthlySort==="csm") setBillingMonthlySortDir(d=>d==="asc"?"desc":"asc"); else { setBillingMonthlySort("csm"); setBillingMonthlySortDir("asc"); } }}
+                  style={{padding:"8px 10px 8px 0",textAlign:"left",fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500,cursor:"pointer",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>
+                  CSM {billingMonthlySort==="csm"?(billingMonthlySortDir==="asc"?"↑":"↓"):""}
+                </th>
+                {thSort("boq","BoQ")}
+                {thSort("m1","Month 1")}{thSort("m1Ret","M1 Ret")}
+                {thSort("m2","Month 2")}{thSort("m2Ret","M2 Ret")}
+                {thSort("m3","Month 3")}{thSort("m3Ret","M3 Ret")}
+              </tr></thead>
+              <tbody>
+                {sorted.map(r=>(
+                  <tr key={r.csm} style={{borderBottom:"0.5px solid rgba(41,53,93,.04)"}}>
+                    <td style={{padding:"8px 10px 8px 0",fontWeight:500,color:"#29355D"}}>{dispName(r.csm)}</td>
+                    <td style={{padding:"8px 10px",textAlign:"right"}}>{fmt$(r.boq)}</td>
+                    <td style={{padding:"8px 10px",textAlign:"right"}}>{fmt$(r.m1)}</td>
+                    <td style={{padding:"8px 10px",textAlign:"right",fontWeight:600,color:retCol(r.m1Ret)}}>{fmtPct(r.m1Ret)}</td>
+                    <td style={{padding:"8px 10px",textAlign:"right"}}>{fmt$(r.m2)}</td>
+                    <td style={{padding:"8px 10px",textAlign:"right",fontWeight:600,color:retCol(r.m2Ret)}}>{fmtPct(r.m2Ret)}</td>
+                    <td style={{padding:"8px 10px",textAlign:"right"}}>{fmt$(r.m3)}</td>
+                    <td style={{padding:"8px 10px",textAlign:"right",fontWeight:600,color:retCol(r.m3Ret)}}>{fmtPct(r.m3Ret)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderBillingBoB = () => {
     const fmt$   = n => n==null?"--":"$"+Math.abs(n).toLocaleString("en-US",{minimumFractionDigits:0,maximumFractionDigits:0});
     const fmtPct = p => p==null?"--":(p*100).toFixed(1)+"%";
@@ -6901,7 +7021,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
 
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
         <div style={{display:"flex",gap:2,background:"#ECEEF1",borderRadius:8,padding:3}}>
-          {[["overview","Q2 Domo BoB"],["billing","📊 Q3 BoB (Billing)"]].map(([t,l])=>(
+          {[["overview","Q2 Domo BoB"],["billing","📊 Q3 BoB (Billing)"],["monthly","📅 Q3 Monthly Breakout"]].map(([t,l])=>(
             <button key={t} onClick={()=>setBobTab(t)}
               style={{padding:"5px 14px",fontSize:12,fontWeight:500,border:"none",borderRadius:6,cursor:"pointer",
                 background:bobTab===t?"#fff":"transparent",color:bobTab===t?"#29355D":"#808080",
@@ -6914,6 +7034,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
       {bobTab==="overview"   && renderQ2DomoBoB()}
       {bobTab==="sfpreview"  && renderSFPreview()}
       {bobTab==="billing"    && renderBillingBoB()}
+      {bobTab==="monthly"    && renderMonthlyBreakout()}
     </div>
   );
 }
@@ -10822,6 +10943,7 @@ function App() {
   const [sfCurRaw, setSfCurRaw] = useState([]); // raw Current SaaS Revenue rows — kept for the Calls (by email) and Cadence (by account name) account-detail lookups
   const [billingDetailRaw, setBillingDetailRaw] = useState([]); // raw Q3 BoB Billing Detail rows — change events only (see buildBillingBobRowsFromEvents)
   const [billingRosterRaw, setBillingRosterRaw] = useState([]); // raw Q3 BoB Roster rows — every account regardless of activity, for true book size
+  const [billingSummaryRaw, setBillingSummaryRaw] = useState([]); // raw Q3 BoB Summary rows — source's own pre-computed per-CSM monthly retention, see renderMonthlyBreakout
   const [noActivityRaw, setNoActivityRaw] = useState([]); // raw "Accounts with No Activity" rows — see mapNoActivity
   const emailToAcct = React.useMemo(() => buildEmailToAccountMap(sfCurRaw), [sfCurRaw]);
   const acctNameToAcct = React.useMemo(() => buildAcctNameToAccountMap(sfCurRaw), [sfCurRaw]);
@@ -10944,8 +11066,9 @@ function App() {
         ()=>fetchCSV(CSV_SCC_CHURN).catch(()=>[]),
         ()=>fetchCSV(CSV_Q3_BILLING_DETAIL).catch(()=>[]),
         ()=>fetchCSV(CSV_Q3_BILLING_ROSTER).catch(()=>[]),
+        ()=>fetchCSV(CSV_Q3_BILLING_SUMMARY).catch(()=>[]),
         ()=>fetchCSV(CSV_NO_ACTIVITY).catch(()=>[]),
-      ]).then(([cadenceFullRows, callRows, domoBoqRows, revRows, cadRows, dueRows, ontimeRows, emailRows, historyRows, bobRows, q2DomoBoqRows, skippedRows, bobDetRows, bobAdjRows, qaMcRows, qaSSRows, mcRows, bcRows, churnAlertRows, q3BobCurRows, q3SuppRows, sfCurRows, sfBoqRows, cerAssignedRows, cerCompletedRows, fiRawRows, sccChurnRows, billingDetailRows, billingRosterRows, noActivityRows]) => {
+      ]).then(([cadenceFullRows, callRows, domoBoqRows, revRows, cadRows, dueRows, ontimeRows, emailRows, historyRows, bobRows, q2DomoBoqRows, skippedRows, bobDetRows, bobAdjRows, qaMcRows, qaSSRows, mcRows, bcRows, churnAlertRows, q3BobCurRows, q3SuppRows, sfCurRows, sfBoqRows, cerAssignedRows, cerCompletedRows, fiRawRows, sccChurnRows, billingDetailRows, billingRosterRows, billingSummaryRows, noActivityRows]) => {
         latestEmail   = emailRows;
         latestCad          = cadRows;
         latestDue          = dueRows;
@@ -10962,6 +11085,7 @@ function App() {
         setSfCurRaw(sfCurRows||[]);
         setBillingDetailRaw(billingDetailRows||[]);
         setBillingRosterRaw(billingRosterRows||[]);
+        setBillingSummaryRaw(billingSummaryRows||[]);
         setNoActivityRaw(noActivityRows||[]);
         latestBob         = bobRows;
         latestBobDet      = bobDetRows||[];
@@ -11538,7 +11662,7 @@ My question: ${aiCustom}`,
           {tab==="leaderboard"&&<LeaderboardView csms={filteredCSMs} allCsms={csms} bobRaw={bobRaw} history={history} q2DomoBoq={q2DomoBoq} domoBoq={domoBoq} q3BobCur={q3BobCur} q3Supp={q3Supp} rawRev={rawRev} cadenceFull={cadenceFull}/>}
           
           {tab==="revenue"&&<RevenueView rawRev={rawRev} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches}/>}
-          {tab==="bob"&&<BobView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} churnAlerts={churnAlerts} onSelectCSM={selectCSMFn} liveBobDet={liveBobDet} bobAdj={bobAdj} q3BobCur={q3BobCur} domoBoq={domoBoq} q3Supp={q3Supp} q2DomoBoq={q2DomoBoq} bobTab={bobTab} setBobTab={setBobTab} sfBobRows={sfBobLive} acctCoverageByCsm={acctCoverageByCsm} billingDetailRaw={billingDetailRaw} billingBobRows={billingBobRows}/>}
+          {tab==="bob"&&<BobView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} churnAlerts={churnAlerts} onSelectCSM={selectCSMFn} liveBobDet={liveBobDet} bobAdj={bobAdj} q3BobCur={q3BobCur} domoBoq={domoBoq} q3Supp={q3Supp} q2DomoBoq={q2DomoBoq} bobTab={bobTab} setBobTab={setBobTab} sfBobRows={sfBobLive} acctCoverageByCsm={acctCoverageByCsm} billingDetailRaw={billingDetailRaw} billingBobRows={billingBobRows} billingSummaryRaw={billingSummaryRaw}/>}
           {tab==="trends"&&<TrendsView history={history} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} qamc={qamc} qass={qass} trendsTab={trendsTab} setTrendsTab={setTrendsTab} callRaw={callRaw} emailToAcct={emailToAcct}/>}
           {tab==="cers"&&<CERView cerAssigned={cerAssigned} filterCoach={filterCoach} filterCSM={filterCSM} csms={filteredCSMs}/>}
           {tab==="calls"&&<TrendsView history={history} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} qamc={qamc} qass={qass} trendsTab="calls" setTrendsTab={()=>{}} hideSubTabs={true} callRaw={callRaw} emailToAcct={emailToAcct}/>}
