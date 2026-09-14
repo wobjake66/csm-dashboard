@@ -53,7 +53,8 @@ const CSV_Q3_SF_CURRENT = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN
 // Built as an ADDITIONAL tab for now, not a replacement — see renderBillingBoB.
 const CSV_Q3_BILLING_DETAIL  = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=1148155602&single=true&output=csv";
 const CSV_Q3_BILLING_ROSTER  = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=1308635513&single=true&output=csv"; // full account roster (every account regardless of activity) — needed alongside CSV_Q3_BILLING_DETAIL's change-events to know the book's true total size
-const CSV_Q3_BILLING_SUMMARY = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=519194419&single=true&output=csv"; // not currently consumed — kept for reference/cross-check
+const CSV_Q3_BILLING_SUMMARY = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=519194419&single=true&output=csv"; // per-CSM monthly revenue + retention %, source's own pre-computed figures — see renderMonthlyBreakout
+const CSV_Q3_BILLING_MOVEMENT = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=985056147&single=true&output=csv"; // per-CSM monthly Increase/Decrease/Cancel breakdown, source's own pre-computed figures — see renderMonthlyBreakout
 // ── Cadence, sourced directly from Salesforce (Sept 2026) ──────────────────
 // This is a ONE-TIME STATIC SNAPSHOT, not a live connection. The deployed
 // React app has no way to authenticate to Salesforce on its own (it is a
@@ -5437,7 +5438,7 @@ const BOB_COACH_TOTALS = {
 const BOB_DETAIL = {};
 
 // PRE-BUILD PREVIEW DATA — static snapshot from q3_BoB_8-25.xlsx (BoB Retention tab, joined with SF retention detail's Status field). NOT wired to a live sheet.
-function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChurn, churnAlerts, onSelectCSM, liveBobDet={}, bobAdj={}, q3BobCur=[], domoBoq=[], q3Supp=[], q2DomoBoq=[], bobTab="overview", setBobTab=()=>{}, sfBobRows=[], acctCoverageByCsm={}, billingDetailRaw=[], billingBobRows=[], billingSummaryRaw=[]}) {
+function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChurn, churnAlerts, onSelectCSM, liveBobDet={}, bobAdj={}, q3BobCur=[], domoBoq=[], q3Supp=[], q2DomoBoq=[], bobTab="overview", setBobTab=()=>{}, sfBobRows=[], acctCoverageByCsm={}, billingDetailRaw=[], billingBobRows=[], billingSummaryRaw=[], billingMovementRaw=[]}) {
   const [bobSubTab, setBobSubTab] = useState("current"); // "current" | "q3"
   const getDet = n => {
     const base = liveBobDet[n]||liveBobDet[norm(n)]||BOB_DETAIL[n]||BOB_DETAIL[norm(n)]||{};
@@ -5497,6 +5498,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
   const [billingExpanded, setBillingExpanded] = useState(null);
   const [billingMonthlySort, setBillingMonthlySort] = useState("boq");
   const [billingMonthlySortDir, setBillingMonthlySortDir] = useState("desc");
+  const [billingMonthlyExpanded, setBillingMonthlyExpanded] = useState(null);
   const [sfTileFilter, setSfTileFilter] = useState(null);
   const [sfExpanded,   setSfExpanded]   = useState(null);
   const [q2dSort,       setQ2dSort]       = useState({col:"retPct", dir:"asc"});
@@ -6640,6 +6642,31 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
     else if (managerCoaches) rows = rows.filter(r => managerCoaches.includes((lk(r.csm)||{}).c));
     if (filterCSM) rows = rows.filter(r => r.csm===filterCSM);
 
+    // Increase/Decrease/Cancel breakdown — separate source, same source
+    // sheet's own pre-computed figures (Increase is positive, Decrease and
+    // Cancel are negative or blank/zero). Keyed by CSM and merged onto the
+    // rows above so the table can show it per row without a second fetch
+    // round-trip anywhere else in the view.
+    const movementByCsm = {};
+    (billingMovementRaw||[]).forEach(r => {
+      const csmRaw = String(r["CSM Name"]||"").trim();
+      if (!csmRaw) return; // drops per-coach and GRAND TOTAL subtotal rows
+      const pf = v => { const n = parseFloat(String(v??"").replace(/[$,]/g,"")); return isNaN(n) ? 0 : n; };
+      const csm = norm(lfSwap(csmRaw)) || lfSwap(csmRaw);
+      movementByCsm[csm] = {
+        m1Inc: pf(r["Month 1 Increase"]), m1Dec: pf(r["Month 1 Decrease"]), m1Can: pf(r["Month 1 Cancel"]),
+        m2Inc: pf(r["Month 2 Increase"]), m2Dec: pf(r["Month 2 Decrease"]), m2Can: pf(r["Month 2 Cancel"]),
+        m3Inc: pf(r["Month 3 Increase"]), m3Dec: pf(r["Month 3 Decrease"]), m3Can: pf(r["Month 3 Cancel"]),
+      };
+    });
+    const emptyMovement = {m1Inc:0,m1Dec:0,m1Can:0,m2Inc:0,m2Dec:0,m2Can:0,m3Inc:0,m3Dec:0,m3Can:0};
+    rows = rows.map(r => ({...r, mv: movementByCsm[r.csm] || emptyMovement}));
+
+    const movTotal = rows.reduce((s,r) => {
+      Object.keys(emptyMovement).forEach(k => s[k] = (s[k]||0) + r.mv[k]);
+      return s;
+    }, {});
+
     const totalBoq = rows.reduce((s,r)=>s+r.boq,0);
     const totalM1  = rows.reduce((s,r)=>s+(r.m1||0),0);
     const totalM2  = rows.reduce((s,r)=>s+(r.m2||0),0);
@@ -6678,7 +6705,30 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
             </div>
           ))}
         </div>
+
+        {/* Increase / Decrease / Cancel breakdown, per month */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:16,marginBottom:16}}>
+          {[["Month 1","m1Inc","m1Dec","m1Can"],["Month 2","m2Inc","m2Dec","m2Can"],["Month 3","m3Inc","m3Dec","m3Can"]].map(([label,incK,decK,canK])=>(
+            <div key={label} style={S.card}>
+              <div style={{fontSize:13,fontWeight:600,color:"#29355D",marginBottom:10}}>{label}</div>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+                <span style={{fontSize:12,color:"#166534"}}>Increase</span>
+                <span style={{fontSize:13,fontWeight:600,color:"#16a34a"}}>+{fmt$(movTotal[incK])}</span>
+              </div>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+                <span style={{fontSize:12,color:"#991b1b"}}>Decrease</span>
+                <span style={{fontSize:13,fontWeight:600,color:"#dc2626"}}>-{fmt$(Math.abs(movTotal[decK]))}</span>
+              </div>
+              <div style={{display:"flex",justifyContent:"space-between"}}>
+                <span style={{fontSize:12,color:"#92400e"}}>Cancel</span>
+                <span style={{fontSize:13,fontWeight:600,color:"#d97706"}}>-{fmt$(Math.abs(movTotal[canK]))}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+
         <div style={S.card}>
+          <div style={{fontSize:12,color:"#808080",marginBottom:10}}>Click a CSM to see their Increase / Decrease / Cancel breakdown by month.</div>
           <div style={{overflowX:"auto"}}>
             <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
               <thead><tr>
@@ -6692,9 +6742,12 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                 {thSort("m3","Month 3")}{thSort("m3Ret","M3 Ret")}
               </tr></thead>
               <tbody>
-                {sorted.map(r=>(
-                  <tr key={r.csm} style={{borderBottom:"0.5px solid rgba(41,53,93,.04)"}}>
-                    <td style={{padding:"8px 10px 8px 0",fontWeight:500,color:"#29355D"}}>{dispName(r.csm)}</td>
+                {sorted.map(r=>{
+                  const isExp = billingMonthlyExpanded===r.csm;
+                  return (
+                  <React.Fragment key={r.csm}>
+                  <tr onClick={()=>setBillingMonthlyExpanded(isExp?null:r.csm)} style={{borderBottom:"0.5px solid rgba(41,53,93,.04)",cursor:"pointer",background:isExp?"rgba(83,120,252,.04)":undefined}}>
+                    <td style={{padding:"8px 10px 8px 0",fontWeight:500,color:"#29355D"}}>{isExp?"▾":"▸"} {dispName(r.csm)}</td>
                     <td style={{padding:"8px 10px",textAlign:"right"}}>{fmt$(r.boq)}</td>
                     <td style={{padding:"8px 10px",textAlign:"right"}}>{fmt$(r.m1)}</td>
                     <td style={{padding:"8px 10px",textAlign:"right",fontWeight:600,color:retCol(r.m1Ret)}}>{fmtPct(r.m1Ret)}</td>
@@ -6703,7 +6756,31 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                     <td style={{padding:"8px 10px",textAlign:"right"}}>{fmt$(r.m3)}</td>
                     <td style={{padding:"8px 10px",textAlign:"right",fontWeight:600,color:retCol(r.m3Ret)}}>{fmtPct(r.m3Ret)}</td>
                   </tr>
-                ))}
+                  {isExp && (
+                    <tr>
+                      <td colSpan={8} style={{padding:"12px 16px",background:"rgba(41,53,93,.02)"}}>
+                        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:16}}>
+                          {[["Month 1","m1Inc","m1Dec","m1Can"],["Month 2","m2Inc","m2Dec","m2Can"],["Month 3","m3Inc","m3Dec","m3Can"]].map(([label,incK,decK,canK])=>(
+                            <div key={label}>
+                              <div style={{fontSize:11,fontWeight:600,color:"#808080",textTransform:"uppercase",marginBottom:6}}>{label}</div>
+                              <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:3}}>
+                                <span style={{color:"#166534"}}>Increase</span><span style={{fontWeight:600,color:"#16a34a"}}>+{fmt$(r.mv[incK])}</span>
+                              </div>
+                              <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:3}}>
+                                <span style={{color:"#991b1b"}}>Decrease</span><span style={{fontWeight:600,color:"#dc2626"}}>-{fmt$(Math.abs(r.mv[decK]))}</span>
+                              </div>
+                              <div style={{display:"flex",justifyContent:"space-between",fontSize:12}}>
+                                <span style={{color:"#92400e"}}>Cancel</span><span style={{fontWeight:600,color:"#d97706"}}>-{fmt$(Math.abs(r.mv[canK]))}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  </React.Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -10948,6 +11025,7 @@ function App() {
   const [billingDetailRaw, setBillingDetailRaw] = useState([]); // raw Q3 BoB Billing Detail rows — change events only (see buildBillingBobRowsFromEvents)
   const [billingRosterRaw, setBillingRosterRaw] = useState([]); // raw Q3 BoB Roster rows — every account regardless of activity, for true book size
   const [billingSummaryRaw, setBillingSummaryRaw] = useState([]); // raw Q3 BoB Summary rows — source's own pre-computed per-CSM monthly retention, see renderMonthlyBreakout
+  const [billingMovementRaw, setBillingMovementRaw] = useState([]); // raw per-CSM monthly Increase/Decrease/Cancel breakdown, source's own pre-computed figures, see renderMonthlyBreakout
   const [noActivityRaw, setNoActivityRaw] = useState([]); // raw "Accounts with No Activity" rows — see mapNoActivity
   const emailToAcct = React.useMemo(() => buildEmailToAccountMap(sfCurRaw), [sfCurRaw]);
   const acctNameToAcct = React.useMemo(() => buildAcctNameToAccountMap(sfCurRaw), [sfCurRaw]);
@@ -11071,8 +11149,9 @@ function App() {
         ()=>fetchCSV(CSV_Q3_BILLING_DETAIL).catch(()=>[]),
         ()=>fetchCSV(CSV_Q3_BILLING_ROSTER).catch(()=>[]),
         ()=>fetchCSV(CSV_Q3_BILLING_SUMMARY).catch(()=>[]),
+        ()=>fetchCSV(CSV_Q3_BILLING_MOVEMENT).catch(()=>[]),
         ()=>fetchCSV(CSV_NO_ACTIVITY).catch(()=>[]),
-      ]).then(([cadenceFullRows, callRows, domoBoqRows, revRows, cadRows, dueRows, ontimeRows, emailRows, historyRows, bobRows, q2DomoBoqRows, skippedRows, bobDetRows, bobAdjRows, qaMcRows, qaSSRows, mcRows, bcRows, churnAlertRows, q3BobCurRows, q3SuppRows, sfCurRows, sfBoqRows, cerAssignedRows, cerCompletedRows, fiRawRows, sccChurnRows, billingDetailRows, billingRosterRows, billingSummaryRows, noActivityRows]) => {
+      ]).then(([cadenceFullRows, callRows, domoBoqRows, revRows, cadRows, dueRows, ontimeRows, emailRows, historyRows, bobRows, q2DomoBoqRows, skippedRows, bobDetRows, bobAdjRows, qaMcRows, qaSSRows, mcRows, bcRows, churnAlertRows, q3BobCurRows, q3SuppRows, sfCurRows, sfBoqRows, cerAssignedRows, cerCompletedRows, fiRawRows, sccChurnRows, billingDetailRows, billingRosterRows, billingSummaryRows, billingMovementRows, noActivityRows]) => {
         latestEmail   = emailRows;
         latestCad          = cadRows;
         latestDue          = dueRows;
@@ -11090,6 +11169,7 @@ function App() {
         setBillingDetailRaw(billingDetailRows||[]);
         setBillingRosterRaw(billingRosterRows||[]);
         setBillingSummaryRaw(billingSummaryRows||[]);
+        setBillingMovementRaw(billingMovementRows||[]);
         setNoActivityRaw(noActivityRows||[]);
         latestBob         = bobRows;
         latestBobDet      = bobDetRows||[];
@@ -11666,7 +11746,7 @@ My question: ${aiCustom}`,
           {tab==="leaderboard"&&<LeaderboardView csms={filteredCSMs} allCsms={csms} bobRaw={bobRaw} history={history} q2DomoBoq={q2DomoBoq} domoBoq={domoBoq} q3BobCur={q3BobCur} q3Supp={q3Supp} rawRev={rawRev} cadenceFull={cadenceFull}/>}
           
           {tab==="revenue"&&<RevenueView rawRev={rawRev} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches}/>}
-          {tab==="bob"&&<BobView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} churnAlerts={churnAlerts} onSelectCSM={selectCSMFn} liveBobDet={liveBobDet} bobAdj={bobAdj} q3BobCur={q3BobCur} domoBoq={domoBoq} q3Supp={q3Supp} q2DomoBoq={q2DomoBoq} bobTab={bobTab} setBobTab={setBobTab} sfBobRows={sfBobLive} acctCoverageByCsm={acctCoverageByCsm} billingDetailRaw={billingDetailRaw} billingBobRows={billingBobRows} billingSummaryRaw={billingSummaryRaw}/>}
+          {tab==="bob"&&<BobView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} churnAlerts={churnAlerts} onSelectCSM={selectCSMFn} liveBobDet={liveBobDet} bobAdj={bobAdj} q3BobCur={q3BobCur} domoBoq={domoBoq} q3Supp={q3Supp} q2DomoBoq={q2DomoBoq} bobTab={bobTab} setBobTab={setBobTab} sfBobRows={sfBobLive} acctCoverageByCsm={acctCoverageByCsm} billingDetailRaw={billingDetailRaw} billingBobRows={billingBobRows} billingSummaryRaw={billingSummaryRaw} billingMovementRaw={billingMovementRaw}/>}
           {tab==="trends"&&<TrendsView history={history} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} qamc={qamc} qass={qass} trendsTab={trendsTab} setTrendsTab={setTrendsTab} callRaw={callRaw} emailToAcct={emailToAcct}/>}
           {tab==="cers"&&<CERView cerAssigned={cerAssigned} filterCoach={filterCoach} filterCSM={filterCSM} csms={filteredCSMs}/>}
           {tab==="calls"&&<TrendsView history={history} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} qamc={qamc} qass={qass} trendsTab="calls" setTrendsTab={()=>{}} hideSubTabs={true} callRaw={callRaw} emailToAcct={emailToAcct}/>}
