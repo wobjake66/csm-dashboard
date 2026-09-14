@@ -5496,6 +5496,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
   const [sfSort,       setSfSort]       = useState({col:"retPct", dir:"asc"});
   const [billingSort,     setBillingSort]     = useState({col:"boq", dir:"desc"});
   const [billingExpanded, setBillingExpanded] = useState(null);
+  const [billingStatusFilter, setBillingStatusFilter] = useState(null);
   const [billingMonthlySort, setBillingMonthlySort] = useState("boq");
   const [billingMonthlySortDir, setBillingMonthlySortDir] = useState("desc");
   const [billingMonthlyExpanded, setBillingMonthlyExpanded] = useState(null);
@@ -6937,15 +6938,60 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
             {l:"Decrease", desc:"Existing accounts whose revenue dropped this quarter", rows:decreaseRows, col:"#991b1b", bg:"rgba(220,38,38,.06)"},
             {l:"Lost", desc:"Accounts that cancelled during the quarter", rows:lostRows, col:"#92400e", bg:"rgba(217,119,6,.06)"},
             {l:"No change", desc:"Accounts whose revenue held steady this quarter", rows:noChangeRows, col:"#5f5e5a", bg:"rgba(41,53,93,.05)"},
-          ].map(t=>(
-            <div key={t.l} style={{background:t.bg,borderRadius:8,padding:"12px 14px",textAlign:"center"}}>
+          ].map(t=>{
+            const statusKey = t.l==="No change" ? "No Change" : t.l;
+            const isActive = billingStatusFilter===statusKey;
+            return (
+            <div key={t.l} onClick={()=>setBillingStatusFilter(isActive?null:statusKey)}
+              style={{background:t.bg,borderRadius:8,padding:"12px 14px",textAlign:"center",cursor:"pointer",
+                border:isActive?"2px solid "+t.col:"2px solid transparent",transition:"border-color .15s"}}>
               <div style={{fontSize:24,fontWeight:600,color:t.col}}>{t.rows.length}</div>
               <div style={{fontSize:13,color:t.col}}>{t.l}</div>
               {t.l!=="No change" && <div style={{fontSize:13,color:t.col,opacity:.7}}>{netOf(t.rows)>=0?"+":""}{fmt$(netOf(t.rows))}</div>}
               <div style={{fontSize:11,color:t.col,opacity:.6,marginTop:4,lineHeight:1.3}}>{t.desc}</div>
             </div>
-          ))}
+            );
+          })}
         </div>
+
+        {billingStatusFilter && (() => {
+          const filteredAccts = scopedRows.filter(r=>r.status===billingStatusFilter).sort((a,b)=>(b.current-b.boq)-(a.current-a.boq));
+          return (
+            <div style={{background:"#fff",border:"0.5px solid rgba(41,53,93,.1)",borderRadius:12,overflow:"hidden",marginBottom:14}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>
+                <div style={{fontSize:13,fontWeight:600,color:"#29355D"}}>{billingStatusFilter} accounts ({filteredAccts.length})</div>
+                <button onClick={()=>setBillingStatusFilter(null)} style={{padding:"4px 12px",borderRadius:20,border:"0.5px solid rgba(41,53,93,.2)",background:"#fff",color:"#808080",fontSize:12,fontWeight:500,cursor:"pointer"}}>Clear ×</button>
+              </div>
+              <div style={{overflowX:"auto",maxHeight:420,overflowY:"auto"}}>
+                <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+                  <thead>
+                    <tr style={{borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>
+                      {["CSM","Account","EID","BOQ","Current","Net","Basis"].map(h=>(
+                        <th key={h} style={{padding:"8px 12px",textAlign:h==="CSM"||h==="Account"?"left":"right",fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,position:"sticky",top:0,background:"#fff"}}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredAccts.map((r,i)=>(
+                      <tr key={i} style={{borderBottom:"0.5px solid rgba(41,53,93,.04)"}}>
+                        <td style={{padding:"6px 12px",color:"#29355D"}}>{dispName(r.csm)}</td>
+                        <td style={{padding:"6px 12px",color:"#29355D"}}>{r.account}</td>
+                        <td style={{padding:"6px 12px",textAlign:"right",fontFamily:"monospace",fontSize:11,color:"#808080"}}>{r.eid}</td>
+                        <td style={{padding:"6px 12px",textAlign:"right",color:"#5378FC"}}>{fmt$(r.boq)}</td>
+                        <td style={{padding:"6px 12px",textAlign:"right",fontWeight:500}}>
+                          {fmt$(r.current)}
+                          {r.pacing && <i className="ti ti-clock" style={{fontSize:11,color:"#d97706",marginLeft:5}} title={"Carried forward from "+r.lastConfirmed}/>}
+                        </td>
+                        <td style={{padding:"6px 12px",textAlign:"right",fontWeight:600,color:r.current-r.boq>=0?"#16a34a":"#dc2626"}}>{r.current-r.boq>=0?"+":""}{fmt$(r.current-r.boq)}</td>
+                        <td style={{padding:"6px 12px",textAlign:"right",fontSize:11,color:r.pacing?"#d97706":"#808080"}}>{r.pacing?"Pacing":"Confirmed"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Per-CSM table */}
         <div style={{background:"#fff",border:"0.5px solid rgba(41,53,93,.1)",borderRadius:12,overflow:"hidden",marginBottom:14}}>
@@ -11875,4 +11921,4 @@ My question: ${aiCustom}`,
     </div>
   );
 }
-                  
+                    
