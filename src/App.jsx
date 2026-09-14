@@ -9544,13 +9544,22 @@ function buildBillingBobRows(detailRows) {
 
   const sum = (lines, key) => lines.reduce((s,l) => s + (l[key]||0), 0);
   const anyReal = (lines, key) => lines.some(l => l[key]!=null);
-  const hasStableLine = lines => lines.some(l => l.boq!=null && l.m1!=null);
 
   const rows = [];
   Object.entries(byEid).forEach(([eid, g]) => {
     const boq = sum(g.lines,"boq"), m1 = sum(g.lines,"m1"), m2 = sum(g.lines,"m2"), m3 = sum(g.lines,"m3");
     const m3Real = anyReal(g.lines,"m3"), m2Real = anyReal(g.lines,"m2"), m1Real = anyReal(g.lines,"m1");
-    const stable = hasStableLine(g.lines);
+    // "Was this account brand new" has to be judged at the ACCOUNT level
+    // (aggregate BoQ across every product line), not per individual line.
+    // The old per-line check ("does any single line have both a BoQ and a
+    // Month 1 value") wrongly called an account "new" whenever no single
+    // line happened to show continuity — even if the account's TOTAL BoQ
+    // was clearly nonzero, just split across lines (e.g. a $410 line that
+    // existed at BoQ, and a separate new $0 line in Month 1 — neither line
+    // alone has both, but the account obviously wasn't new). Confirmed
+    // against the real detail file: this was misclassifying accounts with
+    // real prior revenue as "Added".
+    const stable = boq > 0;
 
     let current, pacing, lastConfirmed;
     if (m3Real) { current = m3; pacing = false; lastConfirmed = "Month 3"; }
