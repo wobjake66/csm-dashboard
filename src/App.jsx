@@ -5497,6 +5497,8 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
   const [billingSort,     setBillingSort]     = useState({col:"boq", dir:"desc"});
   const [billingExpanded, setBillingExpanded] = useState(null);
   const [billingStatusFilter, setBillingStatusFilter] = useState(null);
+  const [billingStatusSort, setBillingStatusSort] = useState("net");
+  const [billingStatusSortDir, setBillingStatusSortDir] = useState("desc");
   const [billingMonthlySort, setBillingMonthlySort] = useState("boq");
   const [billingMonthlySortDir, setBillingMonthlySortDir] = useState("desc");
   const [billingMonthlyExpanded, setBillingMonthlyExpanded] = useState(null);
@@ -6956,7 +6958,17 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
         </div>
 
         {billingStatusFilter && (() => {
-          const filteredAccts = scopedRows.filter(r=>r.status===billingStatusFilter).sort((a,b)=>(b.current-b.boq)-(a.current-a.boq));
+          const colMap = {CSM:"csm", Account:"account", EID:"eid", BOQ:"boq", Current:"current", Net:"net", Basis:"pacing"};
+          const filteredAccts = scopedRows.filter(r=>r.status===billingStatusFilter).map(r=>({...r, net:r.current-r.boq}));
+          filteredAccts.sort((a,b)=>{
+            const av = a[billingStatusSort], bv = b[billingStatusSort];
+            const cmp = typeof av==="string" ? String(av).toLowerCase().localeCompare(String(bv).toLowerCase()) : av-bv;
+            return billingStatusSortDir==="asc" ? cmp : -cmp;
+          });
+          const onSortClick = col => {
+            if (billingStatusSort===col) setBillingStatusSortDir(d=>d==="asc"?"desc":"asc");
+            else { setBillingStatusSort(col); setBillingStatusSortDir(col==="csm"||col==="account"||col==="eid"||col==="pacing" ? "asc" : "desc"); }
+          };
           return (
             <div style={{background:"#fff",border:"0.5px solid rgba(41,53,93,.1)",borderRadius:12,overflow:"hidden",marginBottom:14}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>
@@ -6967,8 +6979,11 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                 <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
                   <thead>
                     <tr style={{borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>
-                      {["CSM","Account","EID","BOQ","Current","Net","Basis"].map(h=>(
-                        <th key={h} style={{padding:"8px 12px",textAlign:h==="CSM"||h==="Account"?"left":"right",fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,position:"sticky",top:0,background:"#fff"}}>{h}</th>
+                      {Object.entries(colMap).map(([h,col])=>(
+                        <th key={h} onClick={()=>onSortClick(col)}
+                          style={{padding:"8px 12px",textAlign:h==="CSM"||h==="Account"?"left":"right",fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,position:"sticky",top:0,background:"#fff",cursor:"pointer",whiteSpace:"nowrap"}}>
+                          {h} {billingStatusSort===col?(billingStatusSortDir==="asc"?"↑":"↓"):""}
+                        </th>
                       ))}
                     </tr>
                   </thead>
@@ -6983,7 +6998,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                           {fmt$(r.current)}
                           {r.pacing && <i className="ti ti-clock" style={{fontSize:11,color:"#d97706",marginLeft:5}} title={"Carried forward from "+r.lastConfirmed}/>}
                         </td>
-                        <td style={{padding:"6px 12px",textAlign:"right",fontWeight:600,color:r.current-r.boq>=0?"#16a34a":"#dc2626"}}>{r.current-r.boq>=0?"+":""}{fmt$(r.current-r.boq)}</td>
+                        <td style={{padding:"6px 12px",textAlign:"right",fontWeight:600,color:r.net>=0?"#16a34a":"#dc2626"}}>{r.net>=0?"+":""}{fmt$(r.net)}</td>
                         <td style={{padding:"6px 12px",textAlign:"right",fontSize:11,color:r.pacing?"#d97706":"#808080"}}>{r.pacing?"Pacing":"Confirmed"}</td>
                       </tr>
                     ))}
