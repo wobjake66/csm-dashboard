@@ -11334,6 +11334,27 @@ function App() {
     };
     const hasChurn = n => { const m=getMc(n),b=getBc(n); return (m&&m.canceled>0)||(b&&b.canceled>0); };
 
+    // Calls — none of the scopes below had any call-completion data at all
+    // until now (revenue, cadence, and BoB were covered, but actual calls
+    // were completely missing). Month-to-date, matching how a coach would
+    // naturally compare "calls done" against a talk-time report for the
+    // same span. callData is keyed by day as "YYYY-MM-DD", so a plain
+    // string comparison against the 1st of the month works correctly.
+    const monthStartStr = (() => {
+      const d = new Date(); d.setDate(1);
+      return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-01";
+    })();
+    const resolveCallKey = n => callData[n] ? n : Object.keys(callData).find(k=>norm(k)===n) || n;
+    const getCallStatsThisMonth = csmName => {
+      const key = resolveCallKey(csmName);
+      let completed=0, noShow=0, cancelled=0, scheduled=0;
+      Object.entries(callData[key]||{}).forEach(([day, svcs]) => {
+        if (day < monthStartStr) return;
+        Object.values(svcs).forEach(d => { completed+=(d.completed||0); noShow+=(d.noShow||0); cancelled+=(d.cancelled||0); scheduled+=(d.scheduled||0); });
+      });
+      return {completed, noShow, cancelled, scheduled, total: completed+noShow+cancelled+scheduled};
+    };
+
     // ── SINGLE CSM ──────────────────────────────────────────────────
     if (scope === "CSM") {
       const c = csms.find(x=>x.name===filterCSM);
@@ -11356,6 +11377,12 @@ function App() {
       lines.push("Email: "+(c.sent>0?c.sent+" sent · "+pp(c.openRate)+" open rate · "+pp(c.replyRate)+" reply rate":"No email activity"));
       if (c.skippedCount>0) lines.push("Skipped cadences: "+c.skippedCount+(c.skippedFourthCount>0?", "+c.skippedFourthCount+" at 4th reschedule":""));
       if (c.skippedAccts&&c.skippedAccts.length>0) lines.push("Skipped accounts: "+c.skippedAccts.slice(0,5).map(a=>a.n).join(", "));
+      lines.push("");
+      lines.push("=== CALLS (month to date) ===");
+      const csmCalls = getCallStatsThisMonth(c.name);
+      lines.push(csmCalls.total>0
+        ? "Completed: "+csmCalls.completed+" | No-shows: "+csmCalls.noShow+" | Cancelled: "+csmCalls.cancelled+" | Scheduled (upcoming): "+csmCalls.scheduled
+        : "No call activity recorded this month");
       lines.push("");
       lines.push("=== REVENUE ===");
       lines.push("This period: "+(c.rev>0?fd(c.rev):"None")+" | MRR: "+(c.mrr>0?fd(c.mrr):"None"));
@@ -11418,6 +11445,8 @@ function App() {
         const det = getDet(c.name)||{};
         lines.push("── "+c.name);
         lines.push("   Revenue: "+(c.rev>0?fd(c.rev):"none")+" | Email open: "+(c.sent>0?pp(c.openRate):"n/a")+" | On-time: "+(c.otTotal>=3?pp(c.otPct):"n/a")+" | Overdue: "+(c.overdueCount||0));
+        const csmCalls = getCallStatsThisMonth(c.name);
+        lines.push("   Calls (MTD): "+(csmCalls.total>0?csmCalls.completed+" completed, "+csmCalls.noShow+" no-show, "+csmCalls.scheduled+" scheduled":"none recorded"));
         lines.push("   Cadence: "+(c.cadCount>0?pp(c.cadPct):"n/a")+" | BOB net: "+(bb&&bb.net!=null?(bb.net>0?"+":"")+fd(bb.net):"n/a")+" | QTD Retention: "+(bb&&bb.qtdRet!=null?pp(bb.qtdRet):"n/a")+(bb&&bb.pacingCount>0?" (⏳ "+bb.pacingCount+" on pacing)":""));
         if (c.skippedCount>0) lines.push("   ⚠ "+c.skippedCount+" skipped"+(c.skippedFourthCount>0?", "+c.skippedFourthCount+" at 4th reschedule":""));
         const churnCount=((mc&&mc.canceled)||0)+((bc&&bc.canceled)||0);
@@ -11438,8 +11467,9 @@ function App() {
         const avgOT = otTeam.length?otTeam.reduce((s,c)=>s+c.otPct,0)/otTeam.length:null;
         const churnCSMs = team.filter(c=>hasChurn(c.name));
         const skipCSMs = team.filter(c=>c.skippedCount>0);
+        const teamCalls = team.reduce((s,c)=>{ const cc=getCallStatsThisMonth(c.name); return s+cc.completed; },0);
         lines.push("COACH: "+coach.n+" ("+coach.t+") — "+team.length+" CSMs");
-        lines.push("  Revenue: "+fd(totRev)+" | Avg on-time: "+(avgOT!=null?pp(avgOT):"n/a"));
+        lines.push("  Revenue: "+fd(totRev)+" | Avg on-time: "+(avgOT!=null?pp(avgOT):"n/a")+" | Calls completed MTD: "+teamCalls);
         lines.push("  CSMs with churn: "+churnCSMs.length+" | CSMs with skipped cadences: "+skipCSMs.length);
         lines.push("");
       });
@@ -11459,8 +11489,9 @@ function App() {
         const churnCSMs = team.filter(c=>hasChurn(c.name));
         const skipCSMs = team.filter(c=>c.skippedCount>0);
         const lowCad = cadTeam.filter(c=>c.cadPct<0.9);
+        const teamCalls = team.reduce((s,c)=>{ const cc=getCallStatsThisMonth(c.name); return s+cc.completed; },0);
         lines.push("COACH: "+coach.n+" ("+coach.t+") — "+team.length+" CSMs");
-        lines.push("  Revenue: "+fd(totRev)+" | Cadence avg: "+(avgCad!=null?pp(avgCad):"n/a")+" | On-time avg: "+(avgOT!=null?pp(avgOT):"n/a"));
+        lines.push("  Revenue: "+fd(totRev)+" | Cadence avg: "+(avgCad!=null?pp(avgCad):"n/a")+" | On-time avg: "+(avgOT!=null?pp(avgOT):"n/a")+" | Calls completed MTD: "+teamCalls);
         lines.push("  CSMs needing cadence help ("+lowCad.length+"): "+(lowCad.map(c=>c.name).join(", ")||"none"));
         lines.push("  CSMs with churn: "+churnCSMs.length+" | CSMs with skips: "+skipCSMs.length);
         lines.push("");
@@ -11937,3 +11968,4 @@ My question: ${aiCustom}`,
     </div>
   );
 }
+      
