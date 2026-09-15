@@ -55,6 +55,7 @@ const CSV_Q3_BILLING_DETAIL  = "https://docs.google.com/spreadsheets/d/e/2PACX-1
 const CSV_Q3_BILLING_ROSTER  = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=1308635513&single=true&output=csv"; // full account roster (every account regardless of activity) — needed alongside CSV_Q3_BILLING_DETAIL's change-events to know the book's true total size
 const CSV_Q3_BILLING_SUMMARY = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=519194419&single=true&output=csv"; // per-CSM monthly revenue + retention %, source's own pre-computed figures — see renderMonthlyBreakout
 const CSV_Q3_BILLING_MOVEMENT = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=985056147&single=true&output=csv"; // per-CSM monthly Increase/Decrease/Cancel breakdown, source's own pre-computed figures — see renderMonthlyBreakout
+const CSV_TALK_TIME = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=1897779098&single=true&output=csv"; // daily-overwrite talk time export, pivot-style (agent header row followed by daily detail rows) — see mapTalkTime
 // ── Cadence, sourced directly from Salesforce (Sept 2026) ──────────────────
 // This is a ONE-TIME STATIC SNAPSHOT, not a live connection. The deployed
 // React app has no way to authenticate to Salesforce on its own (it is a
@@ -9376,6 +9377,59 @@ const FI_COACH_EMAIL_MAP = {
 // Parses the live "FIs Needing Action" sheet export into the same row shape
 // FulfillmentView and the My Dashboard card already work with. Column headers
 // match fis.xlsx exactly (verified against a fresh live pull on 2026-08-21).
+// Talk Time — daily-overwrite export, pivot-style: each agent gets a
+// header row (only the Agent column populated with their name, every
+// other column blank), followed by daily detail rows where the "Agent"
+// column actually holds a date instead. Confirmed directly against the
+// live sheet — durations are plain "H:MM:SS" text, not a time-of-day
+// format, so they're parsed as elapsed seconds, not clock time.
+function mapTalkTime(rows) {
+  if (!rows || rows.length === 0) return [];
+  const parseHMS = s => {
+    const str = String(s||"").trim();
+    if (!str) return 0;
+    const parts = str.split(":").map(Number);
+    if (parts.length !== 3 || parts.some(isNaN)) return 0;
+    return parts[0]*3600 + parts[1]*60 + parts[2];
+  };
+  const isBlank = v => v===undefined || v===null || String(v).trim()==="";
+
+  const records = [];
+  let currentAgent = null;
+  rows.forEach(r => {
+    const agentField = String(r["Agent"]||"").trim();
+    if (isBlank(r["Accepted"])) {
+      // Header row — this is a real agent name, not a date
+      currentAgent = agentField;
+      return;
+    }
+    if (!currentAgent || !agentField) return;
+    const accepted = parseInt(String(r["Accepted"]).replace(/[^0-9\-]/g,""),10) || 0;
+    const seconds = parseHMS(r["Total Talk Time"]);
+    records.push({agent: currentAgent, seconds, hasEntry: true, accepted});
+  });
+
+  const byAgent = {};
+  records.forEach(rec => {
+    if (!byAgent[rec.agent]) byAgent[rec.agent] = {totalSeconds:0, daysWithCalls:0, daysLogged:0, accepted:0};
+    const a = byAgent[rec.agent];
+    a.totalSeconds += rec.seconds;
+    a.daysLogged++;
+    if (rec.seconds > 0) a.daysWithCalls++;
+    a.accepted += rec.accepted;
+  });
+
+  return Object.entries(byAgent).map(([agentRaw, a]) => ({
+    agentRaw,
+    csm: norm(agentRaw) || agentRaw,
+    totalSeconds: a.totalSeconds,
+    daysWithCalls: a.daysWithCalls,
+    daysLogged: a.daysLogged,
+    avgDailySeconds: a.daysWithCalls>0 ? a.totalSeconds/a.daysWithCalls : 0,
+    accepted: a.accepted,
+  }));
+}
+
 function mapFI(rows) {
   if (!rows || rows.length === 0) return [];
   const mapped = rows.map(r => {
@@ -10713,6 +10767,106 @@ function CadenceSFView({filterCoach="", filterCSM="", managerCoaches=null}) {
   );
 }
 
+function TalkTimeView({rows=[], filterCoach="", filterCSM="", managerCoaches=null}) {
+  const [sortCol, setSortCol] = React.useState("totalSeconds");
+  const [sortDir, setSortDir] = React.useState("desc");
+
+  const fmtHM = sec => {
+    const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60);
+    return h+"h "+m+"m";
+  };
+
+  // Attach coach + manager to each row via the roster — same lookup pattern
+  // used consistently everywhere else in the app (lk() for coach, then
+  // check which manager's coach list includes that coach's email).
+  const enriched = rows.map(r => {
+    const info = lk(r.csm);
+    const coachEmail = info ? info.c : null;
+    const coach = coachEmail ? (COACHES.find(c=>c.e===coachEmail)||{}).n || "" : "";
+    const manager = coachEmail ? (MANAGERS.find(m=>m.coaches.includes(coachEmail))||{}).n || "" : "";
+    return {...r, coachEmail, coach, manager};
+  }).filter(r => r.coachEmail); // drop anything that doesn't match a real CSM on the roster
+
+  let scoped = enriched;
+  if (filterCoach) scoped = scoped.filter(r => r.coachEmail===filterCoach);
+  else if (managerCoaches) scoped = scoped.filter(r => managerCoaches.includes(r.coachEmail));
+  if (filterCSM) scoped = scoped.filter(r => r.csm===filterCSM);
+
+  const sorted = [...scoped].sort((a,b) => {
+    const av = a[sortCol], bv = b[sortCol];
+    const cmp = typeof av==="string" ? String(av).toLowerCase().localeCompare(String(bv).toLowerCase()) : (av??0)-(bv??0);
+    return sortDir==="asc" ? cmp : -cmp;
+  });
+
+  const onSort = col => {
+    if (sortCol===col) setSortDir(d=>d==="asc"?"desc":"asc");
+    else { setSortCol(col); setSortDir(col==="csm"||col==="coach"||col==="manager" ? "asc" : "desc"); }
+  };
+  const S_th = {padding:"8px 12px",fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,cursor:"pointer",whiteSpace:"nowrap",borderBottom:"0.5px solid rgba(41,53,93,.08)"};
+  const arrow = col => sortCol===col ? (sortDir==="asc"?"↑":"↓") : "";
+
+  const totalSeconds = scoped.reduce((s,r)=>s+r.totalSeconds,0);
+  const totalAccepted = scoped.reduce((s,r)=>s+r.accepted,0);
+  const avgAcrossTeam = scoped.length ? totalSeconds/scoped.length : 0;
+
+  if (rows.length===0) return (
+    <div style={{background:"#fff",borderRadius:12,padding:"40px 20px",textAlign:"center",color:"#808080"}}>
+      <div style={{fontSize:32,marginBottom:12}}>📞</div>
+      <div style={{fontSize:14,fontWeight:500,color:"#29355D",marginBottom:8}}>Talk Time — waiting on data</div>
+      <div style={{fontSize:12}}>Confirm the Talk Time sheet is populated and published to populate this view.</div>
+    </div>
+  );
+
+  return (
+    <div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:16,marginBottom:16}}>
+        <div style={{background:"#fff",borderRadius:12,padding:"20px 24px",boxShadow:"0 1px 4px rgba(41,53,93,.07)"}}>
+          <div style={{fontSize:12,color:"#808080",fontWeight:500,textTransform:"uppercase",marginBottom:6}}>Total talk time</div>
+          <div style={{fontSize:24,fontWeight:600,color:"#29355D"}}>{fmtHM(totalSeconds)}</div>
+          <div style={{fontSize:12,color:"#808080",marginTop:4}}>{scoped.length} CSMs</div>
+        </div>
+        <div style={{background:"#fff",borderRadius:12,padding:"20px 24px",boxShadow:"0 1px 4px rgba(41,53,93,.07)"}}>
+          <div style={{fontSize:12,color:"#808080",fontWeight:500,textTransform:"uppercase",marginBottom:6}}>Avg per CSM</div>
+          <div style={{fontSize:24,fontWeight:600,color:"#29355D"}}>{fmtHM(avgAcrossTeam)}</div>
+        </div>
+        <div style={{background:"#fff",borderRadius:12,padding:"20px 24px",boxShadow:"0 1px 4px rgba(41,53,93,.07)"}}>
+          <div style={{fontSize:12,color:"#808080",fontWeight:500,textTransform:"uppercase",marginBottom:6}}>Accepted calls</div>
+          <div style={{fontSize:24,fontWeight:600,color:"#29355D"}}>{totalAccepted}</div>
+        </div>
+      </div>
+
+      <div style={{background:"#fff",borderRadius:12,boxShadow:"0 1px 4px rgba(41,53,93,.07)",overflow:"hidden"}}>
+        <div style={{overflowX:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+            <thead><tr>
+              <th onClick={()=>onSort("csm")} style={{...S_th,textAlign:"left"}}>CSM {arrow("csm")}</th>
+              <th onClick={()=>onSort("coach")} style={{...S_th,textAlign:"left"}}>Coach {arrow("coach")}</th>
+              <th onClick={()=>onSort("manager")} style={{...S_th,textAlign:"left"}}>Manager {arrow("manager")}</th>
+              <th onClick={()=>onSort("totalSeconds")} style={{...S_th,textAlign:"right"}}>Total talk time {arrow("totalSeconds")}</th>
+              <th onClick={()=>onSort("daysWithCalls")} style={{...S_th,textAlign:"right"}}>Days worked {arrow("daysWithCalls")}</th>
+              <th onClick={()=>onSort("avgDailySeconds")} style={{...S_th,textAlign:"right"}}>Avg / day {arrow("avgDailySeconds")}</th>
+              <th onClick={()=>onSort("accepted")} style={{...S_th,textAlign:"right"}}>Accepted {arrow("accepted")}</th>
+            </tr></thead>
+            <tbody>
+              {sorted.map(r=>(
+                <tr key={r.csm} style={{borderBottom:"0.5px solid rgba(41,53,93,.04)"}}>
+                  <td style={{padding:"7px 12px",fontWeight:500,color:"#29355D"}}>{dispName(r.csm)}</td>
+                  <td style={{padding:"7px 12px",color:"#808080"}}>{r.coach}</td>
+                  <td style={{padding:"7px 12px",color:"#808080"}}>{r.manager}</td>
+                  <td style={{padding:"7px 12px",textAlign:"right",fontWeight:600,color:"#29355D"}}>{fmtHM(r.totalSeconds)}</td>
+                  <td style={{padding:"7px 12px",textAlign:"right"}}>{r.daysWithCalls}</td>
+                  <td style={{padding:"7px 12px",textAlign:"right"}}>{fmtHM(r.avgDailySeconds)}</td>
+                  <td style={{padding:"7px 12px",textAlign:"right"}}>{r.accepted}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function CadenceView({filterCoach="", filterCSM="", managerCoaches=null, cadenceFull=[], acctNameToAcct={}}) {
   const [periodFilter, setPeriodFilter] = React.useState("today"); // today | this_week | next_week | last_week | all
   const [statusFilter, setStatusFilter] = React.useState(""); // "" | "Open" | "Completed" | "Overdue" | "Skipped"
@@ -11066,6 +11220,7 @@ function App() {
   const [tab, setTab] = useState("coaching");
   const [trendsTab, setTrendsTab] = useState("performance");
   const [bobTab, setBobTab] = useState("overview");
+  const [callsSubTab, setCallsSubTab] = useState("calls");
   const [filterManager, setFilterManager] = useState("");
   const [filterCoach, setFilterCoach] = useState("");
   const [filterCSM, setFilterCSM] = useState("");
@@ -11101,6 +11256,7 @@ function App() {
   const [billingRosterRaw, setBillingRosterRaw] = useState([]); // raw Q3 BoB Roster rows — every account regardless of activity, for true book size
   const [billingSummaryRaw, setBillingSummaryRaw] = useState([]); // raw Q3 BoB Summary rows — source's own pre-computed per-CSM monthly retention, see renderMonthlyBreakout
   const [billingMovementRaw, setBillingMovementRaw] = useState([]); // raw per-CSM monthly Increase/Decrease/Cancel breakdown, source's own pre-computed figures, see renderMonthlyBreakout
+  const [talkTimeRaw, setTalkTimeRaw] = useState([]); // raw daily-overwrite Talk Time export, see mapTalkTime
   const [noActivityRaw, setNoActivityRaw] = useState([]); // raw "Accounts with No Activity" rows — see mapNoActivity
   const emailToAcct = React.useMemo(() => buildEmailToAccountMap(sfCurRaw), [sfCurRaw]);
   const acctNameToAcct = React.useMemo(() => buildAcctNameToAccountMap(sfCurRaw), [sfCurRaw]);
@@ -11113,6 +11269,10 @@ function App() {
   const billingBobRows = React.useMemo(
     () => buildBillingBobRows(billingDetailRaw),
     [billingDetailRaw]
+  );
+  const talkTimeMapped = React.useMemo(
+    () => mapTalkTime(talkTimeRaw),
+    [talkTimeRaw]
   );
   const billingBobByCsm = React.useMemo(
     () => summarizeBillingBobByCsm(billingBobRows),
@@ -11225,8 +11385,9 @@ function App() {
         ()=>fetchCSV(CSV_Q3_BILLING_ROSTER).catch(()=>[]),
         ()=>fetchCSV(CSV_Q3_BILLING_SUMMARY).catch(()=>[]),
         ()=>fetchCSV(CSV_Q3_BILLING_MOVEMENT).catch(()=>[]),
+        ()=>fetchCSV(CSV_TALK_TIME).catch(()=>[]),
         ()=>fetchCSV(CSV_NO_ACTIVITY).catch(()=>[]),
-      ]).then(([cadenceFullRows, callRows, domoBoqRows, revRows, cadRows, dueRows, ontimeRows, emailRows, historyRows, bobRows, q2DomoBoqRows, skippedRows, bobDetRows, bobAdjRows, qaMcRows, qaSSRows, mcRows, bcRows, churnAlertRows, q3BobCurRows, q3SuppRows, sfCurRows, sfBoqRows, cerAssignedRows, cerCompletedRows, fiRawRows, sccChurnRows, billingDetailRows, billingRosterRows, billingSummaryRows, billingMovementRows, noActivityRows]) => {
+      ]).then(([cadenceFullRows, callRows, domoBoqRows, revRows, cadRows, dueRows, ontimeRows, emailRows, historyRows, bobRows, q2DomoBoqRows, skippedRows, bobDetRows, bobAdjRows, qaMcRows, qaSSRows, mcRows, bcRows, churnAlertRows, q3BobCurRows, q3SuppRows, sfCurRows, sfBoqRows, cerAssignedRows, cerCompletedRows, fiRawRows, sccChurnRows, billingDetailRows, billingRosterRows, billingSummaryRows, billingMovementRows, talkTimeRows, noActivityRows]) => {
         latestEmail   = emailRows;
         latestCad          = cadRows;
         latestDue          = dueRows;
@@ -11245,6 +11406,7 @@ function App() {
         setBillingRosterRaw(billingRosterRows||[]);
         setBillingSummaryRaw(billingSummaryRows||[]);
         setBillingMovementRaw(billingMovementRows||[]);
+        setTalkTimeRaw(talkTimeRows||[]);
         setNoActivityRaw(noActivityRows||[]);
         latestBob         = bobRows;
         latestBobDet      = bobDetRows||[];
@@ -11855,7 +12017,22 @@ My question: ${aiCustom}`,
           {tab==="bob"&&<BobView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} churnAlerts={churnAlerts} onSelectCSM={selectCSMFn} liveBobDet={liveBobDet} bobAdj={bobAdj} q3BobCur={q3BobCur} domoBoq={domoBoq} q3Supp={q3Supp} q2DomoBoq={q2DomoBoq} bobTab={bobTab} setBobTab={setBobTab} sfBobRows={sfBobLive} acctCoverageByCsm={acctCoverageByCsm} billingDetailRaw={billingDetailRaw} billingBobRows={billingBobRows} billingSummaryRaw={billingSummaryRaw} billingMovementRaw={billingMovementRaw}/>}
           {tab==="trends"&&<TrendsView history={history} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} qamc={qamc} qass={qass} trendsTab={trendsTab} setTrendsTab={setTrendsTab} callRaw={callRaw} emailToAcct={emailToAcct}/>}
           {tab==="cers"&&<CERView cerAssigned={cerAssigned} filterCoach={filterCoach} filterCSM={filterCSM} csms={filteredCSMs}/>}
-          {tab==="calls"&&<TrendsView history={history} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} qamc={qamc} qass={qass} trendsTab="calls" setTrendsTab={()=>{}} hideSubTabs={true} callRaw={callRaw} emailToAcct={emailToAcct}/>}
+          {tab==="calls"&&(
+            <div>
+              <div style={{display:"flex",gap:2,background:"#ECEEF1",borderRadius:8,padding:3,marginBottom:16,width:"fit-content"}}>
+                {[["calls","📞 Calls"],["talktime","🎙️ Talk Time"]].map(([t,l])=>(
+                  <button key={t} onClick={()=>setCallsSubTab(t)}
+                    style={{padding:"5px 14px",fontSize:12,fontWeight:500,border:"none",borderRadius:6,cursor:"pointer",
+                      background:callsSubTab===t?"#fff":"transparent",color:callsSubTab===t?"#29355D":"#808080",
+                      boxShadow:callsSubTab===t?"0 1px 3px rgba(0,0,0,.08)":"none"}}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+              {callsSubTab==="calls" && <TrendsView history={history} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} qamc={qamc} qass={qass} trendsTab="calls" setTrendsTab={()=>{}} hideSubTabs={true} callRaw={callRaw} emailToAcct={emailToAcct}/>}
+              {callsSubTab==="talktime" && <TalkTimeView rows={talkTimeMapped} filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches}/>}
+            </div>
+          )}
           {tab==="capacity"&&userSession.role==="master"&&<CapacityView csms={csms} callData={callData} callRaw={callRaw} cadenceFull={cadenceFull} domoBoq={domoBoq} filterCoach={filterCoach} filterCSM={filterCSM}/>}
           {tab==="scc"&&canSeeSCC&&<SCCView rows={sccChurn}/>}
           {tab==="fi"&&<FulfillmentView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches} rows={fiRows}/>}
