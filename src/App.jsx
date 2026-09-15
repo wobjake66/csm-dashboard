@@ -10807,7 +10807,16 @@ function TalkTimeView({rows=[], filterCoach="", filterCSM="", managerCoaches=nul
 
   const totalSeconds = scoped.reduce((s,r)=>s+r.totalSeconds,0);
   const totalAccepted = scoped.reduce((s,r)=>s+r.accepted,0);
-  const avgAcrossTeam = scoped.length ? totalSeconds/scoped.length : 0;
+  // Days in the reporting period — every agent shares the same set of date
+  // columns in the pivot source, so the max daysLogged across the team is
+  // the true period length, not just one CSM's own working days.
+  const numDays = Math.max(...scoped.map(r=>r.daysLogged), 1);
+  const dailyAvgTeamTalkTime = totalSeconds / numDays;
+  const dailyAvgAccepted = totalAccepted / numDays;
+  // Average of each CSM's OWN daily rate (their total ÷ their days actually
+  // worked) — a "typical CSM's day," distinct from the team-wide total
+  // above divided by the period length.
+  const avgAcrossTeam = scoped.length ? scoped.reduce((s,r)=>s+r.avgDailySeconds,0)/scoped.length : 0;
 
   if (rows.length===0) return (
     <div style={{background:"#fff",borderRadius:12,padding:"40px 20px",textAlign:"center",color:"#808080"}}>
@@ -10821,17 +10830,17 @@ function TalkTimeView({rows=[], filterCoach="", filterCSM="", managerCoaches=nul
     <div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:16,marginBottom:16}}>
         <div style={{background:"#fff",borderRadius:12,padding:"20px 24px",boxShadow:"0 1px 4px rgba(41,53,93,.07)"}}>
-          <div style={{fontSize:12,color:"#808080",fontWeight:500,textTransform:"uppercase",marginBottom:6}}>Total talk time</div>
-          <div style={{fontSize:24,fontWeight:600,color:"#29355D"}}>{fmtHM(totalSeconds)}</div>
-          <div style={{fontSize:12,color:"#808080",marginTop:4}}>{scoped.length} CSMs</div>
+          <div style={{fontSize:12,color:"#808080",fontWeight:500,textTransform:"uppercase",marginBottom:6}}>Daily avg talk time (team)</div>
+          <div style={{fontSize:24,fontWeight:600,color:"#29355D"}}>{fmtHM(dailyAvgTeamTalkTime)}</div>
+          <div style={{fontSize:12,color:"#808080",marginTop:4}}>{scoped.length} CSMs · {numDays} days in period</div>
         </div>
         <div style={{background:"#fff",borderRadius:12,padding:"20px 24px",boxShadow:"0 1px 4px rgba(41,53,93,.07)"}}>
-          <div style={{fontSize:12,color:"#808080",fontWeight:500,textTransform:"uppercase",marginBottom:6}}>Avg per CSM</div>
+          <div style={{fontSize:12,color:"#808080",fontWeight:500,textTransform:"uppercase",marginBottom:6}}>Avg daily talk time (per CSM)</div>
           <div style={{fontSize:24,fontWeight:600,color:"#29355D"}}>{fmtHM(avgAcrossTeam)}</div>
         </div>
         <div style={{background:"#fff",borderRadius:12,padding:"20px 24px",boxShadow:"0 1px 4px rgba(41,53,93,.07)"}}>
-          <div style={{fontSize:12,color:"#808080",fontWeight:500,textTransform:"uppercase",marginBottom:6}}>Accepted calls</div>
-          <div style={{fontSize:24,fontWeight:600,color:"#29355D"}}>{totalAccepted}</div>
+          <div style={{fontSize:12,color:"#808080",fontWeight:500,textTransform:"uppercase",marginBottom:6}}>Daily avg accepted calls</div>
+          <div style={{fontSize:24,fontWeight:600,color:"#29355D"}}>{dailyAvgAccepted.toFixed(1)}</div>
         </div>
       </div>
 
