@@ -3455,6 +3455,9 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
         // Last month: full prior calendar month
         const lastMonthStart = new Date(now.getFullYear(), now.getMonth()-1, 1);
         const lastMonthEnd   = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+        // This month: full current calendar month
+        const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        const thisMonthEnd   = new Date(now.getFullYear(), now.getMonth()+1, 0, 23, 59, 59, 999);
         // Last quarter: full prior calendar quarter
         const curQ = Math.floor(now.getMonth()/3);
         const lastQStartMonth = curQ === 0 ? 9 : (curQ-1)*3;
@@ -3471,6 +3474,7 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
           if (callDateFilter==="next_week")    return wd >= nextWeekMon  && wd <= nextWeekSun;
           if (callDateFilter==="last_week")    return wd >= lastWeekMon  && wd <= lastWeekSun;
           if (callDateFilter==="last_month")   return wd >= lastMonthStart && wd <= lastMonthEnd;
+          if (callDateFilter==="this_month")   return wd >= thisMonthStart && wd <= thisMonthEnd;
           if (callDateFilter==="last_quarter") return wd >= lastQStart   && wd <= lastQEnd;
           if (callDateFilter==="custom" && callCustomFrom && callCustomTo) {
             return wd >= toDate(callCustomFrom) && wd <= toDate(callCustomTo);
@@ -3696,6 +3700,7 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
                   callDateFilter==="next_week"    ? `Next week (${nextWeekMon.toLocaleDateString("en-US",{month:"short",day:"numeric"})} – ${nextWeekSun.toLocaleDateString("en-US",{month:"short",day:"numeric"})})` :
                   callDateFilter==="last_week"    ? `Last week (${lastWeekMon.toLocaleDateString("en-US",{month:"short",day:"numeric"})} – ${lastWeekSun.toLocaleDateString("en-US",{month:"short",day:"numeric"})})` :
                   callDateFilter==="last_month"   ? `${lastMonthStart.toLocaleDateString("en-US",{month:"long",year:"numeric"})}` :
+                  callDateFilter==="this_month"   ? `${thisMonthStart.toLocaleDateString("en-US",{month:"long",year:"numeric"})} (to date)` :
                   callDateFilter==="last_quarter" ? `Q${Math.floor(lastQStart.getMonth()/3)+1} ${lastQStart.getFullYear()} (${lastQStart.toLocaleDateString("en-US",{month:"short",day:"numeric"})} – ${lastQEnd.toLocaleDateString("en-US",{month:"short",day:"numeric"})})` :
                   callDateFilter==="custom"&&callCustomFrom&&callCustomTo ? `${callCustomFrom} – ${callCustomTo}` :
                   callWeeks.length>0 ? `${callWeeks[0]} – ${lastCW}` : "All data"
@@ -3703,7 +3708,7 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
               </div>
               <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
                 {/* Date filter pills */}
-                {[["today","Today"],["yesterday","Yesterday"],["tomorrow","Tomorrow"],["this_week","This week"],["next_week","Next week"],["last_week","Last week"],["last_month","Last month"],["last_quarter","Last quarter"],["all","All"],["custom","Custom"]].map(([v,l])=>(
+                {[["today","Today"],["yesterday","Yesterday"],["tomorrow","Tomorrow"],["this_week","This week"],["next_week","Next week"],["last_week","Last week"],["this_month","This month"],["last_month","Last month"],["last_quarter","Last quarter"],["all","All"],["custom","Custom"]].map(([v,l])=>(
                   <button key={v} onClick={()=>setCallDateFilter(v)}
                     style={{padding:"4px 10px",borderRadius:20,border:"0.5px solid "+(callDateFilter===v?"#29355D":"rgba(41,53,93,.15)"),
                       background:callDateFilter===v?"#29355D":"#fff",color:callDateFilter===v?"#fff":"#808080",
@@ -9383,6 +9388,15 @@ const FI_COACH_EMAIL_MAP = {
 // column actually holds a date instead. Confirmed directly against the
 // live sheet — durations are plain "H:MM:SS" text, not a time-of-day
 // format, so they're parsed as elapsed seconds, not clock time.
+// Talk Time — daily-overwrite export, pivot-style: each agent gets a
+// header row (only the Agent column populated with their name, every
+// other column blank), followed by daily detail rows where the "Agent"
+// column actually holds a date instead. Confirmed directly against the
+// live sheet — durations are plain "H:MM:SS" text, not a time-of-day
+// format, so they're parsed as elapsed seconds, not clock time.
+// Returns per-day records (not pre-aggregated) so a date filter can be
+// applied first — needed once this sheet accumulates more than one
+// reporting window's worth of history.
 function mapTalkTime(rows) {
   if (!rows || rows.length === 0) return [];
   const parseHMS = s => {
@@ -9404,24 +9418,30 @@ function mapTalkTime(rows) {
       return;
     }
     if (!currentAgent || !agentField) return;
+    const date = new Date(agentField);
+    if (isNaN(date)) return;
     const accepted = parseInt(String(r["Accepted"]).replace(/[^0-9\-]/g,""),10) || 0;
     const seconds = parseHMS(r["Total Talk Time"]);
-    records.push({agent: currentAgent, seconds, hasEntry: true, accepted});
+    records.push({agentRaw: currentAgent, csm: norm(currentAgent)||currentAgent, date, seconds, accepted});
   });
+  return records;
+}
 
+// Aggregates mapTalkTime's per-day records into per-CSM totals, after
+// whatever date filtering the caller has already applied.
+function aggregateTalkTime(records) {
   const byAgent = {};
   records.forEach(rec => {
-    if (!byAgent[rec.agent]) byAgent[rec.agent] = {totalSeconds:0, daysWithCalls:0, daysLogged:0, accepted:0};
-    const a = byAgent[rec.agent];
+    if (!byAgent[rec.csm]) byAgent[rec.csm] = {agentRaw: rec.agentRaw, totalSeconds:0, daysWithCalls:0, daysLogged:0, accepted:0};
+    const a = byAgent[rec.csm];
     a.totalSeconds += rec.seconds;
     a.daysLogged++;
     if (rec.seconds > 0) a.daysWithCalls++;
     a.accepted += rec.accepted;
   });
-
-  return Object.entries(byAgent).map(([agentRaw, a]) => ({
-    agentRaw,
-    csm: norm(agentRaw) || agentRaw,
+  return Object.entries(byAgent).map(([csm, a]) => ({
+    agentRaw: a.agentRaw,
+    csm,
     totalSeconds: a.totalSeconds,
     daysWithCalls: a.daysWithCalls,
     daysLogged: a.daysLogged,
@@ -10767,14 +10787,70 @@ function CadenceSFView({filterCoach="", filterCSM="", managerCoaches=null}) {
   );
 }
 
-function TalkTimeView({rows=[], filterCoach="", filterCSM="", managerCoaches=null}) {
+function TalkTimeView({records=[], filterCoach="", filterCSM="", managerCoaches=null}) {
   const [sortCol, setSortCol] = React.useState("totalSeconds");
   const [sortDir, setSortDir] = React.useState("desc");
+  const [ttDateFilter, setTtDateFilter] = React.useState("all");
+  const [ttCustomFrom, setTtCustomFrom] = React.useState("");
+  const [ttCustomTo, setTtCustomTo] = React.useState("");
 
   const fmtHM = sec => {
     const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60);
     return h+"h "+m+"m";
   };
+
+  // Same calendar-based filter logic as the Calls tab (Today/This week/This
+  // month/etc.) — kept local rather than shared, matching how the Calls
+  // filter itself isn't extracted into a shared utility either. Ready for
+  // when this sheet accumulates more than one reporting window of history;
+  // with only ~2 weeks of data today most of these will show the same
+  // results as "All".
+  const getMondayOf = d => {
+    const dt = new Date(d); dt.setHours(0,0,0,0);
+    const day = dt.getDay();
+    dt.setDate(dt.getDate() - (day === 0 ? 6 : day - 1));
+    return dt;
+  };
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0,0,0,0);
+  const todayEnd   = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23,59,59,999);
+  const yestStart  = new Date(todayStart); yestStart.setDate(todayStart.getDate()-1);
+  const yestEnd    = new Date(todayEnd);   yestEnd.setDate(todayEnd.getDate()-1);
+  const tmrwStart  = new Date(todayStart); tmrwStart.setDate(todayStart.getDate()+1);
+  const tmrwEnd    = new Date(todayEnd);   tmrwEnd.setDate(todayEnd.getDate()+1);
+  const thisWeekMon = getMondayOf(now);
+  const thisWeekSun = new Date(thisWeekMon); thisWeekSun.setDate(thisWeekMon.getDate()+6); thisWeekSun.setHours(23,59,59,999);
+  const nextWeekMon = new Date(thisWeekMon); nextWeekMon.setDate(thisWeekMon.getDate()+7);
+  const nextWeekSun = new Date(nextWeekMon); nextWeekSun.setDate(nextWeekMon.getDate()+6); nextWeekSun.setHours(23,59,59,999);
+  const lastWeekMon = new Date(thisWeekMon); lastWeekMon.setDate(thisWeekMon.getDate()-7);
+  const lastWeekSun = new Date(thisWeekMon); lastWeekSun.setDate(thisWeekMon.getDate()-1); lastWeekSun.setHours(23,59,59,999);
+  const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const thisMonthEnd   = new Date(now.getFullYear(), now.getMonth()+1, 0, 23,59,59,999);
+  const lastMonthStart = new Date(now.getFullYear(), now.getMonth()-1, 1);
+  const lastMonthEnd   = new Date(now.getFullYear(), now.getMonth(), 0, 23,59,59,999);
+  const curQ = Math.floor(now.getMonth()/3);
+  const lastQStartMonth = curQ===0 ? 9 : (curQ-1)*3;
+  const lastQStartYear  = curQ===0 ? now.getFullYear()-1 : now.getFullYear();
+  const lastQStart = new Date(lastQStartYear, lastQStartMonth, 1);
+  const lastQEnd   = new Date(lastQStartYear, lastQStartMonth+3, 0, 23,59,59,999);
+
+  const matchesDateFilter = d => {
+    if (ttDateFilter==="today")        return d>=todayStart && d<=todayEnd;
+    if (ttDateFilter==="yesterday")    return d>=yestStart && d<=yestEnd;
+    if (ttDateFilter==="tomorrow")     return d>=tmrwStart && d<=tmrwEnd;
+    if (ttDateFilter==="this_week")    return d>=thisWeekMon && d<=thisWeekSun;
+    if (ttDateFilter==="next_week")    return d>=nextWeekMon && d<=nextWeekSun;
+    if (ttDateFilter==="last_week")    return d>=lastWeekMon && d<=lastWeekSun;
+    if (ttDateFilter==="this_month")   return d>=thisMonthStart && d<=thisMonthEnd;
+    if (ttDateFilter==="last_month")   return d>=lastMonthStart && d<=lastMonthEnd;
+    if (ttDateFilter==="last_quarter") return d>=lastQStart && d<=lastQEnd;
+    if (ttDateFilter==="custom" && ttCustomFrom && ttCustomTo) {
+      return d>=new Date(ttCustomFrom) && d<=new Date(ttCustomTo+"T23:59:59.999");
+    }
+    return true; // all
+  };
+  const filteredRecords = records.filter(rec => matchesDateFilter(rec.date));
+  const rows = aggregateTalkTime(filteredRecords);
 
   // Attach coach + manager to each row via the roster — same lookup pattern
   // used consistently everywhere else in the app (lk() for coach, then
@@ -10818,7 +10894,7 @@ function TalkTimeView({rows=[], filterCoach="", filterCSM="", managerCoaches=nul
   // above divided by the period length.
   const avgAcrossTeam = scoped.length ? scoped.reduce((s,r)=>s+r.avgDailySeconds,0)/scoped.length : 0;
 
-  if (rows.length===0) return (
+  if (records.length===0) return (
     <div style={{background:"#fff",borderRadius:12,padding:"40px 20px",textAlign:"center",color:"#808080"}}>
       <div style={{fontSize:32,marginBottom:12}}>📞</div>
       <div style={{fontSize:14,fontWeight:500,color:"#29355D",marginBottom:8}}>Talk Time — waiting on data</div>
@@ -10826,8 +10902,40 @@ function TalkTimeView({rows=[], filterCoach="", filterCSM="", managerCoaches=nul
     </div>
   );
 
+  const dateFilterBar = (
+    <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",marginBottom:16}}>
+      {[["today","Today"],["yesterday","Yesterday"],["tomorrow","Tomorrow"],["this_week","This week"],["next_week","Next week"],["last_week","Last week"],["this_month","This month"],["last_month","Last month"],["last_quarter","Last quarter"],["all","All"],["custom","Custom"]].map(([v,l])=>(
+        <button key={v} onClick={()=>setTtDateFilter(v)}
+          style={{padding:"4px 10px",borderRadius:20,border:"0.5px solid "+(ttDateFilter===v?"#29355D":"rgba(41,53,93,.15)"),
+            background:ttDateFilter===v?"#29355D":"#fff",color:ttDateFilter===v?"#fff":"#808080",
+            fontSize:13,fontWeight:500,cursor:"pointer"}}>
+          {l}
+        </button>
+      ))}
+      {ttDateFilter==="custom"&&<>
+        <input type="date" value={ttCustomFrom} onChange={e=>setTtCustomFrom(e.target.value)}
+          style={{padding:"4px 8px",borderRadius:8,border:"0.5px solid rgba(41,53,93,.2)",fontSize:13}}/>
+        <span style={{fontSize:13,color:"#808080"}}>to</span>
+        <input type="date" value={ttCustomTo} onChange={e=>setTtCustomTo(e.target.value)}
+          style={{padding:"4px 8px",borderRadius:8,border:"0.5px solid rgba(41,53,93,.2)",fontSize:13}}/>
+      </>}
+    </div>
+  );
+
+  if (rows.length===0) return (
+    <div>
+      {dateFilterBar}
+      <div style={{background:"#fff",borderRadius:12,padding:"40px 20px",textAlign:"center",color:"#808080"}}>
+        <div style={{fontSize:32,marginBottom:12}}>📅</div>
+        <div style={{fontSize:14,fontWeight:500,color:"#29355D",marginBottom:8}}>Nothing in this date range</div>
+        <div style={{fontSize:12}}>Try a different filter, or "All" to see everything in the sheet.</div>
+      </div>
+    </div>
+  );
+
   return (
     <div>
+      {dateFilterBar}
       <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:16,marginBottom:16}}>
         <div style={{background:"#fff",borderRadius:12,padding:"20px 24px",boxShadow:"0 1px 4px rgba(41,53,93,.07)"}}>
           <div style={{fontSize:12,color:"#808080",fontWeight:500,textTransform:"uppercase",marginBottom:6}}>Daily avg talk time (team)</div>
@@ -12039,7 +12147,7 @@ My question: ${aiCustom}`,
                 ))}
               </div>
               {callsSubTab==="calls" && <TrendsView history={history} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} qamc={qamc} qass={qass} trendsTab="calls" setTrendsTab={()=>{}} hideSubTabs={true} callRaw={callRaw} emailToAcct={emailToAcct}/>}
-              {callsSubTab==="talktime" && <TalkTimeView rows={talkTimeMapped} filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches}/>}
+              {callsSubTab==="talktime" && <TalkTimeView records={talkTimeMapped} filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches}/>}
             </div>
           )}
           {tab==="capacity"&&userSession.role==="master"&&<CapacityView csms={csms} callData={callData} callRaw={callRaw} cadenceFull={cadenceFull} domoBoq={domoBoq} filterCoach={filterCoach} filterCSM={filterCSM}/>}
