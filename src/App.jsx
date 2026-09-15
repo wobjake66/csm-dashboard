@@ -10790,7 +10790,7 @@ function CadenceSFView({filterCoach="", filterCSM="", managerCoaches=null}) {
 function TalkTimeView({records=[], filterCoach="", filterCSM="", managerCoaches=null}) {
   const [sortCol, setSortCol] = React.useState("totalSeconds");
   const [sortDir, setSortDir] = React.useState("desc");
-  const [ttDateFilter, setTtDateFilter] = React.useState("all");
+  const [ttDateFilter, setTtDateFilter] = React.useState("this_week");
   const [ttCustomFrom, setTtCustomFrom] = React.useState("");
   const [ttCustomTo, setTtCustomTo] = React.useState("");
 
@@ -10904,7 +10904,7 @@ function TalkTimeView({records=[], filterCoach="", filterCSM="", managerCoaches=
 
   const dateFilterBar = (
     <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",marginBottom:16}}>
-      {[["today","Today"],["yesterday","Yesterday"],["tomorrow","Tomorrow"],["this_week","This week"],["next_week","Next week"],["last_week","Last week"],["this_month","This month"],["last_month","Last month"],["last_quarter","Last quarter"],["all","All"],["custom","Custom"]].map(([v,l])=>(
+      {[["yesterday","Yesterday"],["this_week","This week"],["this_month","This month"],["last_month","Last month"],["custom","Custom"]].map(([v,l])=>(
         <button key={v} onClick={()=>setTtDateFilter(v)}
           style={{padding:"4px 10px",borderRadius:20,border:"0.5px solid "+(ttDateFilter===v?"#29355D":"rgba(41,53,93,.15)"),
             background:ttDateFilter===v?"#29355D":"#fff",color:ttDateFilter===v?"#fff":"#808080",
