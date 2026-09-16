@@ -10149,7 +10149,10 @@ function fiDesignReviewStatus(r) {
   if (r.fiType !== "Website FI" || r.func !== "Review") return null;
   if (!r.designReview) return "needs_attention";
   const todayMidnight = new Date(); todayMidnight.setHours(0,0,0,0);
-  return r.designReview < todayMidnight ? "needs_attention" : "scheduled";
+  const tomorrowMidnight = new Date(todayMidnight); tomorrowMidnight.setDate(tomorrowMidnight.getDate()+1);
+  if (r.designReview < todayMidnight) return "needs_attention";
+  if (r.designReview < tomorrowMidnight) return "due_today";
+  return "scheduled";
 }
 
 // Consultation has a real scheduled-call date — a much more precise
@@ -10321,6 +10324,7 @@ function FulfillmentView({filterCoach="", filterCSM="", managerCoaches=null, row
       if (a.designReview && b.designReview) return a.designReview - b.designReview; // oldest passed date first
       return 0;
     });
+  const designDueToday = websiteReviewItems.filter(r => fiDesignReviewStatus(r)==="due_today");
   const designScheduled = websiteReviewItems.filter(r => fiDesignReviewStatus(r)==="scheduled")
     .sort((a,b) => a.designReview - b.designReview); // soonest upcoming first
 
@@ -10423,7 +10427,7 @@ function FulfillmentView({filterCoach="", filterCSM="", managerCoaches=null, row
           <div style={{fontSize:12,color:"#808080",marginBottom:14}}>
             {websiteReviewItems.length} Website FI{websiteReviewItems.length===1?"":"s"} currently in Review — no future Design Review date scheduled means it needs attention
           </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12}}>
             <div>
               <div style={{fontSize:12,fontWeight:600,color:"#7f1d1d",marginBottom:8}}>🚨 Needs attention ({designNeedsAttention.length})</div>
               {designNeedsAttention.length===0
@@ -10435,6 +10439,19 @@ function FulfillmentView({filterCoach="", filterCSM="", managerCoaches=null, row
                         <div style={{fontSize:11,color:"#991b1b"}}>
                           {r.fiOwner} · {r.designReview ? "Review passed "+r.designReview.toLocaleDateString("en-US",{month:"short",day:"numeric"}) : "No design review scheduled"}
                         </div>
+                      </div>
+                    ))}
+                  </div>}
+            </div>
+            <div>
+              <div style={{fontSize:12,fontWeight:600,color:"#92400e",marginBottom:8}}>⏰ Due today ({designDueToday.length})</div>
+              {designDueToday.length===0
+                ? <div style={{fontSize:12,color:"#808080",fontStyle:"italic"}}>None scheduled for today</div>
+                : <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                    {designDueToday.map(r=>(
+                      <div key={r.fiNum} style={{background:"rgba(217,119,6,.05)",borderLeft:"3px solid #d97706",borderRadius:6,padding:"6px 10px"}}>
+                        <div style={{fontSize:12,fontWeight:600,color:"#29355D"}}>{r.account}</div>
+                        <div style={{fontSize:11,color:"#92400e"}}>{r.fiOwner} · Scheduled today</div>
                       </div>
                     ))}
                   </div>}
