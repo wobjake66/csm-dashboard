@@ -11667,6 +11667,35 @@ function App() {
     const isYesterday = d => d.toDateString() === new Date(Date.now()-86400000).toDateString();
     const isThisMonth = d => { const n=new Date(); return d.getFullYear()===n.getFullYear() && d.getMonth()===n.getMonth(); };
 
+    // Urgent Fulfillment Items — completely missing from every scope until
+    // now. fiRows is already mapped (see mapFI), so this reuses the exact
+    // same fiIsUrgent() the FI tab itself uses, and the exact same
+    // norm()-based name matching already fixed there (a raw fiOwner can
+    // carry an aliased spelling that doesn't match the roster's canonical
+    // form directly).
+    const getUrgentFIsFor = csmName => {
+      const csmNorm = norm(csmName) || csmName;
+      const matches = (fiRows||[]).filter(r => {
+        const fiN = norm(r.fiOwner)||r.fiOwner, ofN = norm(r.ofOwner)||r.ofOwner;
+        return (fiN===csmNorm || ofN===csmNorm) && typeof fiIsUrgent==="function" && fiIsUrgent(r);
+      });
+      const website = matches.filter(r=>r.fiType==="Website FI").length;
+      const social = matches.filter(r=>r.fiType==="Social FI").length;
+      return {total: matches.length, website, social, items: matches};
+    };
+    // Cadence completed yesterday — reuses the exact same daily map already
+    // built for "Did I win yesterday?" on My Dashboard, rather than a new
+    // pass over cadenceFull here.
+    const cadenceDailyMap = buildCadenceDailyMap(cadenceFull);
+    const yesterdayKey = dayKeyOffset(1);
+    const getCadenceYesterday = csmName => getCadenceDayResult(csmName, cadenceDailyMap, yesterdayKey);
+    // A rough "how much non-call time did they have" comparison, exactly
+    // as described: talk time against a standard workday, not a precise
+    // admin-time measurement — just a reference point for the AI to reason
+    // against rather than treating call volume alone as "how busy."
+    const WORKDAY_SECONDS = 8*3600;
+    const estAdminTime = talkSeconds => Math.max(0, WORKDAY_SECONDS - talkSeconds);
+
     // ── SINGLE CSM ──────────────────────────────────────────────────
     if (scope === "CSM") {
       const c = csms.find(x=>x.name===filterCSM);
@@ -11703,8 +11732,20 @@ function App() {
       lines.push("=== TALK TIME ===");
       const csmTalkYest = getTalkTimeFor(c.name, isYesterday);
       const csmTalkMonth = getTalkTimeFor(c.name, isThisMonth);
-      lines.push("Yesterday — "+(csmTalkYest.seconds>0 ? fmtHMShort(csmTalkYest.seconds)+" talk time, "+csmTalkYest.accepted+" accepted calls" : "None recorded"));
+      lines.push("Yesterday — "+(csmTalkYest.seconds>0 ? fmtHMShort(csmTalkYest.seconds)+" talk time, "+csmTalkYest.accepted+" accepted calls" : "None recorded")+" | Est. non-call time: "+fmtHMShort(estAdminTime(csmTalkYest.seconds))+" (of an 8h day)");
       lines.push("Month to date — "+(csmTalkMonth.seconds>0 ? fmtHMShort(csmTalkMonth.seconds)+" total across "+csmTalkMonth.days+" days, "+csmTalkMonth.accepted+" accepted calls" : "None recorded"));
+      lines.push("");
+      lines.push("=== FULFILLMENT ITEMS ===");
+      const csmFI = getUrgentFIsFor(c.name);
+      lines.push(csmFI.total>0
+        ? "Urgent: "+csmFI.total+" ("+csmFI.website+" Website, "+csmFI.social+" Social) — "+csmFI.items.slice(0,5).map(r=>r.account+" ["+r.func+"]").join(", ")+(csmFI.items.length>5?" +"+(csmFI.items.length-5)+" more":"")
+        : "No urgent Fulfillment Items");
+      lines.push("");
+      lines.push("=== CADENCE YESTERDAY ===");
+      const csmCadYest = getCadenceYesterday(c.name);
+      lines.push(csmCadYest.hasData
+        ? csmCadYest.completed+" of "+csmCadYest.total+" completed"+(csmCadYest.items.length>0?" — left open: "+csmCadYest.items.slice(0,5).map(i=>i.account+" ("+i.touchpoint+")").join(", "):"")
+        : "Nothing due yesterday");
       lines.push("");
       lines.push("=== REVENUE ===");
       lines.push("This period: "+(c.rev>0?fd(c.rev):"None")+" | MRR: "+(c.mrr>0?fd(c.mrr):"None"));
@@ -11771,7 +11812,11 @@ function App() {
         lines.push("   Calls (MTD): "+(csmCalls.total>0?csmCalls.completed+" completed, "+csmCalls.noShow+" no-show, "+csmCalls.scheduled+" scheduled":"none recorded"));
         const csmCallsYest = getCallStatsYesterday(c.name);
         const csmTalkYest = getTalkTimeFor(c.name, isYesterday);
-        lines.push("   Yesterday: "+(csmCallsYest.total>0?csmCallsYest.completed+" completed, "+csmCallsYest.noShow+" no-show, "+csmCallsYest.scheduled+" scheduled":"no calls recorded")+" | Talk time: "+(csmTalkYest.seconds>0?fmtHMShort(csmTalkYest.seconds)+" ("+csmTalkYest.accepted+" accepted)":"none recorded"));
+        lines.push("   Yesterday: "+(csmCallsYest.total>0?csmCallsYest.completed+" completed, "+csmCallsYest.noShow+" no-show, "+csmCallsYest.scheduled+" scheduled":"no calls recorded")+" | Talk time: "+(csmTalkYest.seconds>0?fmtHMShort(csmTalkYest.seconds)+" ("+csmTalkYest.accepted+" accepted)":"none recorded")+" | Est. non-call time: "+fmtHMShort(estAdminTime(csmTalkYest.seconds))+" (of an 8h day)");
+        const csmCadYest = getCadenceYesterday(c.name);
+        lines.push("   Cadence yesterday: "+(csmCadYest.hasData?csmCadYest.completed+"/"+csmCadYest.total+" completed"+(csmCadYest.items.length>0?" ("+csmCadYest.items.length+" left open)":""):"nothing due"));
+        const csmFI = getUrgentFIsFor(c.name);
+        if (csmFI.total>0) lines.push("   ⚠ Urgent FIs: "+csmFI.total+" ("+csmFI.website+" Website, "+csmFI.social+" Social) — "+csmFI.items.slice(0,3).map(r=>r.account).join(", ")+(csmFI.items.length>3?" +"+(csmFI.items.length-3)+" more":""));
         lines.push("   Cadence: "+(c.cadCount>0?pp(c.cadPct):"n/a")+" | BOB net: "+(bb&&bb.net!=null?(bb.net>0?"+":"")+fd(bb.net):"n/a")+" | QTD Retention: "+(bb&&bb.qtdRet!=null?pp(bb.qtdRet):"n/a")+(bb&&bb.pacingCount>0?" (⏳ "+bb.pacingCount+" on pacing)":""));
         if (c.skippedCount>0) lines.push("   ⚠ "+c.skippedCount+" skipped"+(c.skippedFourthCount>0?", "+c.skippedFourthCount+" at 4th reschedule":""));
         const churnCount=((mc&&mc.canceled)||0)+((bc&&bc.canceled)||0);
