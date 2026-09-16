@@ -11633,6 +11633,39 @@ function App() {
       });
       return {completed, noShow, cancelled, scheduled, total: completed+noShow+cancelled+scheduled};
     };
+    // Yesterday specifically — the MTD figure above can't answer "how did
+    // they do yesterday", which is a completely reasonable, common
+    // question a coach would ask. callData day keys are "YYYY-MM-DD",
+    // matching this exact-match lookup rather than a range comparison.
+    const yesterdayStr = (() => {
+      const d = new Date(); d.setDate(d.getDate()-1);
+      return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+    })();
+    const getCallStatsYesterday = csmName => {
+      const key = resolveCallKey(csmName);
+      let completed=0, noShow=0, cancelled=0, scheduled=0;
+      Object.values((callData[key]||{})[yesterdayStr]||{}).forEach(d => { completed+=(d.completed||0); noShow+=(d.noShow||0); cancelled+=(d.cancelled||0); scheduled+=(d.scheduled||0); });
+      return {completed, noShow, cancelled, scheduled, total: completed+noShow+cancelled+scheduled};
+    };
+    // Talk Time — separate source entirely (daily-overwrite sheet, not
+    // callData), also completely missing from every scope until now.
+    // talkTimeMapped holds per-day records already (see mapTalkTime), so
+    // both "yesterday" and "month to date" can be computed directly here
+    // without needing yet another aggregation pass elsewhere.
+    const fmtHMShort = sec => { const h=Math.floor(sec/3600), m=Math.floor((sec%3600)/60); return h+"h "+m+"m"; };
+    const getTalkTimeFor = (csmName, dayTest) => {
+      const csmNorm = norm(csmName) || csmName;
+      let seconds=0, accepted=0, days=0;
+      talkTimeMapped.forEach(rec => {
+        if (rec.csm !== csmNorm) return;
+        if (!dayTest(rec.date)) return;
+        seconds += rec.seconds; accepted += rec.accepted;
+        if (rec.seconds>0) days++;
+      });
+      return {seconds, accepted, days};
+    };
+    const isYesterday = d => d.toDateString() === new Date(Date.now()-86400000).toDateString();
+    const isThisMonth = d => { const n=new Date(); return d.getFullYear()===n.getFullYear() && d.getMonth()===n.getMonth(); };
 
     // ── SINGLE CSM ──────────────────────────────────────────────────
     if (scope === "CSM") {
@@ -11657,11 +11690,21 @@ function App() {
       if (c.skippedCount>0) lines.push("Skipped cadences: "+c.skippedCount+(c.skippedFourthCount>0?", "+c.skippedFourthCount+" at 4th reschedule":""));
       if (c.skippedAccts&&c.skippedAccts.length>0) lines.push("Skipped accounts: "+c.skippedAccts.slice(0,5).map(a=>a.n).join(", "));
       lines.push("");
-      lines.push("=== CALLS (month to date) ===");
+      lines.push("=== CALLS ===");
       const csmCalls = getCallStatsThisMonth(c.name);
-      lines.push(csmCalls.total>0
+      lines.push("Month to date — "+(csmCalls.total>0
         ? "Completed: "+csmCalls.completed+" | No-shows: "+csmCalls.noShow+" | Cancelled: "+csmCalls.cancelled+" | Scheduled (upcoming): "+csmCalls.scheduled
-        : "No call activity recorded this month");
+        : "No call activity recorded this month"));
+      const csmCallsYest = getCallStatsYesterday(c.name);
+      lines.push("Yesterday — "+(csmCallsYest.total>0
+        ? "Completed: "+csmCallsYest.completed+" | No-shows: "+csmCallsYest.noShow+" | Cancelled: "+csmCallsYest.cancelled+" | Scheduled: "+csmCallsYest.scheduled
+        : "No calls recorded"));
+      lines.push("");
+      lines.push("=== TALK TIME ===");
+      const csmTalkYest = getTalkTimeFor(c.name, isYesterday);
+      const csmTalkMonth = getTalkTimeFor(c.name, isThisMonth);
+      lines.push("Yesterday — "+(csmTalkYest.seconds>0 ? fmtHMShort(csmTalkYest.seconds)+" talk time, "+csmTalkYest.accepted+" accepted calls" : "None recorded"));
+      lines.push("Month to date — "+(csmTalkMonth.seconds>0 ? fmtHMShort(csmTalkMonth.seconds)+" total across "+csmTalkMonth.days+" days, "+csmTalkMonth.accepted+" accepted calls" : "None recorded"));
       lines.push("");
       lines.push("=== REVENUE ===");
       lines.push("This period: "+(c.rev>0?fd(c.rev):"None")+" | MRR: "+(c.mrr>0?fd(c.mrr):"None"));
@@ -11726,6 +11769,9 @@ function App() {
         lines.push("   Revenue: "+(c.rev>0?fd(c.rev):"none")+" | Email open: "+(c.sent>0?pp(c.openRate):"n/a")+" | On-time: "+(c.otTotal>=3?pp(c.otPct):"n/a")+" | Overdue: "+(c.overdueCount||0));
         const csmCalls = getCallStatsThisMonth(c.name);
         lines.push("   Calls (MTD): "+(csmCalls.total>0?csmCalls.completed+" completed, "+csmCalls.noShow+" no-show, "+csmCalls.scheduled+" scheduled":"none recorded"));
+        const csmCallsYest = getCallStatsYesterday(c.name);
+        const csmTalkYest = getTalkTimeFor(c.name, isYesterday);
+        lines.push("   Yesterday: "+(csmCallsYest.total>0?csmCallsYest.completed+" completed, "+csmCallsYest.noShow+" no-show, "+csmCallsYest.scheduled+" scheduled":"no calls recorded")+" | Talk time: "+(csmTalkYest.seconds>0?fmtHMShort(csmTalkYest.seconds)+" ("+csmTalkYest.accepted+" accepted)":"none recorded"));
         lines.push("   Cadence: "+(c.cadCount>0?pp(c.cadPct):"n/a")+" | BOB net: "+(bb&&bb.net!=null?(bb.net>0?"+":"")+fd(bb.net):"n/a")+" | QTD Retention: "+(bb&&bb.qtdRet!=null?pp(bb.qtdRet):"n/a")+(bb&&bb.pacingCount>0?" (⏳ "+bb.pacingCount+" on pacing)":""));
         if (c.skippedCount>0) lines.push("   ⚠ "+c.skippedCount+" skipped"+(c.skippedFourthCount>0?", "+c.skippedFourthCount+" at 4th reschedule":""));
         const churnCount=((mc&&mc.canceled)||0)+((bc&&bc.canceled)||0);
@@ -11747,8 +11793,11 @@ function App() {
         const churnCSMs = team.filter(c=>hasChurn(c.name));
         const skipCSMs = team.filter(c=>c.skippedCount>0);
         const teamCalls = team.reduce((s,c)=>{ const cc=getCallStatsThisMonth(c.name); return s+cc.completed; },0);
+        const teamCallsYest = team.reduce((s,c)=>{ const cc=getCallStatsYesterday(c.name); return s+cc.completed; },0);
+        const teamTalkYest = team.reduce((s,c)=>{ const tt=getTalkTimeFor(c.name, isYesterday); return s+tt.seconds; },0);
         lines.push("COACH: "+coach.n+" ("+coach.t+") — "+team.length+" CSMs");
         lines.push("  Revenue: "+fd(totRev)+" | Avg on-time: "+(avgOT!=null?pp(avgOT):"n/a")+" | Calls completed MTD: "+teamCalls);
+        lines.push("  Yesterday — Calls completed: "+teamCallsYest+" | Talk time: "+fmtHMShort(teamTalkYest));
         lines.push("  CSMs with churn: "+churnCSMs.length+" | CSMs with skipped cadences: "+skipCSMs.length);
         lines.push("");
       });
@@ -11769,8 +11818,11 @@ function App() {
         const skipCSMs = team.filter(c=>c.skippedCount>0);
         const lowCad = cadTeam.filter(c=>c.cadPct<0.9);
         const teamCalls = team.reduce((s,c)=>{ const cc=getCallStatsThisMonth(c.name); return s+cc.completed; },0);
+        const teamCallsYest = team.reduce((s,c)=>{ const cc=getCallStatsYesterday(c.name); return s+cc.completed; },0);
+        const teamTalkYest = team.reduce((s,c)=>{ const tt=getTalkTimeFor(c.name, isYesterday); return s+tt.seconds; },0);
         lines.push("COACH: "+coach.n+" ("+coach.t+") — "+team.length+" CSMs");
         lines.push("  Revenue: "+fd(totRev)+" | Cadence avg: "+(avgCad!=null?pp(avgCad):"n/a")+" | On-time avg: "+(avgOT!=null?pp(avgOT):"n/a")+" | Calls completed MTD: "+teamCalls);
+        lines.push("  Yesterday — Calls completed: "+teamCallsYest+" | Talk time: "+fmtHMShort(teamTalkYest));
         lines.push("  CSMs needing cadence help ("+lowCad.length+"): "+(lowCad.map(c=>c.name).join(", ")||"none"));
         lines.push("  CSMs with churn: "+churnCSMs.length+" | CSMs with skips: "+skipCSMs.length);
         lines.push("");
