@@ -7021,15 +7021,15 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
             <thead>
               <tr style={{borderBottom:"0.5px solid rgba(41,53,93,.1)"}}>
                 {thSortB("name","CSM","left")}
-                {thSortB("accts","Accounts")}
+                {thSortB("activeAccts","Active")}
+                {thSortB("reactiveAccts","Reactive")}
+                {thSortB("accts","Total Accounts Assigned")}
                 {thSortB("boq","BOQ")}
                 {thSortB("qtdCurrent","QTD Current")}
                 {thSortB("qtdRet","QTD Retention")}
                 {thSortB("current","Paced Current")}
                 {thSortB("pacedRet","Paced Retention")}
                 {thSortB("pacingCount","Pacing Accts")}
-                {thSortB("activeAccts","Active")}
-                {thSortB("reactiveAccts","Reactive")}
               </tr>
             </thead>
             <tbody>
@@ -7037,6 +7037,8 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                 <React.Fragment key={g.name}>
                   <tr onClick={()=>setBillingExpanded(isExp===g.name?null:g.name)} style={{cursor:"pointer",borderBottom:"0.5px solid rgba(41,53,93,.05)"}}>
                     <td style={{padding:"10px",fontWeight:600,color:"#29355D"}}>{isExp===g.name?"▾ ":"▸ "}{dispName(g.name)}</td>
+                    <td style={{padding:"10px",textAlign:"right",color:"#16a34a",fontWeight:500}}>{g.activeAccts}</td>
+                    <td style={{padding:"10px",textAlign:"right",color:"#64748b",fontWeight:500}}>{g.reactiveAccts}</td>
                     <td style={{padding:"10px",textAlign:"right"}}>{g.accts}</td>
                     <td style={{padding:"10px",textAlign:"right",color:"#5378FC"}}>{fmt$(g.boq)}</td>
                     <td style={{padding:"10px",textAlign:"right"}}>{fmt$(g.qtdCurrent)}</td>
@@ -7044,8 +7046,6 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                     <td style={{padding:"10px",textAlign:"right",fontWeight:600}}>{fmt$(g.current)}</td>
                     <td style={{padding:"10px",textAlign:"right",fontWeight:600,color:retCol(g.pacedRet)}}>{fmtPct(g.pacedRet)}</td>
                     <td style={{padding:"10px",textAlign:"right",color:g.pacingCount>0?"#d97706":"#aaa"}}>{g.pacingCount}</td>
-                    <td style={{padding:"10px",textAlign:"right",color:"#16a34a",fontWeight:500}}>{g.activeAccts}</td>
-                    <td style={{padding:"10px",textAlign:"right",color:"#64748b",fontWeight:500}}>{g.reactiveAccts}</td>
                   </tr>
                   {isExp===g.name && (
                     <tr style={{background:"rgba(41,53,93,.02)"}}>
