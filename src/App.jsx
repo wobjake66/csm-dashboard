@@ -10013,6 +10013,7 @@ function mapNoActivity(rows) {
       csm, coach: info ? info.c : null,
       account: String(r["Account"]||"").trim(),
       eid: String(r["Enterprise ID"]||"").trim().toUpperCase(),
+      cerNumber: String(r["Client Engagement Roadmap: Onboarding Form ID"]||"").trim(),
       status: String(r["Status"]||"").trim(),
       daysSinceLastCall: isNaN(days) ? null : days,
       formAgingDays: parseFloat(String(r["Form Aging (Days)"]||"").replace(/[^0-9.\-]/g,"")) || null,
@@ -10734,6 +10735,8 @@ function NoActivityView({rows=[], filterCoach="", filterCSM="", managerCoaches=n
               <tr>
                 <th style={{...S.th,textAlign:"left"}} onClick={()=>onSort("csm")}>CSM{sortArrow("csm")}</th>
                 <th style={{...S.th,textAlign:"left"}} onClick={()=>onSort("account")}>Account{sortArrow("account")}</th>
+                <th style={{...S.th,textAlign:"left"}} onClick={()=>onSort("eid")}>Enterprise ID{sortArrow("eid")}</th>
+                <th style={{...S.th,textAlign:"left"}} onClick={()=>onSort("cerNumber")}>CER Number{sortArrow("cerNumber")}</th>
                 <th style={{...S.th,textAlign:"right"}} onClick={()=>onSort("daysSinceLastCall")}>Days Since Last Call{sortArrow("daysSinceLastCall")}</th>
                 <th style={{...S.th,textAlign:"right"}} onClick={()=>onSort("formAgingDays")}>Form Aging{sortArrow("formAgingDays")}</th>
                 <th style={{...S.th,textAlign:"left"}} onClick={()=>onSort("cadenceStage")}>Stage{sortArrow("cadenceStage")}</th>
@@ -10745,6 +10748,8 @@ function NoActivityView({rows=[], filterCoach="", filterCSM="", managerCoaches=n
                 <tr key={r.eid+"-"+i}>
                   <td style={{...S.td,textAlign:"left",fontWeight:600}}>{dispName(r.csm)}</td>
                   <td style={{...S.td,textAlign:"left"}}>{r.account}</td>
+                  <td style={{...S.td,textAlign:"left",fontFamily:"monospace",fontSize:12,color:"#808080"}}>{r.eid||"--"}</td>
+                  <td style={{...S.td,textAlign:"left",color:"#808080"}}>{r.cerNumber||"--"}</td>
                   <td style={{...S.td,textAlign:"right",fontWeight:700,color:dayColor(r.daysSinceLastCall)}}>{r.daysSinceLastCall}</td>
                   <td style={{...S.td,textAlign:"right"}}>{r.formAgingDays!=null?Math.round(r.formAgingDays):"--"}</td>
                   <td style={{...S.td,textAlign:"left"}}>{r.cadenceStage||"--"}</td>
