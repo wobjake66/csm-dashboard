@@ -235,7 +235,7 @@ const NAME_NORM = {
   "samuel frias de paula":"Samuel Frias De Paula","sam":"Samuel Frias De Paula","samuel":"Samuel Frias De Paula","sam frias":"Samuel Frias De Paula","samuel frial":"Samuel Frias De Paula","sam frias de paula":"Samuel Frias De Paula",
   "sati ananda pimentel malespin":"Sati Ananda Pimentel Malespin","sati":"Sati Ananda Pimentel Malespin","sati pimentel":"Sati Ananda Pimentel Malespin","sati pimentel malespin":"Sati Ananda Pimentel Malespin","pimentel malespin, sati":"Sati Ananda Pimentel Malespin",
   "victor abner moscoso fernandez":"Victor Abner Moscoso Fernandez","victor":"Victor Abner Moscoso Fernandez","victor moscoso":"Victor Abner Moscoso Fernandez",
-  "yessica montero urena":"Yessica Montero Urena","yessica":"Yessica Montero Urena","yessica montero":"Yessica Montero Urena",
+  "yessica montero urena":"Yessica Montero Urena","yessica":"Yessica Montero Urena","yessica montero":"Yessica Montero Urena","yessica mercedes montero":"Yessica Montero Urena",
   // Trisha Stalnaker — US/DR
   "ashley vasquez mena":"Ashley Vasquez Mena","ashley vasquez":"Ashley Vasquez Mena",
   "dorka frias lantigua":"Dorka Frias Lantigua","dorka frias":"Dorka Frias Lantigua","dorka":"Dorka Frias Lantigua",
@@ -479,7 +479,10 @@ function mapRev(rows) {
     // Support both old and new JotForm column name variations
     const mrr  = pm(r["MRR $ Added"]||r["MRR $"]||r["MRR"]||0);
     const otr  = pm(r["OTR $ Added"]||r["OTR $"]||r["OTR"]||0);
-    const total= pm(r["Total Revenue Added"]||r["Total Revenue"]||r["Revenue"]||0);
+    // Computed directly from MRR + OTR rather than trusting "Total Revenue
+    // Added" — that derived column can be left blank on a submission even
+    // when OTR/MRR are correctly filled in, silently dropping real revenue.
+    const total = mrr + otr;
     const team = r["CSM Team!"]||r["CSM Team! "]||r["csm_team"]||"";
     const nr   = (r["Non-Revenue Integrations"]||r["Non Revenue Integrations"]||"").trim();
     const biz  = (r["Business Name"]||r["business_name"]||"").trim();
@@ -2627,7 +2630,14 @@ function LeaderboardView({csms, allCsms, bobRaw, history=[], q2DomoBoq=[], domoB
     if (!csm) return;
     const qtr = (r["Quarter for Consideration"]||r["Quarter"]||"").trim();
     if (!qtrMatchFn(qtr)) return;
-    const tot = parseFloat(String(r["Total Revenue Added"]||r["Total Revenue"]||r["Revenue"]||0).replace(/[$,]/g,""))||0;
+    // Computed directly from MRR + OTR rather than trusting "Total Revenue
+    // Added" — confirmed against a real submission (Yessica Montero Urena,
+    // NSJB Construction) where OTR $ Added was correctly filled in ($99)
+    // but the derived Total Revenue Added column was left blank, silently
+    // dropping that revenue from every total that read it directly.
+    const mrrV = parseFloat(String(r["MRR $ Added"]||r["MRR $"]||r["MRR"]||0).replace(/[$,]/g,""))||0;
+    const otrV = parseFloat(String(r["OTR $ Added"]||r["OTR $"]||r["OTR"]||0).replace(/[$,]/g,""))||0;
+    const tot = mrrV + otrV;
     revByCsm[csm] = (revByCsm[csm]||0) + tot;
   });
 
@@ -4971,7 +4981,10 @@ function RevenueView({rawRev, csms, filterCoach, filterCSM, managerCoaches}) {
     const tier = r["CSM Tier"]||r["csm_tier"]||"";
     const mrr  = parseFloat(String(r["MRR $ Added"]||r["MRR $"]||r["MRR"]||0).replace(/[$,]/g,""))||0;
     const otr  = parseFloat(String(r["OTR $ Added"]||r["OTR $"]||r["OTR"]||0).replace(/[$,]/g,""))||0;
-    const tot  = parseFloat(String(r["Total Revenue Added"]||r["Total Revenue"]||r["Revenue"]||0).replace(/[$,]/g,""))||0;
+    // Computed directly from mrr + otr rather than trusting "Total Revenue
+    // Added" — that derived column can be left blank on a submission even
+    // when OTR/MRR are correctly filled in, silently dropping real revenue.
+    const tot  = mrr + otr;
     const nr   = (r["Non-Revenue Integrations"]||"").trim();
     const mrrInt = (r["MRR Integration"]||"").trim();
     // Confirmed against the live sheet: "One-Time Revenue Integrations" (column L)
@@ -7916,7 +7929,10 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
     const csm = norm(csmRaw)||csmRaw;
     const mrr = parseFloat(String(r["MRR $ Added"]||r["MRR $"]||r["MRR"]||0).replace(/[$,]/g,""))||0;
     const otr = parseFloat(String(r["OTR $ Added"]||r["OTR $"]||r["OTR"]||0).replace(/[$,]/g,""))||0;
-    const tot = parseFloat(String(r["Total Revenue Added"]||r["Total Revenue"]||r["Revenue"]||0).replace(/[$,]/g,""))||0;
+    // Computed directly from mrr + otr rather than trusting "Total Revenue
+    // Added" — that derived column can be left blank on a submission even
+    // when OTR/MRR are correctly filled in, silently dropping real revenue.
+    const tot = mrr + otr;
     const nr  = (r["Non-Revenue Integrations"]||"").trim();
     const qtr = (r["Quarter for Consideration"]||r["Quarter"]||"").trim();
     return {csm, mrr, otr, tot, nr, qtr};
