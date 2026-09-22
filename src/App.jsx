@@ -10097,7 +10097,20 @@ function buildAccountCoverageByCsm(billingBobRows, cadenceFull, cerAssigned) {
     if (!raw || !account) return;
     if (!isValidCSM(raw)) return;
     const csm = norm(raw) || raw;
-    const eids = matchEids(csm, account);
+    // Match by Enterprise ID directly when the export carries one — far
+    // more reliable than account-name matching, which silently drops any
+    // account whose name spelling differs even slightly between the
+    // cadence export and the billing book (confirmed as a real, undercounting
+    // issue — Anthony Yen's Active count was well below even his CER count
+    // alone, meaning name mismatches were dropping matches on both sides).
+    // Falls back to the original name match if no EID field is present.
+    const rawEid = String(r["Enterprise ID"]||r["Cadence Member: Enterprise ID"]||"").trim().toUpperCase();
+    let eids;
+    if (rawEid && (bob[csm]||new Set()).has(rawEid)) {
+      eids = new Set([rawEid]);
+    } else {
+      eids = matchEids(csm, account);
+    }
     if (!eids) return;
     if (!cadenceEids[csm]) cadenceEids[csm] = new Set();
     eids.forEach(eid => cadenceEids[csm].add(eid));
@@ -10116,7 +10129,15 @@ function buildAccountCoverageByCsm(billingBobRows, cadenceFull, cerAssigned) {
     if (!raw || !account) return;
     if (!isValidCSM(raw)) return;
     const csm = norm(raw) || raw;
-    const eids = matchEids(csm, account);
+    // Same EID-first matching as cadence above — this export carries a real
+    // "Enterprise ID" column (confirmed directly against the live sheet).
+    const rawEid = String(r["Enterprise ID"]||"").trim().toUpperCase();
+    let eids;
+    if (rawEid && (bob[csm]||new Set()).has(rawEid)) {
+      eids = new Set([rawEid]);
+    } else {
+      eids = matchEids(csm, account);
+    }
     if (!eids) return;
     if (!onboardingEids[csm]) onboardingEids[csm] = new Set();
     eids.forEach(eid => onboardingEids[csm].add(eid));
