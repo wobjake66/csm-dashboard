@@ -7696,6 +7696,17 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
   const csmNames     = csms.map(c=>c.name);
   const myNoActivity = noActivityRows.filter(r => csmNames.some(n => norm(n)===r.csm || n===r.csm));
   const myNoActivityUrgent = myNoActivity.filter(r=>r.daysSinceLastCall>=30);
+  // Same distinct re-engagement cadence called out on the Cadence tab —
+  // mirrored here under No Activity since it's a closely related signal
+  // (an account already flagged as going unengaged), not a duplicate of it.
+  const myUnengagedCadence = (cadenceFull||[]).filter(r => {
+    const assigned = String(r["Cadence Member: Assigned"]||"").trim();
+    if (!csmNames.some(n => norm(n)===norm(assigned) || n===assigned)) return false;
+    return String(r["Cadence Member: Cadence Name"]||"").trim()==="CSM Unengaged Cadence" && String(r["Status"]||"").trim()==="Open";
+  }).map(r => ({
+    account: String(r["Cadence Member: Account"]||"").trim(),
+    overdue: String(r["Overdue"]||"").trim()==="1",
+  }));
   const todayStr     = now.getFullYear()+"-"+pad(now.getMonth()+1)+"-"+pad(now.getDate());
   const tmrDate      = new Date(now); tmrDate.setDate(now.getDate()+1);
   const tmrStr       = tmrDate.getFullYear()+"-"+pad(tmrDate.getMonth()+1)+"-"+pad(tmrDate.getDate());
@@ -7988,6 +7999,20 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
           <div style={{marginTop:8,fontSize:12,color:"#7f1d1d"}}>
             {[...myNoActivity].sort((a,b)=>b.daysSinceLastCall-a.daysSinceLastCall).slice(0,3).map(r=>r.account).join(", ")}
             {myNoActivity.length>3 && ` (+${myNoActivity.length-3} more)`}
+          </div>
+        </div>
+      )}
+
+      {/* Unengaged Cadence — related to No Activity above, but a distinct signal */}
+      {myUnengagedCadence.length>0 && (
+        <div style={{background:"rgba(217,119,6,.06)",border:"0.5px solid rgba(217,119,6,.35)",borderRadius:12,padding:"14px 20px",marginBottom:16,cursor:"pointer"}} onClick={()=>onNavigate("cadence")}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+            <div style={{fontSize:14,fontWeight:700,color:"#7f1d1d"}}>📵 {myUnengagedCadence.length} account{myUnengagedCadence.length===1?"":"s"} in the Unengaged Cadence</div>
+            <span style={{fontSize:12,color:"#d97706",fontWeight:600,whiteSpace:"nowrap"}}>View cadence →</span>
+          </div>
+          <div style={{marginTop:6,fontSize:12,color:"#92400e"}}>
+            {myUnengagedCadence.slice(0,3).map(r=>r.account+(r.overdue?" (overdue)":"")).join(", ")}
+            {myUnengagedCadence.length>3 && ` (+${myUnengagedCadence.length-3} more)`}
           </div>
         </div>
       )}
@@ -11129,6 +11154,17 @@ function CadenceView({filterCoach="", filterCSM="", managerCoaches=null, cadence
     else if (r.status==="Open") byCadenceName[key].open++;
   });
 
+  // "CSM Unengaged Cadence" — a distinct re-engagement cadence, separate
+  // from the standard onboarding/nurture cadences, that specifically
+  // fires when an account shows signs of going unengaged. Called out on
+  // its own here (and mirrored on My Dashboard under the No Activity
+  // section) since it's a different signal than "just another cadence" —
+  // period-independent like the Overdue count above, since an unengaged
+  // account matters regardless of which date filter happens to be active.
+  const UNENGAGED_CADENCE_NAME = "CSM Unengaged Cadence";
+  const unengagedOpenRows = rows.filter(r => r.cadenceName===UNENGAGED_CADENCE_NAME && r.status==="Open");
+  const unengagedOverdueRows = unengagedOpenRows.filter(r => r.overdue);
+
   // ── Per-CSM table ────────────────────────────────────────────────────────
   // Overdue count per CSM is period-independent (same reasoning as the KPI
   // tile above) — everything else here still reflects the selected period.
@@ -11222,6 +11258,20 @@ function CadenceView({filterCoach="", filterCSM="", managerCoaches=null, cadence
         <div style={{background:"rgba(220,38,38,.06)",border:"0.5px solid rgba(220,38,38,.35)",borderRadius:12,padding:"14px 20px",marginBottom:14}}>
           <div style={{fontSize:14,fontWeight:700,color:"#7f1d1d"}}>🚨 {overdueCount} touchpoint{overdueCount===1?"":"s"} past due</div>
           <div style={{fontSize:12,color:"#991b1b",marginTop:2}}>Filter the list below to "Overdue" to see exactly which accounts need attention first.</div>
+        </div>
+      )}
+
+      {/* Unengaged Cadence callout */}
+      {unengagedOpenRows.length>0 && (
+        <div style={{background:"rgba(217,119,6,.06)",border:"0.5px solid rgba(217,119,6,.35)",borderRadius:12,padding:"14px 20px",marginBottom:14}}>
+          <div style={{fontSize:14,fontWeight:700,color:"#7f1d1d"}}>📵 {unengagedOpenRows.length} account{unengagedOpenRows.length===1?"":"s"} in the Unengaged Cadence{unengagedOverdueRows.length>0?" — "+unengagedOverdueRows.length+" overdue":""}</div>
+          <div style={{fontSize:12,color:"#92400e",marginTop:2,marginBottom:8}}>These accounts have shown signs of going unengaged and are in the re-engagement cadence, separate from standard onboarding/nurture touchpoints.</div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+            {unengagedOpenRows.slice(0,10).map((r,i)=>(
+              <span key={i} style={{fontSize:11,fontWeight:500,padding:"3px 10px",borderRadius:20,background:r.overdue?"rgba(220,38,38,.1)":"rgba(217,119,6,.1)",color:r.overdue?"#7f1d1d":"#92400e"}}>{r.account}{r.overdue?" (overdue)":""}</span>
+            ))}
+            {unengagedOpenRows.length>10 && <span style={{fontSize:11,color:"#92400e",padding:"3px 4px"}}>+{unengagedOpenRows.length-10} more</span>}
+          </div>
         </div>
       )}
 
