@@ -11209,7 +11209,7 @@ function CadenceView({filterCoach="", filterCSM="", managerCoaches=null, cadence
   (showAllStatuses ? scoped : scoped.filter(r=>r.status==="Open")).forEach(r=>listSet.add(r));
   overdueRows.forEach(r=>listSet.add(r));
   const listRows = [...listSet]
-    .filter(r => !statusFilter || (statusFilter==="Overdue" ? (r.status==="Open"&&r.overdue) : r.status===statusFilter))
+    .filter(r => !statusFilter || (statusFilter==="Overdue" ? (r.status==="Open"&&r.overdue) : statusFilter==="Unengaged" ? r.cadenceName===UNENGAGED_CADENCE_NAME : r.status===statusFilter))
     .filter(r => !pillAccountFilter || r.account===pillAccountFilter)
     .sort((a,b) => {
       if (a.overdue !== b.overdue) return a.overdue ? -1 : 1;
@@ -11273,14 +11273,16 @@ function CadenceView({filterCoach="", filterCSM="", managerCoaches=null, cadence
       {/* Unengaged Cadence callout */}
       {unengagedOpenRows.length>0 && (
         <div style={{background:"rgba(217,119,6,.06)",border:"0.5px solid rgba(217,119,6,.35)",borderRadius:12,padding:"14px 20px",marginBottom:14}}>
-          <div style={{fontSize:14,fontWeight:700,color:"#7f1d1d"}}>📵 {unengagedOpenRows.length} account{unengagedOpenRows.length===1?"":"s"} in the Unengaged Cadence{unengagedOverdueRows.length>0?" — "+unengagedOverdueRows.length+" overdue":""}</div>
-          <div style={{fontSize:12,color:"#92400e",marginTop:2,marginBottom:8}}>These accounts have shown signs of going unengaged and are in the re-engagement cadence, separate from standard onboarding/nurture touchpoints.</div>
+          <div onClick={()=>{setShowAllStatuses(true); setStatusFilter("Unengaged"); setPillAccountFilter(null); jumpToList();}} style={{cursor:"pointer"}}>
+            <div style={{fontSize:14,fontWeight:700,color:"#7f1d1d"}}>📵 {unengagedOpenRows.length} account{unengagedOpenRows.length===1?"":"s"} in the Unengaged Cadence{unengagedOverdueRows.length>0?" — "+unengagedOverdueRows.length+" overdue":""}</div>
+            <div style={{fontSize:12,color:"#92400e",marginTop:2,marginBottom:8}}>These accounts have shown signs of going unengaged and are in the re-engagement cadence, separate from standard onboarding/nurture touchpoints. Click to see the full list below.</div>
+          </div>
           <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
             {unengagedOpenRows.slice(0,10).map((r,i)=>(
               <span key={i} onClick={()=>{setShowAllStatuses(true); setStatusFilter(""); setPillAccountFilter(r.account); jumpToList();}}
                 style={{fontSize:11,fontWeight:500,padding:"3px 10px",borderRadius:20,cursor:"pointer",background:r.overdue?"rgba(220,38,38,.1)":"rgba(217,119,6,.1)",color:r.overdue?"#7f1d1d":"#92400e"}}>{r.account}{r.overdue?" (overdue)":""}</span>
             ))}
-            {unengagedOpenRows.length>10 && <span style={{fontSize:11,color:"#92400e",padding:"3px 4px"}}>+{unengagedOpenRows.length-10} more</span>}
+            {unengagedOpenRows.length>10 && <span onClick={()=>{setShowAllStatuses(true); setStatusFilter("Unengaged"); setPillAccountFilter(null); jumpToList();}} style={{fontSize:11,color:"#92400e",padding:"3px 4px",cursor:"pointer",fontWeight:600}}>+{unengagedOpenRows.length-10} more</span>}
           </div>
         </div>
       )}
@@ -11358,13 +11360,14 @@ function CadenceView({filterCoach="", filterCSM="", managerCoaches=null, cadence
                 {pillAccountFilter} × 
               </button>
             )}
-            <select value={statusFilter} onChange={e=>setStatusFilter(e.target.value)}
+            <select value={statusFilter} onChange={e=>{ setStatusFilter(e.target.value); if(e.target.value==="Unengaged") setShowAllStatuses(true); }}
               style={{padding:"4px 10px",borderRadius:20,fontSize:12,fontWeight:500,cursor:"pointer",border:"0.5px solid rgba(41,53,93,.2)",background:"#fff",color:"#29355D"}}>
               <option value="">All statuses</option>
               <option value="Open">Open</option>
               <option value="Overdue">Overdue only</option>
               <option value="Completed">Completed</option>
               <option value="Skipped">Skipped</option>
+              <option value="Unengaged">📵 Unengaged Cadence</option>
             </select>
             <button onClick={()=>setShowAllStatuses(s=>!s)}
               style={{padding:"4px 12px",borderRadius:20,fontSize:12,fontWeight:600,cursor:"pointer",
