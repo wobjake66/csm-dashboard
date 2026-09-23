@@ -11074,6 +11074,9 @@ function CadenceView({filterCoach="", filterCSM="", managerCoaches=null, cadence
   const [sortCol, setSortCol] = React.useState("csm");
   const [sortDir, setSortDir] = React.useState("asc");
   const [showAllStatuses, setShowAllStatuses] = React.useState(false); // touchpoint list: actionable-only (default) vs everything
+  const [pillAccountFilter, setPillAccountFilter] = React.useState(null); // set by clicking a KPI tile or an Unengaged Cadence account pill — narrows the list below to just that click
+  const listRef = React.useRef(null);
+  const jumpToList = () => { if (listRef.current) listRef.current.scrollIntoView({behavior:"smooth", block:"start"}); };
 
   const now = new Date();
   const startOfDay = d => { const x=new Date(d); x.setHours(0,0,0,0); return x; };
@@ -11207,6 +11210,7 @@ function CadenceView({filterCoach="", filterCSM="", managerCoaches=null, cadence
   overdueRows.forEach(r=>listSet.add(r));
   const listRows = [...listSet]
     .filter(r => !statusFilter || (statusFilter==="Overdue" ? (r.status==="Open"&&r.overdue) : r.status===statusFilter))
+    .filter(r => !pillAccountFilter || r.account===pillAccountFilter)
     .sort((a,b) => {
       if (a.overdue !== b.overdue) return a.overdue ? -1 : 1;
       return (a.due?.getTime()||0) - (b.due?.getTime()||0);
@@ -11243,14 +11247,14 @@ function CadenceView({filterCoach="", filterCSM="", managerCoaches=null, cadence
       {/* KPI tiles */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(6,minmax(0,1fr))",gap:10,marginBottom:14}}>
         {[
-          {l:"Total",     v:total, sub:periodLabel, col:"#29355D"},
-          {l:"Due (Open)",v:dueCount, sub:"currently open", col:"#5378FC"},
-          {l:"Completed", v:completedCount, sub:"resolved", col:"#16a34a"},
-          {l:"🚨 Overdue",v:overdueCount, sub:"always shown, any period", col:"#dc2626"},
-          {l:"Skipped",   v:skippedCount, sub:"", col:"#d97706"},
-          {l:"Completion rate", v:completionRate!=null?Math.round(completionRate*100)+"%":"--", sub:"of resolved", col:"#29355D"},
+          {l:"Total",     v:total, sub:periodLabel, col:"#29355D", onClick:()=>{setShowAllStatuses(true); setStatusFilter(""); setPillAccountFilter(null); jumpToList();}},
+          {l:"Due (Open)",v:dueCount, sub:"currently open", col:"#5378FC", onClick:()=>{setShowAllStatuses(false); setStatusFilter("Open"); setPillAccountFilter(null); jumpToList();}},
+          {l:"Completed", v:completedCount, sub:"resolved", col:"#16a34a", onClick:()=>{setShowAllStatuses(true); setStatusFilter("Completed"); setPillAccountFilter(null); jumpToList();}},
+          {l:"🚨 Overdue",v:overdueCount, sub:"always shown, any period", col:"#dc2626", onClick:()=>{setShowAllStatuses(true); setStatusFilter("Overdue"); setPillAccountFilter(null); jumpToList();}},
+          {l:"Skipped",   v:skippedCount, sub:"", col:"#d97706", onClick:()=>{setShowAllStatuses(true); setStatusFilter("Skipped"); setPillAccountFilter(null); jumpToList();}},
+          {l:"Completion rate", v:completionRate!=null?Math.round(completionRate*100)+"%":"--", sub:"of resolved", col:"#29355D", onClick:()=>{setShowAllStatuses(true); setStatusFilter(""); setPillAccountFilter(null); jumpToList();}},
         ].map(t=>(
-          <div key={t.l} style={S.tile}>
+          <div key={t.l} style={{...S.tile, cursor:"pointer"}} onClick={t.onClick}>
             <div style={{fontSize:12,color:"#808080",marginBottom:4}}>{t.l}</div>
             <div style={{fontSize:22,fontWeight:700,color:t.col,lineHeight:1,marginBottom:3}}>{t.v}</div>
             <div style={{fontSize:11,color:"#aaa"}}>{t.sub}</div>
@@ -11273,7 +11277,8 @@ function CadenceView({filterCoach="", filterCSM="", managerCoaches=null, cadence
           <div style={{fontSize:12,color:"#92400e",marginTop:2,marginBottom:8}}>These accounts have shown signs of going unengaged and are in the re-engagement cadence, separate from standard onboarding/nurture touchpoints.</div>
           <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
             {unengagedOpenRows.slice(0,10).map((r,i)=>(
-              <span key={i} style={{fontSize:11,fontWeight:500,padding:"3px 10px",borderRadius:20,background:r.overdue?"rgba(220,38,38,.1)":"rgba(217,119,6,.1)",color:r.overdue?"#7f1d1d":"#92400e"}}>{r.account}{r.overdue?" (overdue)":""}</span>
+              <span key={i} onClick={()=>{setShowAllStatuses(true); setStatusFilter(""); setPillAccountFilter(r.account); jumpToList();}}
+                style={{fontSize:11,fontWeight:500,padding:"3px 10px",borderRadius:20,cursor:"pointer",background:r.overdue?"rgba(220,38,38,.1)":"rgba(217,119,6,.1)",color:r.overdue?"#7f1d1d":"#92400e"}}>{r.account}{r.overdue?" (overdue)":""}</span>
             ))}
             {unengagedOpenRows.length>10 && <span style={{fontSize:11,color:"#92400e",padding:"3px 4px"}}>+{unengagedOpenRows.length-10} more</span>}
           </div>
@@ -11340,12 +11345,19 @@ function CadenceView({filterCoach="", filterCSM="", managerCoaches=null, cadence
       </div>
 
       {/* Touchpoint list with account details */}
-      <div style={S.card}>
+      <div style={S.card} ref={listRef}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10,marginBottom:4}}>
           <div style={{fontSize:13,fontWeight:600,color:"#29355D"}}>
             {showAllStatuses?"All touchpoints":"Actionable touchpoints (Open)"} with account details — {periodLabel}
+            {pillAccountFilter && <span style={{marginLeft:8,fontSize:12,fontWeight:500,color:"#5378FC"}}>· filtered to {pillAccountFilter}</span>}
           </div>
           <div style={{display:"flex",gap:6,alignItems:"center"}}>
+            {pillAccountFilter && (
+              <button onClick={()=>setPillAccountFilter(null)}
+                style={{padding:"4px 12px",borderRadius:20,fontSize:12,fontWeight:600,cursor:"pointer",border:"0.5px solid #5378FC",background:"#5378FC",color:"#fff"}}>
+                {pillAccountFilter} × 
+              </button>
+            )}
             <select value={statusFilter} onChange={e=>setStatusFilter(e.target.value)}
               style={{padding:"4px 10px",borderRadius:20,fontSize:12,fontWeight:500,cursor:"pointer",border:"0.5px solid rgba(41,53,93,.2)",background:"#fff",color:"#29355D"}}>
               <option value="">All statuses</option>
