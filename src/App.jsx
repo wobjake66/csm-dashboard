@@ -7701,7 +7701,14 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
   // (an account already flagged as going unengaged), not a duplicate of it.
   const myUnengagedCadence = (cadenceFull||[]).filter(r => {
     const assigned = String(r["Cadence Member: Assigned"]||"").trim();
-    if (!csmNames.some(n => norm(n)===norm(assigned) || n===assigned)) return false;
+    const isMyCsm = csmNames.some(n => norm(n)===norm(assigned) || n===assigned);
+    // A coach can also be assigned an Unengaged Cadence touchpoint directly
+    // (most commonly re-engagement outreach they handle personally, not
+    // through a specific CSM) — those were being missed since this only
+    // checked against the current CSM list.
+    const coachMatch = COACHES.find(c => norm(c.n)===norm(assigned) || c.n===assigned);
+    const isMyCoach = !filterCSM && coachMatch && (filterCoach ? coachMatch.e===filterCoach : managerCoaches ? managerCoaches.includes(coachMatch.e) : true);
+    if (!isMyCsm && !isMyCoach) return false;
     return String(r["Cadence Member: Cadence Name"]||"").trim()==="CSM Unengaged Cadence" && String(r["Status"]||"").trim()==="Open";
   }).map(r => ({
     account: String(r["Cadence Member: Account"]||"").trim(),
@@ -11113,11 +11120,18 @@ function CadenceView({filterCoach="", filterCSM="", managerCoaches=null, cadence
     const assigned = String(r["Cadence Member: Assigned"]||"").trim();
     const account  = String(r["Cadence Member: Account"]||"").trim();
     if (!assigned || !account) return null;
-    if (!isValidCSM(assigned)) return null;
-    const csm = norm(assigned) || assigned;
-    const i = lk(csm);
-    if (managerCoaches && !(i && managerCoaches.includes(i.c))) return null;
-    if (filterCoach && (!i || i.c!==filterCoach)) return null;
+    // Most touchpoints are assigned to a roster CSM, but a coach can also
+    // be assigned one directly — most commonly for Unengaged Cadence
+    // re-engagement outreach a coach handles personally. Those were being
+    // silently dropped here since isValidCSM only recognizes roster CSMs,
+    // not coaches.
+    const coachMatch = COACHES.find(c => norm(c.n)===norm(assigned) || c.n===assigned);
+    if (!coachMatch && !isValidCSM(assigned)) return null;
+    const csm = coachMatch ? coachMatch.n : (norm(assigned) || assigned);
+    const i = coachMatch ? null : lk(csm);
+    const coachEmail = coachMatch ? coachMatch.e : (i ? i.c : null);
+    if (managerCoaches && !managerCoaches.includes(coachEmail)) return null;
+    if (filterCoach && coachEmail!==filterCoach) return null;
     if (filterCSM && csm!==filterCSM) return null;
     const due = new Date(r["Due Date/Time"]);
     const status = String(r["Status"]||"").trim();
