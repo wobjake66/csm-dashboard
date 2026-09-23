@@ -351,6 +351,39 @@ const DEACTIVATED_CSMS = new Set([
 ]);
 
 function lk(n) { return n ? ROSTER[n.toLowerCase().trim()] || null : null; }
+
+// Region-aware "now" — most of the roster is close enough to the app's
+// default (viewer's own) timezone that this never mattered, but the ANZ
+// team (Aaron Taylor's Team Aurorians) is 14-16 hours ahead depending on
+// DST, which genuinely shifts which calendar day "today"/"yesterday" means
+// for them relative to a US/DR-based viewer. Confirmed as a real issue:
+// a call Nikita made on her own Sept 23 showed as "today" to a US viewer
+// even after Australia had already rolled over to Sept 24.
+const REGION_TIMEZONES = { ANZ: "Australia/Sydney" };
+function getCsmTimezone(csmName) {
+  const info = lk(csmName);
+  return (info && REGION_TIMEZONES[info.reg]) || null;
+}
+// Returns a Date object whose getFullYear/getMonth/getDate/getHours etc.
+// (all of which read the *runtime's* local timezone) will report the wall-
+// clock values as they actually appear in `tz` right now — a standard
+// trick for simulating "now, but elsewhere" without a date library.
+function getNowInTimezone(tz) {
+  if (!tz) return new Date();
+  const now = new Date();
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: tz, year:"numeric", month:"2-digit", day:"2-digit",
+    hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:false,
+  }).formatToParts(now);
+  const get = t => parts.find(p=>p.type===t).value;
+  const hour = get("hour")==="24" ? 0 : +get("hour");
+  return new Date(+get("year"), +get("month")-1, +get("day"), hour, +get("minute"), +get("second"));
+}
+// Convenience wrapper — "now" as it appears for a specific CSM's own region,
+// falling back to the viewer's own local time for everyone else.
+function getNowForCsm(csmName) {
+  return getNowInTimezone(getCsmTimezone(csmName));
+}
 function region(n) {
   const i = lk(n);
   if (i && i.reg) return i.reg;
@@ -3445,7 +3478,7 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
           dt.setDate(dt.getDate() - (day === 0 ? 6 : day - 1));
           return dt;
         };
-        const now = new Date();
+        const now = filterCSM ? getNowForCsm(filterCSM) : new Date();
         // Single-day shortcuts
         const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
         const todayEnd   = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
@@ -8717,7 +8750,7 @@ function CERView({cerAssigned=[], filterCoach="", filterCSM="", csms=[]}) {
 function CapacityView({csms=[], callData={}, callRaw=[], cadenceFull=[], domoBoq=[], filterCoach="", filterCSM=""}) {
   const [capPeriod, setCapPeriod] = React.useState("today"); // today | week | month | quarter
 
-  const now = new Date();
+  const now = filterCSM ? getNowForCsm(filterCSM) : new Date();
   const startOfDay = d => { const x = new Date(d); x.setHours(0,0,0,0); return x; };
   const todayStart = startOfDay(now);
 
@@ -10902,7 +10935,7 @@ function TalkTimeView({records=[], filterCoach="", filterCSM="", managerCoaches=
     dt.setDate(dt.getDate() - (day === 0 ? 6 : day - 1));
     return dt;
   };
-  const now = new Date();
+  const now = filterCSM ? getNowForCsm(filterCSM) : new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0,0,0,0);
   const todayEnd   = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23,59,59,999);
   const yestStart  = new Date(todayStart); yestStart.setDate(todayStart.getDate()-1);
@@ -11775,12 +11808,14 @@ function App() {
     // they do yesterday", which is a completely reasonable, common
     // question a coach would ask. callData day keys are "YYYY-MM-DD",
     // matching this exact-match lookup rather than a range comparison.
-    const yesterdayStr = (() => {
-      const d = new Date(); d.setDate(d.getDate()-1);
-      return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
-    })();
+    // Computed per-CSM in their own region's timezone (see getNowForCsm) —
+    // confirmed as a real issue: a call an ANZ CSM made on their own
+    // "yesterday" could still land in "today" from a US/DR viewer's
+    // perspective, since Australia is 14-16 hours ahead depending on DST.
     const getCallStatsYesterday = csmName => {
       const key = resolveCallKey(csmName);
+      const d = getNowForCsm(csmName); d.setDate(d.getDate()-1);
+      const yesterdayStr = d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
       let completed=0, noShow=0, cancelled=0, scheduled=0;
       Object.values((callData[key]||{})[yesterdayStr]||{}).forEach(d => { completed+=(d.completed||0); noShow+=(d.noShow||0); cancelled+=(d.cancelled||0); scheduled+=(d.scheduled||0); });
       return {completed, noShow, cancelled, scheduled, total: completed+noShow+cancelled+scheduled};
@@ -11789,10 +11824,16 @@ function App() {
     // callData), also completely missing from every scope until now.
     // talkTimeMapped holds per-day records already (see mapTalkTime), so
     // both "yesterday" and "month to date" can be computed directly here
-    // without needing yet another aggregation pass elsewhere.
+    // without needing yet another aggregation pass elsewhere. period is
+    // computed against each CSM's own region timezone, same reasoning as
+    // getCallStatsYesterday above.
     const fmtHMShort = sec => { const h=Math.floor(sec/3600), m=Math.floor((sec%3600)/60); return h+"h "+m+"m"; };
-    const getTalkTimeFor = (csmName, dayTest) => {
+    const getTalkTimeFor = (csmName, period) => {
       const csmNorm = norm(csmName) || csmName;
+      const csmNow = getNowForCsm(csmName);
+      const dayTest = period==="yesterday"
+        ? d => d.toDateString() === new Date(csmNow.getFullYear(), csmNow.getMonth(), csmNow.getDate()-1).toDateString()
+        : d => d.getFullYear()===csmNow.getFullYear() && d.getMonth()===csmNow.getMonth();
       let seconds=0, accepted=0, days=0;
       talkTimeMapped.forEach(rec => {
         if (rec.csm !== csmNorm) return;
@@ -11802,8 +11843,6 @@ function App() {
       });
       return {seconds, accepted, days};
     };
-    const isYesterday = d => d.toDateString() === new Date(Date.now()-86400000).toDateString();
-    const isThisMonth = d => { const n=new Date(); return d.getFullYear()===n.getFullYear() && d.getMonth()===n.getMonth(); };
 
     // Urgent Fulfillment Items — completely missing from every scope until
     // now. fiRows is already mapped (see mapFI), so this reuses the exact
@@ -11868,8 +11907,8 @@ function App() {
         : "No calls recorded"));
       lines.push("");
       lines.push("=== TALK TIME ===");
-      const csmTalkYest = getTalkTimeFor(c.name, isYesterday);
-      const csmTalkMonth = getTalkTimeFor(c.name, isThisMonth);
+      const csmTalkYest = getTalkTimeFor(c.name, "yesterday");
+      const csmTalkMonth = getTalkTimeFor(c.name, "thisMonth");
       lines.push("Yesterday — "+(csmTalkYest.seconds>0 ? fmtHMShort(csmTalkYest.seconds)+" talk time, "+csmTalkYest.accepted+" accepted calls" : "None recorded")+" | Est. non-call time: "+fmtHMShort(estAdminTime(csmTalkYest.seconds))+" (of an 8h day)");
       lines.push("Month to date — "+(csmTalkMonth.seconds>0 ? fmtHMShort(csmTalkMonth.seconds)+" total across "+csmTalkMonth.days+" days, "+csmTalkMonth.accepted+" accepted calls" : "None recorded"));
       lines.push("");
@@ -11949,7 +11988,7 @@ function App() {
         const csmCalls = getCallStatsThisMonth(c.name);
         lines.push("   Calls (MTD): "+(csmCalls.total>0?csmCalls.completed+" completed, "+csmCalls.noShow+" no-show, "+csmCalls.scheduled+" scheduled":"none recorded"));
         const csmCallsYest = getCallStatsYesterday(c.name);
-        const csmTalkYest = getTalkTimeFor(c.name, isYesterday);
+        const csmTalkYest = getTalkTimeFor(c.name, "yesterday");
         lines.push("   Yesterday: "+(csmCallsYest.total>0?csmCallsYest.completed+" completed, "+csmCallsYest.noShow+" no-show, "+csmCallsYest.scheduled+" scheduled":"no calls recorded")+" | Talk time: "+(csmTalkYest.seconds>0?fmtHMShort(csmTalkYest.seconds)+" ("+csmTalkYest.accepted+" accepted)":"none recorded")+" | Est. non-call time: "+fmtHMShort(estAdminTime(csmTalkYest.seconds))+" (of an 8h day)");
         const csmCadYest = getCadenceYesterday(c.name);
         lines.push("   Cadence yesterday: "+(csmCadYest.hasData?csmCadYest.completed+"/"+csmCadYest.total+" completed"+(csmCadYest.items.length>0?" ("+csmCadYest.items.length+" left open)":""):"nothing due"));
@@ -11977,7 +12016,7 @@ function App() {
         const skipCSMs = team.filter(c=>c.skippedCount>0);
         const teamCalls = team.reduce((s,c)=>{ const cc=getCallStatsThisMonth(c.name); return s+cc.completed; },0);
         const teamCallsYest = team.reduce((s,c)=>{ const cc=getCallStatsYesterday(c.name); return s+cc.completed; },0);
-        const teamTalkYest = team.reduce((s,c)=>{ const tt=getTalkTimeFor(c.name, isYesterday); return s+tt.seconds; },0);
+        const teamTalkYest = team.reduce((s,c)=>{ const tt=getTalkTimeFor(c.name, "yesterday"); return s+tt.seconds; },0);
         lines.push("COACH: "+coach.n+" ("+coach.t+") — "+team.length+" CSMs");
         lines.push("  Revenue: "+fd(totRev)+" | Avg on-time: "+(avgOT!=null?pp(avgOT):"n/a")+" | Calls completed MTD: "+teamCalls);
         lines.push("  Yesterday — Calls completed: "+teamCallsYest+" | Talk time: "+fmtHMShort(teamTalkYest));
@@ -12002,7 +12041,7 @@ function App() {
         const lowCad = cadTeam.filter(c=>c.cadPct<0.9);
         const teamCalls = team.reduce((s,c)=>{ const cc=getCallStatsThisMonth(c.name); return s+cc.completed; },0);
         const teamCallsYest = team.reduce((s,c)=>{ const cc=getCallStatsYesterday(c.name); return s+cc.completed; },0);
-        const teamTalkYest = team.reduce((s,c)=>{ const tt=getTalkTimeFor(c.name, isYesterday); return s+tt.seconds; },0);
+        const teamTalkYest = team.reduce((s,c)=>{ const tt=getTalkTimeFor(c.name, "yesterday"); return s+tt.seconds; },0);
         lines.push("COACH: "+coach.n+" ("+coach.t+") — "+team.length+" CSMs");
         lines.push("  Revenue: "+fd(totRev)+" | Cadence avg: "+(avgCad!=null?pp(avgCad):"n/a")+" | On-time avg: "+(avgOT!=null?pp(avgOT):"n/a")+" | Calls completed MTD: "+teamCalls);
         lines.push("  Yesterday — Calls completed: "+teamCallsYest+" | Talk time: "+fmtHMShort(teamTalkYest));
