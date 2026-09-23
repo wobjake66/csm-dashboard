@@ -10935,7 +10935,13 @@ function TalkTimeView({records=[], filterCoach="", filterCSM="", managerCoaches=
     dt.setDate(dt.getDate() - (day === 0 ? 6 : day - 1));
     return dt;
   };
-  const now = filterCSM ? getNowForCsm(filterCSM) : new Date();
+  // Deliberately NOT using getNowForCsm here, unlike Calls — this is a
+  // daily-overwrite report that can genuinely lag a day behind (it hasn't
+  // refreshed for a CSM's own "today" yet), so their most recent real data
+  // sits on the date the report itself shows, not on a timezone-shifted
+  // "yesterday" that may not have been reported yet at all. Using the raw
+  // dates as recorded avoids a mismatch between the label and the data.
+  const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0,0,0,0);
   const todayEnd   = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23,59,59,999);
   const yestStart  = new Date(todayStart); yestStart.setDate(todayStart.getDate()-1);
@@ -11824,16 +11830,19 @@ function App() {
     // callData), also completely missing from every scope until now.
     // talkTimeMapped holds per-day records already (see mapTalkTime), so
     // both "yesterday" and "month to date" can be computed directly here
-    // without needing yet another aggregation pass elsewhere. period is
-    // computed against each CSM's own region timezone, same reasoning as
-    // getCallStatsYesterday above.
+    // without needing yet another aggregation pass elsewhere. Deliberately
+    // NOT using getNowForCsm here (unlike getCallStatsYesterday above) —
+    // this report can genuinely lag a day behind a CSM's own "today" since
+    // it's a daily overwrite, so shifting the boundary to their timezone
+    // can point at a day that hasn't been reported yet, hiding real data
+    // that's sitting one day earlier under the report's own dates.
     const fmtHMShort = sec => { const h=Math.floor(sec/3600), m=Math.floor((sec%3600)/60); return h+"h "+m+"m"; };
     const getTalkTimeFor = (csmName, period) => {
       const csmNorm = norm(csmName) || csmName;
-      const csmNow = getNowForCsm(csmName);
+      const viewerNow = new Date();
       const dayTest = period==="yesterday"
-        ? d => d.toDateString() === new Date(csmNow.getFullYear(), csmNow.getMonth(), csmNow.getDate()-1).toDateString()
-        : d => d.getFullYear()===csmNow.getFullYear() && d.getMonth()===csmNow.getMonth();
+        ? d => d.toDateString() === new Date(viewerNow.getFullYear(), viewerNow.getMonth(), viewerNow.getDate()-1).toDateString()
+        : d => d.getFullYear()===viewerNow.getFullYear() && d.getMonth()===viewerNow.getMonth();
       let seconds=0, accepted=0, days=0;
       talkTimeMapped.forEach(rec => {
         if (rec.csm !== csmNorm) return;
