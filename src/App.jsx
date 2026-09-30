@@ -10526,7 +10526,34 @@ function FulfillmentView({filterCoach="", filterCSM="", managerCoaches=null, row
 
       {websiteReviewItems.length>0 && (
         <div style={S.card}>
-          <div style={{fontSize:13,fontWeight:600,color:"#29355D",marginBottom:4}}>🎨 Website FI Design Reviews</div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
+            <div style={{fontSize:13,fontWeight:600,color:"#29355D"}}>🎨 Website FI Design Reviews</div>
+            <button onClick={()=>{
+              const allRows = [
+                ...designNeedsAttention.map(r=>({...r, bucket:"Needs attention"})),
+                ...designDueToday.map(r=>({...r, bucket:"Due today"})),
+                ...designScheduled.map(r=>({...r, bucket:"Good for now"})),
+              ];
+              if (!allRows.length) return;
+              const headers = ["Status","Account","FI Owner","Design Review Date","FI Number"];
+              const csvRows = allRows.map(r => [
+                r.bucket, r.account, r.fiOwner,
+                r.designReview ? r.designReview.toLocaleDateString("en-US") : "No date scheduled",
+                r.fiNum,
+              ]);
+              const csv = [headers, ...csvRows].map(row => row.map(v=>{
+                const s = String(v??"").replace(/"/g,'""');
+                return s.includes(",")||s.includes('"') ? '"'+s+'"' : s;
+              }).join(",")).join("\n");
+              const a = document.createElement("a");
+              a.href = URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
+              a.download = "website-fi-design-reviews-"+new Date().toISOString().slice(0,10)+".csv";
+              a.click();
+            }}
+              style={{padding:"4px 12px",borderRadius:20,border:"0.5px solid rgba(41,53,93,.2)",background:"#fff",color:"#29355D",fontSize:13,fontWeight:500,cursor:"pointer",whiteSpace:"nowrap"}}>
+              ⬇ Export CSV ({websiteReviewItems.length})
+            </button>
+          </div>
           <div style={{fontSize:12,color:"#808080",marginBottom:14}}>
             {websiteReviewItems.length} Website FI{websiteReviewItems.length===1?"":"s"} currently in Review — no future Design Review date scheduled means it needs attention
           </div>
