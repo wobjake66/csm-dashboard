@@ -281,7 +281,7 @@ const ROSTER = {
   "scott mather":{c:"chase.boyd@thryv.com",t:"Boyd Scouts",r:"CSMII",reg:"US"},
   "anthony yen":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII",reg:"US"},
   "damita hill":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII",reg:"US"},
-  "deivis pena":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII",reg:"DR"},
+  "deivis pena":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMI",reg:"DR"},
   "elianny tena antigua":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII",reg:"DR"},
   "johnny cornielle":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII",reg:"DR"},
   "juan liberato":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII",reg:"DR"},
