@@ -11,7 +11,8 @@ const PIN = "thryv2026";
 const PIN_KEY  = "csm_pin_v1";
 const FONT_KEY = "csm_font_v1";
 
-const CSV_REV     = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=1721544342&single=true&output=csv"; // live JotForm sync
+const CSV_REV     = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=1721544342&single=true&output=csv"; // live JotForm sync — historical, kept permanently even after the Q4 switch to Microsoft Forms
+const CSV_NEW_REV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=1005682208&single=true&output=csv"; // "New Revenue" tab — Microsoft Forms submissions starting Q4 2026, see translateNewRevenueForm
 const CSV_EMAIL   = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=0&single=true&output=csv";
 const CSV_CAD     = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=1973544046&single=true&output=csv";
 const CSV_DUE     = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=341836664&single=true&output=csv";
@@ -501,6 +502,51 @@ function isValidCSM(name) {
   // Also allow if norm() mapped it to a canonical name that's in ROSTER
   const normed = norm(name);
   return !!ROSTER[normed.toLowerCase().trim()];
+}
+
+// Starting Q4 2026, revenue submissions moved from JotForm to Microsoft
+// Forms (a new "New Revenue" tab) — genuinely different column names, but
+// the same underlying concepts. Rather than touch mapRev (or any of the
+// other places that already correctly parse the old schema), this
+// translates each new-form row into the exact old-form field names mapRev
+// expects, so the translated rows can simply be concatenated with the
+// historical JotForm rows and flow through completely unchanged logic.
+// Confirmed directly against a real export: the new form has one unified
+// "Integration" name field and one unified "Revenue Added" amount field,
+// with "Type of Integration" (confirmed using the exact same three values
+// as the old form: "Monthly Recurring Revenue" / "One-Time Revenue" /
+// "Non-Revenue") determining which old-form bucket they belong in. The
+// new form's own type-specific columns ("Monthly Recurring Revenue
+// Integration", etc.) were blank on every real submission checked, so
+// they aren't used here.
+function translateNewRevenueForm(rows) {
+  if (!rows || rows.length === 0) return [];
+  return rows.map(r => {
+    const type = String(r["Type of Integration"]||"").trim();
+    const integrationName = String(r["Integration"]||"").trim();
+    const revenueAdded = r["Revenue Added"];
+    const out = {
+      "CSM Name": r["CSM Name (as it appears in Salesforce)"]||"",
+      "CSM Team!": r["CSM Team!"]||"",
+      "Business Name": r["Business Name"]||"",
+      "Thryv ID": r["Thryv ID"]||"",
+      "Enterprise ID": r["kGen/Enterprise ID (AUS)"]||"",
+      "Quarter for Consideration": r["Quarter for Consideration"]||"",
+      "Type of Integration": type,
+      "MRR $ Added": "", "OTR $ Added": "",
+      "MRR Integration": "", "One-Time Revenue Integrations": "", "Non-Revenue Integrations": "",
+    };
+    if (type === "Monthly Recurring Revenue") {
+      out["MRR $ Added"] = revenueAdded;
+      out["MRR Integration"] = integrationName;
+    } else if (type === "One-Time Revenue") {
+      out["OTR $ Added"] = revenueAdded;
+      out["One-Time Revenue Integrations"] = integrationName;
+    } else if (type === "Non-Revenue") {
+      out["Non-Revenue Integrations"] = integrationName;
+    }
+    return out;
+  });
 }
 
 function mapRev(rows) {
@@ -11679,6 +11725,7 @@ function App() {
         ()=>fetchCSV(CSV_CALLS).catch(()=>[]),
         ()=>fetchCSV(CSV_DOMO_BOQ).catch(()=>[]),
         ()=>fetchCSV(CSV_REV).catch(()=>[]),
+        ()=>fetchCSV(CSV_NEW_REV).catch(()=>[]),
         ()=>fetchCSV(CSV_CAD).catch(()=>[]),
         ()=>fetchCSV(CSV_DUE).catch(()=>[]),
         ()=>fetchCSV(CSV_ONTIME).catch(()=>[]),
@@ -11708,7 +11755,7 @@ function App() {
         ()=>fetchCSV(CSV_Q3_BILLING_MOVEMENT).catch(()=>[]),
         ()=>fetchCSV(CSV_TALK_TIME).catch(()=>[]),
         ()=>fetchCSV(CSV_NO_ACTIVITY).catch(()=>[]),
-      ]).then(([cadenceFullRows, callRows, domoBoqRows, revRows, cadRows, dueRows, ontimeRows, emailRows, historyRows, bobRows, q2DomoBoqRows, skippedRows, bobDetRows, bobAdjRows, qaMcRows, qaSSRows, mcRows, bcRows, churnAlertRows, q3BobCurRows, q3SuppRows, sfCurRows, sfBoqRows, cerAssignedRows, cerCompletedRows, fiRawRows, sccChurnRows, billingDetailRows, billingRosterRows, billingSummaryRows, billingMovementRows, talkTimeRows, noActivityRows]) => {
+      ]).then(([cadenceFullRows, callRows, domoBoqRows, revRows, newRevRows, cadRows, dueRows, ontimeRows, emailRows, historyRows, bobRows, q2DomoBoqRows, skippedRows, bobDetRows, bobAdjRows, qaMcRows, qaSSRows, mcRows, bcRows, churnAlertRows, q3BobCurRows, q3SuppRows, sfCurRows, sfBoqRows, cerAssignedRows, cerCompletedRows, fiRawRows, sccChurnRows, billingDetailRows, billingRosterRows, billingSummaryRows, billingMovementRows, talkTimeRows, noActivityRows]) => {
         latestEmail   = emailRows;
         latestCad          = cadRows;
         latestDue          = dueRows;
@@ -11738,9 +11785,10 @@ function App() {
         latestMcChurn     = mcRows;
         latestBcChurn     = bcRows;
         latestChurnAlerts = churnAlertRows;
-        setRawRev(revRows);
+        const mergedRevRows = [...(revRows||[]), ...translateNewRevenueForm(newRevRows||[])];
+        setRawRev(mergedRevRows);
         let rev, email, cad, due, ontime, skipped, built;
-        try { rev     = mapRev(revRows); }     catch(e) { console.error("mapRev failed:", e); rev = {}; }
+        try { rev     = mapRev(mergedRevRows); }     catch(e) { console.error("mapRev failed:", e); rev = {}; }
         try { email   = mapEmail(emailRows); } catch(e) { console.error("mapEmail failed:", e); email = {}; }
         try { cad     = mapCadence(cadRows); } catch(e) { console.error("mapCadence failed:", e); cad = []; }
         try { due     = mapDue(dueRows); }     catch(e) { console.error("mapDue failed:", e); due = []; }
@@ -11773,9 +11821,10 @@ function App() {
 
     // Revenue-only refresh — rebuildCSMs with fresh rev + cached other data
     function refreshRevenue() {
-      fetchCSV(CSV_REV).then(revRows => {
-        setRawRev(revRows);
-        const rev     = mapRev(revRows);
+      Promise.all([fetchCSV(CSV_REV), fetchCSV(CSV_NEW_REV).catch(()=>[])]).then(([revRows, newRevRows]) => {
+        const mergedRevRows = [...(revRows||[]), ...translateNewRevenueForm(newRevRows||[])];
+        setRawRev(mergedRevRows);
+        const rev     = mapRev(mergedRevRows);
         const email   = mapEmail(latestEmail);
         const cad     = mapCadence(latestCad);
         const due     = mapDue(latestDue);
