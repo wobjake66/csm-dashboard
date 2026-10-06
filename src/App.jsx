@@ -6,7 +6,7 @@ const imgLegend      = "https://raw.githubusercontent.com/wobjake66/csm-dashboar
 const imgWinningYesterday = "https://raw.githubusercontent.com/wobjake66/csm-dashboard/main/winning_yesterday.png";
 const imgNotQuiteYesterday = "https://raw.githubusercontent.com/wobjake66/csm-dashboard/main/not_quite_yesterday.png";
 import * as XLSX from "xlsx";
-const imgCauldron = "https://raw.githubusercontent.com/wobjake66/csm-dashboard/main/success%20cauldron.png";
+const imgCauldron = "https://raw.githubusercontent.com/wobjake66/csm-dashboard/main/success%20cauldron.jpg";
 
 const PIN = "thryv2026";
 const PIN_KEY  = "csm_pin_v1";
@@ -9443,8 +9443,9 @@ const SCC_CATEGORY_READ = {
 
 // ── CONTESTS ────────────────────────────────────────────────────────────────
 // Coaches & up. Each contest is a sub-tab; add new ones to CONTEST_TABS and
-// render them in ContestsView. Reports are uploaded by hand (no Google Sheet).
-const CAULDRON_KEY = "csm_cauldron_v1";
+// render them in ContestsView.
+// Published Google Sheet (same columns as the Microsoft Forms export). Fetched live — no upload needed.
+const CSV_CAULDRON = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=1151691484&single=true&output=csv";
 const CAULDRON_MIN_PER_SITE = 30; // comp time per launched + completed website
 const CONTEST_TABS = [["cauldron","🎃 The Success Cauldron"]];
 
@@ -9452,6 +9453,23 @@ const CONTEST_TABS = [["cauldron","🎃 The Success Cauldron"]];
 function xlSerialToDate(v) {
   if (typeof v === "number" && isFinite(v)) return new Date(Math.round((v - 25569) * 86400 * 1000));
   return null;
+}
+// Google Sheets publishes dates as text (e.g. "10/1/2026 12:49:09" or "2026-10-01"). Convert to an Excel-style serial.
+function toSerial(v) {
+  if (typeof v === "number" && isFinite(v)) return v;
+  const t = String(v==null?"":v).trim();
+  if (!t) return null;
+  let y,mo,d,h=0,mi=0,sec=0,ap="", m;
+  if ((m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})(?:[ T,]+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([AaPp][Mm])?)?$/))) {
+    mo=+m[1]; d=+m[2]; y=+m[3]; if (y<100) y+=2000;
+    h=+(m[4]||0); mi=+(m[5]||0); sec=+(m[6]||0); ap=(m[7]||"").toLowerCase();
+  } else if ((m = t.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T]+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([AaPp][Mm])?)?/))) {
+    y=+m[1]; mo=+m[2]; d=+m[3];
+    h=+(m[4]||0); mi=+(m[5]||0); sec=+(m[6]||0); ap=(m[7]||"").toLowerCase();
+  } else return null;
+  if (ap==="pm" && h<12) h+=12;
+  if (ap==="am" && h===12) h=0;
+  return Date.UTC(y,mo-1,d,h,mi,sec)/86400000 + 25569;
 }
 function fmtXlDate(v) {
   const d = xlSerialToDate(v);
@@ -9485,18 +9503,54 @@ function parseCauldronSheet(objs) {
     const fi = str(get("website fi number"));
     const isWeb = /website/i.test(type);
     rows.push({
-      id: get("id"), ts: typeof get("completion time")==="number" ? get("completion time") : null,
+      id: get("id"), ts: toSerial(get("completion time")),
       csm: dispName(norm(who) || who), team: str(get("csm team")), acct,
       type: type.replace(/\s*-\s*/," – ").replace(/\s*\$\s*/," $"),
       kind: isWeb ? "web" : "cash",
-      fi, url: str(get("website url")), launched: get("date the website was launched"),
+      fi, url: str(get("website url")), launched: toSerial(get("date the website was launched")) ?? str(get("date the website was launched")),
       test: /^test$/i.test(acct) || /^test$/i.test(fi) || /\btest\b/i.test(typed),
     });
   });
   return rows;
 }
 
-function ContestsView({cauldron, setCauldron}) {
+// Full CSV parser that respects quoted fields containing commas and line breaks.
+function parseCSVText(text) {
+  const rows = []; let row = [], cur = "", inQ = false;
+  const t = String(text||"").replace(/^\uFEFF/,"");
+  for (let i = 0; i < t.length; i++) {
+    const ch = t[i];
+    if (inQ) {
+      if (ch === '"') { if (t[i+1] === '"') { cur += '"'; i++; } else inQ = false; }
+      else cur += ch;
+    } else if (ch === '"') inQ = true;
+    else if (ch === ",") { row.push(cur); cur = ""; }
+    else if (ch === "\n" || ch === "\r") {
+      if (ch === "\r" && t[i+1] === "\n") i++;
+      row.push(cur); cur = "";
+      if (row.some(v=>v!=="")) rows.push(row);
+      row = [];
+    } else cur += ch;
+  }
+  row.push(cur);
+  if (row.some(v=>v!=="")) rows.push(row);
+  if (rows.length < 2) return [];
+  const headers = rows[0].map(h=>h.trim());
+  return rows.slice(1).map(r => { const o = {}; headers.forEach((h,j)=>{ o[h] = (r[j]||"").trim(); }); return o; });
+}
+async function fetchCauldron() {
+  const controller = new AbortController();
+  const tid = setTimeout(()=>controller.abort(), 20000);
+  try {
+    const res = await fetch(CSV_CAULDRON, {signal: controller.signal});
+    if (!res.ok) throw new Error("HTTP "+res.status);
+    const text = await res.text();
+    if (!text || /<!DOCTYPE|<html/i.test(text.slice(0,200))) throw new Error("the sheet didn't return CSV (is it still published to the web?)");
+    return parseCauldronSheet(parseCSVText(text));
+  } finally { clearTimeout(tid); }
+}
+
+function ContestsView() {
   const [contestTab, setContestTab] = useState("cauldron");
   return (
     <div>
@@ -9510,35 +9564,24 @@ function ContestsView({cauldron, setCauldron}) {
           ))}
         </div>
       )}
-      {contestTab==="cauldron" && <CauldronView data={cauldron} setData={setCauldron}/>}
+      {contestTab==="cauldron" && <CauldronView/>}
     </div>
   );
 }
 
-function CauldronView({data, setData}) {
+function CauldronView() {
+  const [data, setData] = useState(null); // {rows, syncedAt}
   const [err, setErr] = useState("");
-  const fileRef = React.useRef(null);
+  const [loading, setLoading] = useState(true);
 
-  const onFile = e => {
-    const f = e.target.files && e.target.files[0];
-    e.target.value = "";
-    if (!f) return;
-    setErr("");
-    const reader = new FileReader();
-    reader.onload = ev => {
-      try {
-        const wb = XLSX.read(new Uint8Array(ev.target.result), {type:"array"});
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        const rows = parseCauldronSheet(XLSX.utils.sheet_to_json(ws, {defval:""}));
-        if (!rows.length) { setErr("Couldn't find any submissions. Make sure this is the Success Cauldron form export (it needs a \"Submission Type\" column)."); return; }
-        const next = {rows, fileName:f.name, loadedAt:Date.now()};
-        setData(next);
-        try { localStorage.setItem(CAULDRON_KEY, JSON.stringify(next)); } catch(_) {}
-      } catch(ex) { setErr("Couldn't read that file: "+(ex&&ex.message?ex.message:"unknown error")); }
-    };
-    reader.readAsArrayBuffer(f);
-  };
-  const clearData = () => { setData(null); try { localStorage.removeItem(CAULDRON_KEY); } catch(_) {} };
+  const load = React.useCallback(() => {
+    setLoading(true);
+    fetchCauldron()
+      .then(rows => { setData({rows, syncedAt:Date.now()}); setErr(""); })
+      .catch(ex => setErr("Couldn't load the Success Cauldron sheet: "+(ex&&ex.message?ex.message:"unknown error")))
+      .finally(() => setLoading(false));
+  }, []);
+  useEffect(() => { load(); const iv = setInterval(load, 120000); return () => clearInterval(iv); }, [load]);
 
   const rows = data ? data.rows : [];
   const real = rows.filter(r=>!r.test);
@@ -9570,16 +9613,13 @@ function CauldronView({data, setData}) {
       <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap",background:"#fff",border:"0.5px solid rgba(41,53,93,.1)",borderRadius:12,padding:"12px 16px",marginBottom:16}}>
         <div style={{flex:1,minWidth:220,fontSize:13,color:"#29355D"}}>
           {data ? <>
-            <b>Report loaded:</b> {data.fileName}
-            <div style={{fontSize:12,color:"#808080",marginTop:2}}>{rows.length} submissions{latestTs?" · latest "+fmtXlDateTime(latestTs):""} · uploaded {new Date(data.loadedAt).toLocaleString("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})}</div>
+            <b>Live from the Success Cauldron sheet</b>
+            <div style={{fontSize:12,color:"#808080",marginTop:2}}>{rows.length} submissions{latestTs?" · latest "+fmtXlDateTime(latestTs):""} · synced {new Date(data.syncedAt).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})} · refreshes every 2 min</div>
           </> : <>
-            <b>No report loaded yet.</b>
-            <div style={{fontSize:12,color:"#808080",marginTop:2}}>Upload the latest Success Cauldron form export (.xlsx) to see standings.</div>
+            <b>{loading?"Loading the Success Cauldron sheet…":"Not loaded"}</b>
           </>}
         </div>
-        <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" onChange={onFile} style={{display:"none"}}/>
-        <button onClick={()=>fileRef.current&&fileRef.current.click()} style={{background:"#FF5000",color:"#fff",border:"none",borderRadius:8,padding:"8px 16px",fontSize:13,fontWeight:600,cursor:"pointer"}}>⬆ Upload {data?"fresh ":""}report (.xlsx)</button>
-        {data && <button onClick={clearData} style={{background:"transparent",color:"#29355D",border:"0.5px solid rgba(41,53,93,.2)",borderRadius:8,padding:"8px 16px",fontSize:13,fontWeight:500,cursor:"pointer"}}>Clear</button>}
+        <button onClick={load} disabled={loading} style={{background:"transparent",color:"#29355D",border:"0.5px solid rgba(41,53,93,.2)",borderRadius:8,padding:"8px 16px",fontSize:13,fontWeight:500,cursor:loading?"default":"pointer",opacity:loading?.6:1}}>{loading?"Refreshing…":"↻ Refresh"}</button>
       </div>
       {err && <div style={{background:"rgba(220,38,38,.07)",color:"#991b1b",borderRadius:8,padding:"10px 14px",fontSize:13,marginBottom:16}}>{err}</div>}
 
@@ -9676,7 +9716,7 @@ function CauldronView({data, setData}) {
           </div>
         </div>
         <div style={{fontSize:12,color:"#808080",lineHeight:1.55,marginTop:14}}>
-          Reports are read in your browser and remembered on this device only — upload a fresh export to update the standings. Test entries are greyed out and not counted. CSMs are matched on the form's signed-in name rather than the typed "CSM Name" field. Cash-reward entries are listed but don't earn comp time.
+          Standings update automatically as new form responses land in the sheet. Test entries are greyed out and not counted. CSMs are matched on the form's signed-in name rather than the typed "CSM Name" field. Cash-reward entries are listed but don't earn comp time.
         </div>
       </>)}
     </div>
@@ -12146,7 +12186,6 @@ function App() {
   const [csms, setCSMs] = useState([]);
   const [tab, setTab] = useState("coaching");
   const [navMenu, setNavMenu] = useState(false); // Leaderboard ▾ dropdown (Leaderboard / Contests)
-  const [cauldron, setCauldron] = useState(() => { try { const j = localStorage.getItem(CAULDRON_KEY); return j ? JSON.parse(j) : null; } catch(_) { return null; } });
   const [trendsTab, setTrendsTab] = useState("performance");
   const [bobTab, setBobTab] = useState("overview");
   const [callsSubTab, setCallsSubTab] = useState("calls");
@@ -13077,7 +13116,7 @@ My question: ${aiCustom}`,
             liveBobDet={liveBobDet} callData={callData} qamc={qamc} qass={qass} history={history}
             skippedCSMs={skippedCSMs.filter(c=>{const i=lk(c.name);if(filterCoach&&(i&&i.c)!==filterCoach)return false;if(filterCSM&&c.name!==filterCSM)return false;return true;})}
             bobAdj={bobAdj} getDet={getDet} domoBoq={domoBoq} q3BobCur={q3BobCur} q3Supp={q3Supp} billingBobByCsm={billingBobByCsm}/>}
-          {tab==="contests"&&!isCsmView&&<ContestsView cauldron={cauldron} setCauldron={setCauldron}/>}
+          {tab==="contests"&&!isCsmView&&<ContestsView/>}
           {tab==="leaderboard"&&<LeaderboardView csms={filteredCSMs} allCsms={csms} bobRaw={bobRaw} history={history} q2DomoBoq={q2DomoBoq} domoBoq={domoBoq} q3BobCur={q3BobCur} q3Supp={q3Supp} rawRev={rawRev} cadenceFull={cadenceFull}/>}
           
           {tab==="revenue"&&<RevenueView rawRev={rawRev} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches}/>}
@@ -13212,3 +13251,4 @@ My question: ${aiCustom}`,
     </div>
   );
 }
+      
