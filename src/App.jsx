@@ -6,7 +6,7 @@ const imgLegend      = "https://raw.githubusercontent.com/wobjake66/csm-dashboar
 const imgWinningYesterday = "https://raw.githubusercontent.com/wobjake66/csm-dashboard/main/winning_yesterday.png";
 const imgNotQuiteYesterday = "https://raw.githubusercontent.com/wobjake66/csm-dashboard/main/not_quite_yesterday.png";
 import * as XLSX from "xlsx";
-const imgCauldron = "https://raw.githubusercontent.com/wobjake66/csm-dashboard/main/success%20cauldron.jpg";
+const imgCauldron = "https://raw.githubusercontent.com/wobjake66/csm-dashboard/main/success%20cauldron.png";
 
 const PIN = "thryv2026";
 const PIN_KEY  = "csm_pin_v1";
