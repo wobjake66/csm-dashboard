@@ -9614,7 +9614,7 @@ function CauldronView() {
         <div style={{flex:1,minWidth:220,fontSize:13,color:"#29355D"}}>
           {data ? <>
             <b>Live from the Success Cauldron sheet</b>
-            <div style={{fontSize:12,color:"#808080",marginTop:2}}>{rows.length} submissions{latestTs?" · latest "+fmtXlDateTime(latestTs):""} · synced {new Date(data.syncedAt).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})} · refreshes every 2 min</div>
+            <div style={{fontSize:12,color:"#808080",marginTop:2}}>{rows.length} submissions{latestTs?" · latest "+fmtXlDateTime(latestTs):""} · synced {new Date(data.syncedAt).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})}</div>
           </> : <>
             <b>{loading?"Loading the Success Cauldron sheet…":"Not loaded"}</b>
           </>}
@@ -12983,7 +12983,7 @@ My question: ${aiCustom}`,
           </div>
           <div style={{display:"flex",alignItems:"center",gap:12}}>
             {status==="loading"&&<span style={{fontSize:13,padding:"4px 10px",borderRadius:20,background:"rgba(255,255,255,.1)",color:"rgba(255,255,255,.6)"}}>⟳ Loading...</span>}
-            {status==="ok"&&<span style={{fontSize:13,padding:"4px 10px",borderRadius:20,background:"rgba(22,163,74,.25)",color:"#86efac"}}>✓ Live · Revenue syncs every 2 min{updatedAt?" · "+updatedAt:""}</span>}
+            {status==="ok"&&<span style={{fontSize:13,padding:"4px 10px",borderRadius:20,background:"rgba(22,163,74,.25)",color:"#86efac"}}>✓ Updated{updatedAt?" · "+updatedAt:""}</span>}
             {status==="error"&&<span style={{fontSize:13,padding:"4px 10px",borderRadius:20,background:"rgba(220,38,38,.25)",color:"#fca5a5"}}>✗ Sync error</span>}
             <div style={{display:"flex",alignItems:"center",gap:2,background:"rgba(255,255,255,.08)",borderRadius:6,padding:"3px 6px"}}>
               <button onClick={()=>changeFontScale(-0.1)} disabled={fontScale<=0.8}
@@ -13251,4 +13251,3 @@ My question: ${aiCustom}`,
     </div>
   );
 }
-      
