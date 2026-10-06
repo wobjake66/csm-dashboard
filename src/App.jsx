@@ -6,6 +6,7 @@ const imgLegend      = "https://raw.githubusercontent.com/wobjake66/csm-dashboar
 const imgWinningYesterday = "https://raw.githubusercontent.com/wobjake66/csm-dashboard/main/winning_yesterday.png";
 const imgNotQuiteYesterday = "https://raw.githubusercontent.com/wobjake66/csm-dashboard/main/not_quite_yesterday.png";
 import * as XLSX from "xlsx";
+const imgCauldron = "https://raw.githubusercontent.com/wobjake66/csm-dashboard/main/success%20cauldron.jpg";
 
 const PIN = "thryv2026";
 const PIN_KEY  = "csm_pin_v1";
@@ -9440,6 +9441,248 @@ const SCC_CATEGORY_READ = {
   "Retained / Active": "Logged as churn in error; asset is live",
 };
 
+// ── CONTESTS ────────────────────────────────────────────────────────────────
+// Coaches & up. Each contest is a sub-tab; add new ones to CONTEST_TABS and
+// render them in ContestsView. Reports are uploaded by hand (no Google Sheet).
+const CAULDRON_KEY = "csm_cauldron_v1";
+const CAULDRON_MIN_PER_SITE = 30; // comp time per launched + completed website
+const CONTEST_TABS = [["cauldron","🎃 The Success Cauldron"]];
+
+// Excel stores dates as serial numbers; convert to a JS Date holding the same wall-clock time in UTC.
+function xlSerialToDate(v) {
+  if (typeof v === "number" && isFinite(v)) return new Date(Math.round((v - 25569) * 86400 * 1000));
+  return null;
+}
+function fmtXlDate(v) {
+  const d = xlSerialToDate(v);
+  if (d) return d.toLocaleDateString("en-US",{month:"short",day:"numeric",timeZone:"UTC"});
+  return v ? String(v) : "";
+}
+function fmtXlDateTime(v) {
+  const d = xlSerialToDate(v);
+  if (!d) return "";
+  return d.toLocaleDateString("en-US",{month:"short",day:"numeric",timeZone:"UTC"}) + ", " +
+    d.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit",timeZone:"UTC"});
+}
+
+// Turn the Microsoft Forms export (array of header→value objects) into clean submission rows.
+// Headers carry stray non-breaking spaces, so match them after cleaning.
+function parseCauldronSheet(objs) {
+  const clean = k => String(k).replace(/\u00a0/g," ").trim().toLowerCase();
+  const rows = [];
+  (objs||[]).forEach(o => {
+    const m = {};
+    Object.keys(o).forEach(k => { m[clean(k)] = o[k]; });
+    const get = prefix => { const k = Object.keys(m).find(k => k.startsWith(prefix)); return k===undefined ? "" : m[k]; };
+    const str = v => String(v==null?"":v).replace(/\u00a0/g," ").replace(/\s+/g," ").trim();
+    const type = str(get("submission type"));
+    if (!type) return;
+    // "Name" is the signed-in form user (reliable); "CSM Name" is typed free-text (variants like "Sam Frias").
+    const signedIn = str(m["name"]);
+    const typed = str(get("csm name"));
+    const who = signedIn || typed;
+    const acct = str(get("account name"));
+    const fi = str(get("website fi number"));
+    const isWeb = /website/i.test(type);
+    rows.push({
+      id: get("id"), ts: typeof get("completion time")==="number" ? get("completion time") : null,
+      csm: dispName(norm(who) || who), team: str(get("csm team")), acct,
+      type: type.replace(/\s*-\s*/," – ").replace(/\s*\$\s*/," $"),
+      kind: isWeb ? "web" : "cash",
+      fi, url: str(get("website url")), launched: get("date the website was launched"),
+      test: /^test$/i.test(acct) || /^test$/i.test(fi) || /\btest\b/i.test(typed),
+    });
+  });
+  return rows;
+}
+
+function ContestsView({cauldron, setCauldron}) {
+  const [contestTab, setContestTab] = useState("cauldron");
+  return (
+    <div>
+      {CONTEST_TABS.length > 1 && (
+        <div style={{display:"flex",gap:2,background:"#ECEEF1",borderRadius:8,padding:3,marginBottom:16,width:"fit-content"}}>
+          {CONTEST_TABS.map(([t,l])=>(
+            <button key={t} onClick={()=>setContestTab(t)}
+              style={{padding:"5px 14px",fontSize:12,fontWeight:500,border:"none",borderRadius:6,cursor:"pointer",
+                background:contestTab===t?"#fff":"transparent",color:contestTab===t?"#29355D":"#808080",
+                boxShadow:contestTab===t?"0 1px 3px rgba(0,0,0,.08)":"none"}}>{l}</button>
+          ))}
+        </div>
+      )}
+      {contestTab==="cauldron" && <CauldronView data={cauldron} setData={setCauldron}/>}
+    </div>
+  );
+}
+
+function CauldronView({data, setData}) {
+  const [err, setErr] = useState("");
+  const fileRef = React.useRef(null);
+
+  const onFile = e => {
+    const f = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!f) return;
+    setErr("");
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const wb = XLSX.read(new Uint8Array(ev.target.result), {type:"array"});
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = parseCauldronSheet(XLSX.utils.sheet_to_json(ws, {defval:""}));
+        if (!rows.length) { setErr("Couldn't find any submissions. Make sure this is the Success Cauldron form export (it needs a \"Submission Type\" column)."); return; }
+        const next = {rows, fileName:f.name, loadedAt:Date.now()};
+        setData(next);
+        try { localStorage.setItem(CAULDRON_KEY, JSON.stringify(next)); } catch(_) {}
+      } catch(ex) { setErr("Couldn't read that file: "+(ex&&ex.message?ex.message:"unknown error")); }
+    };
+    reader.readAsArrayBuffer(f);
+  };
+  const clearData = () => { setData(null); try { localStorage.removeItem(CAULDRON_KEY); } catch(_) {} };
+
+  const rows = data ? data.rows : [];
+  const real = rows.filter(r=>!r.test);
+  const webs = real.filter(r=>r.kind==="web");
+  const cash = real.filter(r=>r.kind==="cash");
+  const tally = (arr,k) => {
+    const m = {};
+    arr.forEach(r => { m[r[k]||"—"] = (m[r[k]||"—"]||0)+1; });
+    return Object.keys(m).map(n=>({name:n,n:m[n]})).sort((a,b)=>b.n-a.n||a.name.localeCompare(b.name));
+  };
+  const csmT = tally(webs,"csm"), teamT = tally(webs,"team");
+  const maxC = csmT.length ? csmT[0].n : 1;
+  const hrs = min => { const h=min/60; return (h%1===0?h:h.toFixed(1))+" hrs"; };
+  const latestTs = rows.reduce((mx,r)=>r.ts&&r.ts>mx?r.ts:mx, 0);
+  const medals = ["🥇","🥈","🥉"];
+  const log = [...rows].sort((a,b)=>(b.ts||0)-(a.ts||0));
+  const thS = (al) => ({padding:"8px 14px",textAlign:al||"left",fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,whiteSpace:"nowrap"});
+  const tdS = (al) => ({padding:"9px 14px",textAlign:al||"left",borderTop:"0.5px solid rgba(41,53,93,.08)",whiteSpace:"nowrap"});
+  const panel = {background:"#fff",border:"0.5px solid rgba(41,53,93,.1)",borderRadius:12,overflow:"hidden"};
+  const panelH = {fontSize:13,fontWeight:600,color:"#29355D",padding:"12px 16px",borderBottom:"0.5px solid rgba(41,53,93,.08)"};
+  const hrefOf = u => "https://"+u.replace(/^https?:\/\//i,"");
+
+  return (
+    <div>
+      <div style={{borderRadius:14,overflow:"hidden",marginBottom:16,lineHeight:0,boxShadow:"0 6px 24px rgba(0,0,0,.18)"}}>
+        <img src={imgCauldron} alt="The Success Cauldron — October CSM Incentive" style={{width:"100%",height:"auto",display:"block"}}/>
+      </div>
+
+      <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap",background:"#fff",border:"0.5px solid rgba(41,53,93,.1)",borderRadius:12,padding:"12px 16px",marginBottom:16}}>
+        <div style={{flex:1,minWidth:220,fontSize:13,color:"#29355D"}}>
+          {data ? <>
+            <b>Report loaded:</b> {data.fileName}
+            <div style={{fontSize:12,color:"#808080",marginTop:2}}>{rows.length} submissions{latestTs?" · latest "+fmtXlDateTime(latestTs):""} · uploaded {new Date(data.loadedAt).toLocaleString("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})}</div>
+          </> : <>
+            <b>No report loaded yet.</b>
+            <div style={{fontSize:12,color:"#808080",marginTop:2}}>Upload the latest Success Cauldron form export (.xlsx) to see standings.</div>
+          </>}
+        </div>
+        <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" onChange={onFile} style={{display:"none"}}/>
+        <button onClick={()=>fileRef.current&&fileRef.current.click()} style={{background:"#FF5000",color:"#fff",border:"none",borderRadius:8,padding:"8px 16px",fontSize:13,fontWeight:600,cursor:"pointer"}}>⬆ Upload {data?"fresh ":""}report (.xlsx)</button>
+        {data && <button onClick={clearData} style={{background:"transparent",color:"#29355D",border:"0.5px solid rgba(41,53,93,.2)",borderRadius:8,padding:"8px 16px",fontSize:13,fontWeight:500,cursor:"pointer"}}>Clear</button>}
+      </div>
+      {err && <div style={{background:"rgba(220,38,38,.07)",color:"#991b1b",borderRadius:8,padding:"10px 14px",fontSize:13,marginBottom:16}}>{err}</div>}
+
+      {data && (<>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:16}}>
+          <div style={{background:"#141A3D",borderRadius:10,padding:"14px 16px"}}>
+            <div style={{fontSize:12,textTransform:"uppercase",color:"rgba(255,255,255,.6)",fontWeight:500}}>Comp time earned</div>
+            <div style={{fontSize:28,fontWeight:600,color:"#fff",marginTop:6,lineHeight:1.1}}>{hrs(webs.length*CAULDRON_MIN_PER_SITE)}</div>
+            <div style={{fontSize:12,color:"rgba(255,255,255,.55)",marginTop:6}}>{CAULDRON_MIN_PER_SITE} min per launched website</div>
+          </div>
+          <div style={{background:"#ECEEF1",borderRadius:10,padding:"14px 16px"}}>
+            <div style={{fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500}}>Websites launched</div>
+            <div style={{fontSize:28,fontWeight:600,color:"#FF5000",marginTop:6,lineHeight:1.1}}>{webs.length}</div>
+            <div style={{fontSize:12,color:"#808080",marginTop:6}}>launched &amp; FI completed</div>
+          </div>
+          <div style={{background:"#ECEEF1",borderRadius:10,padding:"14px 16px"}}>
+            <div style={{fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500}}>CSMs on the board</div>
+            <div style={{fontSize:28,fontWeight:600,color:"#29355D",marginTop:6,lineHeight:1.1}}>{csmT.length}</div>
+            <div style={{fontSize:12,color:"#808080",marginTop:6}}>{teamT.length} team{teamT.length===1?"":"s"}</div>
+          </div>
+          <div style={{background:"#ECEEF1",borderRadius:10,padding:"14px 16px"}}>
+            <div style={{fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500}}>Cash-reward entries</div>
+            <div style={{fontSize:28,fontWeight:600,color:"#5378FC",marginTop:6,lineHeight:1.1}}>{cash.length}</div>
+            <div style={{fontSize:12,color:"#808080",marginTop:6}}>product adds · no comp time</div>
+          </div>
+        </div>
+
+        <div style={{display:"grid",gridTemplateColumns:"1.2fr 1fr",gap:12,marginBottom:16}}>
+          <div style={panel}>
+            <div style={panelH}>CSM standings <span style={{fontWeight:400,color:"#808080"}}>· websites launched</span></div>
+            <div style={{overflowX:"auto"}}>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+                <thead><tr><th style={thS()}>CSM</th><th style={thS()}>Progress</th><th style={thS("right")}>Sites</th><th style={thS("right")}>Comp time</th></tr></thead>
+                <tbody>
+                  {csmT.length===0 && <tr><td colSpan={4} style={{...tdS(),color:"#808080"}}>No launched websites yet.</td></tr>}
+                  {csmT.map((c,i)=>(
+                    <tr key={c.name}>
+                      <td style={{...tdS(),color:"#29355D"}}><span style={{display:"inline-block",width:22}}>{medals[i]||""}</span>{c.name}</td>
+                      <td style={{...tdS(),minWidth:110}}><div style={{height:8,borderRadius:4,background:"rgba(41,53,93,.06)",overflow:"hidden"}}><div style={{height:"100%",width:Math.round(c.n/maxC*100)+"%",background:"linear-gradient(90deg,#FF5000,#fbbf24)",borderRadius:4}}/></div></td>
+                      <td style={{...tdS("right"),fontWeight:600}}>{c.n}</td>
+                      <td style={tdS("right")}>{c.n*CAULDRON_MIN_PER_SITE} min</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div style={panel}>
+            <div style={panelH}>Team standings</div>
+            <div style={{overflowX:"auto"}}>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+                <thead><tr><th style={thS()}>Team</th><th style={thS("right")}>Sites</th><th style={thS("right")}>Comp time</th></tr></thead>
+                <tbody>
+                  {teamT.length===0 && <tr><td colSpan={3} style={{...tdS(),color:"#808080"}}>No launched websites yet.</td></tr>}
+                  {teamT.map((t,i)=>(
+                    <tr key={t.name}>
+                      <td style={{...tdS(),color:"#29355D"}}><span style={{display:"inline-block",width:22}}>{medals[i]||""}</span>{t.name}</td>
+                      <td style={{...tdS("right"),fontWeight:600}}>{t.n}</td>
+                      <td style={tdS("right")}>{hrs(t.n*CAULDRON_MIN_PER_SITE)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div style={panel}>
+          <div style={panelH}>All submissions <span style={{fontWeight:400,color:"#808080"}}>· newest first</span></div>
+          <div style={{overflowX:"auto",maxHeight:520,overflowY:"auto"}}>
+            <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+              <thead><tr>{["Date","CSM","Team","Account","Type","FI #","Website","Launched"].map(h=><th key={h} style={{...thS(),position:"sticky",top:0,background:"#fff"}}>{h}</th>)}<th style={{...thS("right"),position:"sticky",top:0,background:"#fff"}}>Comp time</th></tr></thead>
+              <tbody>
+                {log.map((r,i)=>{
+                  const pill = r.test ? {t:"Test",bg:"rgba(128,128,128,.18)",c:"#808080"}
+                    : r.kind==="web" ? {t:"Website",bg:"rgba(22,163,74,.12)",c:"#16a34a"}
+                    : {t:r.type,bg:"rgba(83,120,252,.14)",c:"#5378FC"};
+                  return (
+                    <tr key={(r.id||"")+"-"+i} style={{opacity:r.test?.45:1}}>
+                      <td style={tdS()}>{fmtXlDate(r.ts)}</td>
+                      <td style={{...tdS(),color:"#29355D"}}>{r.csm}</td>
+                      <td style={tdS()}>{r.team||"—"}</td>
+                      <td style={tdS()}>{r.acct||"—"}</td>
+                      <td style={tdS()}><span style={{fontSize:11,fontWeight:600,borderRadius:20,padding:"2px 9px",background:pill.bg,color:pill.c}}>{pill.t}</span></td>
+                      <td style={tdS()}>{r.fi||"—"}</td>
+                      <td style={tdS()}>{r.url ? <a href={hrefOf(r.url)} target="_blank" rel="noopener noreferrer" style={{color:"#5378FC",textDecoration:"none"}}>{r.url.replace(/^https?:\/\//i,"").replace(/\/$/,"").slice(0,34)}</a> : "—"}</td>
+                      <td style={tdS()}>{r.kind==="web"?(fmtXlDate(r.launched)||"—"):"—"}</td>
+                      <td style={{...tdS("right"),fontWeight:600}}>{r.kind==="web"&&!r.test?CAULDRON_MIN_PER_SITE+" min":"—"}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div style={{fontSize:12,color:"#808080",lineHeight:1.55,marginTop:14}}>
+          Reports are read in your browser and remembered on this device only — upload a fresh export to update the standings. Test entries are greyed out and not counted. CSMs are matched on the form's signed-in name rather than the typed "CSM Name" field. Cash-reward entries are listed but don't earn comp time.
+        </div>
+      </>)}
+    </div>
+  );
+}
+
 function SCCView({rows}) {
   const useRows = rows || [];
 
@@ -11902,6 +12145,8 @@ function App() {
   });
   const [csms, setCSMs] = useState([]);
   const [tab, setTab] = useState("coaching");
+  const [navMenu, setNavMenu] = useState(false); // Leaderboard ▾ dropdown (Leaderboard / Contests)
+  const [cauldron, setCauldron] = useState(() => { try { const j = localStorage.getItem(CAULDRON_KEY); return j ? JSON.parse(j) : null; } catch(_) { return null; } });
   const [trendsTab, setTrendsTab] = useState("performance");
   const [bobTab, setBobTab] = useState("overview");
   const [callsSubTab, setCallsSubTab] = useState("calls");
@@ -12727,12 +12972,36 @@ My question: ${aiCustom}`,
             // this ordering), but in the tab bar itself it's placed last so their
             // working tabs (book of business, calls, cadence, revenue, etc.) lead.
             const visibleTabs = isCsmView ? csmTabs : allTabs;
-            return visibleTabs.map(t => (
+            return visibleTabs.map(t => {
+              if (t==="leaderboard" && !isCsmView) {
+                const lbActive = tab==="leaderboard"||tab==="contests";
+                return (
+                  <div key={t} style={{position:"relative",display:"flex"}}>
+                    <button onClick={()=>setNavMenu(m=>!m)}
+                      style={{padding:"10px 18px",fontSize:13,fontWeight:500,color:lbActive?"#fff":"rgba(255,255,255,.55)",background:"transparent",border:"none",cursor:"pointer",borderBottom:lbActive?"3px solid #FF5000":"3px solid transparent",whiteSpace:"nowrap"}}>
+                      Leaderboard ▾
+                    </button>
+                    {navMenu && <>
+                      <div onClick={()=>setNavMenu(false)} style={{position:"fixed",top:0,left:0,right:0,bottom:0,zIndex:40}}/>
+                      <div style={{position:"absolute",top:"100%",left:0,zIndex:50,minWidth:190,background:"#1c2347",border:"0.5px solid rgba(255,255,255,.15)",borderRadius:8,boxShadow:"0 8px 24px rgba(0,0,0,.35)",padding:4,marginTop:2}}>
+                        {[["leaderboard","🏆 Leaderboard"],["contests","🎃 Contests"]].map(([k,l])=>(
+                          <button key={k} onClick={()=>{setTab(k);setNavMenu(false);}}
+                            style={{display:"block",width:"100%",textAlign:"left",padding:"9px 14px",fontSize:13,fontWeight:tab===k?600:500,color:tab===k?"#fff":"rgba(255,255,255,.75)",background:tab===k?"rgba(255,80,0,.25)":"transparent",border:"none",borderRadius:6,cursor:"pointer",whiteSpace:"nowrap"}}>
+                            {l}
+                          </button>
+                        ))}
+                      </div>
+                    </>}
+                  </div>
+                );
+              }
+              return (
               <button key={t} onClick={()=>setTab(t)}
                 style={{padding:"10px 18px",fontSize:13,fontWeight:500,color:tab===t?"#fff":"rgba(255,255,255,.55)",background:"transparent",border:"none",cursor:"pointer",borderBottom:tab===t?"3px solid #FF5000":"3px solid transparent",whiteSpace:"nowrap"}}>
                 {t==="mydash"?"🏠 My Dashboard":t==="coaching"?"Coaching":t==="digest"?"📋 Daily Digest":t==="trends"?"📈 Trends":t==="calls"?"📞 Calls":t==="cers"?"📋 CERs":t==="revenue"?"💰 Revenue":t==="bob"?"📋 Book of Business":t==="capacity"?"⚡ Capacity":t==="scc"?"✍️ Strategic Content":t==="fi"?"📋 Fulfillment Items":t==="cadence"?"📅 Cadence":t==="sf_cadence"?"📅 Cadence (Salesforce)":t==="no_activity"?"🚨 No Activity":t.charAt(0).toUpperCase()+t.slice(1)}
               </button>
-            ));
+              );
+            });
           })()}
         </div>
       </div>
@@ -12808,6 +13077,7 @@ My question: ${aiCustom}`,
             liveBobDet={liveBobDet} callData={callData} qamc={qamc} qass={qass} history={history}
             skippedCSMs={skippedCSMs.filter(c=>{const i=lk(c.name);if(filterCoach&&(i&&i.c)!==filterCoach)return false;if(filterCSM&&c.name!==filterCSM)return false;return true;})}
             bobAdj={bobAdj} getDet={getDet} domoBoq={domoBoq} q3BobCur={q3BobCur} q3Supp={q3Supp} billingBobByCsm={billingBobByCsm}/>}
+          {tab==="contests"&&!isCsmView&&<ContestsView cauldron={cauldron} setCauldron={setCauldron}/>}
           {tab==="leaderboard"&&<LeaderboardView csms={filteredCSMs} allCsms={csms} bobRaw={bobRaw} history={history} q2DomoBoq={q2DomoBoq} domoBoq={domoBoq} q3BobCur={q3BobCur} q3Supp={q3Supp} rawRev={rawRev} cadenceFull={cadenceFull}/>}
           
           {tab==="revenue"&&<RevenueView rawRev={rawRev} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches}/>}
