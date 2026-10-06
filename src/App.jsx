@@ -18,7 +18,7 @@ const CSV_CAD     = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGw
 const CSV_DUE     = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=341836664&single=true&output=csv";
 const CSV_ONTIME  = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=459845057&single=true&output=csv";
 const CSV_CER_ASSIGNED  = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=35918390&single=true&output=csv";
-// TODO: replace gid=REPLACE_ME once the "No Activity" tab is published to web —
+// TODO: replace gid=1626604952 once the "No Activity" tab is published to web —
 // same publish-to-web CSV pattern as every other source on this page. Columns
 // expected (from the real upload validated Sept 2026): "Onboarding Form Owner",
 // "Account", "Enterprise ID", "Status", "Days Since Last Call", "Form Aging
@@ -56,6 +56,9 @@ const CSV_Q3_BILLING_DETAIL  = "https://docs.google.com/spreadsheets/d/e/2PACX-1
 const CSV_Q3_BILLING_ROSTER  = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=1308635513&single=true&output=csv"; // full account roster (every account regardless of activity) — needed alongside CSV_Q3_BILLING_DETAIL's change-events to know the book's true total size
 const CSV_Q3_BILLING_SUMMARY = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=519194419&single=true&output=csv"; // per-CSM monthly revenue + retention %, source's own pre-computed figures — see renderMonthlyBreakout
 const CSV_Q3_BILLING_MOVEMENT = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=985056147&single=true&output=csv"; // per-CSM monthly Increase/Decrease/Cancel breakdown, source's own pre-computed figures — see renderMonthlyBreakout
+// Q3 FINAL BoB — Domo "CSM B o B - Detail Table" export, one row per product line (L2/L3) per account.
+// Columns: CSM Coach, CSM Name, Enterprise ID, Account Name, L2, L3, L2 Beginning of Quarter Amount, L2 End of Quarter, L2 Retention %.
+const CSV_Q3_FINAL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=1626604952&single=true&output=csv";
 const CSV_TALK_TIME = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=1897779098&single=true&output=csv"; // daily-overwrite talk time export, pivot-style (agent header row followed by daily detail rows) — see mapTalkTime
 // ── Cadence, sourced directly from Salesforce (Sept 2026) ──────────────────
 // This is a ONE-TIME STATIC SNAPSHOT, not a live connection. The deployed
@@ -5536,7 +5539,7 @@ const BOB_COACH_TOTALS = {
 const BOB_DETAIL = {};
 
 // PRE-BUILD PREVIEW DATA — static snapshot from q3_BoB_8-25.xlsx (BoB Retention tab, joined with SF retention detail's Status field). NOT wired to a live sheet.
-function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChurn, churnAlerts, onSelectCSM, liveBobDet={}, bobAdj={}, q3BobCur=[], domoBoq=[], q3Supp=[], q2DomoBoq=[], bobTab="overview", setBobTab=()=>{}, sfBobRows=[], acctCoverageByCsm={}, billingDetailRaw=[], billingBobRows=[], billingSummaryRaw=[], billingMovementRaw=[]}) {
+function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChurn, churnAlerts, onSelectCSM, liveBobDet={}, bobAdj={}, q3BobCur=[], domoBoq=[], q3Supp=[], q2DomoBoq=[], bobTab="overview", setBobTab=()=>{}, sfBobRows=[], acctCoverageByCsm={}, billingDetailRaw=[], billingBobRows=[], billingSummaryRaw=[], billingMovementRaw=[], q3FinalRows=[]}) {
   const [bobSubTab, setBobSubTab] = useState("current"); // "current" | "q3"
   const getDet = n => {
     const base = liveBobDet[n]||liveBobDet[norm(n)]||BOB_DETAIL[n]||BOB_DETAIL[norm(n)]||{};
@@ -5595,6 +5598,11 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
   const [billingSort,     setBillingSort]     = useState({col:"boq", dir:"desc"});
   const [billingExpanded, setBillingExpanded] = useState(null);
   const [billingStatusFilter, setBillingStatusFilter] = useState(null);
+  const [q3fSort, setQ3fSort] = useState({col:"boq", dir:"desc"});
+  const [q3fExpanded, setQ3fExpanded] = useState(null);
+  const [q3fAcct, setQ3fAcct] = useState(null);
+  const [q3fStatus, setQ3fStatus] = useState(null);
+  const [q3fSearch, setQ3fSearch] = useState("");
   const [billingStatusSort, setBillingStatusSort] = useState("net");
   const [billingStatusSortDir, setBillingStatusSortDir] = useState("desc");
   const [billingMonthlySort, setBillingMonthlySort] = useState("boq");
@@ -6890,6 +6898,257 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
     );
   };
 
+  // ── Q3 FINAL BoB — product-line detail from the Domo "CSM B o B - Detail Table" ──
+  // Beginning vs End of Quarter only (no monthly columns). Same Increase / Decrease /
+  // Cancelled breakout as the Q3 BoB (Billing) tab so coaches can review each account
+  // and raise challenges through their own form.
+  const renderQ3Final = () => {
+    const fmt$   = n => n==null?"--":"$"+Math.abs(n).toLocaleString("en-US",{minimumFractionDigits:0,maximumFractionDigits:0});
+    const fmtNet = n => (n>=0?"+":"-")+fmt$(n);
+    const fmtPct = p => p==null?"--":(p*100).toFixed(1)+"%";
+    const retCol = r => r==null?"#808080":r>=0.91?"#16a34a":r>=0.85?"#d97706":"#dc2626";
+    const netCol = n => n>=0.005?"#16a34a":n<=-0.005?"#dc2626":"#808080";
+
+    if (!q3FinalRows || q3FinalRows.length===0) return (
+      <div style={{background:"#fff",border:"0.5px solid rgba(41,53,93,.1)",borderRadius:12,textAlign:"center",padding:"40px 20px",color:"#808080"}}>
+        <div style={{fontSize:32,marginBottom:12}}>✅</div>
+        <div style={{fontSize:14,fontWeight:500,color:"#29355D",marginBottom:8}}>Q3 Final BoB — waiting on data</div>
+        <div style={{fontSize:12}}>Paste the "CSM B o B - Detail Table" report into its sheet tab, publish it to the web as CSV, and set the gid in CSV_Q3_FINAL.</div>
+      </div>
+    );
+
+    const scopedRows = q3FinalRows.filter(r => {
+      const i = lk(norm(r.csm)) || lk(r.csm);
+      if (managerCoaches && !(i && managerCoaches.includes(i.c))) return false;
+      if (filterCoach && (i && i.c) !== filterCoach) return false;
+      if (filterCSM && norm(r.csm) !== filterCSM && r.csm !== filterCSM) return false;
+      return true;
+    });
+
+    const totalBoq = scopedRows.reduce((s,r)=>s+r.boq,0);
+    const totalEoq = scopedRows.reduce((s,r)=>s+r.eoq,0);
+    const totalRet = totalBoq>0 ? totalEoq/totalBoq : null;
+    const byStatus = s => scopedRows.filter(r=>r.status===s);
+    const netOf = rows => rows.reduce((s,r)=>s+r.net,0);
+    const tiles = [
+      {k:"Added",     l:"Added",     desc:"New accounts with no revenue at the start of the quarter", col:"#6d28d9", bg:"rgba(124,58,237,.06)"},
+      {k:"Increase",  l:"Increase",  desc:"Existing accounts whose revenue grew", col:"#166534", bg:"rgba(22,163,74,.06)"},
+      {k:"Decrease",  l:"Decrease",  desc:"Existing accounts whose revenue dropped", col:"#991b1b", bg:"rgba(220,38,38,.06)"},
+      {k:"Cancelled", l:"Cancelled", desc:"Accounts with revenue at the start and none at the end", col:"#92400e", bg:"rgba(217,119,6,.06)"},
+      {k:"No Change", l:"No change", desc:"Accounts whose revenue held steady", col:"#5f5e5a", bg:"rgba(41,53,93,.05)"},
+    ];
+
+    // ── Per-CSM rollup ──
+    const byCsm = {};
+    scopedRows.forEach(r => {
+      if (!byCsm[r.csm]) byCsm[r.csm] = {name:r.csm, boq:0, eoq:0, accts:0, incCount:0, incNet:0, decCount:0, decNet:0, canCount:0, canNet:0, addCount:0, addNet:0};
+      const g = byCsm[r.csm];
+      g.boq+=r.boq; g.eoq+=r.eoq; g.accts++;
+      if (r.status==="Increase") { g.incCount++; g.incNet+=r.net; }
+      if (r.status==="Decrease") { g.decCount++; g.decNet+=r.net; }
+      if (r.status==="Cancelled") { g.canCount++; g.canNet+=r.net; }
+      if (r.status==="Added") { g.addCount++; g.addNet+=r.net; }
+    });
+    const csmRows = Object.values(byCsm).map(g => ({...g, net:g.eoq-g.boq, ret:g.boq>0?g.eoq/g.boq:null}));
+    const sortedCsmRows = [...csmRows].sort((a,b) => {
+      const av = a[q3fSort.col]??-999999, bv = b[q3fSort.col]??-999999;
+      const cmp = typeof av==="string"||typeof bv==="string" ? String(av).toLowerCase().localeCompare(String(bv).toLowerCase()) : av-bv;
+      return q3fSort.dir==="asc" ? cmp : -cmp;
+    });
+    const thSortF = (col,label,align="right") => (
+      <th onClick={()=>setQ3fSort(s=>({col, dir:s.col===col?(s.dir==="asc"?"desc":"asc"):(col==="name"?"asc":"desc")}))}
+        style={{padding:"8px 10px",textAlign:align,fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500,cursor:"pointer",whiteSpace:"nowrap",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>
+        {label} {q3fSort.col===col?(q3fSort.dir==="asc"?"↑":"↓"):""}
+      </th>
+    );
+
+    // ── Product lines behind one account ──
+    const lineTable = (r, indent) => (
+      <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,background:"rgba(41,53,93,.03)"}}>
+        <thead>
+          <tr style={{borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>
+            {["Product family","Product","Beginning","End","Net","Change"].map(h=>(
+              <th key={h} style={{padding:"5px 12px 5px "+indent+"px",textAlign:h==="Product family"||h==="Product"?"left":"right",fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500}}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {r.lines.map((l,i)=>(
+            <tr key={i} style={{borderBottom:"0.5px solid rgba(41,53,93,.04)"}}>
+              <td style={{padding:"5px 12px 5px "+indent+"px",color:"#29355D"}}>{l.l2||"--"}</td>
+              <td style={{padding:"5px 12px",color:"#29355D"}}>{l.l3||"--"}</td>
+              <td style={{padding:"5px 12px",textAlign:"right",color:"#5378FC"}}>{fmt$(l.boq)}</td>
+              <td style={{padding:"5px 12px",textAlign:"right"}}>{fmt$(l.eoq)}</td>
+              <td style={{padding:"5px 12px",textAlign:"right",fontWeight:600,color:netCol(l.net)}}>{Math.abs(l.net)<0.005?"--":fmtNet(l.net)}</td>
+              <td style={{padding:"5px 12px",textAlign:"right",fontSize:11,color:l.kind==="Cancelled"?"#92400e":l.kind==="Decrease"?"#991b1b":l.kind==="Increase"?"#166534":l.kind==="New"?"#6d28d9":"#808080"}}>{l.kind}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+
+    // ── Account list (used for the status tiles, the search box, and each CSM's expand) ──
+    const acctTable = (rows, showCsm, indent) => (
+      <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+        <thead>
+          <tr style={{borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>
+            {(showCsm?["CSM","Account","EID","Beginning","End","Net","Status"]:["Account","EID","Beginning","End","Net","Status"]).map(h=>(
+              <th key={h} style={{padding:"6px 12px 6px "+((h===(showCsm?"CSM":"Account"))?indent:12)+"px",textAlign:(h==="CSM"||h==="Account")?"left":"right",fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500,position:"sticky",top:0,background:"#fff"}}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(r=>{
+            const open = q3fAcct===r.eid;
+            const sc = r.status==="Cancelled"?"#92400e":r.status==="Decrease"?"#991b1b":r.status==="Increase"?"#166534":r.status==="Added"?"#6d28d9":"#808080";
+            return (
+              <React.Fragment key={r.eid}>
+                <tr onClick={()=>setQ3fAcct(open?null:r.eid)} style={{cursor:"pointer",borderBottom:"0.5px solid rgba(41,53,93,.04)",background:open?"rgba(41,53,93,.03)":"transparent"}}>
+                  {showCsm && <td style={{padding:"6px 12px 6px "+indent+"px",color:"#29355D",whiteSpace:"nowrap"}}>{dispName(r.csm)}</td>}
+                  <td style={{padding:showCsm?"6px 12px":"6px 12px 6px "+indent+"px",color:"#29355D"}}>{open?"▾ ":"▸ "}{r.account}</td>
+                  <td style={{padding:"6px 12px",textAlign:"right",fontFamily:"monospace",fontSize:11,color:"#808080"}}>{r.eid}</td>
+                  <td style={{padding:"6px 12px",textAlign:"right",color:"#5378FC"}}>{fmt$(r.boq)}</td>
+                  <td style={{padding:"6px 12px",textAlign:"right",fontWeight:500}}>{fmt$(r.eoq)}</td>
+                  <td style={{padding:"6px 12px",textAlign:"right",fontWeight:600,color:netCol(r.net)}}>{Math.abs(r.net)<0.005?"--":fmtNet(r.net)}</td>
+                  <td style={{padding:"6px 12px",textAlign:"right",fontSize:11,color:sc,fontWeight:500}}>{r.status}</td>
+                </tr>
+                {open && <tr><td colSpan={showCsm?7:6} style={{padding:0}}>{lineTable(r, indent+16)}</td></tr>}
+              </React.Fragment>
+            );
+          })}
+        </tbody>
+      </table>
+    );
+
+    const q = q3fSearch.trim().toLowerCase();
+    const listRows = (q3fStatus || q)
+      ? scopedRows.filter(r => (!q3fStatus || r.status===q3fStatus) && (!q || r.account.toLowerCase().includes(q) || r.eid.toLowerCase().includes(q) || r.csm.toLowerCase().includes(q)))
+          .sort((a,b)=>Math.abs(b.net)-Math.abs(a.net))
+      : [];
+
+    return (
+      <div>
+        {/* Headline retention */}
+        <div style={{display:"grid",gridTemplateColumns:"1.3fr 1fr 1fr 1fr",gap:10,marginBottom:14}}>
+          <div style={{background:"#141A3D",borderRadius:10,padding:"14px 16px"}}>
+            <div style={{fontSize:13,textTransform:"uppercase",color:"rgba(255,255,255,.6)",fontWeight:500,marginBottom:6}}>Q3 final retention</div>
+            <div style={{fontSize:30,fontWeight:600,color:"#fff",lineHeight:1}}>{fmtPct(totalRet)}</div>
+            <div style={{fontSize:13,color:"rgba(255,255,255,.55)",marginTop:6}}>{fmt$(totalEoq)} end of quarter ÷ {fmt$(totalBoq)} beginning</div>
+          </div>
+          <div style={{background:"#ECEEF1",borderRadius:10,padding:"14px 16px"}}>
+            <div style={{fontSize:13,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:6}}>Beginning</div>
+            <div style={{fontSize:25,fontWeight:600,color:"#5378FC",lineHeight:1}}>{fmt$(totalBoq)}</div>
+            <div style={{fontSize:13,color:"#808080",marginTop:6}}>{csmRows.length} CSMs</div>
+          </div>
+          <div style={{background:"#ECEEF1",borderRadius:10,padding:"14px 16px"}}>
+            <div style={{fontSize:13,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:6}}>End of quarter</div>
+            <div style={{fontSize:25,fontWeight:600,color:"#29355D",lineHeight:1}}>{fmt$(totalEoq)}</div>
+            <div style={{fontSize:13,color:"#808080",marginTop:6}}>{scopedRows.length} accounts</div>
+          </div>
+          <div style={{background:"#ECEEF1",borderRadius:10,padding:"14px 16px"}}>
+            <div style={{fontSize:13,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:6}}>Net</div>
+            <div style={{fontSize:25,fontWeight:600,color:netCol(totalEoq-totalBoq),lineHeight:1}}>{fmtNet(totalEoq-totalBoq)}</div>
+          </div>
+        </div>
+
+        {/* Status tiles */}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:8,marginBottom:14}}>
+          {tiles.map(t=>{
+            const rows = byStatus(t.k);
+            const isActive = q3fStatus===t.k;
+            return (
+              <div key={t.k} onClick={()=>setQ3fStatus(isActive?null:t.k)}
+                style={{background:t.bg,borderRadius:8,padding:"12px 14px",textAlign:"center",cursor:"pointer",border:isActive?"2px solid "+t.col:"2px solid transparent",transition:"border-color .15s"}}>
+                {t.k!=="No Change"
+                  ? <div style={{fontSize:24,fontWeight:600,color:t.col}}>{fmtNet(netOf(rows))}</div>
+                  : <div style={{fontSize:24,fontWeight:600,color:t.col}}>{rows.length}</div>}
+                <div style={{fontSize:13,color:t.col}}>{t.l}{t.k!=="No Change" && <span style={{opacity:.7}}> · {rows.length} accounts</span>}</div>
+                <div style={{fontSize:13,color:t.col,opacity:.6,marginTop:4,lineHeight:1.3}}>{t.desc}</div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Search */}
+        <div style={{marginBottom:14,display:"flex",gap:8,alignItems:"center"}}>
+          <input value={q3fSearch} onChange={e=>setQ3fSearch(e.target.value)} placeholder="Search by account name, EID, or CSM…"
+            style={{flex:1,maxWidth:380,padding:"7px 12px",fontSize:12,border:"0.5px solid rgba(41,53,93,.2)",borderRadius:8,outline:"none",color:"#29355D"}}/>
+          {q3fSearch && <button onClick={()=>setQ3fSearch("")} style={{padding:"4px 12px",borderRadius:20,border:"0.5px solid rgba(41,53,93,.2)",background:"#fff",color:"#808080",fontSize:12,fontWeight:500,cursor:"pointer"}}>Clear ×</button>}
+        </div>
+
+        {(q3fStatus || q) && (
+          <div style={{background:"#fff",border:"0.5px solid rgba(41,53,93,.1)",borderRadius:12,overflow:"hidden",marginBottom:14}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>
+              <div style={{fontSize:13,fontWeight:600,color:"#29355D"}}>{q3fStatus?q3fStatus+" accounts":"Search results"} ({listRows.length}) <span style={{fontWeight:400,color:"#808080"}}>· click an account for its product lines</span></div>
+              <button onClick={()=>{setQ3fStatus(null);setQ3fSearch("");}} style={{padding:"4px 12px",borderRadius:20,border:"0.5px solid rgba(41,53,93,.2)",background:"#fff",color:"#808080",fontSize:12,fontWeight:500,cursor:"pointer"}}>Clear ×</button>
+            </div>
+            <div style={{overflowX:"auto",maxHeight:460,overflowY:"auto"}}>{acctTable(listRows.slice(0,500), true, 12)}</div>
+            {listRows.length>500 && <div style={{padding:"8px 16px",fontSize:12,color:"#808080"}}>Showing the 500 largest of {listRows.length} — narrow with the search box.</div>}
+          </div>
+        )}
+
+        {/* Per-CSM table */}
+        <div style={{background:"#fff",border:"0.5px solid rgba(41,53,93,.1)",borderRadius:12,overflow:"hidden",marginBottom:14}}>
+          <div style={{overflowX:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+            <thead>
+              <tr style={{borderBottom:"0.5px solid rgba(41,53,93,.1)"}}>
+                {thSortF("name","CSM","left")}
+                {thSortF("accts","Accounts")}
+                {thSortF("boq","Beginning")}
+                {thSortF("eoq","End")}
+                {thSortF("ret","Retention")}
+                {thSortF("incNet","Increase")}
+                {thSortF("decNet","Decrease")}
+                {thSortF("canNet","Cancelled")}
+                {thSortF("addNet","Added")}
+              </tr>
+            </thead>
+            <tbody>
+              {sortedCsmRows.map(g=>{
+                const open = q3fExpanded===g.name;
+                const cell = (cnt,net,col) => (
+                  <td style={{padding:"10px",textAlign:"right",color:cnt?col:"#aaa",whiteSpace:"nowrap"}}>
+                    {cnt?<><span style={{fontWeight:600}}>{fmtNet(net)}</span><span style={{opacity:.7}}> · {cnt}</span></>:"--"}
+                  </td>
+                );
+                return (
+                  <React.Fragment key={g.name}>
+                    <tr onClick={()=>setQ3fExpanded(open?null:g.name)} style={{cursor:"pointer",borderBottom:"0.5px solid rgba(41,53,93,.05)"}}>
+                      <td style={{padding:"10px",fontWeight:600,color:"#29355D",whiteSpace:"nowrap"}}>{open?"▾ ":"▸ "}{dispName(g.name)}</td>
+                      <td style={{padding:"10px",textAlign:"right"}}>{g.accts}</td>
+                      <td style={{padding:"10px",textAlign:"right",color:"#5378FC"}}>{fmt$(g.boq)}</td>
+                      <td style={{padding:"10px",textAlign:"right"}}>{fmt$(g.eoq)}</td>
+                      <td style={{padding:"10px",textAlign:"right",fontWeight:600,color:retCol(g.ret)}}>{fmtPct(g.ret)}</td>
+                      {cell(g.incCount,g.incNet,"#166534")}
+                      {cell(g.decCount,g.decNet,"#991b1b")}
+                      {cell(g.canCount,g.canNet,"#92400e")}
+                      {cell(g.addCount,g.addNet,"#6d28d9")}
+                    </tr>
+                    {open && (
+                      <tr style={{background:"rgba(41,53,93,.02)"}}>
+                        <td colSpan={9} style={{padding:0}}>
+                          {acctTable(scopedRows.filter(r=>r.csm===g.name).filter(r=>r.status!=="No Change").sort((a,b)=>a.net-b.net), false, 44)}
+                          <div style={{padding:"6px 44px",fontSize:12,color:"#808080"}}>
+                            {scopedRows.filter(r=>r.csm===g.name&&r.status==="No Change").length} unchanged accounts not shown — use the search box to find one.
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+          </div>
+        </div>
+        <div style={{fontSize:12,color:"#808080",lineHeight:1.5}}>
+          Retention = end of quarter ÷ beginning of quarter and includes revenue from new lines, so it ties to the Domo report totals. Account status is judged on the account's total across all product lines — a cancelled line replaced by a new line in the same account nets out and is not counted as a cancel.
+        </div>
+      </div>
+    );
+  };
+
   const renderBillingBoB = () => {
     const fmt$   = n => n==null?"--":"$"+Math.abs(n).toLocaleString("en-US",{minimumFractionDigits:0,maximumFractionDigits:0});
     const fmtPct = p => p==null?"--":(p*100).toFixed(1)+"%";
@@ -7263,7 +7522,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
 
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
         <div style={{display:"flex",gap:2,background:"#ECEEF1",borderRadius:8,padding:3}}>
-          {[["overview","Q2 Domo BoB"],["billing","📊 Q3 BoB (Billing)"],["monthly","📅 Q3 Monthly Breakout"]].map(([t,l])=>(
+          {[["overview","Q2 Domo BoB"],["billing","📊 Q3 BoB (Billing)"],["monthly","📅 Q3 Monthly Breakout"],["q3final","✅ Q3 Final BoB"]].map(([t,l])=>(
             <button key={t} onClick={()=>setBobTab(t)}
               style={{padding:"5px 14px",fontSize:12,fontWeight:500,border:"none",borderRadius:6,cursor:"pointer",
                 background:bobTab===t?"#fff":"transparent",color:bobTab===t?"#29355D":"#808080",
@@ -7277,6 +7536,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
       {bobTab==="sfpreview"  && renderSFPreview()}
       {bobTab==="billing"    && renderBillingBoB()}
       {bobTab==="monthly"    && renderMonthlyBreakout()}
+      {bobTab==="q3final"    && renderQ3Final()}
     </div>
   );
 }
@@ -9967,6 +10227,63 @@ function buildBillingBobRowsFromEvents(rosterRows, detailRows) {
   return rows;
 }
 
+// ── Q3 FINAL BoB builder ───────────────────────────────────────────────────
+// Input: raw CSV rows of the Domo "CSM B o B - Detail Table" (product-line level,
+// Beginning of Quarter + End of Quarter only — no monthly columns).
+// Output: one row per Enterprise ID with account-level status (Added / Increase /
+// Decrease / Cancelled / No Change) plus the product lines behind it, so a coach
+// can see exactly which line moved when challenging an account.
+function buildQ3FinalRows(rawRows) {
+  const isSubtotalRow = v => /^count \d+ \/ \d+$/i.test(String(v||"").trim());
+  const pf = v => {
+    if (v===null||v===undefined||v==="") return 0;
+    let t = String(v).trim();
+    if (!t) return 0;
+    const neg = t.startsWith("(") && t.endsWith(")");
+    t = t.replace(/[^0-9.\-]/g,"");
+    if (!t) return 0;
+    const x = parseFloat(t);
+    return isNaN(x) ? 0 : (neg ? -Math.abs(x) : x);
+  };
+  const EPS = 0.005;
+  const pick = (r, test) => { const k = Object.keys(r).find(k => test(k.toLowerCase())); return k===undefined ? undefined : r[k]; };
+  const byEid = {};
+  (rawRows||[]).forEach(r => {
+    const eidRaw = String(r["Enterprise ID"]||"").trim();
+    const eid = eidRaw.toUpperCase();
+    if (!eid || isSubtotalRow(eidRaw)) return;
+    const csmRaw = String(r["CSM Name"]||"").trim();
+    if (!csmRaw || isSubtotalRow(csmRaw) || /TOTAL$/i.test(csmRaw) || /TOTAL$/i.test(String(r["CSM Coach"]||"").trim())) return;
+    const boq = pf(pick(r, k=>k.includes("beginning")));
+    const eoq = pf(pick(r, k=>k.includes("end of quarter")));
+    const account = String(r["Account Name"]||"").trim();
+    if (!byEid[eid]) byEid[eid] = {csmRaw, account:"", lines:[]};
+    if (!byEid[eid].account && account) byEid[eid].account = account;
+    const d = eoq - boq;
+    const kind = (boq<=EPS && eoq>EPS) ? "New" : (boq>EPS && eoq<=EPS) ? "Cancelled" : d>EPS ? "Increase" : d<-EPS ? "Decrease" : "No change";
+    byEid[eid].lines.push({l2:String(r["L2"]||"").trim(), l3:String(r["L3"]||"").trim(), boq, eoq, net:d, kind});
+  });
+  const rows = [];
+  Object.entries(byEid).forEach(([eid,g]) => {
+    const boq = g.lines.reduce((t,l)=>t+l.boq,0);
+    const eoq = g.lines.reduce((t,l)=>t+l.eoq,0);
+    const net = eoq - boq;
+    let status;
+    if (boq<=EPS && eoq>EPS) status = "Added";
+    else if (boq>EPS && eoq<=EPS) status = "Cancelled";
+    else if (net>EPS) status = "Increase";
+    else if (net<-EPS) status = "Decrease";
+    else status = "No Change";
+    rows.push({
+      csm: normalizeSFCsmName(g.csmRaw), eid, account: g.account || "(no name on report)",
+      boq: Math.round(boq*100)/100, eoq: Math.round(eoq*100)/100, net: Math.round(net*100)/100,
+      status,
+      lines: g.lines.sort((a,b)=>a.net-b.net),
+    });
+  });
+  return rows;
+}
+
 function buildBillingBobRows(detailRows) {
   const isSubtotalRow = eid => /^Count \d+ \/ \d+$/.test(String(eid||"").trim());
   const lfSwap = raw => {
@@ -11624,6 +11941,7 @@ function App() {
   const [billingSummaryRaw, setBillingSummaryRaw] = useState([]); // raw Q3 BoB Summary rows — source's own pre-computed per-CSM monthly retention, see renderMonthlyBreakout
   const [billingMovementRaw, setBillingMovementRaw] = useState([]); // raw per-CSM monthly Increase/Decrease/Cancel breakdown, source's own pre-computed figures, see renderMonthlyBreakout
   const [talkTimeRaw, setTalkTimeRaw] = useState([]); // raw daily-overwrite Talk Time export, see mapTalkTime
+  const [q3FinalRaw, setQ3FinalRaw] = useState([]); // raw Q3 Final BoB product-line rows, see buildQ3FinalRows
   const [noActivityRaw, setNoActivityRaw] = useState([]); // raw "Accounts with No Activity" rows — see mapNoActivity
   const emailToAcct = React.useMemo(() => buildEmailToAccountMap(sfCurRaw), [sfCurRaw]);
   const acctNameToAcct = React.useMemo(() => buildAcctNameToAccountMap(sfCurRaw), [sfCurRaw]);
@@ -11637,6 +11955,7 @@ function App() {
     () => buildBillingBobRows(billingDetailRaw),
     [billingDetailRaw]
   );
+  const q3FinalRows = React.useMemo(() => buildQ3FinalRows(q3FinalRaw), [q3FinalRaw]);
   const talkTimeMapped = React.useMemo(
     () => mapTalkTime(talkTimeRaw),
     [talkTimeRaw]
@@ -11755,7 +12074,8 @@ function App() {
         ()=>fetchCSV(CSV_Q3_BILLING_MOVEMENT).catch(()=>[]),
         ()=>fetchCSV(CSV_TALK_TIME).catch(()=>[]),
         ()=>fetchCSV(CSV_NO_ACTIVITY).catch(()=>[]),
-      ]).then(([cadenceFullRows, callRows, domoBoqRows, revRows, newRevRows, cadRows, dueRows, ontimeRows, emailRows, historyRows, bobRows, q2DomoBoqRows, skippedRows, bobDetRows, bobAdjRows, qaMcRows, qaSSRows, mcRows, bcRows, churnAlertRows, q3BobCurRows, q3SuppRows, sfCurRows, sfBoqRows, cerAssignedRows, cerCompletedRows, fiRawRows, sccChurnRows, billingDetailRows, billingRosterRows, billingSummaryRows, billingMovementRows, talkTimeRows, noActivityRows]) => {
+        ()=>fetchCSV(CSV_Q3_FINAL).catch(()=>[]),
+      ]).then(([cadenceFullRows, callRows, domoBoqRows, revRows, newRevRows, cadRows, dueRows, ontimeRows, emailRows, historyRows, bobRows, q2DomoBoqRows, skippedRows, bobDetRows, bobAdjRows, qaMcRows, qaSSRows, mcRows, bcRows, churnAlertRows, q3BobCurRows, q3SuppRows, sfCurRows, sfBoqRows, cerAssignedRows, cerCompletedRows, fiRawRows, sccChurnRows, billingDetailRows, billingRosterRows, billingSummaryRows, billingMovementRows, talkTimeRows, noActivityRows, q3FinalRows]) => {
         latestEmail   = emailRows;
         latestCad          = cadRows;
         latestDue          = dueRows;
@@ -11776,6 +12096,7 @@ function App() {
         setBillingMovementRaw(billingMovementRows||[]);
         setTalkTimeRaw(talkTimeRows||[]);
         setNoActivityRaw(noActivityRows||[]);
+        setQ3FinalRaw(q3FinalRows||[]);
         latestBob         = bobRows;
         latestBobDet      = bobDetRows||[];
         latestBobAdj      = bobAdjRows||[];
@@ -12490,7 +12811,7 @@ My question: ${aiCustom}`,
           {tab==="leaderboard"&&<LeaderboardView csms={filteredCSMs} allCsms={csms} bobRaw={bobRaw} history={history} q2DomoBoq={q2DomoBoq} domoBoq={domoBoq} q3BobCur={q3BobCur} q3Supp={q3Supp} rawRev={rawRev} cadenceFull={cadenceFull}/>}
           
           {tab==="revenue"&&<RevenueView rawRev={rawRev} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches}/>}
-          {tab==="bob"&&<BobView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} churnAlerts={churnAlerts} onSelectCSM={selectCSMFn} liveBobDet={liveBobDet} bobAdj={bobAdj} q3BobCur={q3BobCur} domoBoq={domoBoq} q3Supp={q3Supp} q2DomoBoq={q2DomoBoq} bobTab={bobTab} setBobTab={setBobTab} sfBobRows={sfBobLive} acctCoverageByCsm={acctCoverageByCsm} billingDetailRaw={billingDetailRaw} billingBobRows={billingBobRows} billingSummaryRaw={billingSummaryRaw} billingMovementRaw={billingMovementRaw}/>}
+          {tab==="bob"&&<BobView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} churnAlerts={churnAlerts} onSelectCSM={selectCSMFn} liveBobDet={liveBobDet} bobAdj={bobAdj} q3BobCur={q3BobCur} domoBoq={domoBoq} q3Supp={q3Supp} q2DomoBoq={q2DomoBoq} bobTab={bobTab} setBobTab={setBobTab} sfBobRows={sfBobLive} acctCoverageByCsm={acctCoverageByCsm} billingDetailRaw={billingDetailRaw} billingBobRows={billingBobRows} billingSummaryRaw={billingSummaryRaw} billingMovementRaw={billingMovementRaw} q3FinalRows={q3FinalRows}/>}
           {tab==="trends"&&<TrendsView history={history} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} qamc={qamc} qass={qass} trendsTab={trendsTab} setTrendsTab={setTrendsTab} callRaw={callRaw} emailToAcct={emailToAcct}/>}
           {tab==="cers"&&<CERView cerAssigned={cerAssigned} filterCoach={filterCoach} filterCSM={filterCSM} csms={filteredCSMs}/>}
           {tab==="calls"&&(
