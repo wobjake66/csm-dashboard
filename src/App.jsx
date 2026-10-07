@@ -5043,6 +5043,22 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
   );
 }
 
+// Integrations that should be counted as one thing on the Revenue tab. The first matching rule wins and the
+// label is what shows in the lists. To lump more together, add a [pattern, "Label"] line here.
+const INTEGRATION_GROUPS = [
+  [/social\s+(posts?|content)/i,        "Thryv Social Posts"],   // Thryv Social Posts + Thryv Generated Social Content
+  [/additional\s+cent(er|re)s?/i,       "Additional Center Sold"],
+  [/growth\s+packages?/i,               "Growth Package"],
+  [/domain.*mail|mail.*domain/i,         "Domain Based Email"],
+  [/web\s*chat/i,                       "Webchat"],              // Webchat + Command Center Webchat
+];
+function groupIntegration(name) {
+  const n = String(name||"").trim();
+  if (!n) return "";
+  for (const [re,label] of INTEGRATION_GROUPS) if (re.test(n)) return label;
+  return n;
+}
+
 // Sortable list used by the Revenue tab integration panels (MRR / One-Time / Non-Revenue).
 // rows: [{name, count, amount}] — click a column label to sort by name, qty or $; click again to flip.
 function IntegrationListPanel({title, rows, color, showAmount, emptyText, cardStyle, secTitle, colorFor}) {
@@ -5130,10 +5146,10 @@ function RevenueView({rawRev, csms, filterCoach, filterCSM, managerCoaches}) {
     // Added" — that derived column can be left blank on a submission even
     // when OTR/MRR are correctly filled in, silently dropping real revenue.
     const tot  = mrr + otr;
-    const nr   = (r["Non-Revenue Integrations"]||"").trim();
-    const mrrInt = (r["MRR Integration"]||"").trim();
+    const nr   = groupIntegration(r["Non-Revenue Integrations"]);
+    const mrrInt = groupIntegration(r["MRR Integration"]);
     // Confirmed against the live sheet: "One-Time Revenue Integrations" (column L)
-    const otrInt = (r["One-Time Revenue Integrations"]||r["OTR Integration"]||"").trim();
+    const otrInt = groupIntegration(r["One-Time Revenue Integrations"]||r["OTR Integration"]);
     const biz  = (r["Business Name"]||"").trim();
     const type = (r["Type of Integration"]||"").trim();
     const qtr  = (r["Quarter for Consideration"]||r["Quarter"]||"").trim();
