@@ -6,7 +6,7 @@ const imgLegend      = "https://raw.githubusercontent.com/wobjake66/csm-dashboar
 const imgWinningYesterday = "https://raw.githubusercontent.com/wobjake66/csm-dashboard/main/winning_yesterday.png";
 const imgNotQuiteYesterday = "https://raw.githubusercontent.com/wobjake66/csm-dashboard/main/not_quite_yesterday.png";
 import * as XLSX from "xlsx";
-const imgCauldron = "https://raw.githubusercontent.com/wobjake66/csm-dashboard/main/success%20cauldron.png";
+const imgCauldron = "https://raw.githubusercontent.com/wobjake66/csm-dashboard/main/success%20cauldron.jpg";
 
 const PIN = "thryv2026";
 const PIN_KEY  = "csm_pin_v1";
@@ -5043,18 +5043,80 @@ function DigestView({csms, filterCoach, filterCSM, isCsmView, bobRaw, mcChurn, b
   );
 }
 
+// Sortable list used by the Revenue tab integration panels (MRR / One-Time / Non-Revenue).
+// rows: [{name, count, amount}] — click a column label to sort by name, qty or $; click again to flip.
+function IntegrationListPanel({title, rows, color, showAmount, emptyText, cardStyle, secTitle, colorFor}) {
+  const [sort, setSort] = useState({col: showAmount ? "amount" : "count", dir:"desc"});
+  const sorted = [...rows].sort((a,b)=>{
+    let c = sort.col==="name" ? a.name.localeCompare(b.name,undefined,{sensitivity:"base"}) : (a[sort.col]-b[sort.col]);
+    if (c===0) c = a.name.localeCompare(b.name,undefined,{sensitivity:"base"});
+    return sort.dir==="asc" ? c : -c;
+  });
+  const barKey = showAmount ? "amount" : "count";
+  const maxBar = rows.reduce((m,r)=>Math.max(m,r[barKey]),0) || 1;
+  const totalQty = rows.reduce((t,r)=>t+r.count,0);
+  const totalAmt = rows.reduce((t,r)=>t+r.amount,0);
+  const hd = (col,label,align,width) => {
+    const on = sort.col===col;
+    return (
+      <span onClick={()=>setSort(s=>({col, dir: s.col===col ? (s.dir==="desc"?"asc":"desc") : (col==="name"?"asc":"desc")}))}
+        style={{width,flex:width?undefined:1,textAlign:align,cursor:"pointer",userSelect:"none",flexShrink:width?0:1,fontSize:11,textTransform:"uppercase",fontWeight:500,color:on?"#FF5000":"#808080",whiteSpace:"nowrap"}}>
+        {label}{on?(sort.dir==="desc"?" ▼":" ▲"):<span style={{color:"#ccc",fontSize:9}}> ↕</span>}
+      </span>
+    );
+  };
+  return (
+    <div style={cardStyle}>
+      <div style={secTitle}>{title}</div>
+      {rows.length===0 ? <div style={{color:"#808080",fontSize:12}}>{emptyText}</div> : <>
+        <div style={{display:"flex",alignItems:"center",gap:8,paddingBottom:6,marginBottom:6,borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>
+          <span style={{width:16,flexShrink:0}}/>
+          {hd("name","Name","left")}
+          <span style={{width:80,flexShrink:0}}/>
+          {hd("count","Qty","right",showAmount?28:40)}
+          {showAmount && hd("amount","$","right",55)}
+        </div>
+        <div style={{maxHeight:420,overflowY:"auto",paddingRight:2}}>
+          {sorted.map((r,i)=>(
+            <div key={r.name} style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+              <span style={{width:16,fontSize:13,color:"#808080",flexShrink:0}}>{i+1}.</span>
+              <span style={{flex:1,fontSize:12,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={r.name}>{r.name}</span>
+              <div style={{width:80,height:5,background:"#ECEEF1",borderRadius:3,overflow:"hidden",flexShrink:0}}>
+                <div style={{height:"100%",background:(colorFor&&colorFor(r.name))||color,opacity:.75,borderRadius:3,width:(r[barKey]/maxBar*100).toFixed(1)+"%"}}/>
+              </div>
+              <span style={{width:showAmount?28:40,fontSize:13,color:showAmount?"#808080":((colorFor&&colorFor(r.name))||"#29355D"),fontWeight:showAmount?400:600,textAlign:"right",flexShrink:0}}>{r.count}</span>
+              {showAmount && <span style={{width:55,fontSize:13,fontWeight:500,color,textAlign:"right",flexShrink:0}}>{fk(r.amount)}</span>}
+            </div>
+          ))}
+        </div>
+        <div style={{height:"0.5px",background:"rgba(41,53,93,.08)",margin:"8px 0"}}/>
+        <div style={{display:"flex",justifyContent:"space-between",fontSize:12}}>
+          <span style={{color:"#808080"}}>Total</span>
+          <span style={{fontWeight:500,color:"#29355D"}}>{totalQty} {showAmount?"· "+fk(totalAmt):"integrations"}</span>
+        </div>
+      </>}
+    </div>
+  );
+}
+
 // ── REVENUE VIEW ────────────────────────────────────────────────────────────
 function RevenueView({rawRev, csms, filterCoach, filterCSM, managerCoaches}) {
   const [lbSort, setLbSort] = useState({col:"total", dir:"desc"});
   const [regionFilter, setRegionFilter] = useState("all");
-  const [quarterFilter, setQuarterFilter] = useState("all");
-  const availableQuarters = [...new Set((rawRev||[]).map(r=>(r["Quarter for Consideration"]||r["Quarter"]||"").trim()).filter(Boolean))].sort();
+  // Multi-select: [] = all time, ["ytd"] = year to date, otherwise any set of quarters (e.g. Q1 + Q2 + Q3).
+  const [quarterSel, setQuarterSel] = useState([]);
+  const qSortKey = q => { const m = String(q).match(/Q(\d)\D*(\d{4})/i); return m ? (+m[2])*10+(+m[1]) : Infinity; };
+  const availableQuarters = [...new Set((rawRev||[]).map(r=>(r["Quarter for Consideration"]||r["Quarter"]||"").trim()).filter(Boolean))].sort((a,b)=>qSortKey(a)-qSortKey(b)||a.localeCompare(b));
   const currentYear = new Date().getFullYear();
   const inQuarterFilter = (qtr) => {
-    if (quarterFilter === "all") return true;
-    if (quarterFilter === "ytd") return qtr.includes(String(currentYear));
-    return qtr === quarterFilter;
+    if (quarterSel.length === 0) return true;
+    if (quarterSel.includes("ytd")) return qtr.includes(String(currentYear));
+    return quarterSel.includes(qtr);
   };
+  const toggleQuarter = q => setQuarterSel(sel => {
+    const base = sel.filter(x=>x!=="ytd");
+    return base.includes(q) ? base.filter(x=>x!==q) : [...base,q];
+  });
 
 
   // Parse raw rows into enriched objects
@@ -5232,7 +5294,7 @@ function RevenueView({rawRev, csms, filterCoach, filterCSM, managerCoaches}) {
     const csv = [headers, ...csvRows].map(row => row.map(v => `"${String(v||"").replace(/"/g,'""')}"`).join(",")).join("\n");
     const a = document.createElement("a");
     a.href = "data:text/csv;charset=utf-8," + encodeURIComponent(csv);
-    a.download = `revenue_submissions_${quarterFilter}_${new Date().toISOString().slice(0,10)}.csv`;
+    a.download = `revenue_submissions_${quarterSel.length?quarterSel.join("+").replace(/\s+/g,""):"all"}_${new Date().toISOString().slice(0,10)}.csv`;
     a.click();
   };
 
@@ -5241,16 +5303,19 @@ function RevenueView({rawRev, csms, filterCoach, filterCSM, managerCoaches}) {
       {/* ── Quarter filter bar ── */}
       <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:16,flexWrap:"wrap"}}>
         <span style={{fontSize:13,fontWeight:600,color:"#808080",textTransform:"uppercase",letterSpacing:".05em",marginRight:4}}>Quarter:</span>
-        {[["all","All time"], ["ytd","YTD "+new Date().getFullYear()], ...availableQuarters.map(q=>[q,q])].map(([v,l])=>(
-          <button key={v} onClick={()=>setQuarterFilter(v)}
-            style={{padding:"4px 12px",borderRadius:20,border:"0.5px solid "+(quarterFilter===v?"#29355D":"rgba(41,53,93,.15)"),
-              background:quarterFilter===v?"#29355D":"#fff",color:quarterFilter===v?"#fff":"#808080",
+        {[["all","All time"], ["ytd","YTD "+new Date().getFullYear()], ...availableQuarters.map(q=>[q,q])].map(([v,l])=>{
+          const on = v==="all" ? quarterSel.length===0 : quarterSel.includes(v);
+          return (
+          <button key={v} onClick={()=>v==="all"?setQuarterSel([]):v==="ytd"?setQuarterSel(sel=>sel.includes("ytd")?[]:["ytd"]):toggleQuarter(v)}
+            style={{padding:"4px 12px",borderRadius:20,border:"0.5px solid "+(on?"#29355D":"rgba(41,53,93,.15)"),
+              background:on?"#29355D":"#fff",color:on?"#fff":"#808080",
               fontSize:13,fontWeight:500,cursor:"pointer",transition:"all .15s"}}>
             {l}
           </button>
-        ))}
-        {quarterFilter!=="all"&&<span style={{fontSize:13,color:"#808080",marginLeft:4}}>
-          · filtering revenue rows by "Quarter for Consideration"
+          );
+        })}
+        {quarterSel.length>0&&<span style={{fontSize:13,color:"#808080",marginLeft:4}}>
+          · {quarterSel.length>1?"combining "+quarterSel.length+" quarters, ":""}filtering revenue rows by "Quarter for Consideration" · click more quarters to add or remove
         </span>}
         <button onClick={exportRevCSV}
           style={{marginLeft:"auto",padding:"5px 16px",borderRadius:8,border:"0.5px solid rgba(41,53,93,.2)",
@@ -5420,57 +5485,13 @@ function RevenueView({rawRev, csms, filterCoach, filterCSM, managerCoaches}) {
       {/* ── Row 3: Top MRR + Top OTR integrations + Non-revenue breakdown ── */}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:16,marginBottom:16}}>
 
-        {/* Top MRR integration types */}
-        <div style={cardStyle}>
-          <div style={secTitle}>Top MRR Integrations</div>
-          {mrrTypeRows.map(([type,d],i)=>(
-            <div key={type} style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
-              <span style={{width:16,fontSize:13,color:"#808080",flexShrink:0}}>{i+1}.</span>
-              <span style={{flex:1,fontSize:12,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{type}</span>
-              <div style={{width:80,height:5,background:"#ECEEF1",borderRadius:3,overflow:"hidden",flexShrink:0}}>
-                <div style={{height:"100%",background:"#FF5000",opacity:.75,borderRadius:3,width:(d.amount/maxMrrAmt*100).toFixed(1)+"%"}}/>
-              </div>
-              <span style={{width:20,fontSize:13,color:"#808080",textAlign:"right",flexShrink:0}}>{d.count}</span>
-              <span style={{width:55,fontSize:13,fontWeight:500,color:"#FF5000",textAlign:"right",flexShrink:0}}>{fk(d.amount)}</span>
-            </div>
-          ))}
-          {mrrTypeRows.length===0&&<div style={{color:"#808080",fontSize:12}}>No MRR data</div>}
-        </div>
-
-        {/* Top OTR (one-time revenue) integration types */}
-        <div style={cardStyle}>
-          <div style={secTitle}>Top One-Time Revenue Integrations</div>
-          {otrTypeRows.map(([type,d],i)=>(
-            <div key={type} style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
-              <span style={{width:16,fontSize:13,color:"#808080",flexShrink:0}}>{i+1}.</span>
-              <span style={{flex:1,fontSize:12,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{type}</span>
-              <div style={{width:80,height:5,background:"#ECEEF1",borderRadius:3,overflow:"hidden",flexShrink:0}}>
-                <div style={{height:"100%",background:"#5378FC",opacity:.75,borderRadius:3,width:(d.amount/maxOtrAmt*100).toFixed(1)+"%"}}/>
-              </div>
-              <span style={{width:20,fontSize:13,color:"#808080",textAlign:"right",flexShrink:0}}>{d.count}</span>
-              <span style={{width:55,fontSize:13,fontWeight:500,color:"#5378FC",textAlign:"right",flexShrink:0}}>{fk(d.amount)}</span>
-            </div>
-          ))}
-          {otrTypeRows.length===0&&<div style={{color:"#808080",fontSize:12}}>No one-time revenue data</div>}
-        </div>
-
-        {/* Non-revenue integrations */}
-        <div style={cardStyle}>
-          <div style={secTitle}>Non-Revenue Integrations</div>
-          <div style={{display:"flex",flexWrap:"wrap",gap:10,marginBottom:16}}>
-            {Object.entries(nrTypes).sort((a,b)=>b[1]-a[1]).map(([t,c])=>(
-              <div key={t} style={{display:"flex",flexDirection:"column",alignItems:"center",background:"#F4F6FB",borderRadius:10,padding:"10px 14px",minWidth:80}}>
-                <div style={{fontSize:22,fontWeight:500,color:NR_COLORS[t]||"#29355D"}}>{c}</div>
-                <div style={{fontSize:12,color:"#808080",marginTop:2,textAlign:"center",lineHeight:1.3}}>{t}</div>
-              </div>
-            ))}
-          </div>
-          <div style={{height:"0.5px",background:"rgba(41,53,93,.08)",marginBottom:12}}/>
-          <div style={{display:"flex",justifyContent:"space-between",fontSize:12}}>
-            <span style={{color:"#808080"}}>Total non-revenue</span>
-            <span style={{fontWeight:500,color:"#29355D"}}>{Object.values(nrTypes).reduce((s,v)=>s+v,0)} integrations</span>
-          </div>
-        </div>
+        <IntegrationListPanel title="Top MRR Integrations" color="#FF5000" showAmount emptyText="No MRR data" cardStyle={cardStyle} secTitle={secTitle}
+          rows={mrrTypeRows.map(([name,d])=>({name,count:d.count,amount:d.amount}))}/>
+        <IntegrationListPanel title="Top One-Time Revenue Integrations" color="#5378FC" showAmount emptyText="No one-time revenue data" cardStyle={cardStyle} secTitle={secTitle}
+          rows={otrTypeRows.map(([name,d])=>({name,count:d.count,amount:d.amount}))}/>
+        <IntegrationListPanel title="Non-Revenue Integrations" color="#29355D" emptyText="No non-revenue integrations" cardStyle={cardStyle} secTitle={secTitle}
+          colorFor={n=>NR_COLORS[n]}
+          rows={Object.entries(nrTypes).map(([name,count])=>({name,count,amount:0}))}/>
       </div>
 
       {/* ── CSM Leaderboard ── */}
@@ -6944,7 +6965,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
     scopedRows.forEach(r => {
       if (!byCsm[r.csm]) byCsm[r.csm] = {name:r.csm, boq:0, eoq:0, accts:0, incCount:0, incNet:0, decCount:0, decNet:0, canCount:0, canNet:0, addCount:0, addNet:0};
       const g = byCsm[r.csm];
-      g.boq+=r.boq; g.eoq+=r.eoq; g.accts++;
+      g.boq+=r.boq; g.eoq+=r.eoq; if (r.status!=="Adjustment") g.accts++;
       if (r.status==="Increase") { g.incCount++; g.incNet+=r.net; }
       if (r.status==="Decrease") { g.decCount++; g.decNet+=r.net; }
       if (r.status==="Cancelled") { g.canCount++; g.canNet+=r.net; }
@@ -7044,7 +7065,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
           <div style={{background:"#ECEEF1",borderRadius:10,padding:"14px 16px"}}>
             <div style={{fontSize:13,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:6}}>End of quarter</div>
             <div style={{fontSize:25,fontWeight:600,color:"#29355D",lineHeight:1}}>{fmt$(totalEoq)}</div>
-            <div style={{fontSize:13,color:"#808080",marginTop:6}}>{scopedRows.length} accounts</div>
+            <div style={{fontSize:13,color:"#808080",marginTop:6}}>{scopedRows.filter(r=>r.status!=="Adjustment").length} accounts</div>
           </div>
           <div style={{background:"#ECEEF1",borderRadius:10,padding:"14px 16px"}}>
             <div style={{fontSize:13,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:6}}>Net</div>
@@ -7144,7 +7165,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
           </div>
         </div>
         <div style={{fontSize:12,color:"#808080",lineHeight:1.5}}>
-          Retention = end of quarter ÷ beginning of quarter and includes revenue from new lines, so it ties to the Domo report totals. Account status is judged on the account's total across all product lines — a cancelled line replaced by a new line in the same account nets out and is not counted as a cancel.
+          Retention = end of quarter ÷ beginning of quarter and includes revenue from new lines. Each CSM's beginning is tied to the Domo Summary report: where the Detail Table's beginning runs higher, a single \"Beginning adjustment\" line is shown in that CSM's list so the totals match — it is not an account, and every real account stays visible to review. Account status is judged on the account's total across all product lines — a cancelled line replaced by a new line in the same account nets out and is not counted as a cancel.
         </div>
       </div>
     );
@@ -10543,7 +10564,8 @@ function buildQ3FinalRows(rawRows) {
     if (!byEid[eid]) byEid[eid] = {csmRaw, account:"", lines:[]};
     if (!byEid[eid].account && account) byEid[eid].account = account;
     const d = eoq - boq;
-    const kind = (boq<=EPS && eoq>EPS) ? "New" : (boq>EPS && eoq<=EPS) ? "Cancelled" : d>EPS ? "Increase" : d<-EPS ? "Decrease" : "No change";
+    const isAdj = eid.startsWith("ADJ-");
+    const kind = isAdj ? "Adjustment" : (boq<=EPS && eoq>EPS) ? "New" : (boq>EPS && eoq<=EPS) ? "Cancelled" : d>EPS ? "Increase" : d<-EPS ? "Decrease" : "No change";
     byEid[eid].lines.push({l2:String(r["L2"]||"").trim(), l3:String(r["L3"]||"").trim(), boq, eoq, net:d, kind});
   });
   const rows = [];
@@ -10552,7 +10574,8 @@ function buildQ3FinalRows(rawRows) {
     const eoq = g.lines.reduce((t,l)=>t+l.eoq,0);
     const net = eoq - boq;
     let status;
-    if (boq<=EPS && eoq>EPS) status = "Added";
+    if (eid.startsWith("ADJ-")) status = "Adjustment"; // reconciling line so the CSM's beginning ties to the Domo Summary — not a real account
+    else if (boq<=EPS && eoq>EPS) status = "Added";
     else if (boq>EPS && eoq<=EPS) status = "Cancelled";
     else if (net>EPS) status = "Increase";
     else if (net<-EPS) status = "Decrease";
