@@ -6,7 +6,7 @@ const imgLegend      = "https://raw.githubusercontent.com/wobjake66/csm-dashboar
 const imgWinningYesterday = "https://raw.githubusercontent.com/wobjake66/csm-dashboard/main/winning_yesterday.png";
 const imgNotQuiteYesterday = "https://raw.githubusercontent.com/wobjake66/csm-dashboard/main/not_quite_yesterday.png";
 import * as XLSX from "xlsx";
-const imgCauldron = "https://raw.githubusercontent.com/wobjake66/csm-dashboard/main/success%20cauldron.png";
+const imgCauldron = "https://raw.githubusercontent.com/wobjake66/csm-dashboard/main/success%20cauldron.jpg";
 
 const PIN = "thryv2026";
 const PIN_KEY  = "csm_pin_v1";
@@ -6747,7 +6747,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
     if (!billingSummaryRaw || billingSummaryRaw.length===0) return (
       <div style={{...S.card,textAlign:"center",padding:"40px 20px",color:"#808080"}}>
         <div style={{fontSize:32,marginBottom:12}}>📅</div>
-        <div style={{fontSize:14,fontWeight:500,color:"#29355D",marginBottom:8}}>Q3 Monthly Breakout — waiting on data</div>
+        <div style={{fontSize:14,fontWeight:500,color:"#29355D",marginBottom:8}}>Current Quarter Monthly Breakout — waiting on data</div>
         <div style={{fontSize:12}}>Confirm the "Q3 BoB Summary" sheet is populated and published to populate this view.</div>
       </div>
     );
@@ -7195,7 +7195,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
     if (!billingDetailRaw || billingDetailRaw.length===0) return (
       <div style={{...S.card,textAlign:"center",padding:"40px 20px",color:"#808080"}}>
         <div style={{fontSize:32,marginBottom:12}}>📊</div>
-        <div style={{fontSize:14,fontWeight:500,color:"#29355D",marginBottom:8}}>Q3 BoB (Billing) — waiting on data</div>
+        <div style={{fontSize:14,fontWeight:500,color:"#29355D",marginBottom:8}}>Current Quarter BoB (Billing) — waiting on data</div>
         <div style={{fontSize:12}}>Confirm the "Q3 BoB Detail" sheet is populated and published to populate this view.</div>
       </div>
     );
@@ -7560,7 +7560,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
 
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
         <div style={{display:"flex",gap:2,background:"#ECEEF1",borderRadius:8,padding:3}}>
-          {[["overview","Q2 Domo BoB"],["billing","📊 Q3 BoB (Billing)"],["monthly","📅 Q3 Monthly Breakout"],["q3final","✅ Q3 Final BoB"]].map(([t,l])=>(
+          {[["overview","Q2 Final BoB"],["q3final","✅ Q3 Final BoB"],["billing","📊 Current Quarter BoB (Billing)"],["monthly","📅 Current Quarter Monthly Breakout"]].map(([t,l])=>(
             <button key={t} onClick={()=>setBobTab(t)}
               style={{padding:"5px 14px",fontSize:12,fontWeight:500,border:"none",borderRadius:6,cursor:"pointer",
                 background:bobTab===t?"#fff":"transparent",color:bobTab===t?"#29355D":"#808080",
