@@ -7216,6 +7216,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
     const totalQtdConfirmed = scopedRows.reduce((s,r)=>s+r.qtdCurrent, 0);
     const qtdRet = totalBoq>0 ? totalQtdConfirmed/totalBoq : null;
     const pacedRet = totalBoq>0 ? totalCurrentPaced/totalBoq : null;
+    const monthOneOnly = scopedRows.length>0 && scopedRows.every(r=>r.monthOneOnly);
     const pacingRows = scopedRows.filter(r=>r.pacing);
     const pacingDollars = pacingRows.reduce((s,r)=>s+r.current, 0);
 
@@ -7275,9 +7276,9 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
         {/* QTD vs Pacing retention */}
         <div style={{display:"grid",gridTemplateColumns:"1.3fr 1.3fr 1fr 1fr 1fr",gap:10,marginBottom:14}}>
           <div style={{background:"#141A3D",borderRadius:10,padding:"14px 16px"}}>
-            <div style={{fontSize:13,textTransform:"uppercase",color:"rgba(255,255,255,.6)",fontWeight:500,marginBottom:6}}>QTD retention (confirmed)</div>
+            <div style={{fontSize:13,textTransform:"uppercase",color:"rgba(255,255,255,.6)",fontWeight:500,marginBottom:6}}>{monthOneOnly?"Month 1 billed so far":"QTD retention (confirmed)"}</div>
             <div style={{fontSize:30,fontWeight:600,color:"#fff",lineHeight:1}}>{fmtPct(qtdRet)}</div>
-            <div style={{fontSize:13,color:"rgba(255,255,255,.55)",marginTop:6}}>{fmt$(totalQtdConfirmed)} billed of {fmt$(totalBoq)}</div>
+            <div style={{fontSize:13,color:"rgba(255,255,255,.55)",marginTop:6}}>{fmt$(totalQtdConfirmed)} billed of {fmt$(totalBoq)}{monthOneOnly?" · Month 1 in progress":""}</div>
           </div>
           <div style={{background:"#fff",border:"1.5px dashed #d97706",borderRadius:10,padding:"14px 16px"}}>
             <div style={{fontSize:13,textTransform:"uppercase",color:"#92400e",fontWeight:500,marginBottom:6}}>Pacing (full quarter)</div>
@@ -10650,6 +10651,11 @@ function buildBillingBobRows(detailRows) {
   const sum = (lines, key) => lines.reduce((s,l) => s + (l[key]||0), 0);
   const anyReal = (lines, key) => lines.some(l => l[key]!=null);
 
+  // Start of a quarter: when NO account in the feed has Month 2 or Month 3 revenue yet, the only billing that
+  // exists is Month 1 (still in progress). The confirmed/QTD figure below normally ignores Month 1, which made
+  // "billed" read $0 for the first month of every quarter — in that case show Month 1 billed so far instead.
+  const monthOneOnly = !Object.values(byEid).some(g => anyReal(g.lines,"m2") || anyReal(g.lines,"m3"));
+
   const rows = [];
   Object.entries(byEid).forEach(([eid, g]) => {
     const boq = sum(g.lines,"boq"), m1 = sum(g.lines,"m1"), m2 = sum(g.lines,"m2"), m3 = sum(g.lines,"m3");
@@ -10682,7 +10688,7 @@ function buildBillingBobRows(detailRows) {
     // QTD (confirmed-only) figure — matches the source file's own retention
     // math exactly: raw latest-period sum, blanks treated as $0, no pacing
     // carry-forward. This is what "actual QTD retention" should be built on.
-    const qtdCurrent = m2Real ? m2 : (m3Real ? m3 : 0);
+    const qtdCurrent = m2Real ? m2 : (m3Real ? m3 : (monthOneOnly && m1Real ? m1 : 0));
 
     const csm = normalizeSFCsmName ? normalizeSFCsmName(g.csmRaw) : (norm(lfSwap(g.csmRaw))||lfSwap(g.csmRaw));
     rows.push({
@@ -10690,7 +10696,7 @@ function buildBillingBobRows(detailRows) {
       boq: Math.round(boq*100)/100,
       current: Math.round(current*100)/100,
       qtdCurrent: Math.round(qtdCurrent*100)/100,
-      status, pacing, lastConfirmed,
+      status, pacing, lastConfirmed, monthOneOnly,
     });
   });
   return rows;
