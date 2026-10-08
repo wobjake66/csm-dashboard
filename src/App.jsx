@@ -10654,12 +10654,21 @@ function buildBillingBobRows(detailRows) {
   // Start of a quarter: when NO account in the feed has Month 2 or Month 3 revenue yet, the only billing that
   // exists is Month 1 (still in progress). The confirmed/QTD figure below normally ignores Month 1, which made
   // "billed" read $0 for the first month of every quarter — in that case show Month 1 billed so far instead.
-  const monthOneOnly = !Object.values(byEid).some(g => anyReal(g.lines,"m2") || anyReal(g.lines,"m3"));
+  // A month only counts as "started" once at least one account actually billed something in it. Some exports
+  // fill future months with 0 for every account instead of leaving them blank — that must not be read as
+  // "confirmed $0" (which turned the whole book into Lost).
+  const allLines = Object.values(byEid).flatMap(g => g.lines);
+  const started = k => allLines.some(l => l[k]!=null && l[k]>0);
+  const s2 = started("m2"), s3 = started("m3");
+  const monthOneOnly = !s2 && !s3;
 
   const rows = [];
   Object.entries(byEid).forEach(([eid, g]) => {
     const boq = sum(g.lines,"boq"), m1 = sum(g.lines,"m1"), m2 = sum(g.lines,"m2"), m3 = sum(g.lines,"m3");
-    const m3Real = anyReal(g.lines,"m3"), m2Real = anyReal(g.lines,"m2"), m1Real = anyReal(g.lines,"m1");
+    const m3Real = s3 && anyReal(g.lines,"m3"), m2Real = s2 && anyReal(g.lines,"m2");
+    // In the first month of a quarter a $0 only means "not billed yet", never a confirmed cancel — so Month 1
+    // counts as real only when something was actually billed; otherwise the account is paced at its beginning.
+    const m1Real = monthOneOnly ? g.lines.some(l => l.m1!=null && l.m1>0) : anyReal(g.lines,"m1");
     // "Was this account brand new" has to be judged at the ACCOUNT level
     // (aggregate BoQ across every product line), not per individual line.
     // The old per-line check ("does any single line have both a BoQ and a
