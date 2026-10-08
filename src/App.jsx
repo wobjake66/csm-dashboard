@@ -7234,6 +7234,34 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
     const addedRows = byStatus("Added"), increaseRows = byStatus("Increase"), decreaseRows = byStatus("Decrease"), lostRows = byStatus("Lost"), noChangeRows = byStatus("No Change");
     const netOf = rows => rows.reduce((s,r)=>s+(r.current-r.boq), 0);
 
+    // Increase / Decrease / Cancel come straight from Domo's movement report (the "Increase/Decrease/Cancel" sheet).
+    // That report is line-level; comparing each account's total billing to its beginning amount (what the detail
+    // sheet allows) nets lines against each other and misses real movement, so it can't be the source for these.
+    const mov = (() => {
+      const num = v => { const n = parseFloat(String(v??"").replace(/[$,]/g,"")); return isNaN(n) ? 0 : Math.abs(n); };
+      const out = {has:false, inc:0, dec:0, can:0, byCsm:{}};
+      (billingMovementRaw||[]).forEach(r => {
+        const raw = String(r["CSM Name"]||"").trim();
+        if (!raw) return;                              // coach / grand-total subtotal rows have no CSM name
+        const csm = normalizeSFCsmName(raw);
+        const i = lk(csm);
+        if (managerCoaches && !(i && managerCoaches.includes(i.c))) return;
+        if (filterCoach && (i && i.c) !== filterCoach) return;
+        if (filterCSM && csm !== filterCSM && norm(csm) !== filterCSM) return;
+        const m = [1,2,3].map(k => ({inc:num(r["Month "+k+" Increase"]), dec:num(r["Month "+k+" Decrease"]), can:num(r["Month "+k+" Cancel"])}));
+        const g = {m, inc:m.reduce((t,x)=>t+x.inc,0), dec:-m.reduce((t,x)=>t+x.dec,0), can:-m.reduce((t,x)=>t+x.can,0)};
+        out.byCsm[csm] = g; out.has = true;
+        out.inc += g.inc; out.dec += g.dec; out.can += g.can;
+      });
+      return out;
+    })();
+    const movNet = mov.inc + mov.dec + mov.can;
+    // Net / Current / Pacing follow the movement report when it's loaded: beginning + Domo's own movements, with
+    // every unbilled account assumed to continue.
+    const netShown = mov.has ? movNet : totalCurrentPaced-totalBoq;
+    const currentShown = mov.has ? totalBoq+movNet : totalCurrentPaced;
+    const pacedRetShown = totalBoq>0 ? currentShown/totalBoq : null;
+
     // Active/Reactive — same account-coverage engine as My Dashboard, now
     // sourced from this exact billing book, so Accounts Assigned always
     // equals Active + Reactive exactly, no drift between the two.
@@ -7260,7 +7288,8 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
     });
     const csmRows = Object.values(byCsm).map(g => {
       const cov = acctCoverageByCsm[norm(g.name)] || acctCoverageByCsm[g.name] || {activeAccts:0, reactiveAccts:0, cadenceAccts:0, onboardingAccts:0};
-      return {...g, net:g.current-g.boq, qtdRet: g.boq>0?g.qtdCurrent/g.boq:null, pacedRet: g.boq>0?g.current/g.boq:null,
+      const mvg = mov.byCsm[g.name] || {inc:0,dec:0,can:0};
+      return {...g, movInc:mvg.inc, movDec:mvg.dec, movCan:mvg.can, net:g.current-g.boq, qtdRet: g.boq>0?g.qtdCurrent/g.boq:null, pacedRet: g.boq>0?g.current/g.boq:null,
         activeAccts:cov.activeAccts, reactiveAccts:cov.reactiveAccts, cadenceAccts:cov.cadenceAccts, onboardingAccts:cov.onboardingAccts};
     });
 
@@ -7292,7 +7321,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
           </div>
           <div style={{background:"#fff",border:"1.5px dashed #d97706",borderRadius:10,padding:"14px 16px"}}>
             <div style={{fontSize:13,textTransform:"uppercase",color:"#92400e",fontWeight:500,marginBottom:6}}>Pacing (full quarter)</div>
-            <div style={{fontSize:30,fontWeight:600,color:"#d97706",lineHeight:1}}>{fmtPct(pacedRet)}</div>
+            <div style={{fontSize:30,fontWeight:600,color:"#d97706",lineHeight:1}}>{fmtPct(pacedRetShown)}</div>
             <div style={{fontSize:13,color:"#b45309",marginTop:6}}>assumes {pacingRows.length} unbilled accts continue</div>
           </div>
           <div style={{background:"#ECEEF1",borderRadius:10,padding:"14px 16px"}}>
@@ -7302,12 +7331,12 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
           </div>
           <div style={{background:"#ECEEF1",borderRadius:10,padding:"14px 16px"}}>
             <div style={{fontSize:13,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:6}}>Current (paced)</div>
-            <div style={{fontSize:25,fontWeight:600,color:"#29355D",lineHeight:1}}>{fmt$(totalCurrentPaced)}</div>
+            <div style={{fontSize:25,fontWeight:600,color:"#29355D",lineHeight:1}}>{fmt$(currentShown)}</div>
             <div style={{fontSize:13,color:"#808080",marginTop:6}}>{scopedRows.length} accounts</div>
           </div>
           <div style={{background:"#ECEEF1",borderRadius:10,padding:"14px 16px"}}>
             <div style={{fontSize:13,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:6}}>Net (paced)</div>
-            <div style={{fontSize:25,fontWeight:600,color:totalCurrentPaced-totalBoq>=0?"#16a34a":"#dc2626",lineHeight:1}}>{(totalCurrentPaced-totalBoq>=0?"+":"")+fmt$(totalCurrentPaced-totalBoq)}</div>
+            <div style={{fontSize:25,fontWeight:600,color:netShown>=0?"#16a34a":"#dc2626",lineHeight:1}}>{(netShown>=0?"+":"-")+fmt$(netShown)}</div>
           </div>
         </div>
 
@@ -7342,9 +7371,9 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
         <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:8,marginBottom:14}}>
           {[
             {l:"Added", desc:"New accounts added to the book this quarter", rows:addedRows, col:"#6d28d9", bg:"rgba(124,58,237,.06)"},
-            {l:"Increase", desc:"Existing accounts whose revenue grew this quarter", rows:increaseRows, col:"#166534", bg:"rgba(22,163,74,.06)"},
-            {l:"Decrease", desc:"Existing accounts whose revenue dropped this quarter", rows:decreaseRows, col:"#991b1b", bg:"rgba(220,38,38,.06)"},
-            {l:"Lost", desc:"Accounts that cancelled during the quarter", rows:lostRows, col:"#92400e", bg:"rgba(217,119,6,.06)"},
+            {l:"Increase", desc:"Existing accounts whose revenue grew this quarter", rows:increaseRows, col:"#166534", bg:"rgba(22,163,74,.06)", mv:"inc"},
+            {l:"Decrease", desc:"Existing accounts whose revenue dropped this quarter", rows:decreaseRows, col:"#991b1b", bg:"rgba(220,38,38,.06)", mv:"dec"},
+            {l:"Lost", desc:"Accounts that cancelled during the quarter", rows:lostRows, col:"#92400e", bg:"rgba(217,119,6,.06)", mv:"can"},
             {l:"No change", desc:"Accounts whose revenue held steady this quarter", rows:noChangeRows, col:"#5f5e5a", bg:"rgba(41,53,93,.05)"},
           ].map(t=>{
             const statusKey = t.l==="No change" ? "No Change" : t.l;
@@ -7353,50 +7382,52 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
             <div key={t.l} onClick={()=>setBillingStatusFilter(isActive?null:statusKey)}
               style={{background:t.bg,borderRadius:8,padding:"12px 14px",textAlign:"center",cursor:"pointer",
                 border:isActive?"2px solid "+t.col:"2px solid transparent",transition:"border-color .15s"}}>
-              {t.l!=="No change"
-                ? <div style={{fontSize:24,fontWeight:600,color:t.col}}>{netOf(t.rows)>=0?"+":""}{fmt$(netOf(t.rows))}</div>
-                : <div style={{fontSize:24,fontWeight:600,color:t.col}}>{t.rows.length}</div>}
-              <div style={{fontSize:13,color:t.col}}>{t.l}{t.l!=="No change" && <span style={{opacity:.7}}> · {t.rows.length} accounts</span>}</div>
+              {t.mv && mov.has
+                ? <div style={{fontSize:24,fontWeight:600,color:t.col}}>{(mov[t.mv]>=0?"+":"-")+fmt$(mov[t.mv])}</div>
+                : t.l!=="No change"
+                  ? <div style={{fontSize:24,fontWeight:600,color:t.col}}>{netOf(t.rows)>=0?"+":""}{fmt$(netOf(t.rows))}</div>
+                  : <div style={{fontSize:24,fontWeight:600,color:t.col}}>{t.rows.length}</div>}
+              <div style={{fontSize:13,color:t.col}}>{t.l}{t.mv && mov.has ? <span style={{opacity:.7}}> · from Domo</span> : t.l!=="No change" && <span style={{opacity:.7}}> · {t.rows.length} accounts</span>}</div>
               <div style={{fontSize:13,color:t.col,opacity:.6,marginTop:4,lineHeight:1.3}}>{t.desc}</div>
             </div>
             );
           })}
         </div>
 
-        {(() => {
-          // Domo's movement report (line-level Increase / Decrease / Cancel). The tiles above compare each
-          // ACCOUNT's total billing to its beginning amount, so billing that nets out within an account (or a line
-          // increase offset by another line not yet billed) shows there as "No change" but still counts here.
-          const lfs = raw => { const t=String(raw||"").trim(); if(!t.includes(",")) return t; const [l,f]=t.split(",",2); return (f.trim()+" "+l.trim()).replace(/  +/g," ").trim(); };
-          const num = v => { const n = parseFloat(String(v??"").replace(/[$,]/g,"")); return isNaN(n) ? 0 : n; };
-          let inc=0, dec=0, can=0, seen=0;
-          (billingMovementRaw||[]).forEach(r => {
-            const raw = String(r["CSM Name"]||"").trim();
-            if (!raw) return;
-            const csm = norm(lfs(raw)) || lfs(raw);
-            const i = lk(csm);
-            if (managerCoaches && !(i && managerCoaches.includes(i.c))) return;
-            if (filterCoach && (i && i.c) !== filterCoach) return;
-            if (filterCSM && csm !== filterCSM && norm(csm) !== filterCSM) return;
-            seen++;
-            inc += num(r["Month 1 Increase"])+num(r["Month 2 Increase"])+num(r["Month 3 Increase"]);
-            dec += num(r["Month 1 Decrease"])+num(r["Month 2 Decrease"])+num(r["Month 3 Decrease"]);
-            can += num(r["Month 1 Cancel"])+num(r["Month 2 Cancel"])+num(r["Month 3 Cancel"]);
-          });
-          if (!seen) return null;
-          const sg = n => (n>=0?"+":"-")+fmt$(n);
+        {mov.has && ["Increase","Decrease","Lost"].includes(billingStatusFilter) && (() => {
+          const key = billingStatusFilter==="Increase" ? "inc" : billingStatusFilter==="Decrease" ? "dec" : "can";
+          const rowsM = Object.entries(mov.byCsm).filter(([,g])=>Math.abs(g[key])>0.005).sort((a,b)=>Math.abs(b[1][key])-Math.abs(a[1][key]));
+          const mk = (g,j) => { const x = g.m[j][key]; return x ? (key==="inc"?"+":"-")+fmt$(x) : "--"; };
           return (
-            <div style={{background:"rgba(41,53,93,.04)",borderRadius:8,padding:"8px 14px",marginBottom:14,fontSize:13,color:"#29355D",display:"flex",gap:18,flexWrap:"wrap",alignItems:"center"}}>
-              <span style={{fontWeight:600}}>Domo movement report</span>
-              <span style={{color:"#166534"}}>Increase {sg(inc)}</span>
-              <span style={{color:"#991b1b"}}>Decrease {sg(dec)}</span>
-              <span style={{color:"#92400e"}}>Cancel {sg(can)}</span>
-              <span style={{color:"#808080"}}>line-level, straight from Domo — the tiles above compare each account's total billing to its beginning amount, so they can differ</span>
+            <div style={{background:"#fff",border:"0.5px solid rgba(41,53,93,.1)",borderRadius:12,overflow:"hidden",marginBottom:14}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px",borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>
+                <div style={{fontSize:13,fontWeight:600,color:"#29355D"}}>{billingStatusFilter==="Lost"?"Cancel":billingStatusFilter} by CSM — Domo movement report ({rowsM.length})</div>
+                <button onClick={()=>setBillingStatusFilter(null)} style={{padding:"4px 12px",borderRadius:20,border:"0.5px solid rgba(41,53,93,.2)",background:"#fff",color:"#808080",fontSize:12,fontWeight:500,cursor:"pointer"}}>Clear ×</button>
+              </div>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+                <thead><tr style={{borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>
+                  {["CSM","Month 1","Month 2","Month 3","Total"].map(h=>(
+                    <th key={h} style={{padding:"8px 12px",textAlign:h==="CSM"?"left":"right",fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500}}>{h}</th>
+                  ))}
+                </tr></thead>
+                <tbody>
+                  {rowsM.length===0 && <tr><td colSpan={5} style={{padding:"10px 12px",color:"#808080"}}>None reported yet.</td></tr>}
+                  {rowsM.map(([name,g])=>(
+                    <tr key={name} style={{borderBottom:"0.5px solid rgba(41,53,93,.04)"}}>
+                      <td style={{padding:"6px 12px",color:"#29355D"}}>{dispName(name)}</td>
+                      <td style={{padding:"6px 12px",textAlign:"right"}}>{mk(g,0)}</td>
+                      <td style={{padding:"6px 12px",textAlign:"right"}}>{mk(g,1)}</td>
+                      <td style={{padding:"6px 12px",textAlign:"right"}}>{mk(g,2)}</td>
+                      <td style={{padding:"6px 12px",textAlign:"right",fontWeight:600}}>{(key==="inc"?"+":"-")+fmt$(g[key])}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           );
         })()}
 
-        {billingStatusFilter && (() => {
+        {billingStatusFilter && !(mov.has && ["Increase","Decrease","Lost"].includes(billingStatusFilter)) && (() => {
           const colMap = {CSM:"csm", Account:"account", EID:"eid", BOQ:"boq", Current:"current", Net:"net", Basis:"pacing"};
           const filteredAccts = scopedRows.filter(r=>r.status===billingStatusFilter).map(r=>({...r, net:r.current-r.boq}));
           filteredAccts.sort((a,b)=>{
@@ -7462,6 +7493,9 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                 {thSortB("qtdRet","QTD Retention")}
                 {thSortB("current","Paced Current")}
                 {thSortB("pacedRet","Paced Retention")}
+                {thSortB("movInc","Increase")}
+                {thSortB("movDec","Decrease")}
+                {thSortB("movCan","Cancel")}
                 {thSortB("pacingCount","Pacing Accts")}
               </tr>
             </thead>
@@ -7478,11 +7512,14 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                     <td style={{padding:"10px",textAlign:"right",fontWeight:600,color:retCol(g.qtdRet)}}>{fmtPct(g.qtdRet)}</td>
                     <td style={{padding:"10px",textAlign:"right",fontWeight:600}}>{fmt$(g.current)}</td>
                     <td style={{padding:"10px",textAlign:"right",fontWeight:600,color:retCol(g.pacedRet)}}>{fmtPct(g.pacedRet)}</td>
+                    <td style={{padding:"10px",textAlign:"right",color:g.movInc?"#166534":"#aaa"}}>{g.movInc?"+"+fmt$(g.movInc):"--"}</td>
+                    <td style={{padding:"10px",textAlign:"right",color:g.movDec?"#991b1b":"#aaa"}}>{g.movDec?"-"+fmt$(g.movDec):"--"}</td>
+                    <td style={{padding:"10px",textAlign:"right",color:g.movCan?"#92400e":"#aaa"}}>{g.movCan?"-"+fmt$(g.movCan):"--"}</td>
                     <td style={{padding:"10px",textAlign:"right",color:g.pacingCount>0?"#d97706":"#aaa"}}>{g.pacingCount}</td>
                   </tr>
                   {isExp===g.name && (
                     <tr style={{background:"rgba(41,53,93,.02)"}}>
-                      <td colSpan={10} style={{padding:0}}>
+                      <td colSpan={13} style={{padding:0}}>
                         <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
                           <thead>
                             <tr style={{borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>
