@@ -6773,15 +6773,25 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
       // The sheet stores retention as a percentage number (e.g. 92.819
       // meaning 92.819%), not a decimal fraction (0.92819) — fmtPct expects
       // a fraction (it multiplies by 100 itself), so divide here once.
-      const pfRet = v => { const n = pf(v); return n==null ? null : n/100; };
+      // The export has stored retention both as a percent number (15.766) and as a fraction (0.15766), so decide
+      // per value: a "%" sign always means percent; otherwise use whichever reading is closest to revenue ÷ BoQ.
+      const pfRet = (v, rev, base) => {
+        const n = pf(v); if (n==null) return null;
+        if (String(v).includes("%")) return n/100;
+        const expect = (rev!=null && base>0) ? rev/base : null;
+        if (expect==null) return n>3 ? n/100 : n;
+        return Math.abs(n-expect) <= Math.abs(n/100-expect) ? n : n/100;
+      };
       const coachRaw = String(r["CSM Coach"]||"").trim();
       const csm = norm(lfSwap(csmRaw)) || lfSwap(csmRaw);
+      const boqV = pf(r["Beginning of Quarter"]) || 0;
+      const m1V = pf(r["Month 1"]), m2V = pf(r["Month 2 Revenue"]), m3V = pf(r["Month 3 Revenue"]);
       return {
         csm, coach: coachRaw,
-        boq: pf(r["Beginning of Quarter"]) || 0,
-        m1: pf(r["Month 1"]), m1Ret: pfRet(r["Month 1 Retention %"]),
-        m2: pf(r["Month 2 Revenue"]), m2Ret: pfRet(r["Month 2 Retention"]),
-        m3: pf(r["Month 3 Revenue"]), m3Ret: pfRet(r["Month 3 Retention"]),
+        boq: boqV,
+        m1: m1V, m1Ret: pfRet(r["Month 1 Retention %"], m1V, boqV),
+        m2: m2V, m2Ret: pfRet(r["Month 2 Retention"], m2V, boqV),
+        m3: m3V, m3Ret: pfRet(r["Month 3 Retention"], m3V, boqV),
       };
     }).filter(Boolean);
 
@@ -7352,6 +7362,39 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
             );
           })}
         </div>
+
+        {(() => {
+          // Domo's movement report (line-level Increase / Decrease / Cancel). The tiles above compare each
+          // ACCOUNT's total billing to its beginning amount, so billing that nets out within an account (or a line
+          // increase offset by another line not yet billed) shows there as "No change" but still counts here.
+          const lfs = raw => { const t=String(raw||"").trim(); if(!t.includes(",")) return t; const [l,f]=t.split(",",2); return (f.trim()+" "+l.trim()).replace(/  +/g," ").trim(); };
+          const num = v => { const n = parseFloat(String(v??"").replace(/[$,]/g,"")); return isNaN(n) ? 0 : n; };
+          let inc=0, dec=0, can=0, seen=0;
+          (billingMovementRaw||[]).forEach(r => {
+            const raw = String(r["CSM Name"]||"").trim();
+            if (!raw) return;
+            const csm = norm(lfs(raw)) || lfs(raw);
+            const i = lk(csm);
+            if (managerCoaches && !(i && managerCoaches.includes(i.c))) return;
+            if (filterCoach && (i && i.c) !== filterCoach) return;
+            if (filterCSM && csm !== filterCSM && norm(csm) !== filterCSM) return;
+            seen++;
+            inc += num(r["Month 1 Increase"])+num(r["Month 2 Increase"])+num(r["Month 3 Increase"]);
+            dec += num(r["Month 1 Decrease"])+num(r["Month 2 Decrease"])+num(r["Month 3 Decrease"]);
+            can += num(r["Month 1 Cancel"])+num(r["Month 2 Cancel"])+num(r["Month 3 Cancel"]);
+          });
+          if (!seen) return null;
+          const sg = n => (n>=0?"+":"-")+fmt$(n);
+          return (
+            <div style={{background:"rgba(41,53,93,.04)",borderRadius:8,padding:"8px 14px",marginBottom:14,fontSize:13,color:"#29355D",display:"flex",gap:18,flexWrap:"wrap",alignItems:"center"}}>
+              <span style={{fontWeight:600}}>Domo movement report</span>
+              <span style={{color:"#166534"}}>Increase {sg(inc)}</span>
+              <span style={{color:"#991b1b"}}>Decrease {sg(dec)}</span>
+              <span style={{color:"#92400e"}}>Cancel {sg(can)}</span>
+              <span style={{color:"#808080"}}>line-level, straight from Domo — the tiles above compare each account's total billing to its beginning amount, so they can differ</span>
+            </div>
+          );
+        })()}
 
         {billingStatusFilter && (() => {
           const colMap = {CSM:"csm", Account:"account", EID:"eid", BOQ:"boq", Current:"current", Net:"net", Basis:"pacing"};
@@ -10687,11 +10730,14 @@ function buildBillingBobRows(detailRows) {
     else if (m1Real) { current = m1; pacing = true; lastConfirmed = "Month 1"; }
     else { current = boq; pacing = true; lastConfirmed = "Beginning of Quarter"; }
 
+    // Compare to the cent: summing lines in different orders leaves float noise (e.g. 759.42 vs 759.4200000001)
+    // that used to create phantom Increase/Decrease accounts worth $0.00.
+    const EPS = 0.005;
     let status;
-    if (!stable && current>0) status = "Added";
-    else if (boq>0 && current===0) status = "Lost";
-    else if (current>boq) status = "Increase";
-    else if (current<boq) status = "Decrease";
+    if (!stable && current>EPS) status = "Added";
+    else if (boq>EPS && Math.abs(current)<EPS) status = "Lost";
+    else if (current>boq+EPS) status = "Increase";
+    else if (current<boq-EPS) status = "Decrease";
     else status = "No Change";
 
     // QTD (confirmed-only) figure — matches the source file's own retention
