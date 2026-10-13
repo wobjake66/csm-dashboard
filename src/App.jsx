@@ -8214,9 +8214,9 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
     return {name:n,scheduled:s,completed:c,noShow:ns,cancelled:can,total:s+c+ns+can};
   }).filter(r=>r.total>0).sort((a,b)=>b.total-a.total);
 
-  // Q3 Book of Business — sourced from the new billing-based Q3 BoB data
+  // Current Quarter Book of Business — sourced from the billing-based BoB data
   // (Beginning of Quarter + Month 1/2/3 Revenue), same source as the Book of
-  // Business tab's "Q3 BoB (Billing)" view. Replaces the old Salesforce-based
+  // Business tab's "Current Quarter BoB (Billing)" view. Replaces the old Salesforce-based
   // join per direction to use the billing export as the source of truth.
   const boqMap = {};
   (Array.isArray(billingBobRows)?billingBobRows:[]).forEach(r => {
@@ -8241,9 +8241,11 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
   const myFIUrgent  = (typeof fiIsUrgent === "function" ? myFI.filter(fiIsUrgent) : []).sort((a,b)=>b.aging-a.aging);
   const myFIAging   = [...myFI].sort((a,b)=>b.aging-a.aging).slice(0,5);
 
-  // ── CER processing — Q3 calendar quarter (Jul 1 – Sep 30) ──────────────────
-  const cerQStart = new Date(now.getFullYear(), 6, 1);   // Jul 1
-  const cerQEnd   = new Date(now.getFullYear(), 8, 30, 23, 59, 59); // Sep 30
+  // ── CER processing — current calendar quarter ───────────────────────────────
+  const curQLabel = "Q"+(Math.floor(now.getMonth()/3)+1);  // current calendar quarter, e.g. "Q4"
+  const cerQM     = Math.floor(now.getMonth()/3)*3;      // first month of the current calendar quarter
+  const cerQStart = new Date(now.getFullYear(), cerQM, 1);
+  const cerQEnd   = new Date(now.getFullYear(), cerQM+3, 0, 23, 59, 59);
   const inCerQ    = d => d instanceof Date && !isNaN(d) && d>=cerQStart && d<=cerQEnd;
   const parseDate = s => { if(!s) return null; const d=new Date(s); return isNaN(d)?null:d; };
   // Normalize coach name: strip spaces, lowercase
@@ -8346,7 +8348,7 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
   // Account coverage — same CSM scope as bobRows above (direct ROSTER-based
   // coach/CSM matching), not csmNames (buildCSMs()'s roster, which can miss
   // a CSM who has billing accounts but no other tracked activity this
-  // period) — otherwise this card and the Q3 BoB card disagree on totals.
+  // period) — otherwise this card and the Current Quarter BoB card disagree on totals.
   const coverageCsmSet = new Set(bobRows.map(b=>b.csm));
   const myCoverage = [...coverageCsmSet].reduce((acc, n) => {
     const c = acctCoverageByCsm[norm(n)] || acctCoverageByCsm[n];
@@ -8399,7 +8401,7 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
     return {name:n, overdueCount:myOver.length};
   }).filter(c=>c.overdueCount>0).sort((a,b)=>b.overdueCount-a.overdueCount);
 
-  // Revenue: same logic as Revenue tab — filter rawRev by CSM, compute Q3 totals
+  // Revenue: same logic as Revenue tab — filter rawRev by CSM, compute current-quarter totals
   const revRows = rawRev.map(r => {
     const csmRaw = String(r["CSM Name"]||r["csm_name"]||r["Staff Name"]||"").trim();
     const csm = norm(csmRaw)||csmRaw;
@@ -8414,8 +8416,11 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
     return {csm, mrr, otr, tot, nr, qtr};
   }).filter(r => {
     if (!r.csm) return false;
-    // Filter to Q3 2026
-    if (r.qtr && !r.qtr.includes("Q3") && !r.qtr.includes("q3")) return false;
+    // Filter to the current quarter (e.g. "Q4 2026"); rows with no quarter listed are kept
+    if (r.qtr) {
+      const yr = r.qtr.match(/(\d{4})/);
+      if (!r.qtr.toUpperCase().includes(curQLabel) || (yr && +yr[1] !== now.getFullYear())) return false;
+    }
     return csmNorms.has(r.csm) || csmNorms.has(norm(r.csm));
   });
   const totalRevMrr = revRows.reduce((s,r)=>s+r.mrr,0);
@@ -8639,7 +8644,7 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16,cursor:"pointer"}} onClick={()=>onNavigate("cers")}>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
             <span style={{fontSize:13}}>📋</span>
-            <span style={lbl}>Client Engagement Roadmaps — Q3 {now.getFullYear()}</span>
+            <span style={lbl}>Client Engagement Roadmaps — Q{Math.floor(now.getMonth()/3)+1} {now.getFullYear()}</span>
           </div>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
             <span style={{fontSize:13,color:"var(--text-secondary)",background:"var(--surface-1)",border:"0.5px solid var(--border)",padding:"2px 10px",borderRadius:20}}>Jul 1 – Sep 30</span>
@@ -8652,12 +8657,12 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
               <div style={{background:"var(--surface-1)",border:"0.5px solid var(--border)",borderTop:"3px solid #29355D",borderRadius:12,padding:"12px 16px"}}>
                 <div style={{fontSize:12,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:4}}>Assigned</div>
                 <div style={{fontSize:24,fontWeight:500,color:"var(--text-primary)",lineHeight:1,marginBottom:3}}>{cerAssignedQ.length}</div>
-                <div style={{fontSize:12,color:"var(--text-muted)"}}>form start in Q3</div>
+                <div style={{fontSize:12,color:"var(--text-muted)"}}>form start in {curQLabel}</div>
               </div>
               <div style={{background:"var(--surface-1)",border:"0.5px solid var(--border)",borderTop:"3px solid #16a34a",borderRadius:12,padding:"12px 16px"}}>
                 <div style={{fontSize:12,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:4}}>Completed</div>
                 <div style={{fontSize:24,fontWeight:500,color:"#16a34a",lineHeight:1,marginBottom:3}}>{cerCompletedQ.length}</div>
-                <div style={{fontSize:12,color:"var(--text-muted)"}}>form end in Q3</div>
+                <div style={{fontSize:12,color:"var(--text-muted)"}}>form end in {curQLabel}</div>
               </div>
               <div style={{background:"var(--surface-1)",border:"0.5px solid var(--border)",borderTop:"3px solid #d97706",borderRadius:12,padding:"12px 16px"}}>
                 <div style={{fontSize:12,color:"var(--text-secondary)",fontWeight:500,textTransform:"uppercase",marginBottom:4}}>In progress / New</div>
@@ -8677,10 +8682,10 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
         )}
       </div>
 
-      {/* Q3 Book of Business */}
+      {/* Current Quarter Book of Business */}
       <div style={{...card,marginBottom:16}}>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8,cursor:"pointer"}} onClick={()=>{onSetBobTab("billing");onNavigate("bob");}}>
-            <span style={lbl}>📋 Q3 Book of Business</span>
+            <span style={lbl}>📋 Current Quarter Book of Business</span>
             <span style={{fontSize:12,color:"#5378FC",fontWeight:500}}>View details →</span>
           </div>
           {totalAccts>0?(<>
@@ -8741,11 +8746,11 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
                 )}
               </div>
             </div>
-            {/* Revenue Recommendations — Q3 (no daily date available yet in source) */}
+            {/* Revenue Recommendations — current quarter (no daily date available yet in source) */}
             {totalRevTot>0&&(
               <div style={{padding:"12px 14px",background:"rgba(255,80,0,.05)",borderRadius:8,border:"0.5px solid rgba(255,80,0,.2)"}}>
                 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
-                  <div style={{fontSize:12,color:"#c2410c",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.04em"}}>💡 Revenue upgrades submitted by CSM — Q3</div>
+                  <div style={{fontSize:12,color:"#c2410c",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.04em"}}>💡 Revenue upgrades submitted by CSM — {curQLabel}</div>
                   <div style={{fontSize:14,fontWeight:700,color:"#FF5000"}}>+{fd(totalRevTot)}</div>
                 </div>
                 <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
@@ -8768,7 +8773,7 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
                 <div style={{fontSize:12,color:"#9a3412",marginTop:6}}>Daily breakdown available once a submission date is added to the revenue form</div>
               </div>
             )}
-          </>):<div style={{fontSize:12,color:"#808080",textAlign:"center",padding:"12px 0"}}>No Q3 BoB data loaded yet</div>}
+          </>):<div style={{fontSize:12,color:"#808080",textAlign:"center",padding:"12px 0"}}>No Current Quarter BoB data loaded yet</div>}
         </div>
 
       {/* Account Coverage — book vs cadence vs onboarding */}
@@ -8897,6 +8902,27 @@ function MyDashboard({csms=[], filterCoach="", filterCSM="", callData={},
 // ═══════════════════════════════════════════════════════════════════════════
 // CER VIEW — Client Engagement Roadmaps tab
 // ═══════════════════════════════════════════════════════════════════════════
+// CER sheets are pasted from Salesforce exports, and column headers / name formats drift between pulls
+// (stray spaces, renamed columns, "Last, First" instead of "First Last"). Give every row the canonical column
+// names the CER screens read, and a canonical owner name, so a small export change can't silently zero the tab.
+function normalizeCerRow(r) {
+  const clean = k => String(k).replace(/\u00a0/g," ").trim().toLowerCase();
+  const keys = Object.keys(r||{});
+  const out = {...r};
+  const fill = (canon, ...res) => {
+    if (out[canon] !== undefined && String(out[canon]).trim() !== "") return;
+    for (const re of res) { const k = keys.find(k=>re.test(clean(k))); if (k!==undefined && String(r[k]).trim()!=="") { out[canon] = r[k]; return; } }
+  };
+  fill("Form Start Date", /^form start date$/, /form start/, /^start date$/);
+  fill("Form End Date",   /^form end date$/,   /form end/,   /^end date$/);
+  fill("Client Engagement Roadmap: Owner Name", /^client engagement roadmap: owner name$/, /owner name/, /onboarding form owner/, /roadmap owner/);
+  fill("Status", /^status$/, /status/);
+  fill("CSM Coach Name", /csm coach/, /coach/);
+  const o = String(out["Client Engagement Roadmap: Owner Name"]||"").trim();
+  if (o) out["Client Engagement Roadmap: Owner Name"] = normalizeSFCsmName(o);
+  return out;
+}
+
 function CERView({cerAssigned=[], filterCoach="", filterCSM="", csms=[]}) {
   const [cerDateFilter, setCerDateFilter] = React.useState("quarter");
   const [cerStatusFilter, setCerStatusFilter] = React.useState("all");
@@ -8925,7 +8951,12 @@ function CERView({cerAssigned=[], filterCoach="", filterCSM="", csms=[]}) {
       ? `Q${Math.floor(now.getMonth()/3)+1} ${now.getFullYear()} (${thisQtrStart.toLocaleDateString("en-US",{month:"short",day:"numeric"})} – ${thisQtrEnd.toLocaleDateString("en-US",{month:"short",day:"numeric"})})`
       : `${now.getFullYear()}`;
 
-  const parseD = s => { if(!s) return null; const d=new Date(s); return isNaN(d)?null:d; };
+  const parseD = s => {
+    if(!s) return null;
+    const d = new Date(s); if(!isNaN(d)) return d;
+    const sr = toSerial(s); const x = sr==null ? null : xlSerialToDate(sr);   // "10/7/26 10:49" style fallbacks
+    return x ? new Date(x.getUTCFullYear(),x.getUTCMonth(),x.getUTCDate(),x.getUTCHours(),x.getUTCMinutes()) : null;
+  };
   const inRange = d => d && d>=dateRange[0] && d<=dateRange[1];
 
   // ── Filter rows by date (Form Start Date) + coach/CSM ──
@@ -9103,6 +9134,22 @@ function CERView({cerAssigned=[], filterCoach="", filterCSM="", csms=[]}) {
           <div style={{fontSize:28,marginBottom:10}}>📋</div>
           <div style={{fontSize:14,fontWeight:600,color:"#29355D",marginBottom:6}}>No CER data for this period</div>
           <div style={{fontSize:12}}>Try a different date range or check that the Google Sheet is published</div>
+          {(() => {
+            const withDate = cerAssigned.filter(r=>parseD(r["Form Start Date"]));
+            const inRng = withDate.filter(r=>inRange(parseD(r["Form Start Date"])));
+            const known = inRng.filter(r=>isValidCSM(String(r["Client Engagement Roadmap: Owner Name"]||"").trim()));
+            return (
+              <div style={{fontSize:11,color:"#808080",marginTop:14,lineHeight:1.6,textAlign:"left",maxWidth:620,marginLeft:"auto",marginRight:"auto",background:"rgba(41,53,93,.04)",borderRadius:8,padding:"8px 12px"}}>
+                <b>Diagnostics</b> · rows loaded from the CER Assigned sheet: {cerAssigned.length}
+                {cerAssigned.length===0
+                  ? " — the sheet came back empty (not published to the web, or the request failed)."
+                  : <> · with a readable Form Start Date: {withDate.length} · in this date range: {inRng.length} · owner is a CSM on the roster: {known.length}
+                      <br/>Columns found: {Object.keys(cerAssigned[0]).join(" | ")}
+                      {withDate.length>0 && <><br/>Example Form Start Date: {String(cerAssigned.find(r=>parseD(r["Form Start Date"]))["Form Start Date"])} · example owner: {String(cerAssigned[0]["Client Engagement Roadmap: Owner Name"]||"(blank)")}</>}
+                    </>}
+              </div>
+            );
+          })()}
         </div>
       ) : (
         <div style={{background:"#fff",border:"0.5px solid rgba(41,53,93,.1)",borderRadius:12,overflow:"hidden",boxShadow:"0 1px 4px rgba(41,53,93,.05)"}}>
@@ -12505,8 +12552,8 @@ function App() {
         latestSkipped      = skippedRows;
         latestCadenceFull  = cadenceFullRows||[];
         setCadenceFull(latestCadenceFull);
-        setCerAssigned(cerAssignedRows||[]);
-        setCerCompleted(cerCompletedRows||[]);
+        setCerAssigned((cerAssignedRows||[]).map(normalizeCerRow));
+        setCerCompleted((cerCompletedRows||[]).map(normalizeCerRow));
         try { setSccChurn(mapSCCChurn(sccChurnRows||[])); } catch(e) { console.error("mapSCCChurn failed:", e); setSccChurn([]); }
         try { setFiRows(mapFI(fiRawRows||[])); } catch(e) { console.error("mapFI failed:", e); setFiRows([]); }
         try { setSfBobLive(buildSFBobRows(sfBoqRows||[], sfCurRows||[])); } catch(e) { console.error("buildSFBobRows failed:", e); setSfBobLive([]); }
