@@ -523,34 +523,76 @@ function isValidCSM(name) {
 // new form's own type-specific columns ("Monthly Recurring Revenue
 // Integration", etc.) were blank on every real submission checked, so
 // they aren't used here.
+// Reads one row of the "New Revenue" sheet (Microsoft Forms export) tolerantly: headers are matched after
+// trimming / lower-casing (exports pick up stray spaces and non-breaking spaces), and the integration type is
+// matched by keyword rather than exact text, so a small wording change in the form can't silently zero the row.
+function parseNewRevRow(r) {
+  const clean = k => String(k).replace(/\u00a0/g," ").trim().toLowerCase();
+  const map = {}; Object.keys(r||{}).forEach(k => { map[clean(k)] = r[k]; });
+  const pick = (...res) => {
+    for (const re of res) {
+      const k = Object.keys(map).find(k => re.test(k));
+      if (k!==undefined && String(map[k]).trim()!=="") return map[k];
+    }
+    return "";
+  };
+  const typeRaw = String(pick(/^type of integration$/, /type of integration/, /^integration type$/)).trim();
+  const t = typeRaw.toLowerCase();
+  const bucket = /non[\s-]?rev/.test(t) ? "nr" : /monthly|recurring|\bmrr\b/.test(t) ? "mrr" : /one[\s-]?time|\botr\b/.test(t) ? "otr" : "";
+  const csmRaw = String(pick(/csm name \(as it appears in salesforce\)/, /^csm name/, /^csm$/, /^name$/)).trim();
+  return {
+    csm: csmRaw.includes(",") ? normalizeSFCsmName(csmRaw) : csmRaw,
+    team: pick(/^csm team/, /csm team/),
+    biz: pick(/^business name$/, /business name/),
+    thryvId: pick(/^thryv id$/, /thryv id/),
+    eid: pick(/kgen\/enterprise id/, /enterprise id/),
+    quarter: pick(/^quarter for consideration$/, /quarter for consideration/, /^quarter$/),
+    typeRaw, bucket,
+    integration: String(pick(/^integration$/, /^integration name$/)).trim(),
+    revenue: pick(/^revenue added$/, /revenue added/, /^revenue$/),
+    submittedAt: pick(/completion time/, /^submitted/, /^start time$/),
+  };
+}
+
 function translateNewRevenueForm(rows) {
   if (!rows || rows.length === 0) return [];
   return rows.map(r => {
-    const type = String(r["Type of Integration"]||"").trim();
-    const integrationName = String(r["Integration"]||"").trim();
-    const revenueAdded = r["Revenue Added"];
+    const p = parseNewRevRow(r);
     const out = {
-      "CSM Name": r["CSM Name (as it appears in Salesforce)"]||"",
-      "CSM Team!": r["CSM Team!"]||"",
-      "Business Name": r["Business Name"]||"",
-      "Thryv ID": r["Thryv ID"]||"",
-      "Enterprise ID": r["kGen/Enterprise ID (AUS)"]||"",
-      "Quarter for Consideration": r["Quarter for Consideration"]||"",
-      "Type of Integration": type,
+      "CSM Name": p.csm,
+      "CSM Team!": p.team,
+      "Business Name": p.biz,
+      "Thryv ID": p.thryvId,
+      "Enterprise ID": p.eid,
+      "Quarter for Consideration": p.quarter,
+      "Type of Integration": p.typeRaw,
       "MRR $ Added": "", "OTR $ Added": "",
       "MRR Integration": "", "One-Time Revenue Integrations": "", "Non-Revenue Integrations": "",
+      "Submitted At": p.submittedAt,
     };
-    if (type === "Monthly Recurring Revenue") {
-      out["MRR $ Added"] = revenueAdded;
-      out["MRR Integration"] = integrationName;
-    } else if (type === "One-Time Revenue") {
-      out["OTR $ Added"] = revenueAdded;
-      out["One-Time Revenue Integrations"] = integrationName;
-    } else if (type === "Non-Revenue") {
-      out["Non-Revenue Integrations"] = integrationName;
-    }
+    if (p.bucket === "mrr") { out["MRR $ Added"] = p.revenue; out["MRR Integration"] = p.integration; }
+    else if (p.bucket === "otr") { out["OTR $ Added"] = p.revenue; out["One-Time Revenue Integrations"] = p.integration; }
+    else if (p.bucket === "nr") { out["Non-Revenue Integrations"] = p.integration; }
     return out;
   });
+}
+
+// Freshness / health of the New Revenue feed, shown at the top of the Revenue tab so "is it updating?" can be
+// answered at a glance: how many rows came back, how many were usable, the newest submission, and any rows skipped.
+function summarizeNewRevenue(rawRows) {
+  const rows = rawRows || [];
+  const parsed = rows.map(parseNewRevRow);
+  const usable = parsed.filter(p => p.csm && p.bucket && (p.bucket==="nr" || String(p.revenue).trim()!==""));
+  const unknown = {}; parsed.forEach(p => { if (!p.bucket) { const k = p.typeRaw || "(blank type)"; unknown[k] = (unknown[k]||0)+1; } });
+  const noCsm = parsed.filter(p => !p.csm).length;
+  let latest = null;
+  parsed.forEach(p => { const sr = toSerial(p.submittedAt); if (sr!=null && (latest==null || sr>latest)) latest = sr; });
+  return {
+    rows: rows.length, usable: usable.length, noCsm,
+    unknownTypes: Object.entries(unknown).slice(0,3).map(([k,v])=>k+" ("+v+")"),
+    latest: latest!=null ? fmtXlDateTime(latest) : "",
+    headers: rows.length ? Object.keys(rows[0]).slice(0,14) : [],
+  };
 }
 
 function mapRev(rows) {
@@ -5116,7 +5158,7 @@ function IntegrationListPanel({title, rows, color, showAmount, emptyText, cardSt
 }
 
 // ── REVENUE VIEW ────────────────────────────────────────────────────────────
-function RevenueView({rawRev, csms, filterCoach, filterCSM, managerCoaches}) {
+function RevenueView({rawRev, csms, filterCoach, filterCSM, managerCoaches, newRevDiag=null}) {
   const [lbSort, setLbSort] = useState({col:"total", dir:"desc"});
   const [regionFilter, setRegionFilter] = useState("all");
   // Multi-select: [] = all time, ["ytd"] = year to date, otherwise any set of quarters (e.g. Q1 + Q2 + Q3).
@@ -5339,6 +5381,22 @@ function RevenueView({rawRev, csms, filterCoach, filterCSM, managerCoaches}) {
           ↓ Export CSV ({filtered.length} rows)
         </button>
       </div>
+
+      {/* ── Data health: is the New Revenue sheet coming through? ── */}
+      {newRevDiag && (() => {
+        const d = newRevDiag;
+        const bad = d.rows===0 || d.usable===0;
+        const skipped = d.rows - d.usable;
+        return (
+          <div style={{fontSize:12,color:bad?"#92400e":"#808080",background:bad?"rgba(217,119,6,.08)":"rgba(41,53,93,.04)",borderRadius:8,padding:"7px 12px",marginBottom:14,lineHeight:1.55}}>
+            <b>New Revenue sheet:</b> {d.rows} row{d.rows===1?"":"s"} loaded · {d.usable} usable
+            {d.latest && <> · latest submission {d.latest}</>}
+            {d.rows===0 && <> — nothing came back from the sheet. Check that the "New Revenue" tab is published to the web as CSV.</>}
+            {d.rows>0 && d.usable===0 && <> — rows loaded but none could be read. Columns found: {d.headers.join(" | ")}</>}
+            {d.rows>0 && d.usable>0 && skipped>0 && <> · {skipped} skipped{d.unknownTypes.length>0 && <> (unrecognized type: {d.unknownTypes.join(", ")})</>}{d.noCsm>0 && <> ({d.noCsm} with no CSM name)</>}</>}
+          </div>
+        );
+      })()}
 
       {/* ── Top metric tiles ── */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(5,minmax(0,1fr))",gap:12,marginBottom:20}}>
@@ -12409,6 +12467,7 @@ function App() {
   const [billingSummaryRaw, setBillingSummaryRaw] = useState([]); // raw Q3 BoB Summary rows — source's own pre-computed per-CSM monthly retention, see renderMonthlyBreakout
   const [billingMovementRaw, setBillingMovementRaw] = useState([]); // raw per-CSM monthly Increase/Decrease/Cancel breakdown, source's own pre-computed figures, see renderMonthlyBreakout
   const [talkTimeRaw, setTalkTimeRaw] = useState([]); // raw daily-overwrite Talk Time export, see mapTalkTime
+  const [newRevDiag, setNewRevDiag] = useState(null); // health of the New Revenue feed, see summarizeNewRevenue
   const [q3FinalRaw, setQ3FinalRaw] = useState([]); // raw Q3 Final BoB product-line rows, see buildQ3FinalRows
   const [noActivityRaw, setNoActivityRaw] = useState([]); // raw "Accounts with No Activity" rows — see mapNoActivity
   const emailToAcct = React.useMemo(() => buildEmailToAccountMap(sfCurRaw), [sfCurRaw]);
@@ -12476,7 +12535,7 @@ function App() {
     setStatus("loading");
 
     // Store non-revenue data so revenue polls can reuse it
-    let latestEmail=[], latestCad=[], latestDue=[], latestOntime=[], latestHistory=[], latestSkipped=[], latestCadenceFull=[], latestBob=[], latestBobDet=[], latestBobAdj=[], latestCalls=[], latestQaMc=[], latestQaSs=[], latestMcChurn=[], latestBcChurn=[], latestChurnAlerts=[];
+    let latestRevRows=[], latestNewRevRows=[], latestEmail=[], latestCad=[], latestDue=[], latestOntime=[], latestHistory=[], latestSkipped=[], latestCadenceFull=[], latestBob=[], latestBobDet=[], latestBobAdj=[], latestCalls=[], latestQaMc=[], latestQaSs=[], latestMcChurn=[], latestBcChurn=[], latestChurnAlerts=[];
 
     function loadAll() {
       // Fire these as small sequential batches, not all 23+ at once. Nearly
@@ -12574,6 +12633,8 @@ function App() {
         latestMcChurn     = mcRows;
         latestBcChurn     = bcRows;
         latestChurnAlerts = churnAlertRows;
+        latestRevRows = revRows||[]; latestNewRevRows = newRevRows||[];
+        setNewRevDiag(summarizeNewRevenue(newRevRows||[]));
         const mergedRevRows = [...(revRows||[]), ...translateNewRevenueForm(newRevRows||[])];
         setRawRev(mergedRevRows);
         let rev, email, cad, due, ontime, skipped, built;
@@ -12610,7 +12671,14 @@ function App() {
 
     // Revenue-only refresh — rebuildCSMs with fresh rev + cached other data
     function refreshRevenue() {
-      Promise.all([fetchCSV(CSV_REV), fetchCSV(CSV_NEW_REV).catch(()=>[])]).then(([revRows, newRevRows]) => {
+      // Each source is fetched independently; if one fails this round it keeps its last good copy instead of
+      // taking the whole refresh down (before, a single failed JotForm request silently stopped all updates).
+      Promise.all([fetchCSV(CSV_REV).catch(()=>null), fetchCSV(CSV_NEW_REV).catch(()=>null)]).then(([revRowsNew, newRevRowsNew]) => {
+        if (revRowsNew===null && newRevRowsNew===null) { console.warn("Revenue refresh: both sources failed, keeping previous data"); return; }
+        const revRows = revRowsNew!==null ? revRowsNew : latestRevRows;
+        const newRevRows = newRevRowsNew!==null ? newRevRowsNew : latestNewRevRows;
+        latestRevRows = revRows; latestNewRevRows = newRevRows;
+        setNewRevDiag(summarizeNewRevenue(newRevRows));
         const mergedRevRows = [...(revRows||[]), ...translateNewRevenueForm(newRevRows||[])];
         setRawRev(mergedRevRows);
         const rev     = mapRev(mergedRevRows);
@@ -13303,7 +13371,7 @@ My question: ${aiCustom}`,
           {tab==="contests"&&!isCsmView&&<ContestsView/>}
           {tab==="leaderboard"&&<LeaderboardView csms={filteredCSMs} allCsms={csms} bobRaw={bobRaw} history={history} q2DomoBoq={q2DomoBoq} domoBoq={domoBoq} q3BobCur={q3BobCur} q3Supp={q3Supp} rawRev={rawRev} cadenceFull={cadenceFull}/>}
           
-          {tab==="revenue"&&<RevenueView rawRev={rawRev} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches}/>}
+          {tab==="revenue"&&<RevenueView rawRev={rawRev} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches} newRevDiag={newRevDiag}/>}
           {tab==="bob"&&<BobView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} churnAlerts={churnAlerts} onSelectCSM={selectCSMFn} liveBobDet={liveBobDet} bobAdj={bobAdj} q3BobCur={q3BobCur} domoBoq={domoBoq} q3Supp={q3Supp} q2DomoBoq={q2DomoBoq} bobTab={bobTab} setBobTab={setBobTab} sfBobRows={sfBobLive} acctCoverageByCsm={acctCoverageByCsm} billingDetailRaw={billingDetailRaw} billingBobRows={billingBobRows} billingSummaryRaw={billingSummaryRaw} billingMovementRaw={billingMovementRaw} q3FinalRows={q3FinalRows}/>}
           {tab==="trends"&&<TrendsView history={history} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} qamc={qamc} qass={qass} trendsTab={trendsTab} setTrendsTab={setTrendsTab} callRaw={callRaw} emailToAcct={emailToAcct}/>}
           {tab==="cers"&&<CERView cerAssigned={cerAssigned} filterCoach={filterCoach} filterCSM={filterCSM} csms={filteredCSMs}/>}
