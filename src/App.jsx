@@ -9670,6 +9670,7 @@ const SCC_CATEGORY_READ = {
 // Published Google Sheet (same columns as the Microsoft Forms export). Fetched live — no upload needed.
 const CSV_CAULDRON = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=1151691484&single=true&output=csv";
 const CAULDRON_MIN_PER_SITE = 30; // comp time per launched + completed website
+const CAULDRON_CAP_MIN = 480;    // contest cap: 8 hours of comp time per CSM (= 16 websites)
 const CONTEST_TABS = [["cauldron","🎃 The Success Cauldron"]];
 
 // Excel stores dates as serial numbers; convert to a JS Date holding the same wall-clock time in UTC.
@@ -9816,7 +9817,19 @@ function CauldronView() {
     return Object.keys(m).map(n=>({name:n,n:m[n]})).sort((a,b)=>b.n-a.n||a.name.localeCompare(b.name));
   };
   const csmT = tally(webs,"csm"), teamT = tally(webs,"team");
-  const maxC = csmT.length ? csmT[0].n : 1;
+  // Comp time is capped per CSM (8 hrs). Everything below — cards, standings, team totals, the log — uses the
+  // capped minutes so the page never promises more than the contest pays out.
+  const csmTeam = {}; webs.forEach(r => { if (!csmTeam[r.csm] && r.team) csmTeam[r.csm] = r.team; });
+  const csmTc = csmT.map(c => { const raw = c.n*CAULDRON_MIN_PER_SITE; return {...c, raw, min:Math.min(raw,CAULDRON_CAP_MIN), capped: raw>CAULDRON_CAP_MIN}; });
+  const teamAgg = {};
+  csmTc.forEach(c => { const t = csmTeam[c.name]||"—"; if (!teamAgg[t]) teamAgg[t] = {name:t, n:0, min:0}; teamAgg[t].n += c.n; teamAgg[t].min += c.min; });
+  const teamTc = Object.values(teamAgg).sort((a,b)=>b.n-a.n||a.name.localeCompare(b.name));
+  const totalMin = csmTc.reduce((t,c)=>t+c.min,0);
+  const atCap = csmTc.filter(c=>c.capped).length;
+  const compMap = new Map(); { const used = {};   // per-submission payout: oldest first, stops at the cap
+    [...rows].filter(r=>!r.test&&r.kind==="web").sort((a,b)=>(a.ts||0)-(b.ts||0)).forEach(r => {
+      const u = used[r.csm]||0; const g = Math.max(0, Math.min(CAULDRON_MIN_PER_SITE, CAULDRON_CAP_MIN-u)); used[r.csm] = u+g; compMap.set(r,g);
+    }); }
   const hrs = min => { const h=min/60; return (h%1===0?h:h.toFixed(1))+" hrs"; };
   const latestTs = rows.reduce((mx,r)=>r.ts&&r.ts>mx?r.ts:mx, 0);
   const medals = ["🥇","🥈","🥉"];
@@ -9850,8 +9863,8 @@ function CauldronView() {
         <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:16}}>
           <div style={{background:"#141A3D",borderRadius:10,padding:"14px 16px"}}>
             <div style={{fontSize:12,textTransform:"uppercase",color:"rgba(255,255,255,.6)",fontWeight:500}}>Comp time earned</div>
-            <div style={{fontSize:28,fontWeight:600,color:"#fff",marginTop:6,lineHeight:1.1}}>{hrs(webs.length*CAULDRON_MIN_PER_SITE)}</div>
-            <div style={{fontSize:12,color:"rgba(255,255,255,.55)",marginTop:6}}>{CAULDRON_MIN_PER_SITE} min per launched website</div>
+            <div style={{fontSize:28,fontWeight:600,color:"#fff",marginTop:6,lineHeight:1.1}}>{hrs(totalMin)}</div>
+            <div style={{fontSize:12,color:"rgba(255,255,255,.55)",marginTop:6}}>{CAULDRON_MIN_PER_SITE} min per website · {hrs(CAULDRON_CAP_MIN)} cap per CSM{atCap>0?" · "+atCap+" at cap":""}</div>
           </div>
           <div style={{background:"#ECEEF1",borderRadius:10,padding:"14px 16px"}}>
             <div style={{fontSize:12,textTransform:"uppercase",color:"#808080",fontWeight:500}}>Websites launched</div>
@@ -9875,15 +9888,15 @@ function CauldronView() {
             <div style={panelH}>CSM standings <span style={{fontWeight:400,color:"#808080"}}>· websites launched</span></div>
             <div style={{overflowX:"auto"}}>
               <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
-                <thead><tr><th style={thS()}>CSM</th><th style={thS()}>Progress</th><th style={thS("right")}>Sites</th><th style={thS("right")}>Comp time</th></tr></thead>
+                <thead><tr><th style={thS()}>CSM</th><th style={thS()}>Progress to {hrs(CAULDRON_CAP_MIN)} cap</th><th style={thS("right")}>Sites</th><th style={thS("right")}>Comp time</th></tr></thead>
                 <tbody>
-                  {csmT.length===0 && <tr><td colSpan={4} style={{...tdS(),color:"#808080"}}>No launched websites yet.</td></tr>}
-                  {csmT.map((c,i)=>(
+                  {csmTc.length===0 && <tr><td colSpan={4} style={{...tdS(),color:"#808080"}}>No launched websites yet.</td></tr>}
+                  {csmTc.map((c,i)=>(
                     <tr key={c.name}>
                       <td style={{...tdS(),color:"#29355D"}}><span style={{display:"inline-block",width:22}}>{medals[i]||""}</span>{c.name}</td>
-                      <td style={{...tdS(),minWidth:110}}><div style={{height:8,borderRadius:4,background:"rgba(41,53,93,.06)",overflow:"hidden"}}><div style={{height:"100%",width:Math.round(c.n/maxC*100)+"%",background:"linear-gradient(90deg,#FF5000,#fbbf24)",borderRadius:4}}/></div></td>
+                      <td style={{...tdS(),minWidth:110}}><div style={{height:8,borderRadius:4,background:"rgba(41,53,93,.06)",overflow:"hidden"}}><div style={{height:"100%",width:Math.round(c.min/CAULDRON_CAP_MIN*100)+"%",background:"linear-gradient(90deg,#FF5000,#fbbf24)",borderRadius:4}}/></div></td>
                       <td style={{...tdS("right"),fontWeight:600}}>{c.n}</td>
-                      <td style={tdS("right")}>{c.n*CAULDRON_MIN_PER_SITE} min</td>
+                      <td style={tdS("right")}>{c.min} min{c.capped && <span title={(c.raw-c.min)+" min over the cap aren't paid"} style={{marginLeft:6,fontSize:11,fontWeight:600,color:"#FF5000"}}>CAP</span>}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -9896,12 +9909,12 @@ function CauldronView() {
               <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
                 <thead><tr><th style={thS()}>Team</th><th style={thS("right")}>Sites</th><th style={thS("right")}>Comp time</th></tr></thead>
                 <tbody>
-                  {teamT.length===0 && <tr><td colSpan={3} style={{...tdS(),color:"#808080"}}>No launched websites yet.</td></tr>}
-                  {teamT.map((t,i)=>(
+                  {teamTc.length===0 && <tr><td colSpan={3} style={{...tdS(),color:"#808080"}}>No launched websites yet.</td></tr>}
+                  {teamTc.map((t,i)=>(
                     <tr key={t.name}>
                       <td style={{...tdS(),color:"#29355D"}}><span style={{display:"inline-block",width:22}}>{medals[i]||""}</span>{t.name}</td>
                       <td style={{...tdS("right"),fontWeight:600}}>{t.n}</td>
-                      <td style={tdS("right")}>{hrs(t.n*CAULDRON_MIN_PER_SITE)}</td>
+                      <td style={tdS("right")}>{hrs(t.min)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -9930,7 +9943,7 @@ function CauldronView() {
                       <td style={tdS()}>{r.fi||"—"}</td>
                       <td style={tdS()}>{r.url ? <a href={hrefOf(r.url)} target="_blank" rel="noopener noreferrer" style={{color:"#5378FC",textDecoration:"none"}}>{r.url.replace(/^https?:\/\//i,"").replace(/\/$/,"").slice(0,34)}</a> : "—"}</td>
                       <td style={tdS()}>{r.kind==="web"?(fmtXlDate(r.launched)||"—"):"—"}</td>
-                      <td style={{...tdS("right"),fontWeight:600}}>{r.kind==="web"&&!r.test?CAULDRON_MIN_PER_SITE+" min":"—"}</td>
+                      <td style={{...tdS("right"),fontWeight:600}}>{r.kind==="web"&&!r.test ? (()=>{ const g = compMap.get(r)||0; return g>=CAULDRON_MIN_PER_SITE ? g+" min" : <span style={{color:"#FF5000"}}>{g>0?g+" min · cap":"0 min · over cap"}</span>; })() : "—"}</td>
                     </tr>
                   );
                 })}
@@ -9939,7 +9952,7 @@ function CauldronView() {
           </div>
         </div>
         <div style={{fontSize:12,color:"#808080",lineHeight:1.55,marginTop:14}}>
-          Standings update automatically as new form responses land in the sheet. Test entries are greyed out and not counted. CSMs are matched on the form's signed-in name rather than the typed "CSM Name" field. Cash-reward entries are listed but don't earn comp time.
+          Standings update automatically as new form responses land in the sheet. Test entries are greyed out and not counted. CSMs are matched on the form's signed-in name rather than the typed "CSM Name" field. Cash-reward entries are listed but don't earn comp time. Comp time is capped at {hrs(CAULDRON_CAP_MIN)} per CSM; submissions past the cap stay in the log but pay 0 min.
         </div>
       </>)}
     </div>
