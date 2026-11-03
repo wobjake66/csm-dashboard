@@ -60,6 +60,12 @@ const CSV_Q3_BILLING_MOVEMENT = "https://docs.google.com/spreadsheets/d/e/2PACX-
 // Q3 FINAL BoB — Domo "CSM B o B - Detail Table" export, one row per product line (L2/L3) per account.
 // Columns: CSM Coach, CSM Name, Enterprise ID, Account Name, L2, L3, L2 Beginning of Quarter Amount, L2 End of Quarter, L2 Retention %.
 const CSV_Q3_FINAL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=1626604952&single=true&output=csv";
+// Newell Godwin's team (Keap book) lives on its own three tabs, in the same formats as the Current Quarter tabs:
+// detail = same columns as "Current Quarter Detail"; summary = same as "Current Quarter Summary";
+// I/D/C = account-level rows with Increase / Decrease / Cancel columns, rolled up per CSM below.
+const CSV_KEAP_DETAIL  = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=248583905&single=true&output=csv";
+const CSV_KEAP_IDC     = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=285186377&single=true&output=csv";
+const CSV_KEAP_SUMMARY = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=754281339&single=true&output=csv";
 const CSV_TALK_TIME = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiYN66PuGwyOhd2jC1gHVv5Zv1ub5vxTZU8uCQ5k1OXNbYL8NFHdonbmb7zzHpWkAooXv9P8LoCufo/pub?gid=1897779098&single=true&output=csv"; // daily-overwrite talk time export, pivot-style (agent header row followed by daily detail rows) — see mapTalkTime
 // ── Cadence, sourced directly from Salesforce (Sept 2026) ──────────────────
 // This is a ONE-TIME STATIC SNAPSHOT, not a live connection. The deployed
@@ -10805,6 +10811,45 @@ function buildQ3FinalRows(rawRows) {
   return rows;
 }
 
+// The Keap I/D/C tab is account-level (one row per account, with "Month N Increase / Decrease / Cancel" columns),
+// while the Current Quarter movement report is one row per CSM. Roll the account rows up to per-CSM rows in the
+// movement report's format so the Monthly Breakout and the Current Quarter BoB tiles can use them unchanged.
+function buildKeapMovement(idcRows, summaryRows) {
+  const rows = idcRows || [];
+  if (rows.length === 0) return [];
+  const clean = k => String(k).replace(/\u00a0/g," ").trim();
+  const keys = Object.keys(rows[0]);
+  // Already one row per CSM in the movement format? Pass straight through.
+  if (!keys.some(k => /^enterprise id$/i.test(clean(k))) && keys.some(k => /^month\s*1\s*increase/i.test(clean(k)))) return rows;
+  const num = v => { const n = parseFloat(String(v==null?"":v).replace(/[$,()]/g,"")); return isNaN(n) ? 0 : n; };
+  const cols = [];   // [{key, m, type}]
+  keys.forEach(k => { const m = clean(k).match(/^month\s*([123])\s*(increase|decrease|cancel)/i); if (m) cols.push({key:k, m:+m[1], type:m[2].toLowerCase()}); });
+  const csmKey = keys.find(k => /^csm name$/i.test(clean(k))) || "CSM Name";
+  const eidKey = keys.find(k => /^enterprise id$/i.test(clean(k))) || "Enterprise ID";
+  const boqKey = keys.find(k => /^beginning of quarter/i.test(clean(k)));
+  const coachByCsm = {};
+  (summaryRows||[]).forEach(r => { const c = String(r["CSM Name"]||"").trim(); if (c) coachByCsm[normalizeSFCsmName(c)] = String(r["CSM Coach"]||"").trim(); });
+  const agg = {};
+  rows.forEach(r => {
+    const raw = String(r[csmKey]||"").trim();
+    if (!raw || /total/i.test(raw)) return;                       // GRAND TOTAL / subtotal rows
+    if (/^count\b/i.test(String(r[eidKey]||"").trim())) return;
+    const key = normalizeSFCsmName(raw);
+    if (!agg[key]) agg[key] = {raw, boq:0, v:{}};
+    if (boqKey) agg[key].boq += num(r[boqKey]);
+    cols.forEach(c => { const f = "m"+c.m+c.type; agg[key].v[f] = (agg[key].v[f]||0) + Math.abs(num(r[c.key])); });
+  });
+  return Object.values(agg).map(g => {
+    const out = {"CSM Coach": coachByCsm[normalizeSFCsmName(g.raw)]||"", "CSM Name": g.raw, "Beginning of Quarter Revenue": g.boq};
+    [1,2,3].forEach(m => ["increase","decrease","cancel"].forEach(t => {
+      const has = cols.some(c => c.m===m && c.type===t);
+      const v = g.v["m"+m+t]||0;
+      out["Month "+m+" "+t.charAt(0).toUpperCase()+t.slice(1)] = has ? (t==="increase" ? v : -v) : "";   // Decrease / Cancel negative, like Domo
+    }));
+    return out;
+  });
+}
+
 function buildBillingBobRows(detailRows) {
   const isSubtotalRow = eid => /^Count \d+ \/ \d+$/.test(String(eid||"").trim());
   const lfSwap = raw => {
@@ -12615,7 +12660,10 @@ function App() {
         ()=>fetchCSV(CSV_TALK_TIME).catch(()=>[]),
         ()=>fetchCSV(CSV_NO_ACTIVITY).catch(()=>[]),
         ()=>fetchCSV(CSV_Q3_FINAL).catch(()=>[]),
-      ]).then(([cadenceFullRows, callRows, domoBoqRows, revRows, newRevRows, cadRows, dueRows, ontimeRows, emailRows, historyRows, bobRows, q2DomoBoqRows, skippedRows, bobDetRows, bobAdjRows, qaMcRows, qaSSRows, mcRows, bcRows, churnAlertRows, q3BobCurRows, q3SuppRows, sfCurRows, sfBoqRows, cerAssignedRows, cerCompletedRows, fiRawRows, sccChurnRows, billingDetailRows, billingRosterRows, billingSummaryRows, billingMovementRows, talkTimeRows, noActivityRows, q3FinalRows]) => {
+        ()=>fetchCSV(CSV_KEAP_DETAIL).catch(()=>[]),
+        ()=>fetchCSV(CSV_KEAP_IDC).catch(()=>[]),
+        ()=>fetchCSV(CSV_KEAP_SUMMARY).catch(()=>[]),
+      ]).then(([cadenceFullRows, callRows, domoBoqRows, revRows, newRevRows, cadRows, dueRows, ontimeRows, emailRows, historyRows, bobRows, q2DomoBoqRows, skippedRows, bobDetRows, bobAdjRows, qaMcRows, qaSSRows, mcRows, bcRows, churnAlertRows, q3BobCurRows, q3SuppRows, sfCurRows, sfBoqRows, cerAssignedRows, cerCompletedRows, fiRawRows, sccChurnRows, billingDetailRows, billingRosterRows, billingSummaryRows, billingMovementRows, talkTimeRows, noActivityRows, q3FinalRows, keapDetailRows, keapIdcRows, keapSummaryRows]) => {
         latestEmail   = emailRows;
         latestCad          = cadRows;
         latestDue          = dueRows;
@@ -12630,10 +12678,10 @@ function App() {
         try { setFiRows(mapFI(fiRawRows||[])); } catch(e) { console.error("mapFI failed:", e); setFiRows([]); }
         try { setSfBobLive(buildSFBobRows(sfBoqRows||[], sfCurRows||[])); } catch(e) { console.error("buildSFBobRows failed:", e); setSfBobLive([]); }
         setSfCurRaw(sfCurRows||[]);
-        setBillingDetailRaw(billingDetailRows||[]);
+        setBillingDetailRaw([...(billingDetailRows||[]), ...(keapDetailRows||[])]);
         setBillingRosterRaw(billingRosterRows||[]);
-        setBillingSummaryRaw(billingSummaryRows||[]);
-        setBillingMovementRaw(billingMovementRows||[]);
+        setBillingSummaryRaw([...(billingSummaryRows||[]), ...(keapSummaryRows||[])]);
+        setBillingMovementRaw([...(billingMovementRows||[]), ...buildKeapMovement(keapIdcRows, keapSummaryRows)]);
         setTalkTimeRaw(talkTimeRows||[]);
         setNoActivityRaw(noActivityRows||[]);
         setQ3FinalRaw(q3FinalRows||[]);
