@@ -6924,13 +6924,15 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
         {isNewellScope && keapIdcDiag && (() => {
           const d = keapIdcDiag;
           const has = m => d.cols.filter(c => new RegExp("^month\\s*"+m+"\\s","i").test(c));
-          const missing = [1,2,3].filter(m => has(m).length===0);
-          const bad = d.rows===0 || d.cols.length===0;
+          const derivedM = d.derived || [];
+          const missing = [1,2,3].filter(m => has(m).length===0 && !derivedM.includes(m));
+          const bad = d.rows===0 || (d.cols.length===0 && derivedM.length===0);
           return (
             <div style={{fontSize:12,color:bad?"#92400e":"#808080",background:bad?"rgba(217,119,6,.08)":"rgba(41,53,93,.04)",borderRadius:8,padding:"7px 12px",marginBottom:14,lineHeight:1.55}}>
               <b>Keap Quarter I/D/C tab:</b> {d.rows} account row{d.rows===1?"":"s"} loaded
               {d.rows===0 && <> — nothing came back. Check the tab is published to the web.</>}
-              {d.rows>0 && d.cols.length===0 && <> — no "Month N Increase / Decrease / Cancel" columns found, so Increase / Decrease / Cancel show $0. Columns found: {d.headers.join(" | ")}</>}
+              {d.rows>0 && d.cols.length===0 && derivedM.length===0 && <> — no "Month N Increase / Decrease / Cancel" columns found, so Increase / Decrease / Cancel show $0. Columns found: {d.headers.join(" | ")}</>}
+              {d.rows>0 && derivedM.length>0 && <> · <b>Month {derivedM.join(", ")} worked out from the account rows</b> (revenue vs the month before; ties to the Summary tab)</>}
               {d.rows>0 && d.cols.length>0 && <> · movement columns read: {d.cols.join(", ")}{missing.length>0 && <> · <b>no columns for Month {missing.join(", ")}</b> (those months show $0)</>}</>}
             </div>
           );
@@ -10836,40 +10838,78 @@ function buildQ3FinalRows(rawRows) {
 // The Keap I/D/C tab is account-level (one row per account, with "Month N Increase / Decrease / Cancel" columns),
 // while the Current Quarter movement report is one row per CSM. Roll the account rows up to per-CSM rows in the
 // movement report's format so the Monthly Breakout and the Current Quarter BoB tiles can use them unchanged.
+// The tab doesn't have a column for every month/type (e.g. no Month 1 columns). For a month that is already
+// COMPLETE (the next month has billing), any missing type is worked out from the account rows themselves:
+// each account's revenue that month vs the month before (Month 1 vs Beginning of Quarter):
+//   revenue went to $0            -> Cancel   (the whole prior amount)
+//   revenue dropped but stayed >0 -> Decrease (the drop)
+//   revenue rose                  -> Increase (the rise, new accounts included)
+// so Increase + Decrease + Cancel always equals that month's change in revenue and ties to the Summary tab.
+// The returned array carries .derived = the months that were worked out this way.
 function buildKeapMovement(idcRows, summaryRows) {
   const rows = idcRows || [];
-  if (rows.length === 0) return [];
+  const none = []; none.derived = [];
+  if (rows.length === 0) return none;
   const clean = k => String(k).replace(/\u00a0/g," ").trim();
   const keys = Object.keys(rows[0]);
   // Already one row per CSM in the movement format? Pass straight through.
-  if (!keys.some(k => /^enterprise id$/i.test(clean(k))) && keys.some(k => /^month\s*1\s*increase/i.test(clean(k)))) return rows;
+  if (!keys.some(k => /^enterprise id$/i.test(clean(k))) && keys.some(k => /^month\s*1\s*increase/i.test(clean(k)))) { const o = rows.slice(); o.derived = []; return o; }
   const num = v => { const n = parseFloat(String(v==null?"":v).replace(/[$,()]/g,"")); return isNaN(n) ? 0 : n; };
-  const cols = [];   // [{key, m, type}]
-  keys.forEach(k => { const m = clean(k).match(/^month\s*([123])\s*(increase|decrease|cancel)/i); if (m) cols.push({key:k, m:+m[1], type:m[2].toLowerCase()}); });
+  const cols = [];      // movement columns the tab provides: [{key, m, type}]
+  const revCols = {};   // revenue columns: month -> key
+  keys.forEach(k => {
+    const mv = clean(k).match(/^month\s*([123])\s*(increase|decrease|cancel)/i);
+    if (mv) cols.push({key:k, m:+mv[1], type:mv[2].toLowerCase()});
+    const rv = clean(k).match(/^month\s*([123])\s*revenue/i);
+    if (rv) revCols[+rv[1]] = k;
+  });
   const csmKey = keys.find(k => /^csm name$/i.test(clean(k))) || "CSM Name";
   const eidKey = keys.find(k => /^enterprise id$/i.test(clean(k))) || "Enterprise ID";
   const boqKey = keys.find(k => /^beginning of quarter/i.test(clean(k)));
   const coachByCsm = {};
   (summaryRows||[]).forEach(r => { const c = String(r["CSM Name"]||"").trim(); if (c) coachByCsm[normalizeSFCsmName(c)] = String(r["CSM Coach"]||"").trim(); });
-  const agg = {};
-  rows.forEach(r => {
+  const agg = {}, accts = {};
+  rows.forEach((r, idx) => {
     const raw = String(r[csmKey]||"").trim();
     if (!raw || /total/i.test(raw)) return;                       // GRAND TOTAL / subtotal rows
-    if (/^count\b/i.test(String(r[eidKey]||"").trim())) return;
+    const eid = String(r[eidKey]||"").trim();
+    if (/^count\b/i.test(eid)) return;
     const key = normalizeSFCsmName(raw);
-    if (!agg[key]) agg[key] = {raw, boq:0, v:{}};
+    if (!agg[key]) agg[key] = {raw, boq:0, v:{}, d:{}};
     if (boqKey) agg[key].boq += num(r[boqKey]);
     cols.forEach(c => { const f = "m"+c.m+c.type; agg[key].v[f] = (agg[key].v[f]||0) + Math.abs(num(r[c.key])); });
+    const ak = key+"|"+(eid||("row"+idx));
+    if (!accts[ak]) accts[ak] = {key, rev:[0,0,0,0]};
+    if (boqKey) accts[ak].rev[0] += num(r[boqKey]);
+    [1,2,3].forEach(m => { if (revCols[m]) accts[ak].rev[m] += num(r[revCols[m]]); });
   });
-  return Object.values(agg).map(g => {
-    const out = {"CSM Coach": coachByCsm[normalizeSFCsmName(g.raw)]||"", "CSM Name": g.raw, "Beginning of Quarter Revenue": g.boq};
+  // A month has "started" once any account billed something in it; month m is complete once month m+1 has started.
+  const started = {};
+  Object.values(accts).forEach(a => [1,2,3].forEach(m => { if (a.rev[m] > 0.005) started[m] = true; }));
+  const EPS = 0.005, derived = [], has = (m,t) => cols.some(c => c.m===m && c.type===t);
+  const deriveMonth = {};
+  [1,2].forEach(m => { if (boqKey && revCols[m] && started[m+1]) deriveMonth[m] = ["increase","decrease","cancel"].filter(t => !has(m,t)); });
+  Object.entries(deriveMonth).forEach(([ms, types]) => {
+    const m = +ms; if (!types.length) return;
+    derived.push(m);
+    Object.values(accts).forEach(a => {
+      const base = a.rev[m-1], cur = a.rev[m], g = agg[a.key];
+      if (types.includes("increase") && cur > base+EPS) g.d["m"+m+"increase"] = (g.d["m"+m+"increase"]||0) + (cur-base);
+      if (types.includes("decrease") && base > EPS && cur > EPS && cur < base-EPS) g.d["m"+m+"decrease"] = (g.d["m"+m+"decrease"]||0) + (base-cur);
+      if (types.includes("cancel") && base > EPS && cur <= EPS) g.d["m"+m+"cancel"] = (g.d["m"+m+"cancel"]||0) + base;
+    });
+  });
+  const out = Object.values(agg).map(g => {
+    const o = {"CSM Coach": coachByCsm[normalizeSFCsmName(g.raw)]||"", "CSM Name": g.raw, "Beginning of Quarter Revenue": g.boq};
     [1,2,3].forEach(m => ["increase","decrease","cancel"].forEach(t => {
-      const has = cols.some(c => c.m===m && c.type===t);
-      const v = g.v["m"+m+t]||0;
-      out["Month "+m+" "+t.charAt(0).toUpperCase()+t.slice(1)] = has ? (t==="increase" ? v : -v) : "";   // Decrease / Cancel negative, like Domo
+      const f = "m"+m+t, name = "Month "+m+" "+t.charAt(0).toUpperCase()+t.slice(1);
+      const v = has(m,t) ? (g.v[f]||0) : (deriveMonth[m] && deriveMonth[m].includes(t)) ? (g.d[f]||0) : null;
+      o[name] = v==null ? "" : (t==="increase" ? v : -v);          // Decrease / Cancel negative, like Domo
     }));
-    return out;
+    return o;
   });
+  out.derived = derived;
+  return out;
 }
 
 // What does the Keap I/D/C tab actually contain? Used for a small status line on the Monthly Breakout so a missing
@@ -12714,8 +12754,9 @@ function App() {
         setBillingDetailRaw([...(billingDetailRows||[]), ...(keapDetailRows||[])]);
         setBillingRosterRaw(billingRosterRows||[]);
         setBillingSummaryRaw([...(billingSummaryRows||[]), ...(keapSummaryRows||[])]);
-        setBillingMovementRaw([...(billingMovementRows||[]), ...buildKeapMovement(keapIdcRows, keapSummaryRows)]);
-        setKeapIdcDiag(describeKeapIdc(keapIdcRows));
+        const keapMov = buildKeapMovement(keapIdcRows, keapSummaryRows);
+        setBillingMovementRaw([...(billingMovementRows||[]), ...keapMov]);
+        setKeapIdcDiag({...describeKeapIdc(keapIdcRows), derived: keapMov.derived||[]});
         setTalkTimeRaw(talkTimeRows||[]);
         setNoActivityRaw(noActivityRows||[]);
         setQ3FinalRaw(q3FinalRows||[]);
