@@ -145,7 +145,6 @@ const CADENCE_SF_SNAPSHOT = [
   {n:"Victor Abner Moscoso Fernandez",assigned:46,due:0,completed:32,open:14,overdue:4},
   {n:"Warda Gul",assigned:43,due:0,completed:22,open:17,overdue:10},
   {n:"Wilson Mercedes",assigned:137,due:1,completed:90,open:41,overdue:10},
-  {n:"Yessica Montero Urena",assigned:58,due:1,completed:45,open:13,overdue:0},
   {n:"Yolanda Ramirez",assigned:75,due:2,completed:51,open:22,overdue:2},
   {n:"Zoltan Rudolf",assigned:53,due:0,completed:26,open:25,overdue:3}
 ];
@@ -270,6 +269,12 @@ const NAME_NORM = {
   "benjamin sypher":"Benjamin Sypher",
 };
 
+// CSMs who are no longer on the org chart but whose submitted revenue still counts toward TOTAL revenue on the
+// Revenue tab (cards only). They never appear in any per-CSM list, team/region breakdown, leaderboard or detail.
+// Key = canonical name (as produced by norm()), value = the coach whose team total they still roll into.
+const FORMER_CSM_REVENUE = {
+  "Yessica Montero Urena": "odirlm01@thryv.com",
+};
 const ROSTER = {
   "dave crisler":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMII",reg:"ANZ"},
   "ellise payne":{c:"aaron.taylor@thryv.com",t:"Team Aurorians",r:"CSMII",reg:"ANZ"},
@@ -321,7 +326,6 @@ const ROSTER = {
   "samuel frias de paula":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMII",reg:"DR"},
   "sati ananda pimentel malespin":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMII",reg:"DR"},
   "victor abner moscoso fernandez":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMII",reg:"DR"},
-  "yessica montero urena":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMII",reg:"DR"},
   "ashley vasquez mena":{c:"trisha.stalnaker@thryv.com",t:"Analytics Anonymous",r:"CSMII",reg:"DR"},
   "dorka frias lantigua":{c:"trisha.stalnaker@thryv.com",t:"Analytics Anonymous",r:"CSMII",reg:"DR"},
   "felix caba jimenez":{c:"trisha.stalnaker@thryv.com",t:"Analytics Anonymous",r:"CSMII",reg:"DR"},
@@ -5202,11 +5206,12 @@ function RevenueView({rawRev, csms, filterCoach, filterCSM, managerCoaches, newR
     const type = (r["Type of Integration"]||"").trim();
     const qtr  = (r["Quarter for Consideration"]||r["Quarter"]||"").trim();
     const i    = lk(csm);
-    return {csm, team: (i&&i.t)||team, tier:(i&&i.r)||tier, region:region(csm)||"", mrr, otr, tot, nr, mrrInt, otrInt, biz, type, qtr};
-  }).filter(r=>r.csm && isValidCSM(r.csm));
+    return {csm, team: (i&&i.t)||team, tier:(i&&i.r)||tier, region:region(csm)||"", mrr, otr, tot, nr, mrrInt, otrInt, biz, type, qtr, former: !isValidCSM(csm) && !!FORMER_CSM_REVENUE[csm]};
+  }).filter(r=>r.csm && (isValidCSM(r.csm) || r.former));
 
   // Apply manager + coach + CSM + region + quarter filter
   const filtered = rows.filter(r=>{
+    if (r.former) return false;                       // former CSMs only feed the total cards, never the details
     if (!inQuarterFilter(r.qtr)) return false;
     const i = lk(r.csm);
     if (managerCoaches && !managerCoaches.includes(i&&i.c)) return false;
@@ -5220,6 +5225,7 @@ function RevenueView({rawRev, csms, filterCoach, filterCSM, managerCoaches, newR
   // always show all 3 regions side by side (Revenue by Region, Top 3 by Region), so
   // clicking one region dims the others instead of zeroing them out.
   const filteredAllRegions = rows.filter(r=>{
+    if (r.former) return false;
     if (!inQuarterFilter(r.qtr)) return false;
     const i = lk(r.csm);
     if (managerCoaches && !managerCoaches.includes(i&&i.c)) return false;
@@ -5229,13 +5235,23 @@ function RevenueView({rawRev, csms, filterCoach, filterCSM, managerCoaches, newR
   });
 
   // ── Totals ────────────────────────────────────────────────────────────────
-  const totalMRR  = filtered.reduce((s,r)=>s+r.mrr,0);
-  const totalOTR  = filtered.reduce((s,r)=>s+r.otr,0);
-  const totalRev  = filtered.reduce((s,r)=>s+r.tot,0);
-  const totalSubs = filtered.length;
-  const nonRevSubs = filtered.filter(r=>r.type==="Non-Revenue").length;
-  const mrrSubs   = filtered.filter(r=>r.type==="Monthly Recurring Revenue").length;
-  const otrSubs   = filtered.filter(r=>r.type==="One-Time Revenue").length;
+  // Former CSMs' submissions are added to the TOTAL cards only (same quarter filter; and only when the view isn't
+  // narrowed to a CSM, a region, or another coach's team).
+  const formerRows = rows.filter(r => {
+    if (!r.former || !inQuarterFilter(r.qtr)) return false;
+    const coach = FORMER_CSM_REVENUE[r.csm];
+    if (filterCSM || regionFilter!=="all") return false;
+    if (managerCoaches && !managerCoaches.includes(coach)) return false;
+    if (filterCoach && filterCoach!==coach) return false;
+    return true;
+  });
+  const totalMRR  = filtered.reduce((s,r)=>s+r.mrr,0) + formerRows.reduce((s,r)=>s+r.mrr,0);
+  const totalOTR  = filtered.reduce((s,r)=>s+r.otr,0) + formerRows.reduce((s,r)=>s+r.otr,0);
+  const totalRev  = filtered.reduce((s,r)=>s+r.tot,0) + formerRows.reduce((s,r)=>s+r.tot,0);
+  const totalSubs = filtered.length + formerRows.length;
+  const nonRevSubs = filtered.filter(r=>r.type==="Non-Revenue").length + formerRows.filter(r=>r.type==="Non-Revenue").length;
+  const mrrSubs   = filtered.filter(r=>r.type==="Monthly Recurring Revenue").length + formerRows.filter(r=>r.type==="Monthly Recurring Revenue").length;
+  const otrSubs   = filtered.filter(r=>r.type==="One-Time Revenue").length + formerRows.filter(r=>r.type==="One-Time Revenue").length;
   const activeCsms = new Set(filtered.filter(r=>r.tot>0||r.nr).map(r=>r.csm)).size;
 
   // ── By team ───────────────────────────────────────────────────────────────
@@ -13639,3 +13655,4 @@ My question: ${aiCustom}`,
     </div>
   );
 }
+          
