@@ -5641,8 +5641,16 @@ const BOB_COACH_TOTALS = {
 const BOB_DETAIL = {};
 
 // PRE-BUILD PREVIEW DATA — static snapshot from q3_BoB_8-25.xlsx (BoB Retention tab, joined with SF retention detail's Status field). NOT wired to a live sheet.
-function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChurn, churnAlerts, onSelectCSM, liveBobDet={}, bobAdj={}, q3BobCur=[], domoBoq=[], q3Supp=[], q2DomoBoq=[], bobTab="overview", setBobTab=()=>{}, sfBobRows=[], acctCoverageByCsm={}, billingDetailRaw=[], billingBobRows=[], billingSummaryRaw=[], billingMovementRaw=[], q3FinalRows=[]}) {
+function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChurn, churnAlerts, onSelectCSM, liveBobDet={}, bobAdj={}, q3BobCur=[], domoBoq=[], q3Supp=[], q2DomoBoq=[], bobTab="overview", setBobTab=()=>{}, sfBobRows=[], acctCoverageByCsm={}, billingDetailRaw=[], billingBobRows=[], billingSummaryRaw=[], billingMovementRaw=[], q3FinalRows=[], keapIdcDiag=null}) {
   const [bobSubTab, setBobSubTab] = useState("current"); // "current" | "q3"
+  // Newell Godwin's team has no Q2 / Q3 history in the dashboard, so hide those two tabs whenever the view is his
+  // team: his own login, one of his CSMs' logins, or any filter that lands on him or his CSMs.
+  const NEWELL_EMAIL = "newell.godwin@thryv.com";
+  const isNewellScope = filterCoach===NEWELL_EMAIL
+    || !!(filterCSM && (() => { const i = lk(norm(filterCSM)) || lk(filterCSM); return i && i.c===NEWELL_EMAIL; })())
+    || !!(managerCoaches && managerCoaches.length>0 && managerCoaches.every(c=>c===NEWELL_EMAIL));
+  const hiddenBobTab = t => isNewellScope && (t==="overview" || t==="q3final");
+  const activeBobTab = hiddenBobTab(bobTab) ? "billing" : bobTab;
   const getDet = n => {
     const base = liveBobDet[n]||liveBobDet[norm(n)]||BOB_DETAIL[n]||BOB_DETAIL[norm(n)]||{};
     const adjKey = Object.keys(bobAdj).find(k=>norm(k)===n||k===n);
@@ -6913,6 +6921,20 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
         <div style={{fontSize:12,color:"#808080",marginBottom:14}}>
           Straight from the source's own pre-computed per-month figures — Month 3 is still in progress, so its retention will look artificially low until the month closes out.
         </div>
+        {isNewellScope && keapIdcDiag && (() => {
+          const d = keapIdcDiag;
+          const has = m => d.cols.filter(c => new RegExp("^month\\s*"+m+"\\s","i").test(c));
+          const missing = [1,2,3].filter(m => has(m).length===0);
+          const bad = d.rows===0 || d.cols.length===0;
+          return (
+            <div style={{fontSize:12,color:bad?"#92400e":"#808080",background:bad?"rgba(217,119,6,.08)":"rgba(41,53,93,.04)",borderRadius:8,padding:"7px 12px",marginBottom:14,lineHeight:1.55}}>
+              <b>Keap Quarter I/D/C tab:</b> {d.rows} account row{d.rows===1?"":"s"} loaded
+              {d.rows===0 && <> — nothing came back. Check the tab is published to the web.</>}
+              {d.rows>0 && d.cols.length===0 && <> — no "Month N Increase / Decrease / Cancel" columns found, so Increase / Decrease / Cancel show $0. Columns found: {d.headers.join(" | ")}</>}
+              {d.rows>0 && d.cols.length>0 && <> · movement columns read: {d.cols.join(", ")}{missing.length>0 && <> · <b>no columns for Month {missing.join(", ")}</b> (those months show $0)</>}</>}
+            </div>
+          );
+        })()}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:10,marginBottom:16}}>
           <div style={{background:"#ECEEF1",borderRadius:10,padding:"14px 16px"}}>
             <div style={{fontSize:13,textTransform:"uppercase",color:"#808080",fontWeight:500,marginBottom:6}}>Beginning</div>
@@ -7705,21 +7727,21 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
 
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
         <div style={{display:"flex",gap:2,background:"#ECEEF1",borderRadius:8,padding:3}}>
-          {[["overview","Q2 Final BoB"],["q3final","✅ Q3 Final BoB"],["billing","📊 Current Quarter BoB (Billing)"],["monthly","📅 Current Quarter Monthly Breakout"]].map(([t,l])=>(
+          {[["overview","Q2 Final BoB"],["q3final","✅ Q3 Final BoB"],["billing","📊 Current Quarter BoB (Billing)"],["monthly","📅 Current Quarter Monthly Breakout"]].filter(([t])=>!hiddenBobTab(t)).map(([t,l])=>(
             <button key={t} onClick={()=>setBobTab(t)}
               style={{padding:"5px 14px",fontSize:12,fontWeight:500,border:"none",borderRadius:6,cursor:"pointer",
-                background:bobTab===t?"#fff":"transparent",color:bobTab===t?"#29355D":"#808080",
-                boxShadow:bobTab===t?"0 1px 3px rgba(0,0,0,.08)":"none"}}>
+                background:activeBobTab===t?"#fff":"transparent",color:activeBobTab===t?"#29355D":"#808080",
+                boxShadow:activeBobTab===t?"0 1px 3px rgba(0,0,0,.08)":"none"}}>
               {l}
             </button>
           ))}
         </div>
       </div>
-      {bobTab==="overview"   && renderQ2DomoBoB()}
-      {bobTab==="sfpreview"  && renderSFPreview()}
-      {bobTab==="billing"    && renderBillingBoB()}
-      {bobTab==="monthly"    && renderMonthlyBreakout()}
-      {bobTab==="q3final"    && renderQ3Final()}
+      {activeBobTab==="overview"   && renderQ2DomoBoB()}
+      {activeBobTab==="sfpreview"  && renderSFPreview()}
+      {activeBobTab==="billing"    && renderBillingBoB()}
+      {activeBobTab==="monthly"    && renderMonthlyBreakout()}
+      {activeBobTab==="q3final"    && renderQ3Final()}
     </div>
   );
 }
@@ -10850,6 +10872,16 @@ function buildKeapMovement(idcRows, summaryRows) {
   });
 }
 
+// What does the Keap I/D/C tab actually contain? Used for a small status line on the Monthly Breakout so a missing
+// column is visible instead of silently showing $0.
+function describeKeapIdc(idcRows) {
+  const rows = idcRows || [];
+  const clean = k => String(k).replace(/\u00a0/g," ").trim();
+  const headers = rows.length ? Object.keys(rows[0]).map(clean) : [];
+  const cols = headers.filter(h => /^month\s*[123]\s*(increase|decrease|cancel)/i.test(h));
+  return {rows: rows.length, cols, headers: headers.slice(0,16)};
+}
+
 function buildBillingBobRows(detailRows) {
   const isSubtotalRow = eid => /^Count \d+ \/ \d+$/.test(String(eid||"").trim());
   const lfSwap = raw => {
@@ -12525,6 +12557,7 @@ function App() {
   const [billingSummaryRaw, setBillingSummaryRaw] = useState([]); // raw Q3 BoB Summary rows — source's own pre-computed per-CSM monthly retention, see renderMonthlyBreakout
   const [billingMovementRaw, setBillingMovementRaw] = useState([]); // raw per-CSM monthly Increase/Decrease/Cancel breakdown, source's own pre-computed figures, see renderMonthlyBreakout
   const [talkTimeRaw, setTalkTimeRaw] = useState([]); // raw daily-overwrite Talk Time export, see mapTalkTime
+  const [keapIdcDiag, setKeapIdcDiag] = useState(null); // what the Keap I/D/C tab provides, see describeKeapIdc
   const [newRevDiag, setNewRevDiag] = useState(null); // health of the New Revenue feed, see summarizeNewRevenue
   const [q3FinalRaw, setQ3FinalRaw] = useState([]); // raw Q3 Final BoB product-line rows, see buildQ3FinalRows
   const [noActivityRaw, setNoActivityRaw] = useState([]); // raw "Accounts with No Activity" rows — see mapNoActivity
@@ -12682,6 +12715,7 @@ function App() {
         setBillingRosterRaw(billingRosterRows||[]);
         setBillingSummaryRaw([...(billingSummaryRows||[]), ...(keapSummaryRows||[])]);
         setBillingMovementRaw([...(billingMovementRows||[]), ...buildKeapMovement(keapIdcRows, keapSummaryRows)]);
+        setKeapIdcDiag(describeKeapIdc(keapIdcRows));
         setTalkTimeRaw(talkTimeRows||[]);
         setNoActivityRaw(noActivityRows||[]);
         setQ3FinalRaw(q3FinalRows||[]);
@@ -13433,7 +13467,7 @@ My question: ${aiCustom}`,
           {tab==="leaderboard"&&<LeaderboardView csms={filteredCSMs} allCsms={csms} bobRaw={bobRaw} history={history} q2DomoBoq={q2DomoBoq} domoBoq={domoBoq} q3BobCur={q3BobCur} q3Supp={q3Supp} rawRev={rawRev} cadenceFull={cadenceFull}/>}
           
           {tab==="revenue"&&<RevenueView rawRev={rawRev} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches} newRevDiag={newRevDiag}/>}
-          {tab==="bob"&&<BobView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} churnAlerts={churnAlerts} onSelectCSM={selectCSMFn} liveBobDet={liveBobDet} bobAdj={bobAdj} q3BobCur={q3BobCur} domoBoq={domoBoq} q3Supp={q3Supp} q2DomoBoq={q2DomoBoq} bobTab={bobTab} setBobTab={setBobTab} sfBobRows={sfBobLive} acctCoverageByCsm={acctCoverageByCsm} billingDetailRaw={billingDetailRaw} billingBobRows={billingBobRows} billingSummaryRaw={billingSummaryRaw} billingMovementRaw={billingMovementRaw} q3FinalRows={q3FinalRows}/>}
+          {tab==="bob"&&<BobView filterCoach={filterCoach} filterCSM={filterCSM} managerCoaches={managerCoaches} bobRaw={bobRaw} mcChurn={mcChurn} bcChurn={bcChurn} churnAlerts={churnAlerts} onSelectCSM={selectCSMFn} liveBobDet={liveBobDet} bobAdj={bobAdj} q3BobCur={q3BobCur} domoBoq={domoBoq} q3Supp={q3Supp} q2DomoBoq={q2DomoBoq} bobTab={bobTab} setBobTab={setBobTab} sfBobRows={sfBobLive} acctCoverageByCsm={acctCoverageByCsm} billingDetailRaw={billingDetailRaw} billingBobRows={billingBobRows} billingSummaryRaw={billingSummaryRaw} billingMovementRaw={billingMovementRaw} q3FinalRows={q3FinalRows} keapIdcDiag={keapIdcDiag}/>}
           {tab==="trends"&&<TrendsView history={history} csms={filteredCSMs} filterCoach={filterCoach} filterCSM={filterCSM} callData={callData} qamc={qamc} qass={qass} trendsTab={trendsTab} setTrendsTab={setTrendsTab} callRaw={callRaw} emailToAcct={emailToAcct}/>}
           {tab==="cers"&&<CERView cerAssigned={cerAssigned} filterCoach={filterCoach} filterCSM={filterCSM} csms={filteredCSMs}/>}
           {tab==="calls"&&(
