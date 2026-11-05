@@ -7393,6 +7393,12 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
     const csmRows = Object.values(byCsm).map(g => {
       const cov = acctCoverageByCsm[norm(g.name)] || acctCoverageByCsm[g.name] || {activeAccts:0, reactiveAccts:0, cadenceAccts:0, onboardingAccts:0};
       const mvg = mov.byCsm[g.name] || {inc:0,dec:0,can:0};
+      // With Domo's movement loaded, a CSM's paced current is simply beginning + Domo's own movements, so the
+      // columns add up (BOQ + Increase + Decrease + Cancel = Paced Current). The account rows below are the
+      // detail-sheet view of the same movement; a reconciliation line under each CSM shows how the two compare.
+      const hasMov = mov.has && !!mov.byCsm[g.name];
+      const detailCurrent = g.current;
+      if (hasMov) g = {...g, current: g.boq + mvg.inc + mvg.dec + mvg.can, detailCurrent};
       return {...g, movInc:mvg.inc, movDec:mvg.dec, movCan:mvg.can, net:g.current-g.boq, qtdRet: g.boq>0?g.qtdCurrent/g.boq:null, pacedRet: g.boq>0?g.current/g.boq:null,
         activeAccts:cov.activeAccts, reactiveAccts:cov.reactiveAccts, cadenceAccts:cov.cadenceAccts, onboardingAccts:cov.onboardingAccts};
     });
@@ -7412,7 +7418,10 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
     );
 
     const isExp = billingExpanded;
-    const expandedRows = isExp ? scopedRows.filter(r=>r.csm===isExp) : [];
+    const STATUS_ORDER = {Lost:0, Decrease:1, Increase:2, Added:3, "No Change":4};
+    const expandedRows = isExp
+      ? scopedRows.filter(r=>r.csm===isExp).sort((a,b)=>(STATUS_ORDER[a.status]-STATUS_ORDER[b.status]) || (Math.abs(b.current-b.boq)-Math.abs(a.current-a.boq)))
+      : [];
 
     return (
       <div>
@@ -7624,10 +7633,25 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                   {isExp===g.name && (
                     <tr style={{background:"rgba(41,53,93,.02)"}}>
                       <td colSpan={13} style={{padding:0}}>
-                        <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+                         {(() => {
+                           // How the account rows below compare with Domo's movement for this CSM.
+                           const g = sortedCsmRows.find(x=>x.name===isExp);
+                           const by = st => expandedRows.filter(r=>r.status===st);
+                           const amt = st => by(st).reduce((t,r)=>t+(r.current-r.boq),0);
+                           const lost = by("Lost"), dec = by("Decrease"), inc = by("Increase").concat(by("Added"));
+                           const sg = n => (n>=0?"+":"-")+fmt$(n);
+                           return (
+                             <div style={{padding:"8px 44px",fontSize:12,color:"#29355D",background:"rgba(41,53,93,.03)",lineHeight:1.6}}>
+                               <b>Account rows:</b> Lost {lost.length} ({sg(amt("Lost"))}) · Decrease {dec.length} ({sg(amt("Decrease"))}) · Increase {inc.length} ({sg(inc.reduce((t,r)=>t+(r.current-r.boq),0))})
+                               {g && mov.has && mov.byCsm[g.name] && <> &nbsp;|&nbsp; <b>Domo:</b> Cancel {g.movCan?sg(g.movCan):"$0"} · Decrease {g.movDec?sg(g.movDec):"$0"} · Increase {g.movInc?sg(g.movInc):"$0"}</>}
+                               <span style={{color:"#808080"}}> — Lost = no billing in a completed month; accounts that haven't billed yet this month are carried at their last billed amount.</span>
+                             </div>
+                           );
+                         })()}
+<table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
                           <thead>
                             <tr style={{borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>
-                              {["Account","EID","BOQ","Current","Status","Basis"].map(h=>(
+                              {["Account","EID","BOQ","Month 1","Month 2",(expandedRows[0]&&expandedRows[0].s3)?"Month 3":null,"Current","Status","Basis"].filter(Boolean).map(h=>(
                                 <th key={h} style={{padding:"6px 12px 6px 44px",textAlign:h==="Account"?"left":"right",fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500}}>{h}</th>
                               ))}
                             </tr>
@@ -7638,11 +7662,14 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
                                 <td style={{padding:"6px 12px 6px 44px",color:"#29355D"}}>{r.account}</td>
                                 <td style={{padding:"6px 12px",textAlign:"right",fontFamily:"monospace",fontSize:11,color:"#808080"}}>{r.eid}</td>
                                 <td style={{padding:"6px 12px",textAlign:"right",color:"#5378FC"}}>{fmt$(r.boq)}</td>
+                                 <td style={{padding:"6px 12px",textAlign:"right",color:r.m1==null?"#aaa":"#29355D"}}>{r.m1==null?"—":fmt$(r.m1)}</td>
+                                 <td style={{padding:"6px 12px",textAlign:"right",color:r.m2==null?"#aaa":"#29355D"}}>{r.m2==null?"—":fmt$(r.m2)}</td>
+                                 {r.s3 && <td style={{padding:"6px 12px",textAlign:"right",color:r.m3==null?"#aaa":"#29355D"}}>{r.m3==null?"—":fmt$(r.m3)}</td>}
                                 <td style={{padding:"6px 12px",textAlign:"right",fontWeight:500}}>
                                   {fmt$(r.current)}
                                   {r.pacing && <i className="ti ti-clock" style={{fontSize:11,color:"#d97706",marginLeft:5}} title={"Carried forward from "+r.lastConfirmed}/>}
                                 </td>
-                                <td style={{padding:"6px 12px",textAlign:"right"}}>{r.status}</td>
+                                <td style={{padding:"6px 12px",textAlign:"right",fontWeight:r.status==="No Change"?400:600,color:r.status==="Lost"?"#92400e":r.status==="Decrease"?"#991b1b":(r.status==="Increase"||r.status==="Added")?"#166534":"#808080"}}>{r.status}</td>
                                 <td style={{padding:"6px 12px",textAlign:"right",fontSize:11,color:r.pacing?"#d97706":"#808080"}}>{r.pacing?"Pacing":"Confirmed"}</td>
                               </tr>
                             ))}
@@ -11012,9 +11039,15 @@ function buildBillingBobRows(detailRows) {
     // real prior revenue as "Added".
     const stable = boq > 0;
 
+    // A month is COMPLETE once the next month has started billing (Month 1 once Month 2 started, Month 2 once Month 3
+    // started). Domo counts a blank in a completed month as $0, so an account with no billing in a completed month and
+    // nothing billed since has cancelled — it must not be "paced" forward at its beginning amount (that hid every
+    // cancel behind "No Change" while the Domo cancel total still showed them).
+    const endedUnbilled = !m3Real && !m2Real && (s3 || (s2 && !(m1Real && m1>0.005)));   // an explicit $0 in a closed month counts the same as a blank
     let current, pacing, lastConfirmed;
     if (m3Real) { current = m3; pacing = false; lastConfirmed = "Month 3"; }
     else if (m2Real) { current = m2; pacing = false; lastConfirmed = "Month 2"; }
+    else if (endedUnbilled) { current = 0; pacing = false; lastConfirmed = s3 ? "No billing in Month 2" : "No billing in Month 1"; }
     else if (m1Real) { current = m1; pacing = true; lastConfirmed = "Month 1"; }
     else { current = boq; pacing = true; lastConfirmed = "Beginning of Quarter"; }
 
@@ -11040,6 +11073,10 @@ function buildBillingBobRows(detailRows) {
       current: Math.round(current*100)/100,
       qtdCurrent: Math.round(qtdCurrent*100)/100,
       status, pacing, lastConfirmed, monthOneOnly,
+      m1: anyReal(g.lines,"m1") ? Math.round(m1*100)/100 : null,
+      m2: anyReal(g.lines,"m2") ? Math.round(m2*100)/100 : null,
+      m3: anyReal(g.lines,"m3") ? Math.round(m3*100)/100 : null,
+      s2, s3,
     });
   });
   return rows;
@@ -13655,4 +13692,3 @@ My question: ${aiCustom}`,
     </div>
   );
 }
-          
