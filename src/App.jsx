@@ -5723,6 +5723,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
   const [sfSort,       setSfSort]       = useState({col:"retPct", dir:"asc"});
   const [billingSort,     setBillingSort]     = useState({col:"boq", dir:"desc"});
   const [billingExpanded, setBillingExpanded] = useState(null);
+  const [acctSort, setAcctSort] = useState(null); // sort for the expanded account list: {col, dir}; null = Lost first, biggest movement first
   const [billingStatusFilter, setBillingStatusFilter] = useState(null);
   const [q3fSort, setQ3fSort] = useState({col:"boq", dir:"desc"});
   const [q3fExpanded, setQ3fExpanded] = useState(null);
@@ -7419,9 +7420,20 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
 
     const isExp = billingExpanded;
     const STATUS_ORDER = {Lost:0, Decrease:1, Increase:2, Added:3, "No Change":4};
-    const expandedRows = isExp
-      ? scopedRows.filter(r=>r.csm===isExp).sort((a,b)=>(STATUS_ORDER[a.status]-STATUS_ORDER[b.status]) || (Math.abs(b.current-b.boq)-Math.abs(a.current-a.boq)))
-      : [];
+    const acctVal = (r,col) => col==="account" ? String(r.account||"").toLowerCase()
+      : col==="eid" ? String(r.eid||"")
+      : col==="status" ? STATUS_ORDER[r.status]
+      : col==="basis" ? (r.pacing?1:0)
+      : (r[col]==null ? -Infinity : r[col]);              // blank months sort lowest
+    const acctCmp = (a,b) => {
+      if (!acctSort) return (STATUS_ORDER[a.status]-STATUS_ORDER[b.status]) || (Math.abs(b.current-b.boq)-Math.abs(a.current-a.boq));
+      const av = acctVal(a,acctSort.col), bv = acctVal(b,acctSort.col);
+      const c = typeof av==="string" ? av.localeCompare(bv) : (av===bv ? 0 : av<bv ? -1 : 1);
+      return acctSort.dir==="asc" ? c : -c;
+    };
+    const expandedRows = isExp ? scopedRows.filter(r=>r.csm===isExp).sort(acctCmp) : [];
+    const acctCols = [["account","Account"],["eid","EID"],["boq","BOQ"],["m1","Month 1"],["m2","Month 2"],(expandedRows[0]&&expandedRows[0].s3)?["m3","Month 3"]:null,["current","Current"],["status","Status"],["basis","Basis"]].filter(Boolean);
+    const toggleAcctSort = col => setAcctSort(cur => cur && cur.col===col ? (cur.dir==="desc" ? {col,dir:"asc"} : null) : {col, dir:(col==="account"||col==="eid")?"asc":"desc"});
 
     return (
       <div>
@@ -7651,9 +7663,15 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
 <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
                           <thead>
                             <tr style={{borderBottom:"0.5px solid rgba(41,53,93,.08)"}}>
-                              {["Account","EID","BOQ","Month 1","Month 2",(expandedRows[0]&&expandedRows[0].s3)?"Month 3":null,"Current","Status","Basis"].filter(Boolean).map(h=>(
-                                <th key={h} style={{padding:"6px 12px 6px 44px",textAlign:h==="Account"?"left":"right",fontSize:11,textTransform:"uppercase",color:"#808080",fontWeight:500}}>{h}</th>
-                              ))}
+                              {acctCols.map(([col,h])=>{
+                                const on = acctSort && acctSort.col===col;
+                                return (
+                                  <th key={col} onClick={()=>toggleAcctSort(col)} title="Click to sort"
+                                    style={{padding:col==="account"?"6px 12px 6px 44px":"6px 12px",textAlign:col==="account"?"left":"right",fontSize:11,textTransform:"uppercase",color:on?"#FF5000":"#808080",fontWeight:500,cursor:"pointer",userSelect:"none",whiteSpace:"nowrap"}}>
+                                    {h}{on ? (acctSort.dir==="desc"?" ▼":" ▲") : <span style={{color:"#ccc",fontSize:9}}> ↕</span>}
+                                  </th>
+                                );
+                              })}
                             </tr>
                           </thead>
                           <tbody>
@@ -13692,3 +13710,4 @@ My question: ${aiCustom}`,
     </div>
   );
 }
+          
