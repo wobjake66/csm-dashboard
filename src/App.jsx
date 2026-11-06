@@ -1079,6 +1079,40 @@ function getDateRange(filterKey, latestDate, customFrom, customTo) {
   return { from: null, to: null }; // "all" / unrecognized = no filtering
 }
 
+// ── CALL BOOKINGS: one row per booking event ──────────────────────────────────────────────────────────────
+// The booking export doesn't always update the old row when a client reschedules, so the same appointment can
+// appear several times and an old "Scheduled" row can outlive the call it was for. Rules, applied everywhere
+// calls are counted or listed:
+//   1. The same booking (time + client email + service) appearing more than once is one booking; the
+//      most final status wins (Completed > No Show > Cancelled > Scheduled).
+//   2. A booking still marked Scheduled whose time has already passed was RESCHEDULED — the real appointment is a
+//      later booking that may not be on the report yet — so it is dropped, not shown as a stale "Scheduled".
+//   3. Several still-upcoming Scheduled bookings for the same client + CSM + service on the same day are the
+//      same appointment moved around: only the latest one is kept.
+const CALL_STATUS_PRIORITY = {completed:4, "no show":3, cancelled:2, scheduled:1};
+function callStatusKey(raw) {
+  const t = String(raw||"").toLowerCase().trim();
+  if (t.includes("complet")) return "completed";
+  if (t.includes("no show") || t.includes("noshow") || t.includes("no-show")) return "no show";
+  if (t.includes("cancel")) return "cancelled";
+  if (t.includes("schedul") || t.includes("created")) return "scheduled";
+  return null;
+}
+function resolveCallBookings(entries, now) {
+  const nowMs = (now || new Date()).getTime();
+  const byBooking = new Map();
+  entries.forEach(e => {
+    const k = [e.time, e.email || e.svcRaw, e.svc].join("|");
+    const ex = byBooking.get(k);
+    if (!ex || e.priority >= ex.priority) byBooking.set(k, e);
+  });
+  let out = [...byBooking.values()].filter(e => !(e.statusKey === "scheduled" && e.time < nowMs));
+  const dayGroup = e => [e.csm, e.email || e.svcRaw, e.svc, e.dayKey].join("|");
+  const latest = new Map();
+  out.forEach(e => { if (e.statusKey!=="scheduled") return; const k = dayGroup(e); const ex = latest.get(k); if (!ex || e.time > ex.time) latest.set(k, e); });
+  return out.filter(e => e.statusKey !== "scheduled" || latest.get(dayGroup(e)) === e);
+}
+
 function mapCalls(rows) {
   if (!rows || rows.length === 0) return {};
   console.log("[mapCalls] rows:", rows.length, "first keys:", Object.keys(rows[0]));
@@ -1103,7 +1137,7 @@ function mapCalls(rows) {
   // ── Pass 1: parse every row into a keyed map for dedup ──
   // Dedup key = "apptTime|clientEmail|service" — unique per booking
   // If same key appears twice (Scheduled in one upload, Completed in next), keep highest priority
-  const apptMap = {}; // key → {csm, dayKey, svc, statusKey, priority}
+  const entries = []; // one per booking row; resolved by resolveCallBookings
 
   rows.forEach(r => {
     const apptTime = String(r["Appointment Time"] || r["appointment_time"] || r["week"] || "").trim();
@@ -1144,22 +1178,14 @@ function mapCalls(rows) {
       return;
     }
 
-    if (!statusKey) return; // unknown status — skip
+    if (!statusKey) return; // unknown status: skip
 
-    // Dedup key: stable across uploads for the same booking
-    // Uses email when available (most reliable), falls back to svcRaw for older rows without email
-    const dedupKey = [apptTime, emailRaw || svcRaw, svc].join("|");
-    const priority = STATUS_PRIORITY[statusKey] || 0;
-    const existing = apptMap[dedupKey];
-
-    // Keep highest-priority status — terminal beats Scheduled
-    if (!existing || priority >= existing.priority) {
-      apptMap[dedupKey] = {csm, dayKey, svc, statusKey, priority};
-    }
+    if (isNaN(apptDate)) return;
+    entries.push({csm, dayKey, svc, svcRaw, email: emailRaw, time: apptDate.getTime(), statusKey, priority: CALL_STATUS_PRIORITY[statusKey] || 0});
   });
 
-  // ── Pass 2: aggregate deduped appointments into by[csm][day][svc] ──
-  Object.values(apptMap).forEach(({csm, dayKey, svc, statusKey}) => {
+  // ── Pass 2: apply the booking rules above, then aggregate into by[csm][day][svc] ──
+  resolveCallBookings(entries).forEach(({csm, dayKey, svc, statusKey}) => {
     if (!by[csm]) by[csm] = {};
     if (!by[csm][dayKey]) by[csm][dayKey] = {};
     if (!by[csm][dayKey][svc]) by[csm][dayKey][svc] = {completed:0, noShow:0, cancelled:0, scheduled:0};
@@ -1170,7 +1196,7 @@ function mapCalls(rows) {
   });
 
   console.log("[mapCalls] parsed", Object.keys(by).length, "CSMs,",
-    Object.values(apptMap).filter(a=>a.statusKey==="scheduled").length, "scheduled appts");
+    by && Object.keys(by).length, "CSMs with call data");
   return by;
 }
 
@@ -4214,28 +4240,33 @@ function TrendsView({history, csms, filterCoach, filterCSM, callData={}, qamc={}
               // booking pulled into the sheet more than once) showed up as
               // literal duplicate list entries even though the aggregate
               // tiles/table were already deduped correctly.
-              const seenBooking = new Set();
-              const rows = (callRaw||[]).map(r => {
-                const apptTime = String(r["Appointment Time"]||r["appointment_time"]||"").trim();
+              // Same booking rules as the aggregate call stats (see resolveCallBookings): duplicates collapse to one
+              // row, and a booking still marked "Scheduled" after its time has passed was rescheduled, so it is not shown.
+              const callEntries = (callRaw||[]).map(r => {
+                const apptTimeRaw = String(r["Appointment Time"]||r["appointment_time"]||"").trim();
                 const staffRaw = String(r["Staff Name"]||r["Staff"]||"").trim();
                 const email    = String(r["Client Email"]||r["email"]||"").toLowerCase().trim();
-                const svc      = String(r["Service Name"]||r["Service"]||r["Appointment Type"]||"").trim();
+                const svcRaw   = String(r["Service Name"]||r["Service"]||r["Appointment Type"]||"").trim();
                 const status   = String(r["Appointment Status"]||r["Status"]||"").trim();
-                if (!staffRaw || !apptTime) return null;
-                const dedupKey = [apptTime, email, svc].join("|");
-                if (seenBooking.has(dedupKey)) return null;
-                seenBooking.add(dedupKey);
-                const csm = norm(staffRaw) || staffRaw;
+                if (!staffRaw || !apptTimeRaw) return null;
+                const d = new Date(apptTimeRaw);
+                if (isNaN(d)) return null;
+                const statusKey = callStatusKey(status);
+                const dayKey = d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+                return {csm: norm(staffRaw)||staffRaw, dayKey, svc: normalizeService(svcRaw)||svcRaw||"Other", svcRaw, email,
+                        time: d.getTime(), apptTime: d, status, statusKey, priority: statusKey ? CALL_STATUS_PRIORITY[statusKey] : 0};
+              }).filter(Boolean);
+              const resolvedCalls = [...resolveCallBookings(callEntries.filter(e=>e.statusKey)), ...callEntries.filter(e=>!e.statusKey)];
+              const rows = resolvedCalls.map(e => {
+                const csm = e.csm;
                 if (filterCSM && csm !== filterCSM) return null;
                 if (callSelectedCSM && csm !== callSelectedCSM && norm(csm) !== callSelectedCSM) return null;
-                if (callSelectedSvc && (normalizeService(svc)||svc||"Other") !== callSelectedSvc) return null;
+                if (callSelectedSvc && e.svc !== callSelectedSvc) return null;
                 const i = lk(csm);
                 if (filterCoach && (!i || i.c!==filterCoach)) return null;
-                const d = new Date(apptTime);
-                if (isNaN(d)) return null;
-                if (bounds && (d < bounds[0] || d > bounds[1])) return null;
-                const acctInfo = email ? emailToAcct[email] : null;
-                return {apptTime:d, csm, email, svc:normalizeService(svc)||svc||"Other", status, acctInfo};
+                if (bounds && (e.apptTime < bounds[0] || e.apptTime > bounds[1])) return null;
+                const acctInfo = e.email ? emailToAcct[e.email] : null;
+                return {apptTime:e.apptTime, csm, email:e.email, svc:e.svc, status:e.status, acctInfo};
               }).filter(Boolean).sort((a,b)=>b.apptTime-a.apptTime);
 
               if (rows.length===0) return null;
@@ -9473,12 +9504,15 @@ function CapacityView({csms=[], callData={}, callRaw=[], cadenceFull=[], domoBoq
     else if (apptStatus.includes("schedul") || apptStatus.includes("created"))                          statusKey = "scheduled";
     if (!statusKey || statusKey === "cancelled") return; // a cancelled call didn't work the account
 
+    const apptDate = parseDate(apptTime);
+    if (!apptDate) return;
+    // A booking still marked Scheduled after its time has passed was rescheduled — it didn't work the account yet.
+    // (Checked before the duplicate check so a stale Scheduled row can't shadow the Completed row for the same booking.)
+    if (statusKey === "scheduled" && apptDate.getTime() < Date.now()) return;
+
     const dedupKey = [apptTime, emailRaw, svcRaw].join("|");
     if (seenBooking.has(dedupKey)) return;
     seenBooking.add(dedupKey);
-
-    const apptDate = parseDate(apptTime);
-    if (!apptDate) return;
     const monthKey = apptDate.getFullYear() + "-" + String(apptDate.getMonth()+1).padStart(2,"0");
 
     if (!callAcctsByCsm[csm]) callAcctsByCsm[csm] = {};
@@ -13710,4 +13744,3 @@ My question: ${aiCustom}`,
     </div>
   );
 }
-          
