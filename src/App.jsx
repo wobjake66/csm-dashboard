@@ -11886,6 +11886,9 @@ function NoActivityView({rows=[], filterCoach="", filterCSM="", managerCoaches=n
 
   if (scoped.length===0) return (
     <div style={{maxWidth:1200,margin:"0 auto"}}>
+      <div style={{background:"#fffbeb",border:"1px solid #fcd34d",borderLeft:"4px solid #f59e0b",borderRadius:8,padding:"10px 14px",marginBottom:14,fontSize:13,color:"#78350f",lineHeight:1.4}}>
+        <strong>ℹ️ No Activity Accounts are updated on a weekly basis.</strong> Please make sure to do a full refresh to ensure the most recent data is shown.
+      </div>
       <div style={{fontSize:20,fontWeight:700,color:"#29355D",marginBottom:16}}>🚨 Accounts with No Activity</div>
       <div style={{...S.card,textAlign:"center",padding:"40px 20px",color:"#808080"}}>
         <div style={{fontSize:32,marginBottom:12}}>🚨</div>
@@ -11897,6 +11900,9 @@ function NoActivityView({rows=[], filterCoach="", filterCSM="", managerCoaches=n
 
   return (
     <div style={{maxWidth:1200,margin:"0 auto"}}>
+      <div style={{background:"#fffbeb",border:"1px solid #fcd34d",borderLeft:"4px solid #f59e0b",borderRadius:8,padding:"10px 14px",marginBottom:14,fontSize:13,color:"#78350f",lineHeight:1.4}}>
+        <strong>ℹ️ No Activity Accounts are updated on a weekly basis.</strong> Please make sure to do a full refresh to ensure the most recent data is shown.
+      </div>
       <div style={{marginBottom:16}}>
         <div style={{fontSize:20,fontWeight:700,color:"#29355D",marginBottom:2}}>🚨 Accounts with No Activity</div>
         <div style={{fontSize:13,color:"#808080"}}>{scoped.length} account{scoped.length===1?"":"s"} in scope — if it's on this list, it needs immediate attention</div>
