@@ -267,6 +267,11 @@ const NAME_NORM = {
   "kim mcdonald":"Kim Mcdonald",
   "jake tayler":"Jake Tayler",
   "benjamin sypher":"Benjamin Sypher",
+  // New hires
+  "lawrence ortiz guitierrez":"Lawrence Ortiz Guitierrez",
+  "luisa rivera":"Luisa Rivera",
+  "adherly fernandez sanchez":"Adherly Fernandez Sanchez",
+  "nicole fray feliz":"Nicole Fray Feliz",
 };
 
 // CSMs who are no longer on the org chart but whose submitted revenue still counts toward TOTAL revenue on the
@@ -306,16 +311,16 @@ const ROSTER = {
   "michael furlong":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII",reg:"US"},
   "wilson mercedes":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII",reg:"DR"},
   "yolanda ramirez":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMII",reg:"US"},
-  "ashley shaffer":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"CSMII",reg:"US"},
-  "karissa hernandez":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"CSMII",reg:"US"},
-  "karmita turner":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"CSMII",reg:"US"},
-  "katelyn ankrom":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"CSMII",reg:"US"},
-  "libby booher":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"CSMII",reg:"US"},
-  "mj brielmann":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"CSMII",reg:"US"},
-  "mark velazquez":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"CSMII",reg:"US"},
-  "misti dixon":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"CSMII",reg:"US"},
-  "stacy roers":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"CSMII",reg:"US"},
-  "steven saunders":{c:"kendra.morelli@thryv.com",t:"Team Thryv-More(lli)",r:"CSMII",reg:"US"},
+  "ashley shaffer":{c:"trisha.stalnaker@thryv.com",hc:"kendra.morelli@thryv.com",t:"Analytics Anonymous",r:"CSMII",reg:"US"},
+  "karissa hernandez":{c:"chase.boyd@thryv.com",hc:"kendra.morelli@thryv.com",t:"Boyd Scouts",r:"CSMII",reg:"US"},
+  "karmita turner":{c:"odirlm01@thryv.com",hc:"kendra.morelli@thryv.com",t:"The Dominican Dream Team",r:"CSMII",reg:"US"},
+  "katelyn ankrom":{c:"elizabeth.white@thryv.com",hc:"kendra.morelli@thryv.com",t:"White Wave Warriors",r:"CSMII",reg:"US"},
+  "libby booher":{c:"chase.boyd@thryv.com",hc:"kendra.morelli@thryv.com",t:"Boyd Scouts",r:"CSMII",reg:"US"},
+  "mj brielmann":{c:"odirlm01@thryv.com",hc:"kendra.morelli@thryv.com",t:"The Dominican Dream Team",r:"CSMII",reg:"US"},
+  "mark velazquez":{c:"trisha.stalnaker@thryv.com",hc:"kendra.morelli@thryv.com",t:"Analytics Anonymous",r:"CSMII",reg:"US"},
+  "misti dixon":{c:"chase.boyd@thryv.com",hc:"kendra.morelli@thryv.com",t:"Boyd Scouts",r:"CSMII",reg:"US"},
+  "stacy roers":{c:"trisha.stalnaker@thryv.com",hc:"kendra.morelli@thryv.com",t:"Analytics Anonymous",r:"CSMII",reg:"US"},
+  "steven saunders":{c:"odirlm01@thryv.com",hc:"kendra.morelli@thryv.com",t:"The Dominican Dream Team",r:"CSMII",reg:"US"},
   "darling danais santos taveras":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMII",reg:"DR"},
   "heidi torres uribe":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMII",reg:"DR"},
   "irina larianni molina molina":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMII",reg:"DR"},
@@ -345,6 +350,11 @@ const ROSTER = {
   "kim mcdonald":{c:"newell.godwin@thryv.com",t:"The Newell Order",r:"CSMII",reg:"US"},
   "jake tayler":{c:"newell.godwin@thryv.com",t:"The Newell Order",r:"CSMII",reg:"US"},
   "benjamin sypher":{c:"newell.godwin@thryv.com",t:"The Newell Order",r:"CSMII",reg:"US"},
+  // New hires (Nov 2026) — no data yet; role/region assumed, confirm
+  "lawrence ortiz guitierrez":{c:"odirlm01@thryv.com",t:"The Dominican Dream Team",r:"CSMI",reg:"DR"},
+  "luisa rivera":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMI",reg:"DR"},
+  "adherly fernandez sanchez":{c:"elizabeth.white@thryv.com",t:"White Wave Warriors",r:"CSMI",reg:"DR"},
+  "nicole fray feliz":{c:"trisha.stalnaker@thryv.com",t:"Analytics Anonymous",r:"CSMI",reg:"DR"},
 };
 
 // ── DEACTIVATED CSMs — filter out from all live data feeds ─────────────────
@@ -366,6 +376,9 @@ const DEACTIVATED_CSMS = new Set([
 ]);
 
 function lk(n) { return n ? ROSTER[n.toLowerCase().trim()] || null : null; }
+// Historical (Q2 Final / Q3 Final) coach lookup: reps temporarily reassigned carry hc = their coach at quarter end,
+// so finished quarters keep matching Domo's coach totals. Current-quarter views keep using lk().
+function lkHist(n) { const i = lk(n); return i && i.hc ? {...i, c:i.hc, t:(COACHES.find(c=>c.e===i.hc)||{}).t||i.t} : i; }
 
 // Region-aware "now" — most of the roster is close enough to the app's
 // default (viewer's own) timezone that this never mattered, but the ANZ
@@ -5788,7 +5801,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
     if (managerCoaches||filterCoach) {
       list = list.filter(c=>{
         // 1. Try ROSTER lookup by CSM name (most reliable)
-        const i = lk(c.n);
+        const i = lkHist(c.n);
         if (i && i.c) {
           if (managerCoaches && !managerCoaches.includes(i.c)) return false;
           if (filterCoach && i.c !== filterCoach) return false;
@@ -5849,7 +5862,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
   );
 
   const coachesVisible = filterCoach ? [filterCoach]
-    : filterCSM ? (()=>{ const i=lk(filterCSM); return i&&i.c?[i.c]:Object.keys(liveCoachTotals); })()
+    : filterCSM ? (()=>{ const i=lkHist(filterCSM); return i&&i.c?[i.c]:Object.keys(liveCoachTotals); })()
     : managerCoaches ? COACHES.filter(c=>managerCoaches.includes(c.e)).map(c=>c.e)
     : Object.keys(liveCoachTotals);
 
@@ -6266,7 +6279,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
 
     // ── Scope by coach/manager/CSM filters from the top of the page ──────────
     const scopedRows = allRows.filter(r => {
-      const i = lk(norm(r.csm)) || lk(r.csm);
+      const i = lkHist(norm(r.csm)) || lkHist(r.csm);
       if (managerCoaches && !(i && managerCoaches.includes(i.c))) return false;
       if (filterCoach && (i && i.c) !== filterCoach) return false;
       if (filterCSM && norm(r.csm) !== filterCSM && r.csm !== filterCSM) return false;
@@ -6613,7 +6626,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
 
     // ── Scope by coach/manager/CSM filters — identical pattern to Q3 Domo BoB ──
     const scopedRows = allRows.filter(r => {
-      const i = lk(norm(r.csm)) || lk(r.csm);
+      const i = lkHist(norm(r.csm)) || lkHist(r.csm);
       if (managerCoaches && !(i && managerCoaches.includes(i.c))) return false;
       if (filterCoach && (i && i.c) !== filterCoach) return false;
       if (filterCSM && norm(r.csm) !== filterCSM && r.csm !== filterCSM) return false;
@@ -7102,7 +7115,7 @@ function BobView({filterCoach, filterCSM, managerCoaches, bobRaw, mcChurn, bcChu
     );
 
     const scopedRows = q3FinalRows.filter(r => {
-      const i = lk(norm(r.csm)) || lk(r.csm);
+      const i = lkHist(norm(r.csm)) || lkHist(r.csm);
       if (managerCoaches && !(i && managerCoaches.includes(i.c))) return false;
       if (filterCoach && (i && i.c) !== filterCoach) return false;
       if (filterCSM && norm(r.csm) !== filterCSM && r.csm !== filterCSM) return false;
